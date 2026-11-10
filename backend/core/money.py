@@ -6,11 +6,15 @@ BASE = "GBP"
 
 
 def request_currency(request, wanted: str | None = None) -> dict:
-    """?currency=  ->  the user's preference  ->  GBP. Only active currencies are used."""
+    """?currency=  ->  the user's preference  ->  Settings > default currency  ->  GBP.
+    Only active currencies are used."""
+    from apps.platform.services import get_setting
+
     user = getattr(request, "user", None)
     candidates = [
         wanted,
         getattr(user, "preferred_currency", None) if user and user.is_authenticated else None,
+        get_setting("general.default_currency"),
         BASE,
     ]
     for code in candidates:

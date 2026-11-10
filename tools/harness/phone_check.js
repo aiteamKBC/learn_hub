@@ -1,6 +1,7 @@
 // Phone overflow check + light/dark screenshots for the routes given on the command line.
 //   node phone_check.js <out folder> /learn /account /business/matrix ...
-// Signs in as the seeded demo admin (E2E_DEMO_EMAIL / E2E_DEMO_PASSWORD).
+// Signs in as the seeded demo admin (E2E_DEMO_EMAIL / E2E_DEMO_PASSWORD); with
+// E2E_DEMO_ORG set, switches to that company first (see phone_business.js).
 const { chromium, devices } = require('playwright')
 const fs = require('fs')
 const { BASE, DEMO_EMAIL, DEMO_PASSWORD } = require('./lib')
@@ -26,6 +27,12 @@ fs.mkdirSync(OUT, { recursive: true })
       await p.getByLabel('Password').fill(DEMO_PASSWORD)
       await p.getByRole('button', { name: 'Log in' }).click()
       await p.waitForURL(/learn|business/)
+      if (process.env.E2E_DEMO_ORG) {
+        // choose the company through the real account menu (same as a person would)
+        await p.getByRole('button', { name: 'Account menu' }).click()
+        await p.getByRole('menuitem', { name: `${process.env.E2E_DEMO_ORG} dashboard` }).click()
+        await p.waitForURL(/\/business/)
+      }
       for (const route of routes) {
         await p.goto(BASE + route, { waitUntil: 'networkidle' })
         await p.waitForTimeout(800) // let reveal / stagger animations settle

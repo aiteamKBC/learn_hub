@@ -12,7 +12,8 @@ from core import cursor as keyset
 from core.auth import session_auth
 from core.errors import ServiceError
 
-from . import notify, services
+from . import moderation, notify, services
+from . import tickets as ticket_files
 from .models import (
     Announcement,
     Badge,
@@ -40,11 +41,14 @@ from .schemas import (
     QuestionDetail,
     QuestionIn,
     QuestionPage,
+    ReportIn,
+    ReportOut,
     ReviewIn,
     ReviewOut,
     ReviewPage,
     TextIn,
     TicketDetail,
+    TicketFileUrlOut,
     TicketIn,
     TicketOut,
     UnreadOut,
@@ -282,11 +286,21 @@ def open_ticket(request, body: TicketIn):
 def ticket(request, ticket_id: str):
     t = get_object_or_404(Ticket, pk=ticket_id, user=request.user)
     msgs = (
-        TicketMessage.objects.filter(ticket=t).select_related("author").order_by("created_at")
+        TicketMessage.objects.filter(ticket=t).select_related("author", "attachment").order_by("created_at")
     )  # RLS hides notes
     return {**_ticket_out(t), "messages": [
-        {"id": m.id, "author": _author(m.author), "body": m.body, "is_staff": m.author.is_staff,
+        {"id": m.id, "author": _author(m.author), "body": m.body, "body_html": services.message_html(m.body),
+         "is_staff": m.author.is_staff, "attachment": ticket_files.attachment_out(m),
          "created_at": m.created_at} for m in msgs]}  # fmt: skip
+
+
+@router.get("/tickets/{ticket_id}/messages/{message_id}/file", response=TicketFileUrlOut, auth=session_auth)
+def ticket_file(request, ticket_id: str, message_id: str):
+    """A 1-hour signed link to a file staff attached (internal notes are invisible: RLS)."""
+    t = get_object_or_404(Ticket, pk=ticket_id, user=request.user)
+    m = get_object_or_404(TicketMessage.objects.select_related("attachment"), pk=message_id, ticket=t,
+                          is_internal=False)  # fmt: skip
+    return {"url": ticket_files.download_link(m)}
 
 
 @router.post("/tickets/{ticket_id}/messages", response=IdOut, auth=session_auth)
@@ -301,3 +315,12 @@ def close(request, ticket_id: str):
     t = get_object_or_404(Ticket, pk=ticket_id, user=request.user)
     services.set_ticket_status(ticket=t, status="closed", by=request.user)
     return {"ok": True, "closed_at": timezone.now()}
+
+
+# ---------------------------------------------------------------- reporting content
+@router.post("/reports", response=ReportOut, auth=session_auth)
+def report(request, body: ReportIn):
+    """Report a review, question or answer to the moderators (once per person)."""
+    r = moderation.report(user=request.user, target_type=body.target_type, target_id=body.target_id,
+                          reason=body.reason)  # fmt: skip
+    return {"id": r.id, "status": r.status}

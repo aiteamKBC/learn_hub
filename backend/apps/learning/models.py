@@ -245,6 +245,7 @@ class Certificate(MixedTenantModel):
     )
     revoked_at = models.DateTimeField(null=True, blank=True)
     revoke_reason = models.CharField(max_length=300, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)  # set by staff; NULL = never
 
     class Meta:
         db_table = table(SCHEMA, "certificates")

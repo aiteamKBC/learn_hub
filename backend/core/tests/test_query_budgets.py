@@ -96,10 +96,13 @@ class QueryBudgetTest(SchemaTransactionTestCase):
                          data={"course_id": str(fire.id), "name": "Fire", "targets": [{}]}, **H)  # fmt: skip
 
         self.hire(acme, hr, 1, "first")
+        with tenant_context(org_id=acme.id, user_id=hr.id):
+            me = OrgMember.objects.get(org=acme, user=hr).id
         self.assertConstant({
             "/api/v1/org/people": "people", "/api/v1/compliance/matrix": "compliance matrix",
             "/api/v1/compliance/dashboard": "compliance dashboard", "/api/v1/org/units": "units",
             "/api/v1/org/library": "library", "/api/v1/identity/me": "me",
+            f"/api/v1/compliance/people/{me}": "person view", f"/api/v1/org/assignments?course_id={fire.id}": "assignments",
         }, lambda: self.hire(acme, hr, 6, "more"), **H)  # fmt: skip
 
     def hire(self, acme, hr, n, prefix):

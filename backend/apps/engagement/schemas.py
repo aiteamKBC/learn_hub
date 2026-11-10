@@ -114,11 +114,19 @@ class TicketIn(Schema):
     body: str = Field(..., min_length=5, max_length=10000)
 
 
+class TicketAttachmentOut(Schema):
+    id: UUID
+    name: str
+    size_bytes: int
+
+
 class TicketMessageOut(Schema):
     id: UUID
     author: Author
     body: str
+    body_html: str  # safe HTML (staff replies are rich text)
     is_staff: bool
+    attachment: TicketAttachmentOut | None = None
     created_at: datetime
 
 
@@ -183,3 +191,18 @@ class PreferenceOut(Schema):
 class ClosedOut(Schema):
     ok: bool = True
     closed_at: datetime
+
+
+class TicketFileUrlOut(Schema):
+    url: str
+
+
+class ReportIn(Schema):
+    target_type: str = Field(..., pattern=r"^(review|question|answer)$")
+    target_id: UUID
+    reason: str = Field(..., min_length=3, max_length=300)
+
+
+class ReportOut(Schema):
+    id: UUID
+    status: str

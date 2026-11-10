@@ -1,10 +1,12 @@
-/** The shopper's currency: their saved preference, or what they picked on this browser.
+/** The shopper's currency: what they picked on this browser, their saved preference, or
+ * Settings > default currency for a new visitor.
  * Prices always come from the server in that currency (never converted here). */
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useSyncExternalStore } from 'react'
 
 import { api } from '@/api/client'
 import { useMe } from '@/features/identity/auth'
+import { usePublicSettings } from '@/features/platform/api'
 
 const KEY = 'currency'
 const listeners = new Set<() => void>()
@@ -20,7 +22,8 @@ export function useCurrency() {
   const { data: me } = useMe()
   const qc = useQueryClient()
   const picked = useSyncExternalStore((fn) => (listeners.add(fn), () => listeners.delete(fn)), read, () => null)
-  const code = picked || me?.preferred_currency || undefined
+  const fallback = usePublicSettings().settings['general.default_currency']
+  const code = picked || me?.preferred_currency || fallback || undefined
 
   const setCurrency = useCallback(
     async (next: string) => {

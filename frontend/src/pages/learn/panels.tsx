@@ -1,4 +1,4 @@
-import { ArrowBigUp, ArrowLeft, BadgeCheck, CheckCircle2, Clock, Megaphone, MessageSquarePlus, MessagesSquare, NotebookPen, Search, Star, Trash2 } from 'lucide-react'
+import { ArrowBigUp, ArrowLeft, BadgeCheck, CheckCircle2, Megaphone, MessageSquarePlus, MessagesSquare, NotebookPen, Pencil, Search, Star, Trash2 } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -11,16 +11,16 @@ import { EmptyState, ErrorState } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { useAnnouncements, useAnswer, useAsk, useMyReview, useQuestion, useQuestions, useResolve, useVote, useWriteReview } from '@/features/engagement/api'
+import { ReportButton } from '@/features/engagement/ReportButton'
 import { useMe } from '@/features/identity/auth'
-import { playhead } from '@/features/learning/bunny'
+import { type Pin, pinnedSecond, playhead } from '@/features/learning/bunny'
 import { type Lecture, type Player, useAddNote, useDeleteNote, useNotes } from '@/features/learning/api'
 import { cn } from '@/lib/cn'
 import { relativeDate } from '@/lib/format'
 import { Link, useNavigate } from '@/lib/router'
 
+import { NoteEditor, NoteTimeChip, PinControl } from './note-time'
 import { lectureUrl } from './shared'
-
-const stamp = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 
 function ListSkeleton({ rows = 3 }: { rows?: number }) {
   return (
@@ -38,16 +38,27 @@ export function NotesPanel({ player, lecture }: { player: Player; lecture: Lectu
   const add = useAddNote(player.enrollment_id)
   const remove = useDeleteNote(player.enrollment_id)
   const [body, setBody] = useState('')
+  const [pin, setPin] = useState<Pin>({ mode: 'live' })
+  const [editing, setEditing] = useState<string | null>(null)
   const [scope, setScope] = useState<'lecture' | 'all'>('lecture')
   const titles = new Map(player.sections.flatMap((s) => s.lectures.map((l) => [l.key, l.title] as const)))
+  const kinds = new Map(player.sections.flatMap((s) => s.lectures.map((l) => [l.key, l.kind] as const)))
   const isVideo = lecture.kind === 'video'
-  const items = (notes.data ?? []).filter((n) => scope === 'all' || n.lecture_key === lecture.key)
+  // this lecture's notes in video order (untimed ones last); all notes keep the server's order
+  const items = (notes.data ?? [])
+    .filter((n) => scope === 'all' || n.lecture_key === lecture.key)
+    .sort((a, b) => (scope === 'all' ? 0 : (a.timestamp_sec ?? 1e9) - (b.timestamp_sec ?? 1e9)))
 
   const save = (e: FormEvent) => {
     e.preventDefault()
     if (!body.trim()) return
-    const at = isVideo && playhead.key === lecture.key ? Math.floor(playhead.sec) : null
-    add.mutate({ lecture_key: lecture.key, body: body.trim(), timestamp_sec: at }, { onSuccess: () => setBody(''), onError: (er) => toast.error(er.message) })
+    // read the playhead at save time, so a note pinned to "now" gets the latest second
+    const live = playhead.key === lecture.key ? Math.floor(playhead.sec) : null
+    const at = isVideo ? pinnedSecond(pin, live) : null
+    add.mutate(
+      { lecture_key: lecture.key, body: body.trim(), timestamp_sec: at },
+      { onSuccess: () => (setBody(''), setPin({ mode: 'live' })), onError: (er) => toast.error(er.message) },
+    )
   }
 
   return (
@@ -58,7 +69,10 @@ export function NotesPanel({ player, lecture }: { player: Player; lecture: Lectu
         </label>
         <Textarea id="note" value={body} onChange={(e) => setBody(e.target.value)} maxLength={10000} placeholder={isVideo ? 'Write a note: it is pinned to this moment of the video' : 'Write a note for this lecture'} className="min-h-20 border-0 shadow-none focus-visible:ring-0" />
         <div className="flex items-center justify-between gap-2 pt-2">
-          <span className="text-xs text-muted">Only you can see your notes.</span>
+          <span className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted">
+            {isVideo ? <PinControl lectureKey={lecture.key} pin={pin} onChange={setPin} /> : null}
+            <span>Only you can see your notes.</span>
+          </span>
           <Button size="sm" type="submit" loading={add.isPending} disabled={!body.trim()}>
             Save note
           </Button>
@@ -86,11 +100,7 @@ export function NotesPanel({ player, lecture }: { player: Player; lecture: Lectu
             <li key={n.id} className="group rounded-xl border border-border bg-surface p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted">
-                  {n.timestamp_sec != null ? (
-                    <Link to={`${lectureUrl(player.slug, n.lecture_key)}?t=${n.timestamp_sec}`} className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2 py-0.5 font-semibold text-primary-soft-text tabular hover:bg-primary hover:text-on-primary">
-                      <Clock className="size-3" /> {stamp(n.timestamp_sec)}
-                    </Link>
-                  ) : null}
+                  <NoteTimeChip note={n} currentKey={lecture.key} slug={player.slug} />
                   {scope === 'all' ? (
                     <Link to={lectureUrl(player.slug, n.lecture_key)} className="truncate font-medium hover:text-primary">
                       {titles.get(n.lecture_key) ?? 'Lecture'}
@@ -98,11 +108,20 @@ export function NotesPanel({ player, lecture }: { player: Player; lecture: Lectu
                   ) : null}
                   <span>{relativeDate(n.created_at)}</span>
                 </div>
-                <button type="button" aria-label="Delete note" onClick={() => remove.mutate(n.id, { onError: (er) => toast.error(er.message) })} className="rounded p-1 text-subtle opacity-70 transition-opacity group-hover:opacity-100 hover:bg-danger-soft hover:text-danger">
-                  <Trash2 className="size-4" />
-                </button>
+                <span className="flex shrink-0 items-center">
+                  <button type="button" aria-label="Edit note" onClick={() => setEditing(editing === n.id ? null : n.id)} className="rounded p-1 text-subtle opacity-70 transition-opacity group-hover:opacity-100 hover:bg-surface-2 hover:text-text">
+                    <Pencil className="size-4" />
+                  </button>
+                  <button type="button" aria-label="Delete note" onClick={() => remove.mutate(n.id, { onError: (er) => toast.error(er.message) })} className="rounded p-1 text-subtle opacity-70 transition-opacity group-hover:opacity-100 hover:bg-danger-soft hover:text-danger">
+                    <Trash2 className="size-4" />
+                  </button>
+                </span>
               </div>
-              <p className="mt-2 text-sm whitespace-pre-wrap">{n.body}</p>
+              {editing === n.id ? (
+                <NoteEditor note={n} enrollmentId={player.enrollment_id} isVideo={(kinds.get(n.lecture_key) ?? '') === 'video'} onDone={() => setEditing(null)} />
+              ) : (
+                <p className="mt-2 text-sm whitespace-pre-wrap">{n.body}</p>
+              )}
             </li>
           ))}
         </ul>
@@ -218,7 +237,7 @@ function AskDialog({ open, onOpenChange, courseId, lecture, onAsked }: { open: b
           <label className="inline-flex items-center gap-2 text-sm">
             <Switch checked={pin} onCheckedChange={setPin} /> About “{lecture.title}”
           </label>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
@@ -278,6 +297,9 @@ function QuestionThread({ id, onBack }: { id: string; onBack: () => void }) {
             <CheckCircle2 /> Resolved
           </Badge>
         ) : null}
+        <div className="mt-2 flex justify-end">
+          <ReportButton kind="question" id={d.id} authorId={d.author.id} />
+        </div>
       </article>
 
       <h4 className="text-sm font-semibold">
@@ -293,6 +315,9 @@ function QuestionThread({ id, onBack }: { id: string; onBack: () => void }) {
               <span className="ml-auto text-xs text-muted">{relativeDate(a.created_at)}</span>
             </div>
             <p className="mt-2 text-sm whitespace-pre-wrap">{a.body}</p>
+            <div className="mt-1 flex justify-end">
+              <ReportButton kind="answer" id={a.id} authorId={a.author.id} />
+            </div>
           </li>
         ))}
       </ul>

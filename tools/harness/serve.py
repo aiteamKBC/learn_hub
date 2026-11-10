@@ -57,16 +57,29 @@ env = {**os.environ, **e2e_env(), "PYTHONPATH": f"{BACKEND}{os.pathsep}{HERE}", 
 
 if not up("http://127.0.0.1:8000/api/v1/identity/csrf"):
     start([str(PY), "-m", "waitress", "--listen=127.0.0.1:8000", "--threads=8", "e2e_wsgi:application"], BACKEND, env, "django.log")
-if env.get("REDIS_URL"):
+def defines(key: str) -> bool:
+    """Django reads backend/.env itself, so REDIS_URL is often not in this process's env.
+    Only key names are checked here; no value is read out or printed."""
+    if env.get(key):
+        return True
+    f = BACKEND / ".env"
+    return f.exists() and any(
+        line.split("=", 1)[0].strip() == key and line.split("=", 1)[1].strip().strip("'\"")
+        for line in f.read_text(encoding="utf-8").splitlines()
+        if "=" in line and not line.lstrip().startswith("#")
+    )
+
+
+if defines("REDIS_URL"):  # Celery is eager without Redis; with it, a worker must run
     pool = ["--pool=solo"] if WIN else ["-c", "2"]
     start([str(PY), "-m", "celery", "-A", "config", "worker", "-l", "warning", *pool], BACKEND, env, "celery.log")
-if not up("http://127.0.0.1:5173/"):
+if not up("http://localhost:5173/"):
     npx = "npx.cmd" if WIN else "npx"
     subprocess.run([npx, "vite", "build"], cwd=FRONTEND, check=True)
     start([npx, "vite", "preview", "--port", "5173", "--strictPort"], FRONTEND, env, "vite.log")
 
 for _ in range(40):
-    if up("http://127.0.0.1:8000/api/v1/identity/csrf") and up("http://127.0.0.1:5173/"):
+    if up("http://127.0.0.1:8000/api/v1/identity/csrf") and up("http://localhost:5173/"):
         print("harness up: http://localhost:5173 (logs in tools/harness/*.log)")
         break
     time.sleep(1)

@@ -1,6 +1,6 @@
 import { AlertTriangle, CheckCircle2, Clock, PlayCircle, Sparkles } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { Backdrop } from '@/components/art/backdrops'
@@ -12,7 +12,8 @@ import { money, shortDate } from '@/lib/format'
 import { Link } from '@/lib/router'
 
 /** Stripe sends the shopper back here; the order becomes "paid" only when Stripe's signed
- * webhook arrives (usually seconds), so the page checks until it does. */
+ * webhook arrives (usually seconds) or the server finds the paid session when asked, so
+ * the page checks until it does. */
 export function CheckoutSuccessPage() {
   const [params] = useSearchParams()
   const orderId = params.get('order')
@@ -25,14 +26,28 @@ export function CheckoutSuccessPage() {
   )
 }
 
-function Waiting({ text = 'Confirming your payment…' }: { text?: string }) {
+/** While waiting for Stripe. After about a minute the page stops checking on its own and
+ * says so, with a button to check again (instead of spinning for ever). */
+function Waiting({ text = 'Confirming your payment…', slow, onRetry, retrying }: { text?: string; slow?: boolean; onRetry?: () => void; retrying?: boolean }) {
   return (
     <Card className="animate-reveal p-8 text-center" role="status">
-      <span className="mx-auto flex size-14 animate-pulse items-center justify-center rounded-full bg-primary-soft text-primary-soft-text">
+      <span className={`mx-auto flex size-14 items-center justify-center rounded-full bg-primary-soft text-primary-soft-text ${slow ? '' : 'animate-pulse'}`}>
         <Clock className="size-7" />
       </span>
-      <p className="mt-4 text-lg font-semibold">{text}</p>
-      <p className="mt-1 text-sm text-muted">This usually takes a few seconds. You can keep this page open.</p>
+      <p className="mt-4 text-lg font-semibold">{slow ? 'This is taking longer than usual' : text}</p>
+      <p className="mt-1 text-sm text-muted">
+        {slow ? "If Stripe took your payment, it will show up here shortly. You won't be charged twice." : 'This usually takes a few seconds. You can keep this page open.'}
+      </p>
+      {slow ? (
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <Button onClick={onRetry} disabled={retrying}>
+            {retrying ? 'Checking…' : 'Check again'}
+          </Button>
+          <Button variant="secondary" asChild>
+            <Link to="/account/orders">My purchases</Link>
+          </Button>
+        </div>
+      ) : null}
     </Card>
   )
 }
@@ -49,6 +64,16 @@ function Done({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
+/** True after a minute: about when the automatic checks (40 × 1.5 s) stop. */
+function useSlow() {
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 60_000)
+    return () => clearTimeout(t)
+  }, [])
+  return slow
+}
+
 /** Once the payment is confirmed, everything that depends on it is out of date. */
 function useRefreshAfterPayment(done: boolean) {
   const qc = useQueryClient()
@@ -58,11 +83,12 @@ function useRefreshAfterPayment(done: boolean) {
 }
 
 function OrderResult({ id }: { id: string }) {
-  const { data: o, isLoading, error } = useOrder(id)
+  const { data: o, isLoading, error, refetch, isFetching } = useOrder(id)
+  const slow = useSlow()
   useRefreshAfterPayment(!!o && o.status !== 'pending')
   if (isLoading) return <Skeleton className="h-72 rounded-lg" />
   if (error || !o) return <Problem text="We couldn't find this order." />
-  if (o.status === 'pending') return <Waiting />
+  if (o.status === 'pending') return <Waiting slow={slow} onRetry={() => void refetch()} retrying={isFetching} />
   if (['failed', 'expired'].includes(o.status)) return <Problem text="The payment didn't go through, so you weren't charged." />
   return (
     <Done title={o.total_minor ? 'Payment complete' : "You're enrolled"}>
@@ -93,10 +119,11 @@ function OrderResult({ id }: { id: string }) {
 }
 
 function SubscriptionResult({ id }: { id: string }) {
-  const { data } = useMySubscriptions(true, true)
+  const { data, refetch, isFetching } = useMySubscriptions(true, true)
+  const slow = useSlow()
   const sub = data?.find((s) => s.id === id)
   useRefreshAfterPayment(!!sub && ['active', 'trialing'].includes(sub.status))
-  if (!sub || !['active', 'trialing'].includes(sub.status)) return <Waiting text="Starting your subscription…" />
+  if (!sub || !['active', 'trialing'].includes(sub.status)) return <Waiting text="Starting your subscription…" slow={slow} onRetry={() => void refetch()} retrying={isFetching} />
   return (
     <Done title={sub.status === 'trialing' ? 'Your free trial has started' : 'Welcome to the Personal Plan'}>
       <p className="mt-2 text-sm text-muted">{sub.current_period_end ? `${sub.status === 'trialing' ? 'Trial ends' : 'Renews'} ${shortDate(sub.current_period_end)}.` : ''} Every course marked “included” is yours to learn.</p>

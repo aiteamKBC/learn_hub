@@ -110,7 +110,7 @@ export function useMySubscriptions(enabled = true, poll = false) {
 export function useSubscribe() {
   return useMutation({
     mutationFn: (v: { planId: string; currency: string; seats?: number; orgId?: string }) =>
-      unwrap(api.POST('/api/v1/commerce/subscriptions', { body: { plan_id: v.planId, currency: v.currency, seats: v.seats ?? 1 }, headers: { 'X-Org-Id': v.orgId ?? '' } })),
+      unwrap(api.POST('/api/v1/commerce/subscriptions', { body: { plan_id: v.planId, currency: v.currency, seats: v.seats ?? 1, promo_code: '' }, headers: { 'X-Org-Id': v.orgId ?? '' } })),
   })
 }
 

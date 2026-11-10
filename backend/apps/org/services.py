@@ -231,7 +231,7 @@ def invite_preview(token: str) -> dict | None:
             )  # fmt: skip
             .first()
         )
-        return {"org_name": inv.org.name, "email": inv.email} if inv else None
+        return {"org_name": inv.org.name, "email": inv.email, "role": inv.role} if inv else None
 
 
 @transaction.atomic
@@ -266,3 +266,25 @@ def accept_invite(*, token: str, user) -> OrgMember:
 
 def revoke_invite(*, invite: Invite) -> None:
     Invite.objects.filter(pk=invite.pk, accepted_at__isnull=True).update(revoked_at=timezone.now())
+
+
+@transaction.atomic
+def staff_set_admin(*, org: Organization, user, role: str) -> OrgMember:
+    """Platform staff (console): make someone an admin or owner of a company (adding them
+    to it if needed), or move an admin back to learner. The last owner always stays."""
+    if role not in ROLE_ORDER:
+        raise ServiceError("bad_role", "Unknown role.")
+    with tenant_context(org_id=org.id, user_id=user.id, staff=True):
+        member = OrgMember.objects.filter(org=org, user=user, removed_at__isnull=True).first()
+        if member is None:
+            member = OrgMember.objects.create(org=org, user=user, role=role, joined_at=timezone.now())
+            root = OrgUnit.objects.filter(org=org, depth=0).first()
+            if root is not None:
+                MemberUnit.objects.create(org=org, member=member, unit=root, is_primary=True)
+            notify_structure_changed(org.id, [member.id])
+            return member
+        if member.role == "owner" and role != "owner" and _owners(org.id) <= 1:
+            raise ServiceError("last_owner", "The company needs at least one owner.")
+        OrgMember.objects.filter(pk=member.pk).update(role=role, updated_at=timezone.now())
+        member.role = role
+    return member

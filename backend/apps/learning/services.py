@@ -12,6 +12,7 @@ from django.db.models import Max
 from django.utils import timezone
 
 from apps.catalog.models import Assignment, CourseInstructor, Lecture, Quiz
+from core import html
 from core.errors import ServiceError
 
 from . import uploads
@@ -34,6 +35,16 @@ def enrol(*, user, course, source: str, org_id=None, source_ref=None, access_exp
     )
     if existing:
         return existing
+    if (
+        access_expires_at is None
+        and course.access_days
+        and source
+        in (
+            Enrollment.Source.PURCHASE,
+            Enrollment.Source.FREE,
+        )
+    ):  # staff set a limited access period on this course (console > Courses)
+        access_expires_at = timezone.now() + timedelta(days=course.access_days)
     return Enrollment.objects.create(
         user=user,
         org_id=org_id,
@@ -131,11 +142,14 @@ def issue_certificate(enrollment: Enrollment) -> Certificate:
         link.user.full_name or link.user.email.split("@")[0]
         for link in CourseInstructor.objects.filter(course=course, is_visible=True).select_related("user")
     ]
+    from apps.catalog.certificates import template_for
+
+    template = template_for(course)
     return Certificate.objects.create(
         enrollment=enrollment,
         course=course,
         course_version_id=enrollment.completed_version_id,
-        template_id=course.certificate_template_id,
+        template_id=template.id if template else None,  # the design at issue time, kept as a record
         recipient_name=user.full_name or user.email.split("@")[0],
         course_title=course.title,
         instructor_names=", ".join(names)[:400],
@@ -145,14 +159,60 @@ def issue_certificate(enrollment: Enrollment) -> Certificate:
 
 
 def verify_certificate(code: str) -> dict | None:
-    """Public check (screen 23): returns only the safe fields, via a SECURITY DEFINER function."""
+    """Public check (screen 23): returns only the safe fields, via a SECURITY DEFINER
+    function (the M5 one adds the expiry date)."""
     with connection.cursor() as cur:
-        cur.execute("SELECT * FROM learning.verify_certificate(%s)", [code])
+        cur.execute("SELECT * FROM learning.verify_certificate_v2(%s)", [code])
         row = cur.fetchone()
         if row is None:
             return None
         cols = [c.name for c in cur.description]
         return dict(zip(cols, row, strict=True))
+
+
+# ---------------------------------------------------------------- certificates (console)
+@transaction.atomic
+def revoke_certificate(*, certificate: Certificate, reason: str) -> Certificate:
+    """Withdraw a certificate: /verify then says revoked and the learner no longer sees it.
+    The row stays as evidence."""
+    reason = html.plain(reason, 300).strip()
+    if len(reason) < 3:
+        raise ServiceError("reason_required", "Give a reason for revoking.")
+    cert = Certificate.objects.select_for_update().get(pk=certificate.pk)
+    if cert.revoked_at:
+        raise ServiceError("already_revoked", "This certificate is already revoked.")
+    cert.revoked_at, cert.revoke_reason = timezone.now(), reason
+    cert.save(update_fields=["revoked_at", "revoke_reason", "updated_at"])
+    _tell(cert.user_id, "certificate_revoked", {"course": cert.course_title, "reason": reason},
+          url="/learn/certificates", dedupe=f"cert-revoked:{cert.id}")  # fmt: skip
+    return cert
+
+
+@transaction.atomic
+def set_certificate_expiry(*, certificate: Certificate, expires_at) -> Certificate:
+    """None = never expires. A date in the past makes /verify say expired at once."""
+    cert = Certificate.objects.select_for_update().get(pk=certificate.pk)
+    if cert.revoked_at:
+        raise ServiceError("revoked", "A revoked certificate can't be changed.")
+    if expires_at is not None and expires_at <= cert.issued_at:
+        raise ServiceError("bad_expiry", "The expiry date must be after the issue date.")
+    cert.expires_at = expires_at
+    cert.save(update_fields=["expires_at", "updated_at"])
+    return cert
+
+
+def certificate_expiry_reminders(days: int = 30) -> int:
+    """Daily job: tell learners whose certificate expires within `days` (once each)."""
+    now = timezone.now()
+    rows = Certificate.objects.filter(
+        revoked_at__isnull=True, expires_at__gt=now, expires_at__lte=now + timedelta(days=days)
+    ).values_list("id", "user_id", "course_title", "expires_at")
+    sent = 0
+    for cert_id, user_id, title, expires in rows.iterator(chunk_size=500):
+        _tell(user_id, "certificate_expiring", {"course": title, "date": expires.strftime("%d %b %Y").lstrip("0")},
+              url="/learn/certificates", dedupe=f"cert-expiring:{cert_id}:{expires.date()}")  # fmt: skip
+        sent += 1
+    return sent
 
 
 # ---------------------------------------------------------------- quizzes

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from ninja import Field, Schema
 
-from apps.catalog.schemas import PlaybackOut
+from apps.catalog.schemas import PlaybackOut, VideoMomentOut, VideoPartOut
 from apps.identity.schemas import OkOut  # noqa: F401 - shared response shape
 
 
@@ -42,6 +42,9 @@ class PlayerLecture(Schema):
     duration_sec: int
     completed: bool
     position_sec: int
+    locked: bool = False  # the prerequisite lesson isn't finished yet
+    prerequisite_key: UUID | None = None
+    prerequisite_title: str | None = None
 
 
 class PlayerSection(Schema):
@@ -143,6 +146,8 @@ class LectureContent(Schema):
     body: str = ""  # readings
     external_url: str = ""
     video: PlaybackOut | None = None  # signed playback
+    parts: list[VideoPartOut] = []  # the video's named parts and key moments (from Bunny)
+    moments: list[VideoMomentOut] = []
     live: LiveOut | None = None
     resources: list[ResourceOut] = []
     quiz: LectureQuizOut | None = None
@@ -153,6 +158,12 @@ class HeartbeatIn(Schema):
     lecture_key: UUID
     position_sec: int = Field(..., ge=0, le=86400)
     watched_sec: int = Field(..., ge=0, le=600)
+    ended: bool = False  # the video reached its end: write now and say if it completed
+
+
+class HeartbeatOut(Schema):
+    ok: bool
+    completed: bool  # this lecture is complete (always false until the video's end beat)
 
 
 class LearnerOption(Schema):
@@ -231,6 +242,12 @@ class SubmissionUploadOut(Schema):
     max_bytes: int
 
 
+class NotePatchIn(Schema):
+    timestamp_sec: int | None = Field(None, ge=0, le=86400)
+    clear_timestamp: bool = False  # unpin the note from the video
+    body: str | None = Field(None, min_length=1, max_length=10000)
+
+
 class NoteIn(Schema):
     lecture_key: UUID
     timestamp_sec: int | None = Field(None, ge=0, le=86400)
@@ -276,3 +293,5 @@ class VerifyOut(Schema):
     cpd_hours: float | None
     issued_at: datetime
     is_revoked: bool
+    expires_at: datetime | None = None
+    is_expired: bool = False

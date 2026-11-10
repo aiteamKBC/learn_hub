@@ -13,6 +13,7 @@ from django.shortcuts import get_object_or_404
 from ninja import Router
 
 from apps.catalog.models import Course
+from apps.identity.schemas import OkOut
 from apps.org.models import OrgUnit
 from apps.platform.services import audit_request
 from core import cursor as keyset
@@ -23,12 +24,17 @@ from core.permissions import OrgRole, Scope, org_scope, require_org
 from . import selectors, services
 from .models import CompletionRecord, Exemption, MemberStatus, Requirement
 from .schemas import (
+    CompliancePersonOut,
     DashboardOut,
     ExemptIn,
+    ExemptionCreatedOut,
     ExtendIn,
+    ExtendOut,
     ManualIn,
     MatrixOut,
     MyRequirement,
+    RecordCreatedOut,
+    ReminderOut,
     RequirementIn,
     RequirementOut,
     RequirementPatch,
@@ -76,19 +82,19 @@ def matrix(request, unit_id: str | None = None, job_role_id: str | None = None, 
     scope = org_scope(request, OrgRole.MANAGER)
     if status and status not in MemberStatus.Status.values:
         raise ServiceError("bad_status", "Unknown status.")
-    after = keyset.decode(cursor, 1)
+    after = keyset.decode(cursor, 2)
     data = selectors.matrix(scope, unit=_unit(scope, unit_id), q=q, job_role_id=job_role_id, status=status,
-                            requirement_id=requirement_id, after=after[0] if after else None, limit=limit)  # fmt: skip
+                            requirement_id=requirement_id, after=after, limit=limit)  # fmt: skip
     return {
         "requirements": [{"id": str(r["id"]), "name": r["name"]} for r in data["requirements"]],
         "rows": [{"member_id": r["id"], "name": r["user__full_name"], "email": r["user__email"],
                   "job_title": r["job_title"], "employee_ref": r["employee_ref"], "cells": r["cells"]}
                  for r in data["rows"]],
-        "next_cursor": keyset.encode(data["next"]) if data["next"] else None,
+        "next_cursor": keyset.encode(*data["next"]) if data["next"] else None,
     }  # fmt: skip
 
 
-@router.get("/people/{member_id}")
+@router.get("/people/{member_id}", response=CompliancePersonOut)
 def person(request, member_id: str):
     scope = org_scope(request, OrgRole.MANAGER)
     p = selectors.person(scope, member_id)
@@ -98,6 +104,8 @@ def person(request, member_id: str):
     return {
         "member_id": m.id, "name": m.user.full_name, "email": m.user.email, "role": m.role, "job_title": m.job_title,
         "employee_ref": m.employee_ref, "joined_at": m.joined_at,
+        "units": [{"id": u.unit_id, "name": u.unit.name} for u in p["units"]],
+        "job_roles": [{"id": r.job_role_id, "name": r.job_role.name} for r in p["job_roles"]],
         "requirements": [
             {"status_id": s.id, "requirement_id": s.requirement_id, "name": s.requirement.name,
              "course_title": s.requirement.course.title, "status": s.status, "due_at": s.due_at,
@@ -105,14 +113,14 @@ def person(request, member_id: str):
             for s in p["statuses"]
         ],
         "records": [
-            {"id": r.id, "requirement": r.requirement.name, "source": r.source, "completed_at": r.completed_at,
+            {"id": r.id, "requirement_id": r.requirement_id, "requirement": r.requirement.name, "source": r.source, "completed_at": r.completed_at,
              "expires_at": r.expires_at, "note": r.note, "voided": r.voided_at is not None,
-             "recorded_by": r.recorded_by.full_name if r.recorded_by else None}
+             "void_reason": r.void_reason, "recorded_by": r.recorded_by.full_name if r.recorded_by else None}
             for r in p["records"]
         ],
         "exemptions": [
-            {"id": x.id, "requirement": x.requirement.name, "reason": x.reason, "starts_at": x.starts_at,
-             "ends_at": x.ends_at, "granted_by": x.granted_by.full_name}
+            {"id": x.id, "requirement_id": x.requirement_id, "requirement": x.requirement.name, "reason": x.reason, "starts_at": x.starts_at,
+             "ends_at": x.ends_at, "revoked_at": x.revoked_at, "granted_by": x.granted_by.full_name}
             for x in p["exemptions"]
         ],
         "courses": [
@@ -196,7 +204,7 @@ def update_requirement(request, requirement_id: str, body: RequirementPatch):
     return _requirement_out(Requirement.objects.select_related("course").get(pk=r.pk))
 
 
-@router.delete("/requirements/{requirement_id}")
+@router.delete("/requirements/{requirement_id}", response=OkOut)
 def archive_requirement(request, requirement_id: str):
     scope = org_scope(request, OrgRole.ADMIN)
     r = get_object_or_404(Requirement, pk=requirement_id, org_id=scope.org_id, archived_at__isnull=True)
@@ -206,7 +214,7 @@ def archive_requirement(request, requirement_id: str):
 
 
 # ---------------------------------------------------------------- actions on one person
-@router.post("/statuses/{status_id}/extend")
+@router.post("/statuses/{status_id}/extend", response=ExtendOut)
 def extend(request, status_id: str, body: ExtendIn):
     scope = org_scope(request, OrgRole.ADMIN)
     s = services.extend_deadline(status=_status_in_scope(scope, status_id), due_at=body.due_at)
@@ -214,7 +222,7 @@ def extend(request, status_id: str, body: ExtendIn):
     return {"status": s.status, "due_at": s.due_at}
 
 
-@router.post("/statuses/{status_id}/exempt")
+@router.post("/statuses/{status_id}/exempt", response=ExemptionCreatedOut)
 def exempt(request, status_id: str, body: ExemptIn):
     scope = org_scope(request, OrgRole.ADMIN)
     x = services.grant_exemption(status=_status_in_scope(scope, status_id), reason=body.reason,
@@ -223,7 +231,7 @@ def exempt(request, status_id: str, body: ExemptIn):
     return {"exemption_id": x.id}
 
 
-@router.delete("/exemptions/{exemption_id}")
+@router.delete("/exemptions/{exemption_id}", response=OkOut)
 def revoke_exemption(request, exemption_id: str):
     scope = org_scope(request, OrgRole.ADMIN)
     services.revoke_exemption(exemption=get_object_or_404(Exemption, pk=exemption_id, org_id=scope.org_id))
@@ -231,7 +239,7 @@ def revoke_exemption(request, exemption_id: str):
     return {"ok": True}
 
 
-@router.post("/statuses/{status_id}/records")
+@router.post("/statuses/{status_id}/records", response=RecordCreatedOut)
 def record_completion(request, status_id: str, body: ManualIn):
     scope = org_scope(request, OrgRole.ADMIN)
     rec = services.record_manual_completion(status=_status_in_scope(scope, status_id), completed_at=body.completed_at,
@@ -241,7 +249,7 @@ def record_completion(request, status_id: str, body: ManualIn):
     return {"record_id": rec.id}
 
 
-@router.post("/records/{record_id}/void")
+@router.post("/records/{record_id}/void", response=OkOut)
 def void(request, record_id: str, body: VoidIn):
     scope = org_scope(request, OrgRole.ADMIN)
     services.void_record(record=get_object_or_404(CompletionRecord, pk=record_id, org_id=scope.org_id),
@@ -250,7 +258,7 @@ def void(request, record_id: str, body: VoidIn):
     return {"ok": True}
 
 
-@router.post("/statuses/{status_id}/remind")
+@router.post("/statuses/{status_id}/remind", response=ReminderOut)
 def remind(request, status_id: str):
     """Managers may nudge their own people (once per person, requirement and day)."""
     scope = org_scope(request, OrgRole.MANAGER)

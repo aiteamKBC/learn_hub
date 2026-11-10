@@ -158,4 +158,5 @@ class SettingsTest(PlatformBase):
         with tenant_context(**self.STAFF):
             services.set_setting(key="signup.enabled", value=False, by=self.staff, is_public=True)
         self.assertIs(services.get_setting("signup.enabled", True), False)
-        self.assertEqual(self.client.get("/api/v1/platform/settings").json(), {"signup.enabled": False})
+        # registered public settings come with their defaults; other public rows are added
+        self.assertIs(self.client.get("/api/v1/platform/settings").json()["signup.enabled"], False)

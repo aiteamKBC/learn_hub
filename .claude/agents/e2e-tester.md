@@ -25,11 +25,13 @@ Your job for milestone `<id>`:
    - if the test is wrong, fix the test;
    - if the app is wrong, report the bug with the screenshot path and the failing step. Don't patch app code unless the main agent asked you to.
 4. Run `phone_check.js` on every new route.
-5. Look at the screenshots yourself (light, dark, phone) and list anything visually broken:
+5. Run scripts through `python tools/run_check.py` (summary only, full log in `logs/`). Start long runs in the background and wait in one blocking call.
+6. Look at the screenshots yourself (light, dark, phone), compare them with the milestone's mockups in `docs/design/mockups/`, and list anything visually broken:
    - overlapping artwork;
    - clipped text;
    - unreadable contrast;
    - misaligned grids.
-6. Re-run the earlier milestones' E2E scripts to catch regressions.
+   Also list anything the mockup has that the screen lacks.
+7. Re-run the earlier milestones' E2E scripts to catch regressions.
 
 Report: passed/failed per step, regressions, visual issues, and the screenshot folder.

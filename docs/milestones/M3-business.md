@@ -19,7 +19,7 @@ A manager sees the same screens, limited to their own units.
 
 Every other `/business/*` route is a `ComingSoon` placeholder in `frontend/src/app/router.tsx`. Replace them all.
 
-**Mockups:** see the approved business/admin screens in `E:\Kent\LearnHub screens`. View them, and match their layout and density in our design system. Keep our tokens. Don't copy their colours if they differ.
+**Mockups:** there are none for the business area. Build from the specs in `docs/design/README.md` ("Screens with NO mockup → M3"), and use the closest mockups it names (26, 05, 33, 02, 18, 06 in `docs/design/mockups/`).
 
 **Demo login (Neon seed):** `hana.cole@brightwater.example.com` (company admin of Brightwater Care Group). Get the password from the user; it's not in the repo.
 

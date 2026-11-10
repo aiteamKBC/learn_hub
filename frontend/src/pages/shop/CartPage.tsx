@@ -147,6 +147,11 @@ export function CartPage() {
                       {cart.coupon_error}
                     </p>
                   ) : null}
+                  {cart.promotion ? (
+                    <p className="mt-2 inline-flex items-center gap-1.5 text-[13px] text-success">
+                      <Tag className="size-3.5" aria-hidden /> Offer applied: {cart.promotion}
+                    </p>
+                  ) : null}
                 </div>
 
                 {currencies && currencies.length > 1 ? (

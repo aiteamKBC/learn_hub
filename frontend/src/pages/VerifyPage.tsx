@@ -57,14 +57,20 @@ function Result({ code }: { code: string }) {
     )
   }
   const c = q.data
-  const revoked = c.is_revoked
+  const revoked = c.is_revoked || c.is_expired
+  const longDate = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   return (
     <div className="mt-6 animate-reveal overflow-hidden rounded-2xl border border-border bg-surface shadow-lg">
       <div className={revoked ? 'bg-danger-soft px-6 py-4' : 'bg-success-soft px-6 py-4'}>
         <p className={`flex items-center justify-center gap-2 text-sm font-semibold ${revoked ? 'text-danger' : 'text-success'}`}>
           {revoked ? <ShieldAlert className="size-5" /> : <BadgeCheck className="size-5 animate-pop" />}
-          {revoked ? 'This certificate has been withdrawn' : 'Genuine certificate, issued by LearnHub'}
+          {c.is_revoked
+            ? 'This certificate has been withdrawn'
+            : c.is_expired
+              ? `This certificate expired on ${longDate(c.expires_at!)}`
+              : 'Genuine certificate, issued by LearnHub'}
         </p>
+        {!revoked && c.expires_at ? <p className="mt-1 text-center text-[13px] text-success">Valid until {longDate(c.expires_at)}</p> : null}
       </div>
       <dl className="grid gap-5 p-6 text-center sm:p-8">
         <div>

@@ -2,20 +2,35 @@
 mounted here under /api/v1/<domain>/.
 """
 
+import json
+
 from django.conf import settings
 from django.core.cache import cache
 from django.db import connections
-from ninja import NinjaAPI
+from ninja import NinjaAPI, Swagger
+from ninja.openapi.docs import render_template
 
 from core.errors import register_error_handlers
 from core.renderers import ORJSONRenderer
 from core.throttles import DEFAULT_THROTTLES
+
+
+class SessionSwagger(Swagger):
+    """Dev-only docs that send the CSRF token on writes. Ninja adds it only when the whole
+    API has a CSRF auth; ours is set per router, so its check never sees it."""
+
+    def render_page(self, request, api, **kwargs):
+        self.settings["url"] = self.get_openapi_url(api, kwargs)
+        context = {"swagger_settings": json.dumps(self.settings, indent=1), "api": api, "add_csrf": True}
+        return render_template(request, self.template, self.template_cdn, context)
+
 
 api = NinjaAPI(
     title="LMS API",
     version="1.0.0",
     urls_namespace="api",
     docs_url="/docs" if settings.DEBUG else None,  # no public API docs in production
+    docs=SessionSwagger(),
     renderer=ORJSONRenderer(),
     throttle=DEFAULT_THROTTLES,
 )

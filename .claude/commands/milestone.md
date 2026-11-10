@@ -5,7 +5,7 @@ argument-hint: <milestone id, e.g. M3>
 Build milestone **$ARGUMENTS** of the LearnHub LMS.
 
 1. Read these: `CLAUDE.md`, `docs/build-status.md`, the brief `docs/milestones/$ARGUMENTS-*.md`, `docs/STRUCTURE.md` and `frontend/README.md`.
-   - If the brief points to mockups, look at them.
+   - Open the screen mockups listed for this milestone in `docs/design/README.md` (images in `docs/design/mockups/`), and read the "intentional differences" and the specs for screens without a mockup.
    - If anything in the brief conflicts with CLAUDE.md, or needs a business decision, ask before building.
 2. Make a task list from the brief's work packages and acceptance list.
 3. Backend first, for each package:

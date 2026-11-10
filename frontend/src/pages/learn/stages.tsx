@@ -5,11 +5,12 @@ import { toast } from 'sonner'
 import { Backdrop } from '@/components/art/backdrops'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { embedUrl, loadPlayerJs, playhead } from '@/features/learning/bunny'
+import { emitPlayhead, embedUrl, loadPlayerJs, registerPlayer } from '@/features/learning/bunny'
 import { type Lecture, sendHeartbeat, useCompleteLecture, useDownloadResource, useRefreshProgress } from '@/features/learning/api'
 import { cn } from '@/lib/cn'
 
 import { CompleteBar, Html, kindOf } from './shared'
+import { VideoMarks } from './video-marks'
 
 type StageProps = { lecture: Lecture; enrollmentId: string; slug: string }
 
@@ -20,12 +21,12 @@ const MAX_BEAT = 600 // the server caps one beat at 10 minutes of watching
  * Bunny video with resume and watch-time tracking. Only seconds actually played count
  * (seeking forward does not), sent every 30 s and when the learner pauses or leaves.
  */
-export function VideoStage({ lecture, enrollmentId, onEnded, startAt }: StageProps & { onEnded: () => void; startAt?: number }) {
+export function VideoStage({ lecture, enrollmentId, onEnded, startAt }: StageProps & { onEnded: (completed: boolean) => void; startAt?: number }) {
   const video = lecture.video
   const frame = useRef<HTMLIFrameElement>(null)
   const refresh = useRefreshProgress(enrollmentId)
   // a note's timestamp wins; otherwise resume (finished videos start again from the top)
-  const [src] = useState(() => (video?.url ? embedUrl(video.url, startAt ?? (lecture.completed ? 0 : lecture.position_sec)) : null))
+  const [src] = useState(() => (video?.url ? embedUrl(video.url, startAt ?? (lecture.completed ? 0 : lecture.position_sec), startAt != null) : null))
   const onEndedRef = useRef(onEnded)
   onEndedRef.current = onEnded
 
@@ -33,6 +34,7 @@ export function VideoStage({ lecture, enrollmentId, onEnded, startAt }: StagePro
     const el = frame.current
     if (!el || !src) return
     let alive = true
+    let unregister = () => {}
     const state = { pos: lecture.position_sec, last: -1, watched: 0, sentPos: lecture.position_sec }
     const flush = (keepalive = false) => {
       const watched = Math.min(MAX_BEAT, Math.round(state.watched))
@@ -50,27 +52,36 @@ export function VideoStage({ lecture, enrollmentId, onEnded, startAt }: StagePro
       .then(() => {
         if (!alive || !window.playerjs) return
         const p = new window.playerjs.Player(el)
+        p.on('ready', () => {
+          if (alive) unregister = registerPlayer(lecture.key, p)
+        })
         p.on('timeupdate', (d) => {
           const s = d?.seconds ?? 0
           const step = s - state.last
           if (state.last >= 0 && step > 0 && step <= 3) state.watched += step // real playback only
           state.last = s
           state.pos = s
-          playhead.key = lecture.key
-          playhead.sec = s
+          emitPlayhead(lecture.key, s)
         })
         p.on('pause', () => flush())
         p.on('ended', () => {
-          flush()
-          // the server credits watch time in batches; look again shortly for the tick
-          window.setTimeout(() => void refresh(), 2500)
-          onEndedRef.current()
+          // the end beat is written at once and says whether the lecture is now complete
+          const watched = Math.min(MAX_BEAT, Math.round(state.watched))
+          state.watched -= watched
+          state.sentPos = state.pos
+          sendHeartbeat(enrollmentId, { lecture_key: lecture.key, position_sec: Math.floor(state.pos), watched_sec: watched, ended: true })
+            .then((r) => {
+              onEndedRef.current(!!r.data?.completed)
+              return refresh()
+            })
+            .catch(() => undefined)
         })
       })
       .catch(() => undefined) // without player.js the video still plays; only tracking is lost
 
     return () => {
       alive = false
+      unregister()
       window.clearInterval(timer)
       window.removeEventListener('pagehide', onHide)
       document.removeEventListener('visibilitychange', onHide)
@@ -82,17 +93,20 @@ export function VideoStage({ lecture, enrollmentId, onEnded, startAt }: StagePro
 
   if (!src) return <VideoPending lecture={lecture} enrollmentId={enrollmentId} />
   return (
-    <div className="relative aspect-video w-full overflow-hidden bg-black">
-      <iframe
-        ref={frame}
-        src={src}
-        title={lecture.title}
-        className="absolute inset-0 size-full border-0"
-        loading="eager"
-        allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
-        allowFullScreen
-      />
-    </div>
+    <>
+      <div className="relative aspect-video w-full overflow-hidden bg-black">
+        <iframe
+          ref={frame}
+          src={src}
+          title={lecture.title}
+          className="absolute inset-0 size-full border-0"
+          loading="eager"
+          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
+          allowFullScreen
+        />
+      </div>
+      <VideoMarks lecture={lecture} />
+    </>
   )
 }
 

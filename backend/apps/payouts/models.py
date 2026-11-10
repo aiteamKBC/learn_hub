@@ -42,12 +42,20 @@ class PayoutAccount(BaseModel):
     class Method(models.TextChoices):
         STRIPE = "stripe", "Stripe Connect"
         PAYPAL = "paypal", "PayPal"
+        WISE = "wise", "Wise"  # recorded and paid by staff by hand
+        BANK = "bank", "Bank transfer"  # recorded and paid by staff by hand
 
     user = models.OneToOneField(User, on_delete=models.PROTECT, related_name="payout_account")
     method = models.CharField(max_length=8, choices=Method.choices)
     stripe_account_id = models.CharField(max_length=64, blank=True)
     paypal_email = models.EmailField(max_length=320, blank=True)
     country = models.CharField(max_length=2, blank=True)
+    wise_email = models.EmailField(max_length=320, blank=True)
+    # Bank: a masked hint only. Full account numbers are NEVER stored; the transfer
+    # itself happens outside the app.
+    bank_account_name = models.CharField(max_length=120, blank=True)
+    bank_sort_code_last2 = models.CharField(max_length=2, blank=True)
+    bank_account_last4 = models.CharField(max_length=4, blank=True)
     tax_form_received_at = models.DateTimeField(null=True, blank=True)
     verified_at = models.DateTimeField(null=True, blank=True)  # staff check; reset on any change
 
@@ -61,6 +69,7 @@ class Payout(BaseModel):
         PAID = "paid", "Paid"
         FAILED = "failed", "Failed"
         HELD = "held", "On hold"
+        DISPUTED = "disputed", "Disputed"
 
     user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+", db_index=False)
     period_end = models.DateField()  # the month this run closed
@@ -126,4 +135,66 @@ class Earning(BaseModel):
                 fields=["user", "available_at"], name="ix_earnings_unpaid", condition=Q(payout__isnull=True)
             ),
             models.Index(fields=["course", "earned_at"], name="ix_earnings_course"),
+        ]
+
+
+class CommissionRule(BaseModel):
+    """How much of a marketplace sale an instructor keeps, by rule. The most specific
+    active rule wins: course > instructor > category > price band > the default
+    (console > Commissions). The rate is copied onto each earning, so changing a rule
+    never rewrites past earnings."""
+
+    class Scope(models.TextChoices):
+        COURSE = "course", "Course"
+        INSTRUCTOR = "instructor", "Instructor"
+        CATEGORY = "category", "Category"
+        PRICE_BAND = "price_band", "Price band"
+
+    name = models.CharField(max_length=120, blank=True)
+    scope = models.CharField(max_length=12, choices=Scope.choices)
+    target_id = models.UUIDField(null=True, blank=True)  # course / instructor / category
+    band_min_gbp_minor = models.PositiveIntegerField(null=True, blank=True)  # price band, inclusive
+    band_max_gbp_minor = models.PositiveIntegerField(null=True, blank=True)  # exclusive; NULL = no top
+    instructor_bps = models.PositiveIntegerField()  # 7000 = the instructor keeps 70%
+    priority = models.SmallIntegerField(default=0)  # breaks ties inside one scope (higher wins)
+    is_active = models.BooleanField(default=True)
+    starts_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+
+    class Meta:
+        db_table = table(SCHEMA, "commission_rules")
+        constraints = [models.CheckConstraint(condition=Q(instructor_bps__lte=10000), name="ck_rule_bps")]
+        indexes = [models.Index(fields=["scope", "target_id"], name="ix_rules_target")]
+
+
+class PayoutRequest(BaseModel):
+    """An instructor asks for their available balance (past the hold, above the minimum).
+    Staff approve, reject, mark paid (with a reference) or disputed."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        PAID = "paid", "Paid"
+        REJECTED = "rejected", "Rejected"
+        DISPUTED = "disputed", "Disputed"
+        FAILED = "failed", "Failed"  # the manual transfer bounced; the money went back
+
+    user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+", db_index=False)
+    amount_gbp_minor = models.PositiveIntegerField()
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    method = models.CharField(max_length=8, choices=PayoutAccount.Method.choices)
+    note = models.CharField(max_length=300, blank=True)  # from the instructor
+    reason = models.CharField(max_length=300, blank=True)  # from staff: rejected / disputed
+    provider_ref = models.CharField(max_length=128, blank=True)  # transfer reference when paid
+    decided_by = models.ForeignKey(User, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    decided_at = models.DateTimeField(null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    payout = models.ForeignKey(Payout, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+
+    class Meta:
+        db_table = table(SCHEMA, "payout_requests")
+        indexes = [
+            models.Index(fields=["user", "-created_at"], name="ix_payout_requests_user"),
+            models.Index(fields=["status", "created_at"], name="ix_payout_requests_status"),
         ]

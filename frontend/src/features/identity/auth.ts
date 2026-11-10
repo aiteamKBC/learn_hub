@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { ApiError, api, csrfToken, unwrap } from '@/api/client'
+import { forgetInvite } from '@/lib/next'
 
 const BASE = '/_allauth/browser/v1'
 
@@ -13,11 +14,11 @@ type AllauthResponse = {
   errors?: { message: string; code: string; param?: string }[]
 }
 
-async function call(method: string, path: string, body?: unknown): Promise<AllauthResponse> {
+async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<AllauthResponse> {
   const res = await fetch(BASE + path, {
     method,
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken(), ...headers },
     body: body ? JSON.stringify(body) : undefined,
   })
   const json = (await res.json().catch(() => ({ status: res.status }))) as AllauthResponse
@@ -75,14 +76,97 @@ function raise(r: AllauthResponse): never {
 export function useLogin() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (v: { email: string; password: string }) => {
+    mutationFn: async (v: { email: string; password: string }): Promise<'signed-in' | 'mfa'> => {
       const r = await call('POST', '/auth/login', v)
+      // 2-step sign-in: the password was right, now the code from the authenticator app
+      if (r.status === 401 && r.data?.flows?.some((f) => f.id === 'mfa_authenticate' && f.is_pending)) return 'mfa'
       if (r.status !== 200) raise(r)
+      return 'signed-in'
     },
     // refetch even when no screen is showing the user yet (the sign-in page), so the
     // next page already knows who is signed in
+    onSuccess: (r) => (r === 'signed-in' ? qc.refetchQueries({ queryKey: ['me'], type: 'all' }) : undefined),
+  })
+}
+
+/** Second step of sign-in: a 6-digit code from the app, or one of the recovery codes. */
+export function useMfaAuthenticate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (code: string) => {
+      const r = await call('POST', '/auth/2fa/authenticate', { code })
+      if (r.status !== 200) raise(r)
+    },
     onSuccess: () => qc.refetchQueries({ queryKey: ['me'], type: 'all' }),
   })
+}
+
+// ---------------------------------------------------------------- 2-step sign-in (account)
+export type Totp = { type: 'totp'; created_at: number; last_used_at: number | null }
+
+/** The person's authenticators: whether 2-step sign-in is on, and recovery codes left. */
+export function useAuthenticators(enabled = true) {
+  return useQuery({
+    queryKey: ['mfa', 'authenticators'],
+    queryFn: async () => {
+      const r = await call('GET', '/account/authenticators')
+      if (r.status !== 200) raise(r)
+      const list = (r.data as unknown as { type: string; unused_code_count?: number; total_code_count?: number }[]) ?? []
+      return { totp: list.some((a) => a.type === 'totp'), recoveryLeft: list.find((a) => a.type === 'recovery_codes')?.unused_code_count ?? null }
+    },
+    enabled,
+  })
+}
+
+/** A new secret to add to the authenticator app (only while 2-step sign-in is off). */
+export async function startTotp(): Promise<{ secret: string; totp_url: string }> {
+  const r = await call('GET', '/account/authenticators/totp')
+  const meta = (r as unknown as { meta?: { secret?: string; totp_url?: string } }).meta
+  if (r.status === 404 && meta?.secret) return { secret: meta.secret, totp_url: meta.totp_url ?? '' }
+  raise(r)
+}
+
+/** allauth asks for the password again before security changes. */
+export async function reauthenticate(password: string) {
+  const r = await call('POST', '/auth/reauthenticate', { password })
+  if (r.status !== 200) raise(r)
+}
+
+function needsReauth(r: AllauthResponse) {
+  return r.status === 401 && !!r.data?.flows?.some((f) => f.id === 'reauthenticate')
+}
+export class ReauthNeeded extends Error {}
+
+export function useActivateTotp() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (code: string) => {
+      const r = await call('POST', '/account/authenticators/totp', { code })
+      if (needsReauth(r)) throw new ReauthNeeded('Enter your password to continue.')
+      if (r.status !== 200) raise(r)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['mfa'] }),
+  })
+}
+
+export function useDeactivateTotp() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const r = await call('DELETE', '/account/authenticators/totp')
+      if (needsReauth(r)) throw new ReauthNeeded('Enter your password to continue.')
+      if (r.status !== 200) raise(r)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['mfa'] }),
+  })
+}
+
+/** Recovery codes: shown once after they are made; making new ones replaces the old. */
+export async function recoveryCodes(regenerate = false): Promise<string[]> {
+  const r = regenerate ? await call('POST', '/account/authenticators/recovery-codes') : await call('GET', '/account/authenticators/recovery-codes')
+  if (needsReauth(r)) throw new ReauthNeeded('Enter your password to continue.')
+  if (r.status !== 200) raise(r)
+  return ((r.data as { unused_codes?: string[] } | undefined)?.unused_codes ?? []) as string[]
 }
 
 export function useSignup() {
@@ -93,6 +177,42 @@ export function useSignup() {
       if (r.status === 401 && r.data?.flows?.some((f) => f.id === 'verify_email')) return 'verify-email'
       raise(r)
     },
+  })
+}
+
+/** Forgot password: email a reset link. Answers the same whether or not the address has
+ * an account (no account probing), so the page always says "check your inbox". */
+export function useRequestPasswordReset() {
+  return useMutation({
+    mutationFn: async (email: string) => {
+      const r = await call('POST', '/auth/password/request', { email })
+      if (r.status !== 200) raise(r)
+    },
+  })
+}
+
+/** Is the reset link still good? (expired, used or changed links are refused) */
+export function useResetKey(key: string) {
+  return useQuery({
+    queryKey: ['password-reset-key', key],
+    queryFn: async () => (await call('GET', '/auth/password/reset', undefined, { 'X-Password-Reset-Key': key })).status === 200,
+    retry: false,
+    staleTime: Infinity,
+  })
+}
+
+/** Set the new password from the emailed link. allauth answers 401 when the password was
+ * changed but the person still has to log in (we don't sign in from a reset link). */
+export function useResetPassword() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { key: string; password: string }): Promise<'signed-in' | 'log-in'> => {
+      const r = await call('POST', '/auth/password/reset', v)
+      if (r.status === 200) return 'signed-in'
+      if (r.status === 401) return 'log-in'
+      raise(r)
+    },
+    onSuccess: (r) => (r === 'signed-in' ? qc.refetchQueries({ queryKey: ['me'], type: 'all' }) : undefined),
   })
 }
 
@@ -115,6 +235,8 @@ export function useLogout() {
   return useMutation({
     mutationFn: () => call('DELETE', '/auth/session'),
     onSettled: () => {
+      // an invitation waiting in this browser belongs to whoever was signed in
+      forgetInvite()
       qc.clear()
       void qc.invalidateQueries()
     },

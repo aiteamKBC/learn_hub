@@ -81,8 +81,35 @@ class ConsoleApiTest(SchemaTransactionTestCase):
         self.assertEqual(
             [i["email"] for i in self.get("/console/instructors").json()], ["omar@learnhub.example.com"]
         )
+
+        def restore():  # revenue_shares is reference data that survives between tests
+            with tenant_context(user_id=self.staff.id, staff=True):
+                payouts.set_default_fee(fee_bps=6300)
+
+        self.addCleanup(restore)
+
+        def put(path, data):
+            return self.client.put(API + path, data=data, content_type="application/json")
+
+        self.assertEqual(put("/console/platform-fee", {"fee_pct": 120}).status_code, 422)
+        self.assertEqual(put("/console/platform-fee", {"fee_pct": 20}).json(), {"default_fee_pct": 20.0})
         self.assertEqual(self.post(f"/console/instructors/{self.omar.id}/decision", {"approve": True}).json()["status"],
                          "approved")  # fmt: skip
+        self.assertEqual(InstructorProfile.objects.get(user=self.omar).platform_fee_bps, 2000)  # default kept
+        put("/console/platform-fee", {"fee_pct": 30})
+        row = self.get("/console/instructors?status=approved").json()
+        omar = next(i for i in row if i["user_id"] == str(self.omar.id))
+        self.assertEqual((omar["platform_fee_pct"], omar["fee_is_custom"]), (20.0, True))
+        self.assertEqual(
+            put(f"/console/instructors/{self.omar.id}/fee", {"fee_pct": 12.5}).json()["platform_fee_pct"],
+            12.5,
+        )
+        reset = put(f"/console/instructors/{self.omar.id}/fee", {"fee_pct": None}).json()
+        self.assertEqual((reset["platform_fee_pct"], reset["fee_is_custom"]), (30.0, False))
+        self.as_(self.omar)
+        self.assertEqual(self.get("/studio/revenue").json()["platform_fee_pct"], 30.0)
+        self.assertEqual(put(f"/console/instructors/{self.omar.id}/fee", {"fee_pct": 0}).status_code, 403)
+        self.as_(self.staff)
 
         # currencies: no rate, no switch-on; a manual rate makes prices appear
         self.assertEqual(self.client.patch(f"{API}/console/currencies/AED", data={"is_active": True},

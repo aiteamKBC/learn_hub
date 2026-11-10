@@ -34,7 +34,7 @@ def _client() -> stripe.StripeClient:
 
 def create_checkout_session(
     *, mode: str, line_items: list, metadata: dict, customer_email: str, success_url: str,
-    cancel_url: str, idempotency_key: str, trial_days: int = 0, customer: str = "",
+    cancel_url: str, idempotency_key: str, trial_days: int = 0, customer: str = "", coupon: str = "",
 ) -> dict:  # fmt: skip
     params = {
         "mode": mode,
@@ -47,15 +47,25 @@ def create_checkout_session(
     }
     if mode == "payment":
         params["payment_intent_data"] = {"metadata": metadata}
+        # a Stripe invoice for every paid order: staff and buyers download its hosted PDF
+        params["invoice_creation"] = {"enabled": True, "invoice_data": {"metadata": metadata}}
     else:
         params["subscription_data"] = {
             "metadata": metadata,
             **({"trial_period_days": trial_days} if trial_days else {}),
         }
+    if coupon:  # a subscription promotion (console > Promotions)
+        params["discounts"] = [{"coupon": coupon}]
     session = _client().v1.checkout.sessions.create(
         params=params, options={"idempotency_key": idempotency_key}
     )
     return {"id": session.id, "url": session.url}
+
+
+def retrieve_checkout_session(session_id: str) -> dict:
+    s = _client().v1.checkout.sessions.retrieve(session_id)
+    return {"id": s.id, "payment_status": s.payment_status, "payment_intent": s.payment_intent or "",
+            "amount_total": s.amount_total, "currency": s.currency or "", "metadata": dict(s.metadata or {})}  # fmt: skip
 
 
 def refund(*, payment_intent: str, amount: int, idempotency_key: str) -> str:
@@ -101,3 +111,28 @@ def billing_portal(*, customer: str, return_url: str) -> str:
         params={"customer": customer, "return_url": return_url}
     )
     return session.url
+
+
+def create_price(*, product_name: str, product_key: str, currency: str, unit_amount: int, interval: str,
+                 idempotency_key: str) -> str:  # fmt: skip
+    """A recurring Stripe price for a plan (console > Subscriptions). Stripe prices never
+    change: a new amount is a new price, and the old one simply stops being used."""
+    price = _client().v1.prices.create(
+        params={
+            "currency": currency.lower(),
+            "unit_amount": unit_amount,
+            "recurring": {"interval": interval},
+            "product_data": {"name": product_name[:250], "metadata": {"plan": product_key}},
+        },
+        options={"idempotency_key": idempotency_key},
+    )
+    return price.id
+
+
+def create_coupon(*, percent_off: int, name: str, idempotency_key: str) -> str:
+    """A Stripe coupon for a subscription promotion: the first invoice gets the discount."""
+    coupon = _client().v1.coupons.create(
+        params={"percent_off": percent_off, "duration": "once", "name": name[:40]},
+        options={"idempotency_key": idempotency_key},
+    )
+    return coupon.id

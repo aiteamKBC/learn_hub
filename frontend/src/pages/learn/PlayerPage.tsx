@@ -1,4 +1,4 @@
-import { Award, ChevronLeft, ChevronRight, Info, ListTree, Megaphone, MessagesSquare, NotebookPen, PanelRightClose, PanelRightOpen, PartyPopper, Star } from 'lucide-react'
+import { Award, ChevronLeft, ChevronRight, Info, ListTree, Lock, Megaphone, MessagesSquare, NotebookPen, PanelRightClose, PanelRightOpen, PartyPopper, Star } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -40,7 +40,7 @@ function useRoute() {
 function resumeKey(p: Player) {
   const all = p.sections.flatMap((s) => s.lectures)
   if (p.last_lecture_key && all.some((l) => l.key === p.last_lecture_key)) return p.last_lecture_key
-  return (all.find((l) => !l.completed) ?? all[0])?.key
+  return (all.find((l) => !l.completed && !l.locked) ?? all[0])?.key
 }
 
 function MiniRing({ value }: { value: number }) {
@@ -67,7 +67,9 @@ export function PlayerPage() {
   const player = usePlayer(lookup.enrollmentId)
   const p = player.data
   const key = route.lectureKey ?? (p ? resumeKey(p) : undefined)
-  const lecture = useLecture(lookup.enrollmentId, key)
+  // a locked lesson (its prerequisite isn't done) is never fetched: the server would refuse it
+  const locked = p?.sections.flatMap((s) => s.lectures).find((l) => l.key === key && l.locked)
+  const lecture = useLecture(lookup.enrollmentId, locked ? undefined : key)
   const [sidebar, setSidebar] = useState(true)
   const [drawer, setDrawer] = useState(false)
   const [tab, setTab] = useState(route.tab ?? 'overview')
@@ -144,7 +146,9 @@ export function PlayerPage() {
       ) : (
         <div className={cn('grid flex-1', sidebar && 'lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]')}>
           <main id="main" className="min-w-0">
-            <Stage lecture={lecture.data} loading={lecture.isLoading || !p} error={lecture.error} enrollmentId={lookup.enrollmentId} slug={route.slug} startAt={params.get('t') ? Number(params.get('t')) : undefined} onRetry={() => void lecture.refetch()} />
+            {locked && p ? (
+              <LockedStage slug={route.slug} title={locked.title} prerequisiteKey={locked.prerequisite_key} prerequisiteTitle={locked.prerequisite_title} />
+            ) : <Stage lecture={lecture.data} loading={lecture.isLoading || !p} error={lecture.error} enrollmentId={lookup.enrollmentId} slug={route.slug} startAt={params.get('t') ? Number(params.get('t')) : undefined} onRetry={() => void lecture.refetch()} />}
 
             {p && lecture.data ? (
               <>
@@ -261,6 +265,24 @@ export function PlayerPage() {
   )
 }
 
+/** A lesson whose prerequisite isn't complete: say which one, and link to it. */
+function LockedStage({ slug, title, prerequisiteKey, prerequisiteTitle }: { slug: string; title: string; prerequisiteKey?: string | null; prerequisiteTitle?: string | null }) {
+  return (
+    <div className="animate-reveal border-b border-border">
+      <EmptyState
+        icon={<Lock />}
+        title={`“${title}” is locked`}
+        body={prerequisiteTitle ? `Finish “${prerequisiteTitle}” first, then come back here.` : 'Finish the earlier lesson first.'}
+        action={prerequisiteKey ? (
+          <Button asChild>
+            <Link to={lectureUrl(slug, prerequisiteKey)}>Go to “{prerequisiteTitle}”</Link>
+          </Button>
+        ) : undefined}
+      />
+    </div>
+  )
+}
+
 function Stage({ lecture, loading, error, enrollmentId, slug, startAt, onRetry }: { lecture?: Lecture; loading: boolean; error: Error | null; enrollmentId?: string; slug: string; startAt?: number; onRetry: () => void }) {
   if (error) {
     return (
@@ -279,11 +301,12 @@ function Stage({ lecture, loading, error, enrollmentId, slug, startAt, onRetry }
         <VideoStage
           {...props}
           startAt={startAt}
-          onEnded={() =>
-            lecture.next_key
-              ? toast('Lecture finished', { action: { label: 'Next lecture', onClick: () => document.getElementById('next-lecture')?.click() } })
-              : undefined
-          }
+          onEnded={(completed) => {
+            const next = lecture.next_key ? { action: { label: 'Next lecture', onClick: () => document.getElementById('next-lecture')?.click() } } : {}
+            if (completed) toast.success('Lecture complete', next)
+            else if (!lecture.completed) toast('Lecture finished', { description: 'Parts were skipped, so it isn’t marked complete yet. Watch the rest to complete it.', ...next })
+            else if (lecture.next_key) toast('Lecture finished', next)
+          }}
         />
       ) : lecture.kind === 'quiz' && lecture.quiz ? (
         <QuizStage {...props} />

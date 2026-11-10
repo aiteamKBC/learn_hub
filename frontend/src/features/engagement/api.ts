@@ -182,3 +182,16 @@ export function useCloseTicket(id?: string) {
     onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['ticket', id] }), qc.invalidateQueries({ queryKey: ['tickets'] })]),
   })
 }
+
+// ---------------------------------------------------------------- reporting content
+export function useReportContent() {
+  return useMutation({
+    mutationFn: (body: { target_type: 'review' | 'question' | 'answer'; target_id: string; reason: string }) => unwrap(api.POST('/api/v1/engagement/reports', { body })),
+  })
+}
+
+/** Opens a support-ticket attachment through a short-lived download link. */
+export async function openTicketAttachment(ticketId: string, messageId: string) {
+  const { url } = await unwrap(api.GET('/api/v1/engagement/tickets/{ticket_id}/messages/{message_id}/file', { params: { path: { ticket_id: ticketId, message_id: messageId } } }))
+  window.open(url, '_blank', 'noopener')
+}

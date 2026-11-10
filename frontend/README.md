@@ -29,9 +29,18 @@ page and faded out so content stays readable. Purely decorative (`aria-hidden`).
 | Course catalogue | mosaic (floating course tiles) |
 | Course page | waves in the course's category colours |
 | My learning | winding path with milestones |
-| Business | topographic contours |
+| Business (overview, matrix) | topographic contours |
+| Business: people, invitations | org chart (linked nodes) |
+| Business: locations & teams | floor plan with map pins |
+| Business: reports | chart grid (faint bars, lines, donuts) |
+| Business: requirements / library, assign / billing / settings | checklist / mosaic / ribbons / dials |
 | Instructor studio, design page | blueprint grid |
-| Admin console | circuit traces |
+| Studio: course curriculum builder | storyboard (film strip with sketched frames) |
+| Studio: sales & earnings, payouts | coins (coin stacks beside rising bars) |
+| Admin console (dashboard, audit log) | circuit traces |
+| Console: approvals | stamp (approval seal over pages) |
+| Console: courses / instructors, students / money pages / reports | mosaic / org chart / coins / chart grid |
+| Console: reviews, communications / certificates / companies / settings | bubbles / guilloche / contours / dials |
 | Sign-in pages | aurora |
 | Empty / not found | orbit |
 | Player: lesson pages (reading, link, live, quiz, assignment) | notebook (ruled page, pencil marks) |
@@ -45,8 +54,9 @@ page and faded out so content stays readable. Purely decorative (`aria-hidden`).
 | Help & support | conversation bubbles |
 | Course finished (dialog) | confetti |
 
-Learner pages choose their artwork in the route: `handle: { art: 'guilloche' }`
-(read by `LearnerLayout`). Keep shapes to the right half: the left side holds the
+Pages choose their artwork in the route: `handle: { art: 'guilloche' }` (read by
+`LearnerLayout` and `WorkspaceLayout` through `lib/page-art.ts`; the area's default
+applies otherwise). Keep shapes to the right half: the left side holds the
 sidebar and page titles.
 
 New page: pick the area's variant with `<Backdrop variant="..." />` inside a

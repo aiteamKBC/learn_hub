@@ -1,9 +1,10 @@
 import { Award, Bell, BookOpen, ClipboardCheck, Compass, Heart, LifeBuoy, ReceiptText, Settings, Trophy } from 'lucide-react'
-import { Outlet, useMatches } from 'react-router-dom'
+import { Outlet } from 'react-router-dom'
 
-import { Backdrop, type BackdropVariant } from '@/components/art/backdrops'
+import { Backdrop } from '@/components/art/backdrops'
 import { useMe } from '@/features/identity/auth'
 import { cn } from '@/lib/cn'
+import { usePageArt } from '@/lib/page-art'
 import { NavLink } from '@/lib/router'
 
 const items = [
@@ -19,20 +20,10 @@ const items = [
   { to: '/account', label: 'Settings', Icon: Settings, end: true },
 ]
 
-/** Each page names its own artwork in its route: `handle: { art: 'guilloche' }`. */
-function usePageArt(): BackdropVariant {
-  const matches = useMatches()
-  for (let i = matches.length - 1; i >= 0; i--) {
-    const art = (matches[i]!.handle as { art?: BackdropVariant } | undefined)?.art
-    if (art) return art
-  }
-  return 'path'
-}
-
 /** The learner's own area, inside the public header: light sidebar on desktop
  * (as in the mockups); on phones the public layout's bottom navigation takes over. */
 export function LearnerLayout() {
-  const art = usePageArt()
+  const art = usePageArt('path')
   const { data: me } = useMe()
   const inCompany = !!me?.memberships.length
   return (

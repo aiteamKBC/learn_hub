@@ -120,12 +120,21 @@ def list_courses(request, f: Query[CourseFilters]):
     return {"items": _cards(page, currency), "next_cursor": nxt, "total": total}
 
 
-def _has_personal_plan(user) -> bool:
+def _plan_covers(user, course) -> bool:
+    """True when the learner's live personal plan includes this course (the plan's own
+    course list when it has one, otherwise the course's "in subscription" flag)."""
     from apps.commerce.models import Subscription
+    from apps.commerce.services import plan_covers
 
-    return Subscription.objects.filter(
-        user=user, org__isnull=True, plan__audience="personal", status__in=["trialing", "active"]
-    ).exists()
+    sub = (
+        Subscription.objects.filter(
+            user=user, org__isnull=True, plan__audience="personal", status__in=["trialing", "active"]
+        )
+        .select_related("plan")
+        .order_by("-current_period_end")
+        .first()
+    )
+    return sub is not None and plan_covers(sub.plan, course)
 
 
 @router.get("/courses/{slug}", response=CourseDetail, auth=None)
@@ -170,9 +179,7 @@ def course_detail(request, slug: str, currency: str | None = None):
             "in_cart": CartItem.objects.filter(user=user, course=course).exists(),
             "in_wishlist": WishlistItem.objects.filter(user=user, course=course).exists(),
             "is_instructor": any(i.user_id == user.id for i in course.visible_instructors),
-            "plan_access": bool(
-                not e and course.in_subscription and course.owner_org_id is None and _has_personal_plan(user)
-            ),
+            "plan_access": bool(not e and course.owner_org_id is None and _plan_covers(user, course)),
         }
     profiles = []
     for link in course.visible_instructors:

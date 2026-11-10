@@ -88,6 +88,7 @@ SOCIALACCOUNT_EMAIL_AUTHENTICATION = False  # trusted per provider below
 SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
 SOCIALACCOUNT_STORE_TOKENS = False  # we only need identity, never the provider's API
 SOCIALACCOUNT_ADAPTER = "apps.identity.adapters.SocialAdapter"
+ACCOUNT_ADAPTER = "apps.identity.adapters.AccountAdapter"  # console switches: sign-up, verification
 _PROVIDERS = {
     "google": {
         # Google verifies email ownership, so a Google login may join an existing
@@ -116,6 +117,7 @@ _PROVIDERS = {
 SOCIALACCOUNT_PROVIDERS = {name: cfg for name, cfg in _PROVIDERS.items() if cfg["APPS"][0]["client_id"]}
 MFA_SUPPORTED_TYPES = ["totp", "recovery_codes"]
 MFA_TOTP_ISSUER = "LearnHub"
+MFA_ADAPTER = "apps.identity.adapters.MFAAdapter"  # issuer = platform name (console)
 
 MIDDLEWARE = [
     "core.middleware.RequestIDMiddleware",
@@ -129,6 +131,8 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Console switches: maintenance mode, guest browsing, applications, 2-step (staff bypass)
+    "apps.platform.middleware.AccessSwitchMiddleware",
     # Must stay last: opens the per-request transaction and sets app.org_id for RLS.
     "core.tenancy.TenantMiddleware",
 ]
@@ -178,6 +182,10 @@ _owner_db.setdefault("OPTIONS", {})["options"] = "-c search_path=identity,public
 # alias (and replica) mirror it. Without this, Django makes owner depend on default
 # while default mirrors owner -> "Circular dependency in TEST[DEPENDENCIES]".
 _owner_db["TEST"] = {"DEPENDENCIES": []}
+# Parallel test runs (one per working area) each use their own test database: two runs
+# sharing one get in each other's way. Unset = Django's default name.
+if os.getenv("TEST_DB_NAME"):
+    _owner_db["TEST"]["NAME"] = os.environ["TEST_DB_NAME"]
 if "-pooler" in (_owner_db.get("HOST") or ""):
     from django.core.exceptions import ImproperlyConfigured
 
@@ -232,7 +240,7 @@ PASSWORD_HASHERS = [
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "apps.identity.validators.PlatformMinimumLengthValidator"},  # length from console settings
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
@@ -347,13 +355,19 @@ CELERY_BEAT_SCHEDULE["purge-abandoned-submission-uploads"] = {
     "task": "learning.purge_abandoned_uploads",
     "schedule": crontab(hour=3, minute=53),
 }
+CELERY_BEAT_SCHEDULE["certificates-expiring"] = {  # learners hear 30 days before a certificate expires
+    "task": "learning.certificate_expiry_reminders",
+    "schedule": crontab(hour=8, minute=7),
+}
 CELERY_BEAT_SCHEDULE["expire-stale-checkouts"] = {"task": "commerce.expire_checkouts", "schedule": 60 * 30}
 
 # --- Instructor payouts ------------------------------------------------------------
 PAYOUT_MINIMUM_GBP_MINOR = 2500  # balances below £25 roll over to next month
-CELERY_BEAT_SCHEDULE["payouts-monthly"] = {  # 1st of the month: last month's pool, then payouts
-    "task": "payouts.monthly_run",
-    "schedule": crontab(day_of_month=1, hour=2, minute=17),
+CELERY_BEAT_SCHEDULE[
+    "payouts-monthly"
+] = {  # daily: the pool on the 1st, payouts on the payout day (settings)
+    "task": "payouts.scheduled_run",
+    "schedule": crontab(hour=2, minute=17),
 }
 CELERY_BEAT_SCHEDULE["prune-notifications"] = {
     "task": "engagement.prune_notifications",

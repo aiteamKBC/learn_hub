@@ -23,6 +23,11 @@ from core.tests.base import SchemaTransactionTestCase
 ECB = """<x><Cube><Cube time="2026-11-04"><Cube currency="GBP" rate="0.87"/><Cube currency="USD" rate="1.16"/></Cube></Cube></x>"""
 
 
+def restore_default_fee(staff_ctx):
+    with tenant_context(**staff_ctx):
+        services.set_default_fee(fee_bps=6300)
+
+
 def fake_session(**kw):
     return {"id": f"cs_{kw['metadata']['id']}", "url": "https://pay.test"}
 
@@ -103,6 +108,29 @@ class PayoutsTest(SchemaTransactionTestCase):
         self.buy([self.solo], coupon="ANA50")  # £17.49, instructor's own coupon
         self.assertIn(("sale", "instructor_coupon", 1696), self.lines(self.ana))  # 1749 x 97%
 
+    def test_instructor_fee_replaces_default_on_marketplace_only(self, _s):
+        from apps.identity.models import InstructorProfile
+
+        self.addCleanup(restore_default_fee, self.STAFF)  # revenue_shares survives between tests
+        with tenant_context(**self.STAFF):
+            services.set_default_fee(fee_bps=6300)  # the seeded default: 37% to the instructor
+            self.assertEqual(services.default_fee_bps(), 6300)
+            InstructorProfile.objects.create(user=self.ana, status="approved", platform_fee_bps=2000)
+            services.set_default_fee(fee_bps=5000)  # a later default change leaves Ana's own fee alone
+        self.buy([self.course])
+        self.assertEqual(self.lines(self.tom), [("sale", "marketplace", 1224)])  # 3499 x 70% x 50%
+        self.assertEqual(self.lines(self.ana), [("sale", "marketplace", 839)])  # 3499 x 30% x 80%
+        with tenant_context(**self.STAFF):
+            services.set_instructor_fee(user_id=self.ana.id, fee_bps=None)  # back to the default
+            self.assertRaises(ServiceError, services.set_instructor_fee, user_id=self.ana.id, fee_bps=10001)
+            Coupon.objects.create(
+                code="ANA50", course=self.solo, percent_off=50, starts_at=timezone.now(), created_by=self.ana
+            )
+        self.buy([self.solo], coupon="ANA50")
+        self.assertIn(("sale", "instructor_coupon", 1696), self.lines(self.ana))  # coupon rate untouched
+        with tenant_context(user_id=self.ana.id):  # the rate is stored on the line: history never changes
+            self.assertEqual(Earning.objects.get(user=self.ana, channel="marketplace").share_bps, 8000)
+
     def test_refund_hold_bundle_minimum_and_approval(self, _s):
         order = self.buy([self.solo])
         self.verify(self.ana)
@@ -110,7 +138,8 @@ class PayoutsTest(SchemaTransactionTestCase):
         self.assertEqual(services.create_payouts(period_end=date(2026, 11, 30), now=now), [])  # still on hold
         with tenant_context(user_id=self.ana.id):
             self.assertEqual(
-                selectors.balance(user_id=self.ana.id), {"available": 0, "pending": 1294, "paid": 0}
+                selectors.balance(user_id=self.ana.id),
+                {"available": 0, "pending": 1294, "paid": 0, "in_payout": 0},
             )
 
         # refund inside the window: a negative line that cancels the sale in the same bundle

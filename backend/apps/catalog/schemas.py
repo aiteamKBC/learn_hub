@@ -92,3 +92,17 @@ class PlaybackOut(Schema):
     url: str | None
     expires_at: int | None
     duration_sec: int
+
+
+class VideoPartOut(Schema):
+    """A named part of a video (a Bunny chapter): from `start` to the next part."""
+
+    title: str
+    start: int
+
+
+class VideoMomentOut(Schema):
+    """A key moment the instructor marked in a video (a Bunny moment)."""
+
+    label: str
+    timestamp: int

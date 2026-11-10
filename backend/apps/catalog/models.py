@@ -127,6 +127,8 @@ class Course(OwnedContent):
     in_subscription = models.BooleanField(default=True)  # included in personal plans
     in_business = models.BooleanField(default=True)  # included in business plans
     cpd_hours = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    language = models.CharField(max_length=10, default="en")  # ISO 639-1 (en, ar, fr...)
+    access_days = models.PositiveIntegerField(null=True, blank=True)  # purchase access; NULL = lifetime
     published_at = models.DateTimeField(null=True, blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
     # Denormalised, refreshed on publish / by jobs: catalog pages never COUNT(*)
@@ -194,6 +196,7 @@ class CourseVersion(OwnedContent):
         CHANGES_REQUESTED = "changes_requested", "Changes requested"
         PUBLISHED = "published", "Published"  # exactly one per course: the live one
         RETIRED = "retired", "Retired"  # previously live, kept as evidence
+        REJECTED = "rejected", "Rejected"  # closed by staff with a reason; never goes live
 
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="versions")
     number = models.PositiveIntegerField()
@@ -201,6 +204,7 @@ class CourseVersion(OwnedContent):
     based_on = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     change_summary = models.TextField(blank=True, max_length=2000)
     requires_recompletion = models.BooleanField(default=False)  # compliance: redo after this publish
+    is_major_change = models.BooleanField(default=False)  # instructor flags it on submit (approvals tab)
     submitted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     submitted_at = models.DateTimeField(null=True, blank=True)
     reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
@@ -263,6 +267,9 @@ class Lecture(OwnedContent):
     min_watch_pct = models.PositiveSmallIntegerField(
         default=90, validators=[MaxValueValidator(100)]
     )  # video counts as complete after this share watched
+    # Learners must finish this lecture first. A lecture_key (stable across versions), and
+    # always an EARLIER lecture of the same version, so there can be no loops.
+    prerequisite_key = models.UUIDField(null=True, blank=True)
 
     class Meta:
         db_table = table(SCHEMA, "lectures")
@@ -509,6 +516,8 @@ class CertificateTemplate(OwnedContent):
     class Status(models.TextChoices):
         ACTIVE = "active", "Active"
         ARCHIVED = "archived", "Archived"
+        PENDING = "pending", "Waiting for approval"  # an instructor's template, before staff approve it
+        REJECTED = "rejected", "Rejected"
 
     name = models.CharField(max_length=120)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.ACTIVE)
@@ -519,6 +528,7 @@ class CertificateTemplate(OwnedContent):
     show_qr_code = models.BooleanField(default=True)  # links to the public verification page
     is_default = models.BooleanField(default=False)
     created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+")
+    decision_reason = models.CharField(max_length=300, blank=True)  # why staff rejected it
 
     class Meta:
         db_table = table(SCHEMA, "certificate_templates")
@@ -552,3 +562,20 @@ class LearningPathItem(OwnedContent):
         db_table = table(SCHEMA, "learning_path_items")
         constraints = [models.UniqueConstraint(fields=["path", "course"], name="uq_path_course")]
         indexes = [models.Index(fields=["path", "position"], name="ix_path_items_order")]
+
+
+# ---------------------------------------------------------------- instructor permissions
+class InstructorPermission(BaseModel):
+    """What staff allow one instructor to do (console > Instructors > Permissions). No row =
+    the defaults below. Enforced by the studio services, never only in the UI."""
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="instructor_permission")
+    can_publish_without_review = models.BooleanField(default=False)
+    can_create_coupons = models.BooleanField(default=True)
+    can_use_drm = models.BooleanField(default=False)
+    can_issue_certificates = models.BooleanField(default=True)
+    max_courses = models.PositiveIntegerField(null=True, blank=True)  # NULL = no limit
+    updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        db_table = table(SCHEMA, "instructor_permissions")

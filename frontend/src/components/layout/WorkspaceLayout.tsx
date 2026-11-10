@@ -1,5 +1,5 @@
 import { Menu as MenuIcon, Search, type LucideIcon } from 'lucide-react'
-import { type ReactNode, useState } from 'react'
+import { type CSSProperties, type ReactNode, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 
 import { Backdrop, type BackdropVariant } from '@/components/art/backdrops'
@@ -9,10 +9,11 @@ import { Input } from '@/components/ui/input'
 import { Logo } from '@/components/ui/logo'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { cn } from '@/lib/cn'
+import { usePageArt } from '@/lib/page-art'
+import { Link, NavLink, useNavigate } from '@/lib/router'
 
 import { NotificationBell } from './NotificationBell'
 import { UserMenu } from './UserMenu'
-import { Link, NavLink } from '@/lib/router'
 
 export type NavItem = { to: string; label: string; Icon: LucideIcon; end?: boolean; badge?: ReactNode }
 export type NavSection = { title?: string; items: NavItem[] }
@@ -58,13 +59,34 @@ function SideNav({ sections, area, onNavigate }: { sections: NavSection[]; area:
   )
 }
 
+/** Header search: submitting goes to the area's own search page (e.g. people). */
+function HeaderSearch({ placeholder, to }: { placeholder: string; to: (q: string) => string }) {
+  const navigate = useNavigate()
+  const [q, setQ] = useState('')
+  return (
+    <form
+      role="search"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (q.trim()) navigate(to(q.trim()))
+      }}
+    >
+      <Input icon={<Search />} value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder} aria-label={placeholder} className="bg-surface-2/60" />
+    </form>
+  )
+}
+
+export type WorkspaceSearch = { placeholder: string; to: (q: string) => string }
+
 /** Instructor, business and admin areas: navy sidebar on desktop, hamburger drawer on
- * phones (approved navigation decision). */
-export function WorkspaceLayout({ area, sections, header, art }: { area: string; sections: NavSection[]; header?: ReactNode; art: BackdropVariant }) {
+ * phones (approved navigation decision). `art` is the area's default artwork; a page can
+ * choose its own with `handle: { art }` in its route. */
+export function WorkspaceLayout({ area, sections, header, art: areaArt, search, style }: { area: string; sections: NavSection[]; header?: ReactNode; art: BackdropVariant; search?: WorkspaceSearch; style?: CSSProperties }) {
   const [open, setOpen] = useState(false)
+  const art = usePageArt(areaArt)
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[256px_1fr]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[256px_1fr]" style={style}>
       <div className="hidden bg-nav lg:block">
         <aside className="vt-sidebar sticky top-0 h-dvh">
           <SideNav sections={sections} area={area} />
@@ -72,17 +94,20 @@ export function WorkspaceLayout({ area, sections, header, art }: { area: string;
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent title={`${area} menu`} side="left" className="border-none bg-nav p-0 [&>div:first-child]:hidden [&>div:last-child]:h-full">
-          <SideNav sections={sections} area={area} onNavigate={() => setOpen(false)} />
+          {/* the drawer renders in a portal, outside the root above: carry the branding over */}
+          <div className="h-full" style={style}>
+            <SideNav sections={sections} area={area} onNavigate={() => setOpen(false)} />
+          </div>
         </DialogContent>
       </Dialog>
 
       <div className="relative isolate flex min-w-0 flex-col">
-        <Backdrop variant={art} height={460} />
+        <Backdrop key={art} variant={art} height={460} className="animate-fade-in" />
         <header className="vt-header sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-border bg-surface/90 px-4 backdrop-blur-md sm:px-6">
           <Button variant="ghost" size="icon" className="-ml-2 lg:hidden" aria-label="Open menu" onClick={() => setOpen(true)}>
             <MenuIcon />
           </Button>
-          <div className="hidden max-w-sm flex-1 sm:block">{header ?? <Input icon={<Search />} placeholder="Search people, courses…" aria-label="Search" className="bg-surface-2/60" />}</div>
+          <div className="hidden min-w-0 max-w-sm flex-1 sm:block">{header ?? (search ? <HeaderSearch {...search} /> : null)}</div>
           <div className="ml-auto flex items-center gap-1">
             <ThemeToggle />
             <NotificationBell />

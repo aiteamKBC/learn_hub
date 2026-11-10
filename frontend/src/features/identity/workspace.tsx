@@ -21,7 +21,8 @@ export function useWorkspace() {
     (orgId: string | null) => {
       setCurrentOrgId(orgId)
       listeners.forEach((l) => l())
-      qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' && q.queryKey[0] !== 'auth-config' })
+      // reset (not just remove): what is on screen loads again for the new space at once
+      void qc.resetQueries({ predicate: (q) => q.queryKey[0] !== 'me' && q.queryKey[0] !== 'auth-config' })
     },
     [qc],
   )

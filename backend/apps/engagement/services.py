@@ -7,12 +7,14 @@ validated updates done in a staff context, never a general permission.
 """
 
 import secrets
+from html import escape
 
 from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
 
 from apps.catalog.models import Course, CourseInstructor
 from apps.learning.models import Enrollment
+from core import html
 from core.errors import ServiceError
 from core.tenancy import tenant_context
 
@@ -253,23 +255,89 @@ def open_ticket(*, user, subject: str, category: str, body: str, org_id=None) ->
     else:
         raise ServiceError("try_again", "Please try again.", status=503)
     TicketMessage.objects.create(ticket=ticket, user=user, author=user, body=_clean(body, 10000))
+    _ticket_opened(ticket, user)
     return ticket
 
 
+def _ticket_opened(ticket: Ticket, requester) -> None:
+    context = {"reference": ticket.reference, "subject": ticket.subject}
+    notify.notify([requester.id], "ticket_opened", context, url=f"/support/{ticket.id}",
+                  dedupe=f"ticket-opened:{ticket.id}")  # fmt: skip
+    notify.notify_staff("staff_ticket_new", {**context, "name": requester.full_name or requester.email},
+                        url=f"/console/communications?ticket={ticket.id}", dedupe=f"staff-ticket:{ticket.id}")  # fmt: skip
+
+
 @transaction.atomic
-def reply(*, ticket: Ticket, author, body: str, internal: bool = False) -> TicketMessage:
-    """The requester or staff. Only staff may write internal notes (RLS enforces it too)."""
+def open_ticket_for(*, user, by, subject: str, category: str, body: str, priority: str = "normal") -> Ticket:
+    """Staff open a ticket for someone (a phone call, an email): the first message is
+    the staff member's, as rich text, and the person is told."""
+    if not by.is_staff:
+        raise ServiceError("forbidden", "Staff only.", status=403)
+    if category not in Ticket.Category.values:
+        raise ServiceError("bad_category", "Choose a category.")
+    if priority not in Ticket.Priority.values:
+        raise ServiceError("bad_priority", "Unknown priority.")
+    text = html.clean(body, 20000)
+    if not subject.strip() or not html.plain(text, 20000).strip():
+        raise ServiceError("required", "Add a subject and a first message.")
+    now = timezone.now()
+    with tenant_context(user_id=by.id, staff=True):
+        for _ in range(5):
+            try:
+                with transaction.atomic():
+                    ticket = Ticket.objects.create(
+                        user=user, reference=_reference(), subject=html.plain(subject, 200), category=category,
+                        priority=priority, last_message_at=now, assigned_to=by,
+                    )  # fmt: skip
+                break
+            except IntegrityError:
+                continue
+        else:
+            raise ServiceError("try_again", "Please try again.", status=503)
+        TicketMessage.objects.create(ticket=ticket, user=user, author=by, body=_clean(text, 10000))
+    notify.notify([user.id], "ticket_opened", {"reference": ticket.reference, "subject": ticket.subject},
+                  url=f"/support/{ticket.id}", dedupe=f"ticket-opened:{ticket.id}")  # fmt: skip
+    return ticket
+
+
+def message_html(body: str) -> str:
+    """A ticket message as safe HTML: staff replies are rich text (cleaned on the way in,
+    and again here); everything else is plain text, escaped with its line breaks kept."""
+    text = body or ""
+    if text.lstrip().startswith("<"):
+        return html.clean(text)
+    return escape(text).replace("\n", "<br>")
+
+
+@transaction.atomic
+def reply(*, ticket: Ticket, author, body: str, internal: bool = False, attachment_id=None) -> TicketMessage:
+    """The requester or staff. Only staff may write internal notes (RLS enforces it too).
+    Staff write rich text (bold, italic, lists, links), cleaned by nh3; requesters write
+    plain text. An attachment must be a finished upload for this ticket."""
     is_staff = author.is_staff
     if not is_staff and (author.id != ticket.user_id or internal):
         raise ServiceError("forbidden", "You cannot post on this ticket.", status=403)
     if ticket.status == Ticket.Status.CLOSED and not is_staff:
         raise ServiceError("closed", "This ticket is closed. Open a new one.")
+    text = html.clean(body, 20000) if is_staff and body.lstrip().startswith("<") else body
+    if not html.plain(text, 20000).strip() and not attachment_id:
+        raise ServiceError("required", "Write a message.")
+    asset = None
+    if attachment_id:
+        from .tickets import claim_attachment
+
+        asset = claim_attachment(ticket=ticket, user=author, asset_id=attachment_id)
     msg = TicketMessage.objects.create(
-        ticket=ticket, user_id=ticket.user_id, author=author, body=_clean(body, 10000), is_internal=internal
-    )
+        ticket=ticket, user_id=ticket.user_id, author=author, body=_clean(text, 10000), is_internal=internal,
+        attachment=asset,
+    )  # fmt: skip
+    context = {"reference": ticket.reference, "subject": ticket.subject}
     if is_staff and not internal:
-        notify.notify([ticket.user_id], "ticket_reply", {"reference": ticket.reference, "subject": ticket.subject},
-                      url=f"/support/{ticket.id}", dedupe=f"ticket-msg:{msg.id}")  # fmt: skip
+        notify.notify([ticket.user_id], "ticket_reply", context, url=f"/support/{ticket.id}",
+                      dedupe=f"ticket-msg:{msg.id}")  # fmt: skip
+    elif not is_staff:
+        notify.notify_staff("staff_ticket_reply", {**context, "name": author.full_name or author.email},
+                            url=f"/console/communications?ticket={ticket.id}", dedupe=f"staff-ticket-msg:{msg.id}")  # fmt: skip
     return msg
 
 
@@ -284,6 +352,9 @@ def set_ticket_status(*, ticket: Ticket, status: str, by) -> None:
         Ticket.objects.filter(pk=ticket.pk).update(
             status=status, updated_at=now, resolved_at=now if status in ("resolved", "closed") else None
         )
+    if status == Ticket.Status.RESOLVED and by.is_staff and ticket.status != status:
+        notify.notify([ticket.user_id], "ticket_resolved", {"reference": ticket.reference, "subject": ticket.subject},
+                      url=f"/support/{ticket.id}", dedupe=f"ticket-resolved:{ticket.id}:{int(now.timestamp())}")  # fmt: skip
 
 
 def assign_ticket(*, ticket: Ticket, agent) -> None:

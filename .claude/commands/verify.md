@@ -2,10 +2,11 @@
 description: Run every check - backend tests, lint, migrations, types, build, E2E, phone overflow
 ---
 Run the full verification and report a short table (check, result, details of failures).
-Run backend commands from `backend/` with the venv's Python, and frontend commands from `frontend/`.
+Stay at the repo root. Run every step through `python tools/run_check.py <name> -- <command> [--cwd backend|frontend]`, so only summaries enter the conversation.
+Start the long steps in the background and wait for them in one blocking call; don't poll.
 
 1. Backend:
-   - `python manage.py test core apps`
+   - `python manage.py test core apps --keepdb --noinput`
    - `ruff check .`
    - `ruff format --check .`
    - `python manage.py makemigrations --check --dry-run`. List any new migration files and whether they only ADD things.

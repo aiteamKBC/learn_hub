@@ -14,6 +14,7 @@ RLS applies; company-private content is only writable inside its company.
 
 from contextlib import contextmanager
 from functools import wraps
+from uuid import UUID
 
 from django.db import connection, transaction
 from django.db.models import Max, Sum
@@ -25,6 +26,7 @@ from core.errors import ServiceError
 
 from .models import (
     Assignment,
+    Category,
     Course,
     CourseInstructor,
     CourseVersion,
@@ -171,8 +173,15 @@ def publish_checklist(version: CourseVersion) -> list[str]:
     )
     if not lectures:
         problems.append("Add at least one lecture.")
+    order = _course_order(version)
     for lec in lectures:
         where = f"'{lec.title}'"
+        # a prerequisite can break later (the other lesson was deleted or moved below this one)
+        if lec.prerequisite_key and (
+            lec.prerequisite_key not in order
+            or order.index(lec.prerequisite_key) > order.index(lec.lecture_key)
+        ):
+            problems.append(f"Lesson {where} needs a prerequisite that comes before it.")
         if lec.kind == Lecture.Kind.VIDEO and (
             lec.video is None or lec.video.status not in (MediaAsset.Status.PLAYABLE, MediaAsset.Status.READY)
         ):
@@ -214,18 +223,26 @@ def create_draft(*, course: Course, by) -> CourseVersion:
     open_version = course.versions.filter(status__in=["draft", "in_review", "changes_requested"]).first()
     if open_version:
         return open_version
-    if course.live_version_id is None:
-        raise ServiceError("no_live_version", "This course has no published version to copy.")
     source = course.live_version
+    if source is None:  # never live: start again from the last version staff rejected
+        source = course.versions.filter(status=CourseVersion.Status.REJECTED).order_by("-number").first()
+    if source is None:
+        raise ServiceError("no_live_version", "This course has no published version to copy.")
     number = (course.versions.aggregate(m=Max("number"))["m"] or 0) + 1
     draft = CourseVersion.objects.create(course=course, number=number, based_on=source)
+    _copy_content(source, draft)
+    return draft
 
+
+def _copy_content(source: CourseVersion, draft: CourseVersion) -> None:
+    """Copy a version's curriculum into an empty draft (lecture keys kept)."""
     section_map = {}
     for sec in source.sections.all():
         section_map[sec.id] = Section.objects.create(
             version=draft, title=sec.title, description=sec.description, position=sec.position
         )
     copy_fields = [
+        "prerequisite_key",
         "kind",
         "title",
         "position",
@@ -253,7 +270,6 @@ def create_draft(*, course: Course, by) -> CourseVersion:
             _copy_quiz(lec.quiz, new_lec)
         if lec.kind == Lecture.Kind.ASSIGNMENT and hasattr(lec, "assignment"):
             _copy_assignment(lec.assignment, new_lec)
-    return draft
 
 
 def _copy_quiz(quiz: Quiz, lecture: Lecture) -> None:
@@ -309,39 +325,95 @@ def _copy_assignment(a: Assignment, lecture: Lecture) -> None:
 
 
 @authored
-def submit(*, version: CourseVersion, by, change_summary: str = "", requires_recompletion: bool = False):
-    """Marketplace courses go to review; platform and company courses publish now."""
+def submit(*, version: CourseVersion, by, change_summary: str = "", requires_recompletion: bool = False,
+           is_major_change: bool = False):  # fmt: skip
+    """Marketplace courses go to review; platform and company courses publish now.
+    `is_major_change` (the instructor's own flag) puts an update in the "Course changes
+    (major)" approvals tab; a first release is never a change."""
     _editable(version)
     if problems := publish_checklist(version):
         raise ServiceError("not_ready", "The course is not ready to publish.", details=problems)
     version.change_summary = change_summary
     version.requires_recompletion = requires_recompletion
+    version.is_major_change = bool(is_major_change and version.course.live_version_id)
     version.submitted_by, version.submitted_at = by, timezone.now()
     if version.course.ownership == Course.Ownership.INSTRUCTOR:
         version.status = CourseVersion.Status.IN_REVIEW
         version.save()
+        _tell_staff("staff_course_submitted", {"course": version.course.title,
+                                               "name": by.full_name or by.email.split("@")[0]},
+                    url=f"/console/approvals?item={version.id}", dedupe=f"submitted:{version.id}")  # fmt: skip
         return version
     version.save()
     return _publish(version)
 
 
+def _in_review(version: CourseVersion, verb: str) -> CourseVersion:
+    """Lock the version row, so two reviewers can't decide the same submission twice."""
+    locked = CourseVersion.objects.select_for_update().select_related("course").get(pk=version.pk)
+    if locked.status != CourseVersion.Status.IN_REVIEW:
+        raise ServiceError("not_in_review", f"Only versions in review can be {verb}.")
+    return locked
+
+
 @authored
 def approve(*, version: CourseVersion, reviewer, notes: str = "") -> CourseVersion:
-    if version.status != CourseVersion.Status.IN_REVIEW:
-        raise ServiceError("not_in_review", "Only versions in review can be approved.")
+    version = _in_review(version, "approved")
     version.reviewed_by, version.reviewed_at, version.review_notes = reviewer, timezone.now(), notes
     version.save()
-    return _publish(version)
+    version = _publish(version)
+    _tell_instructors(version.course, "course_approved", {"course": version.course.title},
+                      url=f"/studio/courses/{version.course_id}", dedupe=f"approved:{version.id}")  # fmt: skip
+    return version
 
 
 @authored
 def request_changes(*, version: CourseVersion, reviewer, notes: str) -> CourseVersion:
-    if version.status != CourseVersion.Status.IN_REVIEW:
-        raise ServiceError("not_in_review", "Only versions in review can be sent back.")
+    if not notes.strip():
+        raise ServiceError("notes_required", "Tell the instructor what to change.")
+    version = _in_review(version, "sent back")
     version.status = CourseVersion.Status.CHANGES_REQUESTED
     version.reviewed_by, version.reviewed_at, version.review_notes = reviewer, timezone.now(), notes
     version.save()
+    _tell_instructors(version.course, "course_changes_requested", {"course": version.course.title, "notes": notes},
+                      url=f"/studio/courses/{version.course_id}/publish", dedupe=f"changes:{version.id}")  # fmt: skip
     return version
+
+
+@authored
+def reject(*, version: CourseVersion, reviewer, reason: str) -> CourseVersion:
+    """Close a submission for good (it never goes live). The live version, if any, stays;
+    the instructor can start a new draft later."""
+    if len(reason.strip()) < 3:
+        raise ServiceError("reason_required", "Give the instructor a reason.")
+    version = _in_review(version, "rejected")
+    version.status = CourseVersion.Status.REJECTED
+    version.reviewed_by, version.reviewed_at, version.review_notes = reviewer, timezone.now(), reason
+    version.save()
+    _tell_instructors(version.course, "course_rejected", {"course": version.course.title, "reason": reason},
+                      url=f"/studio/courses/{version.course_id}/publish", dedupe=f"rejected:{version.id}")  # fmt: skip
+    return version
+
+
+# ---------------------------------------------------------------- notifications (engagement, imported late)
+def instructor_ids(course) -> list:
+    return list(
+        CourseInstructor.objects.filter(course=course, can_edit=True).values_list("user_id", flat=True)
+    )
+
+
+def _tell_instructors(course, code: str, context: dict, *, url: str, dedupe: str) -> None:
+    if course.ownership != Course.Ownership.INSTRUCTOR:
+        return  # platform and company courses have no marketplace instructor to tell
+    from apps.engagement import notify
+
+    notify.notify(instructor_ids(course), code, context, url=url, dedupe=dedupe)
+
+
+def _tell_staff(code: str, context: dict, *, url: str, dedupe: str) -> None:
+    from apps.engagement import notify
+
+    notify.notify_staff(code, context, url=url, dedupe=dedupe)
 
 
 def _publish(version: CourseVersion) -> CourseVersion:
@@ -364,6 +436,10 @@ def _publish(version: CourseVersion) -> CourseVersion:
 
 # ---------------------------------------------------------------- editing (studio)
 COURSE_TEXT = {"title": 160, "subtitle": 240}
+# Course languages offered in the editors (ISO 639-1); the label is for people.
+LANGUAGES = {"en": "English (UK)", "ar": "Arabic", "fr": "French", "de": "German", "es": "Spanish",
+             "it": "Italian", "pt": "Portuguese", "nl": "Dutch", "pl": "Polish", "tr": "Turkish",
+             "ur": "Urdu", "hi": "Hindi", "zh": "Chinese"}  # fmt: skip
 
 
 @authored
@@ -382,6 +458,20 @@ def update_course(*, course: Course, **changes) -> Course:
         if url and not url.startswith("https://"):
             raise ServiceError("bad_url", "Images must use https://")
         course.thumbnail_url = url
+    for field in ("outcomes", "requirements"):  # short plain-text bullet lists
+        if field in changes:
+            items = [html.plain(v, 200).strip() for v in changes.pop(field) or []]
+            setattr(course, field, [v for v in items if v][:20])
+    if "language" in changes:
+        lang = (changes.pop("language") or "").strip().lower()
+        if lang not in LANGUAGES:
+            raise ServiceError("bad_language", "Choose a language from the list.")
+        course.language = lang
+    if "access_days" in changes:
+        days = changes.pop("access_days")
+        if days is not None and not 1 <= int(days) <= 3650:
+            raise ServiceError("bad_access", "Access lasts 1 to 3,650 days, or for life.")
+        course.access_days = days
     for field in ("level", "category_id", "cpd_hours", "in_subscription", "in_business"):
         if field in changes:
             setattr(course, field, changes.pop(field))
@@ -436,8 +526,29 @@ def delete_section(*, section: Section) -> None:
     section.delete()
 
 
+def _course_order(version) -> list:
+    """Lecture keys in the order learners meet them."""
+    return list(
+        Lecture.objects.filter(version=version)
+        .order_by("section__position", "position")
+        .values_list("lecture_key", flat=True)
+    )
+
+
+def _check_prerequisite(lecture: Lecture, key) -> None:
+    order = _course_order(lecture.version)
+    key = UUID(str(key))
+    if key == lecture.lecture_key:
+        raise ServiceError("bad_prerequisite", "A lesson can't be its own prerequisite.")
+    if key not in order:
+        raise ServiceError("bad_prerequisite", "Pick a lesson from this course.")
+    if order.index(key) > order.index(lecture.lecture_key):
+        raise ServiceError("bad_prerequisite", "The prerequisite must come before this lesson.")
+
+
 LECTURE_FIELDS = {"title", "body", "is_preview", "is_required", "duration_sec", "external_url", "live_starts_at",
-                  "live_duration_min", "live_join_url", "min_watch_pct", "video_id", "section_id"}  # fmt: skip
+                  "live_duration_min", "live_join_url", "min_watch_pct", "video_id", "section_id",
+                  "prerequisite_key"}  # fmt: skip
 
 
 @authored
@@ -458,6 +569,8 @@ def update_lecture(*, lecture: Lecture, **changes) -> Lecture:
         if asset is None:
             raise ServiceError("bad_video", "That video does not exist.")
         changes.setdefault("duration_sec", asset.duration_sec)
+    if changes.get("prerequisite_key"):
+        _check_prerequisite(lecture, changes["prerequisite_key"])
     if "section_id" in changes:
         target = Section.objects.filter(pk=changes["section_id"], version=lecture.version).first()
         if target is None:
@@ -538,3 +651,159 @@ def update_assignment(*, assignment: Assignment, **changes) -> Assignment:
         raise ServiceError("bad_score", "The pass mark cannot exceed the maximum score.")
     assignment.save()
     return assignment
+
+
+# ---------------------------------------------------------------- staff (console > Courses)
+# Listing changes made by platform staff. Each one is audited by the console API and, for
+# marketplace courses, tells the instructors (section N of the M5 brief).
+def _stamp() -> int:
+    return int(timezone.now().timestamp())
+
+
+@authored
+def staff_publish(*, course: Course) -> Course:
+    """List a course that has a live version (a new course must pass review first).
+    Also relists an unpublished or archived course."""
+    course = Course.objects.select_for_update().get(pk=course.pk, deleted_at__isnull=True)
+    if course.live_version_id is None:
+        raise ServiceError("no_live_version", f'"{course.title}" has no approved version to publish yet.')
+    if course.status != Course.Status.PUBLISHED:
+        was_hidden = course.status in (Course.Status.UNLISTED, Course.Status.ARCHIVED)
+        course.status = Course.Status.PUBLISHED
+        course.published_at = course.published_at or timezone.now()
+        course.save(update_fields=["status", "published_at", "updated_at"])
+        if was_hidden:
+            _tell_instructors(course, "course_relisted", {"course": course.title}, url=f"/studio/courses/{course.id}",
+                              dedupe=f"relisted:{course.id}:{_stamp()}")  # fmt: skip
+    return course
+
+
+@authored
+def staff_unpublish(*, course: Course, reason: str) -> Course:
+    """Off the marketplace (unlisted); learners who have it keep access."""
+    if len(reason.strip()) < 3:
+        raise ServiceError("reason_required", "Give a reason for unpublishing.")
+    course = Course.objects.select_for_update().get(pk=course.pk, deleted_at__isnull=True)
+    if course.status != Course.Status.PUBLISHED:
+        raise ServiceError("not_published", f'"{course.title}" is not published.')
+    course.status = Course.Status.UNLISTED
+    course.save(update_fields=["status", "updated_at"])
+    _tell_instructors(course, "course_unpublished", {"course": course.title, "reason": reason},
+                      url=f"/studio/courses/{course.id}", dedupe=f"unpublished:{course.id}:{_stamp()}")  # fmt: skip
+    return course
+
+
+@authored
+def staff_archive(*, course: Course) -> Course:
+    """Hidden everywhere except for learners who already have it. Publishing relists it."""
+    course = Course.objects.select_for_update().get(pk=course.pk, deleted_at__isnull=True)
+    course.status = Course.Status.ARCHIVED
+    course.save(update_fields=["status", "updated_at"])
+    return course
+
+
+@authored
+def staff_delete(*, course: Course) -> Course:
+    """Soft delete (deleted_at): the row and its history stay. Refused while anyone is
+    enrolled: archive the course instead."""
+    from apps.learning.models import Enrollment
+
+    course = Course.objects.select_for_update().get(pk=course.pk, deleted_at__isnull=True)
+    if Enrollment.objects.filter(course=course).exclude(status=Enrollment.Status.REVOKED).exists():
+        raise ServiceError("has_learners", f'"{course.title}" has learners. Archive it instead.')
+    course.deleted_at = timezone.now()
+    if course.status == Course.Status.PUBLISHED:
+        course.status = Course.Status.ARCHIVED
+    course.save(update_fields=["deleted_at", "status", "updated_at"])
+    return course
+
+
+@authored
+def staff_set_category(*, course_ids: list, category_id) -> int:
+    return Course.objects.filter(pk__in=course_ids, deleted_at__isnull=True).update(
+        category_id=category_id, updated_at=timezone.now()
+    )
+
+
+@authored
+def duplicate(*, course: Course) -> Course:
+    """A draft copy: same details, owners and curriculum (from the live version, or the
+    newest one), a new slug, never listed until it is published."""
+    import secrets
+
+    from django.utils.text import slugify
+
+    title = f"Copy of {course.title}"[:160]
+    copy = Course.objects.create(
+        title=title, slug=f"{slugify(title)[:100] or 'course'}-{secrets.token_hex(3)}", ownership=course.ownership,
+        owner_org_id=course.owner_org_id, created_by_id=course.created_by_id, category_id=course.category_id,
+        subtitle=course.subtitle, description=course.description, level=course.level, outcomes=course.outcomes,
+        requirements=course.requirements, target_audience=course.target_audience, thumbnail_url=course.thumbnail_url,
+        certificate_template_id=course.certificate_template_id, is_free=course.is_free,
+        in_subscription=course.in_subscription, in_business=course.in_business, cpd_hours=course.cpd_hours,
+        language=course.language, access_days=course.access_days,
+    )  # fmt: skip
+    CourseInstructor.objects.bulk_create(
+        CourseInstructor(course=copy, user_id=link.user_id, revenue_share_bps=link.revenue_share_bps,
+                         can_edit=link.can_edit, is_visible=link.is_visible, position=link.position)
+        for link in CourseInstructor.objects.filter(course=course)
+    )  # fmt: skip
+    draft = CourseVersion.objects.create(course=copy, number=1)
+    source = course.live_version or course.versions.order_by("-number").first()
+    if source is not None:
+        _copy_content(source, draft)
+    return copy
+
+
+# ---------------------------------------------------------------- categories (console)
+def _category_fields(name: str, icon: str) -> tuple[str, str]:
+    name = html.plain(name, 120).strip()
+    if len(name) < 2:
+        raise ServiceError("name_short", "The name needs at least 2 characters.")
+    icon = (icon or "").strip()[:48]
+    if icon and not all(ch.isalnum() or ch == "-" for ch in icon):
+        raise ServiceError("bad_icon", "Icon names use letters, numbers and dashes.")
+    return name, icon
+
+
+def create_category(*, name: str, icon: str = "", parent_id=None) -> Category:
+    import secrets
+
+    from django.utils.text import slugify
+
+    name, icon = _category_fields(name, icon)
+    last = Category.objects.filter(parent_id=parent_id).aggregate(m=Max("sort_order"))["m"]
+    slug = slugify(name)[:70] or "category"
+    if Category.objects.filter(slug=slug).exists():
+        slug = f"{slug}-{secrets.token_hex(2)}"
+    return Category.objects.create(
+        name=name, icon=icon, parent_id=parent_id, slug=slug, sort_order=(last or 0) + 1
+    )
+
+
+def update_category(*, category: Category, name: str | None = None, icon: str | None = None,
+                    is_active: bool | None = None) -> Category:  # fmt: skip
+    if name is not None or icon is not None:
+        category.name, category.icon = _category_fields(name if name is not None else category.name,
+                                                        icon if icon is not None else category.icon)  # fmt: skip
+    if is_active is not None:
+        category.is_active = is_active
+    category.save()
+    return category
+
+
+def reorder_categories(*, ids: list) -> None:
+    """A new order for one level of categories (top level, or one parent's children)."""
+    ids = [str(i) for i in ids]
+    parents = set(Category.objects.filter(pk__in=ids).values_list("parent_id", flat=True))
+    if len(parents) != 1 or len(ids) != len(set(ids)):
+        raise ServiceError("bad_order", "Send the categories of one level, each once.")
+    siblings = {str(i) for i in Category.objects.filter(parent_id=parents.pop()).values_list("id", flat=True)}
+    if set(ids) != siblings:
+        raise ServiceError("bad_order", "Send every category of that level exactly once.")
+    with connection.cursor() as cur:
+        cur.execute(
+            "UPDATE catalog.categories AS t SET sort_order = o.pos, updated_at = now() "
+            "FROM unnest(%s::uuid[]) WITH ORDINALITY AS o(id, pos) WHERE t.id = o.id",
+            [ids],
+        )

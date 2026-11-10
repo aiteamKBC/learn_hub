@@ -17,7 +17,7 @@ export function DialogContent({ title, description, children, className, side }:
           'fixed z-50 bg-surface shadow-lg focus:outline-none',
           side
             ? cn('inset-y-0 flex w-[min(320px,86vw)] flex-col', side === 'left' ? 'left-0 animate-slide-in-left border-r border-border data-[state=closed]:animate-slide-out-left' : 'right-0 animate-slide-in-right border-l border-border data-[state=closed]:animate-slide-out-right')
-            : 'top-1/2 left-1/2 w-[min(520px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 animate-pop-in rounded-xl data-[state=closed]:animate-pop-out border border-border p-6',
+            : 'top-1/2 left-1/2 w-[calc(100vw-32px)] max-w-[640px] max-h-[calc(100dvh-32px)] overflow-y-auto -translate-x-1/2 -translate-y-1/2 animate-pop-in rounded-xl data-[state=closed]:animate-pop-out border border-border p-6',
           className,
         )}
       >

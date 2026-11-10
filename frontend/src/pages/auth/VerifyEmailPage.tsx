@@ -1,9 +1,10 @@
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { useVerifyEmail } from '@/features/identity/auth'
+import { pendingInvite } from '@/lib/next'
 
 import { AuthShell } from './AuthShell'
 import { Link } from '@/lib/router'
@@ -12,6 +13,7 @@ import { Link } from '@/lib/router'
 export function VerifyEmailPage() {
   const { key = '' } = useParams()
   const verify = useVerifyEmail()
+  const [invite] = useState(pendingInvite)
   const sent = useRef(false)
   useEffect(() => {
     if (!sent.current) {
@@ -30,7 +32,11 @@ export function VerifyEmailPage() {
             <CheckCircle2 className="mx-auto size-10 text-success" />
             <p className="mt-3 font-medium">Your email is confirmed.</p>
             <Button className="mt-5" asChild>
-              <Link to={verify.data ? '/learn' : '/login'}>{verify.data ? 'Start learning' : 'Log in'}</Link>
+              {invite ? (
+                <Link to={verify.data ? invite : `/login?next=${encodeURIComponent(invite)}`}>Continue to your invitation</Link>
+              ) : (
+                <Link to={verify.data ? '/learn' : '/login'}>{verify.data ? 'Start learning' : 'Log in'}</Link>
+              )}
             </Button>
           </>
         ) : (

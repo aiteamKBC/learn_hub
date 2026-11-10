@@ -76,8 +76,13 @@ class MatrixRow(Schema):
     cells: dict[str, Cell]  # requirement_id -> cell
 
 
+class MatrixRequirement(Schema):
+    id: UUID
+    name: str
+
+
 class MatrixOut(Schema):
-    requirements: list[dict]
+    requirements: list[MatrixRequirement]
     rows: list[MatrixRow]
     next_cursor: str | None
 
@@ -99,6 +104,97 @@ class ManualIn(Schema):
 
 class VoidIn(Schema):
     reason: str = Field(..., min_length=3, max_length=300)
+
+
+class ExtendOut(Schema):
+    status: str
+    due_at: datetime | None
+
+
+class ExemptionCreatedOut(Schema):
+    exemption_id: UUID
+
+
+class RecordCreatedOut(Schema):
+    record_id: UUID
+
+
+class ReminderOut(Schema):
+    reminder_id: UUID
+
+
+# ---------------------------------------------------------------- one person
+class NamedRef(Schema):
+    id: UUID
+    name: str
+
+
+class PersonStatusOut(Schema):
+    status_id: UUID
+    requirement_id: UUID
+    name: str
+    course_title: str
+    status: str
+    due_at: datetime | None
+    completed_at: datetime | None
+    expires_at: datetime | None
+    due_override_at: datetime | None
+
+
+class PersonRecordOut(Schema):
+    id: UUID
+    requirement_id: UUID
+    requirement: str
+    source: str
+    completed_at: datetime
+    expires_at: datetime | None
+    note: str
+    voided: bool
+    void_reason: str
+    recorded_by: str | None
+
+
+class PersonExemptionOut(Schema):
+    id: UUID
+    requirement_id: UUID
+    requirement: str
+    reason: str
+    starts_at: datetime
+    ends_at: datetime | None
+    revoked_at: datetime | None
+    granted_by: str
+
+
+class PersonCourseOut(Schema):
+    course_title: str
+    status: str
+    progress_pct: float
+    enrolled_at: datetime
+    completed_at: datetime | None
+
+
+class PersonCertificateOut(Schema):
+    id: UUID
+    course_title: str
+    issued_at: datetime
+    code: str
+
+
+class CompliancePersonOut(Schema):
+    member_id: UUID
+    name: str
+    email: str
+    role: str
+    job_title: str
+    employee_ref: str
+    joined_at: datetime
+    units: list[NamedRef]
+    job_roles: list[NamedRef]
+    requirements: list[PersonStatusOut]
+    records: list[PersonRecordOut]
+    exemptions: list[PersonExemptionOut]
+    courses: list[PersonCourseOut]
+    certificates: list[PersonCertificateOut]
 
 
 class MyRequirement(Schema):
@@ -146,6 +242,7 @@ class DashboardOut(Schema):
     ok: int
     overdue: int
     expired: int
+    people_overdue: int  # people with at least one overdue or expired requirement
     expiring_30: int
     due_30: int
     learning: LearningActivityOut

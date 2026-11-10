@@ -17,6 +17,7 @@ from django.utils import timezone
 from ninja import Router
 
 from apps.catalog.models import Course
+from apps.identity.schemas import OkOut
 from apps.learning import services as learning
 from apps.learning.models import Enrollment
 from apps.platform.services import audit_request, has_feature
@@ -29,8 +30,12 @@ from . import services
 from .models import Invite, JobRole, MemberJobRole, MemberUnit, Organization, OrgBranding, OrgMember, OrgUnit
 from .schemas import (
     AssignIn,
+    AssignmentRow,
+    AssignOut,
     AuditPage,
     BrandingIn,
+    InvitationOut,
+    InviteAcceptOut,
     InviteIn,
     InviteOut,
     JobRoleIn,
@@ -61,7 +66,7 @@ def company(request):
             "accent_color": brand.accent_color if brand else ""}  # fmt: skip
 
 
-@router.put("/company/branding")
+@router.put("/company/branding", response=OkOut)
 def set_branding(request, body: BrandingIn):
     scope = org_scope(request, OrgRole.ADMIN)
     if body.logo_url and not body.logo_url.startswith("https://"):
@@ -74,11 +79,14 @@ def set_branding(request, body: BrandingIn):
 # ---------------------------------------------------------------- units
 @router.get("/units", response=list[UnitOut])
 def units(request):
-    """The whole tree in 2 queries (managers see it too, to navigate their part)."""
+    """The tree in 2 queries: the whole company for admins, only the units they manage
+    (and everything below) for managers."""
     scope = org_scope(request, OrgRole.MANAGER)
+    rows = OrgUnit.objects.filter(org_id=scope.org_id, archived_at__isnull=True)
+    if scope.unit_paths is not None:
+        rows = rows.filter(path__descendant_of_any=list(scope.unit_paths))
     rows = (
-        OrgUnit.objects.filter(org_id=scope.org_id, archived_at__isnull=True)
-        .annotate(
+        rows.annotate(
             people=Count(
                 "member_links", filter=Q(member_links__member__removed_at__isnull=True), distinct=True
             )
@@ -87,7 +95,8 @@ def units(request):
         .order_by("path")
     )
     return [{"id": u.id, "parent_id": u.parent_id, "kind": u.kind, "name": u.name, "code": u.code, "depth": u.depth,
-             "people": u.people, "managers": [m.member.user.full_name for m in u.manager_links.all()]}
+             "people": u.people, "managers": [m.member.user.full_name for m in u.manager_links.all()],
+             "manager_ids": [m.member_id for m in u.manager_links.all()]}
             for u in rows]  # fmt: skip
 
 
@@ -99,10 +108,10 @@ def create_unit(request, body: UnitIn):
         raise ServiceError("bad_kind", "Choose region, site, department or team.")
     u = services.create_unit(parent=parent, kind=body.kind, name=body.name.strip(), code=body.code.strip())
     audit_request(request, "unit.create", "unit", u.id, {"name": u.name})
-    return {**u.__dict__, "people": 0, "managers": []}
+    return {**u.__dict__, "people": 0, "managers": [], "manager_ids": []}
 
 
-@router.patch("/units/{unit_id}")
+@router.patch("/units/{unit_id}", response=OkOut)
 def update_unit(request, unit_id: str, body: UnitPatch):
     scope = org_scope(request, OrgRole.ADMIN)
     unit = get_object_or_404(OrgUnit, pk=unit_id, org_id=scope.org_id, archived_at__isnull=True)
@@ -115,7 +124,7 @@ def update_unit(request, unit_id: str, body: UnitPatch):
     return {"ok": True}
 
 
-@router.delete("/units/{unit_id}")
+@router.delete("/units/{unit_id}", response=OkOut)
 def archive_unit(request, unit_id: str):
     scope = org_scope(request, OrgRole.ADMIN)
     unit = get_object_or_404(OrgUnit, pk=unit_id, org_id=scope.org_id, archived_at__isnull=True)
@@ -127,7 +136,7 @@ def archive_unit(request, unit_id: str):
     return {"ok": True}
 
 
-@router.put("/units/{unit_id}/managers")
+@router.put("/units/{unit_id}/managers", response=OkOut)
 def set_managers(request, unit_id: str, body: ManagersIn):
     scope = org_scope(request, OrgRole.ADMIN)
     unit = get_object_or_404(OrgUnit, pk=unit_id, org_id=scope.org_id, archived_at__isnull=True)
@@ -162,7 +171,7 @@ def create_job_role(request, body: JobRoleIn):
     return {**r.__dict__, "people": 0}
 
 
-@router.patch("/job-roles/{role_id}")
+@router.patch("/job-roles/{role_id}", response=OkOut)
 def rename_job_role(request, role_id: str, body: JobRoleIn):
     scope = org_scope(request, OrgRole.ADMIN)
     JobRole.objects.filter(pk=role_id, org_id=scope.org_id).update(name=body.name.strip(), code=body.code.strip(),
@@ -170,7 +179,7 @@ def rename_job_role(request, role_id: str, body: JobRoleIn):
     return {"ok": True}
 
 
-@router.delete("/job-roles/{role_id}")
+@router.delete("/job-roles/{role_id}", response=OkOut)
 def archive_job_role(request, role_id: str):
     scope = org_scope(request, OrgRole.ADMIN)
     role = get_object_or_404(JobRole, pk=role_id, org_id=scope.org_id, archived_at__isnull=True)
@@ -187,7 +196,7 @@ def people(request, q: str | None = None, unit_id: str | None = None, job_role_i
            role: str | None = None, cursor: str | None = None, limit: int = 50):  # fmt: skip
     """People in scope with their compliance counts: 4 queries for any page size."""
     from apps.compliance.models import MemberStatus
-    from apps.compliance.selectors import scoped_members
+    from apps.compliance.selectors import after_name, scoped_members
 
     scope = org_scope(request, OrgRole.MANAGER)
     limit = max(1, min(limit, 200))
@@ -195,10 +204,8 @@ def people(request, q: str | None = None, unit_id: str | None = None, job_role_i
     qs = scoped_members(scope, unit=unit, q=q, job_role_id=job_role_id).select_related("user")
     if role:
         qs = qs.filter(role=role)
-    after = keyset.decode(cursor, 1)
-    if after:
-        qs = qs.filter(id__gt=after[0])
-    rows = list(qs.order_by("id")[: limit + 1])
+    qs = after_name(qs.order_by("user__full_name", "id"), keyset.decode(cursor, 2))  # alphabetical
+    rows = list(qs[: limit + 1])
     page = rows[:limit]
     ids = [m.id for m in page]
     units, roles = {}, {}
@@ -230,10 +237,13 @@ def people(request, q: str | None = None, unit_id: str | None = None, job_role_i
          **{k: counts.get(m.id, {}).get(k, 0) for k in ("overdue", "expiring", "compliant", "total")}}
         for m in page
     ]  # fmt: skip
-    return {"items": items, "next_cursor": keyset.encode(page[-1].id) if len(rows) > limit else None}
+    return {
+        "items": items,
+        "next_cursor": keyset.encode(page[-1].user.full_name, page[-1].id) if len(rows) > limit else None,
+    }
 
 
-@router.patch("/people/{member_id}")
+@router.patch("/people/{member_id}", response=OkOut)
 @transaction.atomic
 def update_person(request, member_id: str, body: MemberPatch):
     scope = org_scope(request, OrgRole.ADMIN)
@@ -270,7 +280,7 @@ def update_person(request, member_id: str, body: MemberPatch):
     return {"ok": True}
 
 
-@router.delete("/people/{member_id}")
+@router.delete("/people/{member_id}", response=OkOut)
 def remove_person(request, member_id: str):
     scope = org_scope(request, OrgRole.ADMIN)
     member = get_object_or_404(OrgMember, pk=member_id, org_id=scope.org_id, removed_at__isnull=True)
@@ -311,7 +321,7 @@ def create_invite(request, body: InviteIn):
     return inv
 
 
-@router.delete("/invites/{invite_id}")
+@router.delete("/invites/{invite_id}", response=OkOut)
 def revoke_invite(request, invite_id: str):
     scope = org_scope(request, OrgRole.ADMIN)
     services.revoke_invite(invite=get_object_or_404(Invite, pk=invite_id, org_id=scope.org_id))
@@ -319,16 +329,16 @@ def revoke_invite(request, invite_id: str):
     return {"ok": True}
 
 
-@router.get("/invitations/{token}", auth=None)
+@router.get("/invitations/{token}", auth=None, response=InvitationOut)
 def invitation(request, token: str):
     """The accept page, before signing in: which company invited you (nothing else)."""
     info = services.invite_preview(token[:100])
     if info is None:
         raise ServiceError("invite_invalid", "This invitation is no longer valid.", status=404)
-    return {"org_name": info["org_name"]}
+    return {"org_name": info["org_name"], "role": info["role"]}
 
 
-@router.post("/invitations/{token}/accept")
+@router.post("/invitations/{token}/accept", response=InviteAcceptOut)
 def accept(request, token: str):
     member = services.accept_invite(token=token[:100], user=request.user)
     return {"org_id": member.org_id}
@@ -368,7 +378,7 @@ def library(request, q: str | None = None, source: str | None = None):
              "assigned": c.assigned, "completed": c.completed} for c in qs]  # fmt: skip
 
 
-@router.post("/assign")
+@router.post("/assign", response=AssignOut)
 def assign(request, body: AssignIn):
     """Give a course to people and/or whole units (including sub-units). Managers can
     assign inside their own units; admins anywhere."""
@@ -387,6 +397,15 @@ def assign(request, body: AssignIn):
         user_ids |= set(scoped_members(scope, unit=unit).values_list("user_id", flat=True))
     if not user_ids:
         raise ServiceError("nobody", "Choose at least one person or unit.")
+    if body.dry_run:  # the confirm step: exact counts, nothing written
+        had = (
+            Enrollment.objects.filter(org_id=scope.org_id, course=course, user_id__in=user_ids)
+            .exclude(status="superseded")
+            .values("user_id")
+            .distinct()
+            .count()
+        )
+        return {"enrolled": len(user_ids) - had, "already_had_it": had}
     new = learning.assign_to_members(
         org_id=scope.org_id, course=course, user_ids=list(user_ids), assigned_by=request.user
     )
@@ -398,7 +417,7 @@ def assign(request, body: AssignIn):
     return {"enrolled": len(new), "already_had_it": len(user_ids) - len(new)}
 
 
-@router.get("/assignments")
+@router.get("/assignments", response=list[AssignmentRow])
 def assignments(request, course_id: str):
     """Who has this company course and how far they are (manager scope applies)."""
     from apps.compliance.selectors import scoped_members

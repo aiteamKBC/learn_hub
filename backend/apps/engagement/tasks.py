@@ -25,6 +25,13 @@ def send_announcement_task(announcement_id: str) -> int:
     return services.send_announcement(announcement_id)
 
 
+@shared_task(name="engagement.email_broadcast", autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+def email_broadcast_task(broadcast_id: str) -> int:
+    from .broadcasts import email_broadcast
+
+    return email_broadcast(broadcast_id)
+
+
 @shared_task(name="engagement.award_badges")
 def award_badges_task(user_id: str) -> list:
     return services.award_badges(user_id)

@@ -3,6 +3,7 @@ is faked (at the gateway). These are the calls the React app makes."""
 
 from unittest import mock
 
+from django.core.cache import cache
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
@@ -112,6 +113,29 @@ class CatalogApiTest(ApiBase):
 
 
 class CommerceApiTest(ApiBase):
+    def test_thank_you_page_completes_a_paid_order_without_the_webhook(self):
+        self.login(self.sara)
+        with mock.patch("apps.commerce.gateway.create_checkout_session", side_effect=fake_session):
+            order = self.post(
+                "/commerce/checkout", {"course_ids": [str(self.django.id)], "currency": "GBP"}
+            ).json()
+        path = f"/commerce/orders/{order['order_id']}"
+        paid = {"id": "cs_1", "payment_status": "paid", "payment_intent": "pi_9", "amount_total": 3499,
+                "currency": "gbp", "metadata": {"kind": "order", "id": order["order_id"]}}  # fmt: skip
+        cache.clear()
+        with mock.patch(
+            "apps.commerce.gateway.retrieve_checkout_session", return_value={**paid, "amount_total": 1}
+        ):
+            self.assertEqual(self.get(path).json()["status"], "pending")  # a wrong amount is refused
+        cache.clear()
+        with mock.patch("apps.commerce.gateway.retrieve_checkout_session", return_value=paid) as stripe_call:
+            self.assertEqual(self.get(path).json()["status"], "paid")
+            self.assertEqual(self.get(path).json()["status"], "paid")  # no second Stripe call once paid
+        self.assertEqual(stripe_call.call_count, 1)
+        self.assertEqual(
+            [c["slug"] for c in self.get("/learning/my/courses").json()["items"]], ["django-apis"]
+        )
+
     def test_cart_coupon_checkout_webhook_and_refund(self):
         self.login(self.sara)
         self.post("/commerce/cart", {"course_id": str(self.django.id)})
@@ -131,7 +155,9 @@ class CommerceApiTest(ApiBase):
                                                  "price": 1})  # a price from the browser is ignored  # fmt: skip
         order = r.json()
         self.assertEqual((order["status"], order["total_minor"]), ("pending", 3499))
-        self.assertEqual(self.get(f"/commerce/orders/{order['order_id']}").json()["status"], "pending")
+        unpaid = {"payment_status": "unpaid", "metadata": {}}
+        with mock.patch("apps.commerce.gateway.retrieve_checkout_session", return_value=unpaid):
+            self.assertEqual(self.get(f"/commerce/orders/{order['order_id']}").json()["status"], "pending")
         self.assertEqual(self.get("/learning/my/courses").json()["items"], [])  # not until paid
         with tenant_context(user_id=self.staff.id, staff=True):
             shop.fulfil_order(
@@ -215,6 +241,15 @@ class PlayerApiTest(ApiBase):
                                                                   "body": "Remember this"}).json()  # fmt: skip
         self.assertEqual(len(self.get(f"/learning/enrollments/{enrol}/notes").json()), 1)
 
+        def patch(body):
+            return self.client.patch(
+                f"{API}/learning/notes/{note['id']}", body, content_type="application/json"
+            )
+
+        self.assertEqual(patch({"timestamp_sec": 75}).json()["timestamp_sec"], 75)  # moved to another moment
+        self.assertEqual(patch({"clear_timestamp": True}).json()["timestamp_sec"], None)
+        self.assertEqual(patch({"body": " Edited "}).json()["body"], "Edited")
+
         # nobody else can play, submit, or delete notes on Sara's enrolment
         self.login(self.omar)
         self.assertEqual(self.get(f"/learning/enrollments/{enrol}").status_code, 404)
@@ -222,6 +257,7 @@ class PlayerApiTest(ApiBase):
             self.post(f"/learning/attempts/{attempt['id']}/submit", {"answers": {}}).status_code, 404
         )
         self.assertEqual(self.client.delete(f"{API}/learning/notes/{note['id']}").status_code, 404)
+        self.assertEqual(patch({"timestamp_sec": 1}).status_code, 404)
 
         # finish the course: the instructor grades the assignment and the video is watched
         from apps.learning import services as learning

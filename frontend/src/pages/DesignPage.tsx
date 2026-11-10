@@ -243,7 +243,7 @@ export function DesignPage() {
               <Button variant="secondary">Open dialog</Button>
             </DialogTrigger>
             <DialogContent title="Remove Grace Hall?" description="She keeps her certificates; her company training stops.">
-              <div className="flex justify-end gap-2">
+              <div className="flex flex-wrap justify-end gap-2">
                 <DialogClose asChild>
                   <Button variant="secondary">Cancel</Button>
                 </DialogClose>

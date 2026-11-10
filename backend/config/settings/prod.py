@@ -8,6 +8,7 @@ from .base import *  # noqa: F401,F403
 from .base import (
     ALLOWED_HOSTS,
     DATABASES,
+    FRONTEND_URL,
     GRAPH_CLIENT_ID,
     GRAPH_CLIENT_SECRET,
     GRAPH_TENANT_ID,
@@ -38,6 +39,8 @@ if MAIL_MODE == "graph" and not (GRAPH_TENANT_ID and GRAPH_CLIENT_ID and GRAPH_C
     )
 if STRIPE_SECRET_KEY and not STRIPE_WEBHOOK_SECRET:
     _problems.append("STRIPE_WEBHOOK_SECRET is required when STRIPE_SECRET_KEY is set")
+if not FRONTEND_URL.startswith("https://") or "localhost" in FRONTEND_URL or "127.0.0.1" in FRONTEND_URL:
+    _problems.append("FRONTEND_URL must be the site's public https address (links in emails use it)")
 if _problems:
     raise ImproperlyConfigured("Unsafe production settings: " + "; ".join(_problems))
 

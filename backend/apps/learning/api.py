@@ -18,6 +18,7 @@ from apps.catalog import media, resources
 from apps.catalog.models import CourseInstructor, Lecture, QuizQuestion
 from apps.catalog.selectors import curriculum, learner_quiz
 from core import cursor as keyset
+from core import html
 from core.auth import session_auth
 from core.errors import ServiceError
 
@@ -28,10 +29,12 @@ from .schemas import (
     CertificateOut,
     DownloadOut,
     HeartbeatIn,
+    HeartbeatOut,
     LectureContent,
     MyCoursePage,
     NoteIn,
     NoteOut,
+    NotePatchIn,
     OkOut,
     PlayerOut,
     ProgressOut,
@@ -66,7 +69,27 @@ def _lecture(e: Enrollment, key) -> Lecture:
     )
     if lec is None:
         raise ServiceError("not_found", "Lecture not found.", status=404)
+    _check_unlocked(e, lec)
     return lec
+
+
+def _check_unlocked(e: Enrollment, lec: Lecture) -> None:
+    """A lesson with a prerequisite stays locked until that earlier lesson is complete.
+    A prerequisite missing from the live version (deleted later) does not lock anything."""
+    if not lec.prerequisite_key:
+        return
+    before = (
+        Lecture.objects.filter(version_id=lec.version_id, lecture_key=lec.prerequisite_key)
+        .only("title")
+        .first()
+    )
+    if before is None:
+        return
+    done = LectureProgress.objects.filter(
+        enrollment=e, lecture_key=lec.prerequisite_key, completed_at__isnull=False
+    ).exists()
+    if not done:
+        raise ServiceError("locked", f"Finish “{before.title}” first.", status=403)
 
 
 # ---------------------------------------------------------------- my learning
@@ -131,13 +154,24 @@ def player(request, enrollment_id: str):
             "lecture_key", "completed_at", "last_position_sec"
         )
     }
+    tree = curriculum(e.course.live_version)
+    titles = {lec.lecture_key: lec.title for s in tree for lec in s.lectures.all()}
+
+    def finished(key):
+        return bool(done.get(key) and done[key].completed_at)
+
+    def prereq(lec):  # the same rule as _check_unlocked, without extra queries
+        return lec.prerequisite_key if lec.prerequisite_key in titles else None
+
     sections = [
         {"id": s.id, "title": s.title, "lectures": [
             {"key": lec.lecture_key, "title": lec.title, "kind": lec.kind, "duration_sec": lec.duration_sec,
-             "completed": bool(done.get(lec.lecture_key) and done[lec.lecture_key].completed_at),
-             "position_sec": done[lec.lecture_key].last_position_sec if lec.lecture_key in done else 0}
+             "completed": finished(lec.lecture_key),
+             "position_sec": done[lec.lecture_key].last_position_sec if lec.lecture_key in done else 0,
+             "prerequisite_key": prereq(lec), "prerequisite_title": titles.get(prereq(lec)),
+             "locked": bool(prereq(lec)) and not finished(prereq(lec))}
             for lec in s.lectures.all()]}
-        for s in curriculum(e.course.live_version)
+        for s in tree
     ]  # fmt: skip
     cert = Certificate.objects.filter(enrollment=e).values_list("id", flat=True).first()
     return {"enrollment_id": e.id, "course_id": e.course_id, "slug": e.course.slug, "title": e.course.title,
@@ -167,6 +201,7 @@ def lecture(request, enrollment_id: str, lecture_key: str):
     }  # fmt: skip
     if lec.kind == Lecture.Kind.VIDEO:
         out["video"] = media.playback(lec.video)
+        out.update(media.video_meta(lec.video))
     elif lec.kind == Lecture.Kind.ARTICLE:
         out["body"] = lec.body
     elif lec.kind in (Lecture.Kind.EXTERNAL_LINK,):
@@ -216,9 +251,10 @@ def download_resource(request, enrollment_id: str, lecture_key: str, resource_id
     return {"url": resources.download_url(r), "expires_in": 3600}
 
 
-@router.post("/enrollments/{enrollment_id}/heartbeat", response=OkOut)
+@router.post("/enrollments/{enrollment_id}/heartbeat", response=HeartbeatOut)
 def heartbeat(request, enrollment_id: str, body: HeartbeatIn):
-    """Every ~30 s while a video plays. Buffered in Redis and written in batches."""
+    """Every ~30 s while a video plays. Buffered in Redis and written in batches; the
+    beat sent when the video ends is written at once and reports whether it completed."""
     e = _mine(request, enrollment_id)
     _lecture(e, body.lecture_key)
     progress.record_heartbeat(
@@ -226,8 +262,9 @@ def heartbeat(request, enrollment_id: str, body: HeartbeatIn):
         lecture_key=body.lecture_key,
         position_sec=body.position_sec,
         watched_delta_sec=body.watched_sec,
+        ended=body.ended,
     )
-    return {"ok": True}
+    return {"ok": True, "completed": body.ended and progress.is_complete(e, body.lecture_key)}
 
 
 @router.post("/enrollments/{enrollment_id}/lectures/{lecture_key}/complete", response=ProgressOut)
@@ -354,7 +391,7 @@ def submit_assignment(request, enrollment_id: str, lecture_key: str, body: Submi
     url = body.url.strip()
     if url and not url.startswith("https://"):
         raise ServiceError("bad_url", "Links must start with https://")
-    s = services.submit_assignment(enrollment=e, assignment=assignment, text_body=body.text, url=url,
+    s = services.submit_assignment(enrollment=e, assignment=assignment, text_body=html.plain(body.text, 50000), url=url,
                                    asset_ids=body.asset_ids)  # fmt: skip
     return _submission_out(s)
 
@@ -373,6 +410,26 @@ def add_note(request, enrollment_id: str, body: NoteIn):
     _lecture(e, body.lecture_key)
     return Note.objects.create(enrollment=e, user=request.user, org_id=e.org_id, lecture_key=body.lecture_key,
                                timestamp_sec=body.timestamp_sec, body=body.body.strip())  # fmt: skip
+
+
+@router.patch("/notes/{note_id}", response=NoteOut)
+def update_note(request, note_id: str, body: NotePatchIn):
+    """Change a note's text or the moment of the video it is pinned to."""
+    note = Note.objects.filter(pk=note_id, enrollment__user=request.user).first()
+    if note is None:
+        raise ServiceError("not_found", "Note not found.", status=404)
+    fields = ["updated_at"]
+    if body.clear_timestamp:
+        note.timestamp_sec = None
+        fields.append("timestamp_sec")
+    elif body.timestamp_sec is not None:
+        note.timestamp_sec = body.timestamp_sec
+        fields.append("timestamp_sec")
+    if body.body is not None:
+        note.body = body.body.strip()
+        fields.append("body")
+    note.save(update_fields=fields)
+    return note
 
 
 @router.delete("/notes/{note_id}", response=OkOut)
@@ -398,11 +455,14 @@ def certificate(request, certificate_id: str):
 def certificate_pdf(request, certificate_id: str):
     from django.http import HttpResponse
 
+    from apps.catalog.certificates import template_for
+
     from .certificate_pdf import render
 
-    cert = get_object_or_404(Certificate.objects.select_related("template"), pk=certificate_id, user=request.user,
-                             revoked_at__isnull=True)  # fmt: skip
-    response = HttpResponse(render(cert, cert.template), content_type="application/pdf")
+    cert = get_object_or_404(Certificate.objects.select_related("template", "course"), pk=certificate_id,
+                             user=request.user, revoked_at__isnull=True)  # fmt: skip
+    template = template_for(cert.course) or cert.template  # the course's current design
+    response = HttpResponse(render(cert, template), content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="certificate-{cert.verification_code}.pdf"'
     response["Cache-Control"] = "private, max-age=3600"
     return response
@@ -416,4 +476,5 @@ def verify(request, code: str):
     row = services.verify_certificate(code.upper())
     if row is None:
         raise ServiceError("not_found", "Certificate not found.", status=404)
+    row["is_expired"] = bool(row["expires_at"] and row["expires_at"] <= timezone.now())
     return row

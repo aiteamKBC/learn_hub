@@ -1,5 +1,7 @@
 import { Building2, Check, GraduationCap, Heart, LayoutDashboard, LogOut, PenTool, ReceiptText, Shield, Sparkles, User } from 'lucide-react'
 
+import { toast } from 'sonner'
+
 import { Avatar } from '@/components/ui/avatar'
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from '@/components/ui/menu'
 import { useLogout, useMe } from '@/features/identity/auth'
@@ -65,7 +67,13 @@ export function UserMenu({ onDark }: { onDark?: boolean }) {
               <PenTool /> Instructor studio
             </Link>
           </MenuItem>
-        ) : null}
+        ) : (
+          <MenuItem asChild>
+            <Link to="/teach">
+              <PenTool /> {me.instructor_status === 'pending' ? 'Application pending' : 'Teach on LearnHub'}
+            </Link>
+          </MenuItem>
+        )}
         {me.is_staff ? (
           <MenuItem asChild>
             <Link to="/console">
@@ -77,11 +85,11 @@ export function UserMenu({ onDark }: { onDark?: boolean }) {
           <>
             <MenuSeparator />
             <MenuLabel>Learning as</MenuLabel>
-            <MenuItem onSelect={() => switchTo(null)}>
+            <MenuItem onSelect={() => (switchTo(null), org && toast.success('Now learning as yourself'))}>
               <User /> Personal {!org ? <Check className="ml-auto !text-primary" /> : null}
             </MenuItem>
             {memberships.map((m) => (
-              <MenuItem key={m.org_id} onSelect={() => switchTo(m.org_id)}>
+              <MenuItem key={m.org_id} onSelect={() => (switchTo(m.org_id), org?.org_id !== m.org_id && toast.success(`Now learning as ${m.name}`))}>
                 <Building2 /> <span className="truncate">{m.name}</span>
                 {org?.org_id === m.org_id ? <Check className="ml-auto !text-primary" /> : null}
               </MenuItem>

@@ -209,6 +209,7 @@ class UserBadge(BaseModel):
 class Ticket(BaseModel):
     class Status(models.TextChoices):
         OPEN = "open", "Open"
+        PROGRESS = "progress", "In progress"
         WAITING = "waiting", "Waiting for you"
         RESOLVED = "resolved", "Resolved"
         CLOSED = "closed", "Closed"
@@ -265,3 +266,84 @@ class TicketMessage(BaseModel):
     class Meta:
         db_table = table(SCHEMA, "ticket_messages")
         indexes = [models.Index(fields=["ticket", "created_at"], name="ix_ticket_messages")]
+
+
+# ---------------------------------------------------------------- moderation & broadcasts
+class ContentReport(BaseModel):
+    """A learner reports a review, question or answer. Staff action or dismiss it."""
+
+    class TargetType(models.TextChoices):
+        REVIEW = "review", "Review"
+        QUESTION = "question", "Question"
+        ANSWER = "answer", "Answer"
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        ACTIONED = "actioned", "Content hidden"
+        DISMISSED = "dismissed", "Dismissed"
+
+    reporter = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+", db_index=False)
+    target_type = models.CharField(max_length=10, choices=TargetType.choices)
+    target_id = models.UUIDField()
+    reason = models.CharField(max_length=300)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
+    handled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    handled_at = models.DateTimeField(null=True, blank=True)
+    resolution_note = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "content_reports")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reporter", "target_type", "target_id"], condition=Q(status="open"),
+                name="uq_report_open_once",
+            ),
+        ]  # fmt: skip
+        indexes = [
+            models.Index(fields=["status", "-created_at"], name="ix_reports_queue"),
+            models.Index(fields=["target_type", "target_id"], name="ix_reports_target"),
+        ]
+
+
+class Broadcast(BaseModel):
+    """A message from staff to many people at once (console > Communications), in-app
+    and/or by email. Platform announcements are broadcasts too, optionally shown as a
+    site banner between two dates."""
+
+    class Audience(models.TextChoices):
+        EVERYONE = "everyone", "Everyone"
+        LEARNERS = "learners", "Learners"
+        INSTRUCTORS = "instructors", "Instructors"
+        COMPANY_ADMINS = "company_admins", "Company admins"
+        COMPANY = "company", "One company"
+
+    class Kind(models.TextChoices):
+        BROADCAST = "broadcast", "Notification"
+        ANNOUNCEMENT = "announcement", "Announcement"
+
+    kind = models.CharField(max_length=12, choices=Kind.choices, default=Kind.BROADCAST)
+    title = models.CharField(max_length=200)
+    body = models.TextField(max_length=5000)
+    audience = models.CharField(max_length=16, choices=Audience.choices)
+    org = models.ForeignKey(
+        "org.Organization", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    send_in_app = models.BooleanField(default=True)
+    send_email = models.BooleanField(default=False)
+    url = models.CharField(max_length=500, blank=True)  # optional in-app link
+    show_as_banner = models.BooleanField(default=False)
+    banner_starts_at = models.DateTimeField(null=True, blank=True)
+    banner_ends_at = models.DateTimeField(null=True, blank=True)
+    sent_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+")
+    sent_at = models.DateTimeField(null=True, blank=True)  # NULL = draft
+    recipient_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = table(SCHEMA, "broadcasts")
+        indexes = [
+            models.Index(fields=["kind", "-created_at"], name="ix_broadcasts_kind"),
+            models.Index(
+                fields=["banner_starts_at", "banner_ends_at"], name="ix_broadcasts_banner",
+                condition=Q(show_as_banner=True),
+            ),
+        ]  # fmt: skip

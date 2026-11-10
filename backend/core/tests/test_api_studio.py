@@ -3,8 +3,11 @@ versions and review, company courses, coupons, grading and revenue."""
 
 import hashlib
 import os
+from types import SimpleNamespace
 from unittest import mock
 
+from django.core.cache import cache
+from django.test import SimpleTestCase
 from django.utils import timezone
 
 from apps.catalog import services as cat
@@ -75,6 +78,76 @@ class StudioApiTest(SchemaTransactionTestCase):
         self.assertEqual(h["AuthorizationSignature"], expected)
         self.assertNotIn("secret-key", str(up))  # the API key itself never leaves the server
         self.assertEqual(self.call("get", f"/media/{up['asset_id']}").json()["status"], "awaiting_upload")
+        # no webhook (e.g. a laptop): the status poll asks Bunny itself, forward-only
+        cache.clear()
+        with mock.patch(
+            "apps.catalog.bunny.get_video", return_value={"status": 4, "encodeProgress": 100, "length": 95}
+        ):
+            st = self.call("get", f"/media/{up['asset_id']}").json()
+        self.assertEqual((st["status"], st["duration_sec"]), ("ready", 95))
+        self.assertTrue(st["preview_url"].startswith("https://iframe.mediadelivery.net/embed/77/"))
+
+        # parts (Bunny chapters) and key moments (Bunny moments); each part runs to the next
+        media_path = f"/media/{up['asset_id']}"
+        body = {"parts": [{"title": "Setup", "start": 30}, {"title": "Intro <b>here</b>", "start": 0}],
+                "moments": [{"label": "Key formula", "timestamp": 50}]}  # fmt: skip
+        with mock.patch.dict(os.environ, {"BUNNY_STREAM_API_KEY": "secret-key"}),              mock.patch("apps.catalog.bunny.update_video") as upd:  # fmt: skip
+            r = self.call("put", f"{media_path}/parts", body)
+            self.assertEqual(r.status_code, 200, r.content)
+            self.assertEqual(upd.call_args.kwargs["chapters"], [{"title": "Intro here", "start": 0, "end": 30},
+                                                                {"title": "Setup", "start": 30, "end": 95}])  # fmt: skip
+            late = {"parts": [{"title": "Late", "start": 120}], "moments": []}
+            self.assertEqual(self.call("put", f"{media_path}/parts", late).status_code, 400)  # after the end
+            twice = {"parts": [{"title": "A", "start": 5}, {"title": "B", "start": 5}], "moments": []}
+            self.assertEqual(self.call("put", f"{media_path}/parts", twice).status_code, 400)
+        details = self.call("get", f"{media_path}/details").json()
+        self.assertEqual([p["title"] for p in details["parts"]], ["Intro here", "Setup"])
+        self.assertEqual(details["moments"], [{"label": "Key formula", "timestamp": 50}])
+        self.assertEqual(len(details["thumbnails"]["frames"]), 5)
+        with mock.patch("apps.catalog.bunny.set_thumbnail") as thumb:
+            self.assertEqual(
+                self.call("put", f"{media_path}/thumbnail", {"choice": "thumbnail_3.jpg"}).status_code, 200
+            )
+            self.assertEqual(
+                self.call("put", f"{media_path}/thumbnail", {"choice": "http://x.test/a.png"}).status_code,
+                400,
+            )
+        self.assertEqual(thumb.call_count, 1)
+
+        # subtitles: small .srt/.vtt text, forwarded to Bunny (base64 there), never stored by us
+        vtt = "WEBVTT" + chr(10) * 2 + "00:00:01.000 --> 00:00:04.000" + chr(10) + "Hello"
+        with (
+            mock.patch("apps.catalog.bunny.add_caption") as cap,
+            mock.patch("apps.catalog.bunny.delete_caption") as uncap,
+        ):
+            r = self.call(
+                "post", f"{media_path}/captions", {"srclang": "en", "label": "English", "content": vtt}
+            )
+            self.assertEqual(r.status_code, 200, r.content)
+            self.assertEqual(cap.call_args.kwargs["content"], vtt.encode())
+            bad = {"srclang": "en", "label": "x", "content": "not a subtitle file at all"}
+            self.assertEqual(self.call("post", f"{media_path}/captions", bad).status_code, 400)
+            self.assertEqual(
+                self.call("post", f"{media_path}/captions", {**bad, "srclang": "e n"}).status_code, 422
+            )
+            self.assertEqual(self.call("delete", f"{media_path}/captions/en").status_code, 200)
+        self.assertEqual(uncap.call_args.args[2], "en")
+
+        # an external link: Bunny fetches the file and hosts it like an upload
+        with mock.patch("apps.catalog.bunny.fetch_video", return_value="99999999-2222-3333-4444-555555555555"),              mock.patch("apps.catalog.bunny.rename_video"):  # fmt: skip
+            r = self.call(
+                "post",
+                "/media/videos/fetch",
+                {"course_id": c["id"], "title": "Talk", "url": "https://cdn.test/talk.mp4"},
+            )
+            self.assertEqual(r.status_code, 200, r.content)
+            self.assertEqual(self.call("post", "/media/videos/fetch",
+                                       {"course_id": c["id"], "title": "Talk", "url": "http://cdn.test/talk.mp4"}).status_code, 400)  # fmt: skip
+        self.assertEqual(self.call("get", f"/media/{r.json()['asset_id']}").json()["status"], "processing")
+        self.as_(self.omar)  # someone else's video
+        self.assertEqual(self.call("get", f"{media_path}/details").status_code, 404)
+        self.assertEqual(self.call("put", f"{media_path}/parts", body).status_code, 404)
+        self.as_(self.teacher)
 
         quiz_lecture = self.call(
             "post", f"/sections/{sec}/lectures", {"kind": "quiz", "title": "Check"}
@@ -171,6 +244,231 @@ class StudioApiTest(SchemaTransactionTestCase):
         )
         self.assertEqual(r.json(), {"status": "graded", "passed": True})
 
+    def test_curriculum_maintenance_inbox_essay_grading_and_payouts(self):
+        course = f.course(staff=self.staff, owner=self.teacher, slug="curriculum", title="Curriculum")
+        self.as_(self.teacher)
+        draft_id = self.call("post", f"/courses/{course.id}/draft").json()["version_id"]
+        tree = self.call("get", f"/courses/{course.id}").json()["working_version"]
+        sec_id = tree["sections"][0]["id"]
+
+        # sections: reorder, rename, delete
+        sec2 = self.call("post", f"/versions/{draft_id}/sections", {"title": "Extra"}).json()["id"]
+        r = self.call("put", f"/versions/{draft_id}/sections/order", {"ids": [sec2, sec_id]})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(self.call("patch", f"/sections/{sec2}", {"title": "Renamed"}).status_code, 200)
+        self.assertEqual(self.call("delete", f"/sections/{sec2}").status_code, 200)
+
+        # quiz settings and questions: add, replace, delete
+        quiz_lecture = next(lec for lec in tree["sections"][0]["lectures"] if lec["kind"] == "quiz")
+        quiz_id = quiz_lecture["quiz"]["id"]
+        first_question_id = quiz_lecture["quiz"]["questions"][0]["id"]
+        self.assertEqual(self.call("patch", f"/quizzes/{quiz_id}", {"pass_mark_pct": 80}).status_code, 200)
+        essay = self.call(
+            "post", f"/quizzes/{quiz_id}/questions", {"kind": "essay", "prompt": "Explain", "options": []}
+        ).json()
+        self.assertEqual(
+            self.call("put", f"/questions/{essay['id']}",
+                      {"kind": "essay", "prompt": "Explain fully", "options": []}).status_code, 200,
+        )  # fmt: skip
+        self.assertEqual(self.call("delete", f"/questions/{first_question_id}").status_code, 200)
+
+        # assignment settings
+        assignment_lecture = next(
+            lec for lec in tree["sections"][0]["lectures"] if lec["kind"] == "assignment"
+        )
+        self.assertEqual(
+            self.call("patch", f"/assignments/{assignment_lecture['assignment']['id']}",
+                      {"max_score": 150}).status_code, 200,
+        )  # fmt: skip
+
+        # coupons: list and deactivate
+        coupon = self.call(
+            "post", f"/courses/{course.id}/coupons", {"code": "EXTRA10", "percent_off": 10, "days": 5}
+        ).json()
+        self.assertEqual(
+            [c["code"] for c in self.call("get", f"/courses/{course.id}/coupons").json()], ["EXTRA10"]
+        )
+        self.assertEqual(self.call("delete", f"/coupons/{coupon['id']}").status_code, 200)
+
+        # publish so a learner can enrol and raise a question / review, and attempt the essay quiz
+        self.call("post", f"/versions/{draft_id}/submit")
+        with tenant_context(user_id=self.staff.id, staff=True):
+            cat.approve(version=CourseVersion.objects.get(pk=draft_id), reviewer=self.staff)
+
+        from apps.engagement.models import Question, Review
+        from apps.learning import services as learning
+
+        with tenant_context(user_id=self.sara.id):
+            e = learning.enrol(user=self.sara, course=Course.objects.get(pk=course.id), source="free")
+            Question.objects.create(user=self.sara, course_id=course.id, title="How long?", body="Ask")
+            Review.objects.create(user=self.sara, course_id=course.id, rating=5, body="Great")
+            quiz = quiz_id and Course.objects.get(pk=course.id).live_version.lectures.get(kind="quiz").quiz
+            attempt = learning.start_attempt(enrollment=e, quiz=quiz)
+            essay_question_id = next(q.id for q in quiz.questions.all() if q.kind == "essay")
+            learning.submit_attempt(attempt=attempt, answers={str(essay_question_id): "My answer"})
+
+        self.assertEqual([q["title"] for q in self.call("get", "/questions").json()], ["How long?"])
+        self.assertEqual([rv["body"] for rv in self.call("get", "/reviews").json()], ["Great"])
+        queue = self.call("get", "/grading").json()
+        self.assertEqual(len(queue["attempts"]), 1)
+        self.assertEqual([q["prompt"] for q in queue["attempts"][0]["essays"]], ["Explain fully"])
+        r = self.call(
+            "post",
+            f"/attempts/{queue['attempts'][0]['id']}/grade",
+            {"question_id": str(essay_question_id), "points": 1},
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+
+        # payouts and the payout account form
+        self.assertEqual(self.call("get", "/payouts").json(), [])
+        self.assertFalse(self.call("get", "/payout-account").json()["configured"])
+        r = self.call(
+            "put", "/payout-account", {"method": "paypal", "paypal_email": "tom@learnhub.example.com"}
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertTrue(self.call("get", "/payout-account").json()["configured"])
+
+    def test_instructor_status_details_dashboard_and_marking_with_files(self):
+        # /me tells "pending" apart from "approved"; only approved instructors use the studio
+        self.client.force_login(self.omar)
+        self.call("post", "/instructor-profile", {"headline": "Security trainer"})
+        me = self.client.get("/api/v1/identity/me").json()
+        self.assertEqual((me["instructor_status"], me["is_instructor"]), ("pending", False))
+        # a rejected applicant who applies again goes back in the queue
+        InstructorProfile.objects.filter(user=self.omar).update(status="rejected")
+        self.assertEqual(
+            self.call("post", "/instructor-profile", {"headline": "Again"}).json()["status"], "pending"
+        )
+        self.as_(self.teacher)
+        me = self.client.get("/api/v1/identity/me").json()
+        self.assertEqual((me["instructor_status"], me["is_instructor"]), ("approved", True))
+
+        course = f.course(staff=self.staff, owner=self.teacher, slug="marking", title="Marking")
+        r = self.call("patch", f"/courses/{course.id}",
+                      {"outcomes": ["Write <b>tests</b>", "  ", "Ship"], "requirements": ["A laptop"]})  # fmt: skip
+        self.assertEqual(r.status_code, 200, r.content)
+        self.call("post", f"/courses/{course.id}/draft")
+        row = next(r for r in self.call("get", "/courses").json() if r["id"] == str(course.id))
+        self.assertEqual((row["has_draft"], row["draft_status"]), (True, "draft"))
+        detail = self.call("get", f"/courses/{course.id}").json()
+        self.assertEqual(
+            (detail["outcomes"], detail["requirements"]), (["Write tests", "Ship"], ["A laptop"])
+        )
+
+        from apps.catalog.models import MediaAsset
+        from apps.engagement.models import Question
+        from apps.learning import services as learning
+        from apps.learning.models import Submission, SubmissionFile
+
+        live = Course.objects.get(pk=course.id).live_version
+        assignment = live.lectures.get(kind="assignment").assignment
+        with tenant_context(user_id=self.sara.id):
+            e = learning.enrol(user=self.sara, course=Course.objects.get(pk=course.id), source="free")
+            sub = learning.submit_assignment(enrollment=e, assignment=assignment, text_body="<p>Done</p>")
+            Question.objects.create(user=self.sara, course_id=course.id, title="Why?", body="<p>Tell me</p>")
+        with tenant_context(user_id=self.staff.id, staff=True):
+            asset = MediaAsset.objects.create(kind="file", status="ready", uploaded_by=self.sara,
+                                              storage_key="submissions/x/report.pdf", original_filename="Report.pdf",
+                                              size_bytes=1234)  # fmt: skip
+            sf = SubmissionFile.objects.create(submission=sub, asset=asset)
+
+        dash = self.call("get", "/dashboard").json()
+        self.assertEqual((dash["to_mark"], dash["unanswered"], dash["students"] >= 0), (1, 1, True))
+        inbox = self.call("get", "/questions").json()
+        self.assertEqual((inbox[0]["course_id"], inbox[0]["has_instructor_answer"]), (str(course.id), False))
+
+        queue = self.call("get", "/grading").json()["submissions"]
+        self.assertEqual(
+            queue[0]["files"], [{"id": str(sf.id), "filename": "Report.pdf", "size_bytes": 1234}]
+        )
+        with mock.patch("core.storage.configured", return_value=True),              mock.patch("core.storage.download_url", return_value="https://blob.test/report.pdf?sig") as dl:  # fmt: skip
+            r = self.call("get", f"/submission-files/{sf.id}/download")
+        self.assertEqual(r.json()["url"], "https://blob.test/report.pdf?sig")
+        self.assertEqual(dl.call_args.args, ("submissions/x/report.pdf", "report.pdf"))
+
+        # another instructor can neither read the hand-in nor see the course
+        InstructorProfile.objects.filter(user=self.omar).update(status="approved")
+        self.as_(self.omar)
+        self.assertEqual(self.call("get", f"/submission-files/{sf.id}/download").status_code, 404)
+        self.assertEqual(self.call("get", f"/courses/{course.id}").status_code, 404)
+        self.assertEqual(self.call("get", "/dashboard").json()["to_mark"], 0)
+
+        # marking with rubric scores
+        self.as_(self.teacher)
+        r = self.call("post", f"/submissions/{sub.id}/grade",
+                      {"score": assignment.max_score, "feedback": "<p>Good</p>",
+                       "rubric_scores": [{"criterion": "Clarity", "points": 5}]})  # fmt: skip
+        self.assertEqual(r.status_code, 200, r.content)
+        with tenant_context(user_id=self.staff.id, staff=True):
+            self.assertEqual(
+                Submission.objects.get(pk=sub.id).rubric_scores, [{"criterion": "Clarity", "points": 5}]
+            )
+        self.assertEqual(self.call("get", "/dashboard").json()["to_mark"], 0)
+
+
+class PrerequisiteTest(SchemaTransactionTestCase):
+    """A lesson can require an earlier lesson: studio rules, the publish checklist and the
+    learner lock (every lesson endpoint refuses until the earlier one is complete)."""
+
+    def test_prerequisite_lesson_rules_and_learner_lock(self):
+        from apps.commerce.models import CoursePrice
+        from apps.learning import services as learning
+
+        staff, teacher, sara, _ = f.users()
+        f.money(staff)
+        InstructorProfile.objects.create(user=teacher, status="approved")
+        self.client.force_login(teacher)
+
+        def call(method, path, data=None):
+            return getattr(self.client, method)(API + path, data=data or {}, content_type="application/json")
+
+        c = call("post", "/courses", {"title": "Steps"}).json()
+        v = call("get", f"/courses/{c['id']}").json()["working_version"]["id"]
+        sec = call("post", f"/versions/{v}/sections", {"title": "One"}).json()["id"]
+        first, second = (
+            call(
+                "post", f"/sections/{sec}/lectures", {"kind": "article", "title": t, "body": "<p>x</p>"}
+            ).json()
+            for t in ("Basics", "Next step")
+        )
+        for lesson, key in (
+            (first, second["key"]),
+            (second, second["key"]),  # later lesson, itself,
+            (second, "11111111-2222-3333-4444-555555555555"),
+        ):  # not in this course
+            r = call("patch", f"/lectures/{lesson['id']}", {"prerequisite_key": key})
+            self.assertEqual(r.json()["error"]["code"], "bad_prerequisite")
+        self.assertEqual(
+            call("patch", f"/lectures/{second['id']}", {"prerequisite_key": first["key"]}).status_code, 200
+        )
+        tree = call("get", f"/courses/{c['id']}").json()["working_version"]
+        self.assertEqual(tree["sections"][0]["lectures"][1]["prerequisite_key"], first["key"])
+
+        # moving the lesson above its prerequisite blocks publishing until fixed
+        call("put", f"/sections/{sec}/lectures/order", {"ids": [second["id"], first["id"]]})
+        problems = call("get", f"/courses/{c['id']}").json()["working_version"]["checklist"]
+        self.assertEqual(problems, ["Lesson 'Next step' needs a prerequisite that comes before it."])
+        call("put", f"/sections/{sec}/lectures/order", {"ids": [first["id"], second["id"]]})
+        self.assertEqual(call("post", f"/versions/{v}/submit").status_code, 200)
+        with tenant_context(user_id=staff.id, staff=True):
+            cat.approve(version=CourseVersion.objects.get(pk=v), reviewer=staff)
+            course = Course.objects.get(pk=c["id"])
+            CoursePrice.objects.create(course=course, is_free=True)
+            enrol = learning.enrol(user=sara, course=course, source="free").id
+
+        self.client.force_login(sara)
+        base = f"/api/v1/learning/enrollments/{enrol}"
+        lessons = self.client.get(base).json()["sections"][0]["lectures"]
+        self.assertEqual(
+            [(x["locked"], x["prerequisite_title"]) for x in lessons], [(False, None), (True, "Basics")]
+        )
+        r = self.client.get(f"{base}/lectures/{second['key']}")
+        self.assertEqual((r.status_code, r.json()["error"]["message"]), (403, "Finish “Basics” first."))
+        self.assertEqual(self.client.post(f"{base}/lectures/{second['key']}/complete").status_code, 403)
+        self.client.post(f"{base}/lectures/{first['key']}/complete")
+        self.assertEqual(self.client.get(f"{base}/lectures/{second['key']}").status_code, 200)
+        self.assertFalse(self.client.get(base).json()["sections"][0]["lectures"][1]["locked"])
+
 
 class ContentWriteLockTest(SchemaTransactionTestCase):
     def test_course_content_is_written_only_by_authoring_services(self):
@@ -194,3 +492,18 @@ class ContentWriteLockTest(SchemaTransactionTestCase):
             with connection.cursor() as cur:  # and the lock is closed again afterwards
                 cur.execute("SELECT COALESCE(current_setting('app.author', true), '')")
                 self.assertEqual(cur.fetchone()[0], "")
+
+
+class BunnyNetworkTest(SimpleTestCase):
+    def test_unreachable_video_service_is_a_clear_503_not_a_crash(self):
+        import httpx
+
+        from apps.catalog import bunny
+        from core.errors import ServiceError
+
+        library = SimpleNamespace(api_key_env="BUNNY_TEST_KEY", bunny_library_id=1)
+        with mock.patch.dict(os.environ, {"BUNNY_TEST_KEY": "k"}), \
+             mock.patch("httpx.Client.post", side_effect=httpx.ConnectTimeout("timed out")):  # fmt: skip
+            with self.assertRaises(ServiceError) as ctx:
+                bunny.create_video(library, "Intro")
+        self.assertEqual((ctx.exception.code, ctx.exception.status), ("video_unreachable", 503))

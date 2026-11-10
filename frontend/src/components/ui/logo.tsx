@@ -1,3 +1,4 @@
+import { usePublicSettings } from '@/features/platform/api'
 import { cn } from '@/lib/cn'
 
 export function LogoMark({ className }: { className?: string }) {
@@ -11,11 +12,16 @@ export function LogoMark({ className }: { className?: string }) {
   )
 }
 
+/** The platform's logo: the uploaded one (console > Settings) or our mark + the name. */
 export function Logo({ className, inverted }: { className?: string; inverted?: boolean }) {
+  const { settings } = usePublicSettings()
+  const name = settings['general.platform_name']
+  const src = settings['general.logo_url']
+  if (src) return <img src={src} alt={name} className={cn('h-8 w-auto max-w-[160px] object-contain', className)} />
   return (
     <span className={cn('inline-flex items-center gap-2', className)}>
       <LogoMark />
-      <span className={cn('text-[19px] font-bold tracking-tight', inverted ? 'text-white' : 'text-text')}>LearnHub</span>
+      <span className={cn('text-[19px] font-bold tracking-tight', inverted ? 'text-white' : 'text-text')}>{name}</span>
     </span>
   )
 }

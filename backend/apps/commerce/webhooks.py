@@ -12,13 +12,25 @@ import logging
 from datetime import UTC, datetime
 
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
 from apps.platform import services as platform
 from core.tenancy import tenant_context
 
 from . import gateway, services
-from .models import AddonSubscription, Invoice, StripeEvent, Subscription
+from .models import (
+    AddonSubscription,
+    Invoice,
+    Order,
+    Payment,
+    Plan,
+    PlanPrice,
+    Promotion,
+    StripeEvent,
+    Subscription,
+    SubscriptionEvent,
+)
 
 log = logging.getLogger(__name__)
 
@@ -55,11 +67,23 @@ def dispatch(event: dict) -> None:
         _session_completed(obj, meta)
     elif kind == "checkout.session.expired" and meta.get("kind") == "order":
         services.expire_order(order_id=meta["id"])
+    elif kind == "checkout.session.async_payment_failed" and meta.get("kind") == "order":
+        services.fail_order(order_id=meta["id"])
     elif kind.startswith("customer.subscription."):
+        # created / updated / deleted / paused / resumed / pending_update_* / trial_will_end:
+        # each carries the whole subscription, so access always follows its status
         _subscription_changed(obj, meta)
+        _subscription_notice(kind, obj, meta)
     elif kind == "invoice.paid":
         _invoice_paid(obj)
-    # every other event type is stored and ignored
+    elif kind == "invoice.payment_failed":
+        _invoice_failed(obj)
+    elif kind == "charge.succeeded":
+        _charge_succeeded(obj)
+    # every other event type is stored and ignored, on purpose:
+    # - invoice_payment.paid repeats invoice.paid (which carries the invoice we keep)
+    # - payout.paid is Stripe paying the platform's own bank account; instructor payouts
+    #   are recorded in Console > Payouts, not by Stripe
 
 
 def _session_completed(session: dict, meta: dict) -> None:
@@ -74,12 +98,20 @@ def _session_completed(session: dict, meta: dict) -> None:
         )
     elif meta.get("kind") in ("subscription", "addon"):
         model = Subscription if meta["kind"] == "subscription" else AddonSubscription
-        model.objects.filter(pk=meta["id"], stripe_subscription_id__isnull=True).update(
+        linked = model.objects.filter(pk=meta["id"], stripe_subscription_id__isnull=True).update(
             stripe_subscription_id=session.get("subscription"), updated_at=timezone.now()
         )
         services.remember_customer(
             kind=meta["kind"], row_id=meta["id"], customer=session.get("customer") or ""
         )
+        if linked and meta["kind"] == "subscription":
+            if meta.get("promotion"):  # usage of a subscription promotion
+                Promotion.objects.filter(pk=meta["promotion"]).update(redeemed_count=F("redeemed_count") + 1)
+            sub = Subscription.objects.select_related("plan").filter(pk=meta["id"]).first()
+            if sub and sub.plan.renewal == "manual" and session.get("subscription"):
+                # a plan that renews by hand: Stripe stops at the end of the period
+                gateway.cancel_at_period_end(session["subscription"])
+                Subscription.objects.filter(pk=sub.pk).update(cancel_at_period_end=True)
 
 
 def _period_end(sub: dict):
@@ -100,6 +132,8 @@ def _subscription_changed(sub: dict, meta: dict) -> None:
     if row is None:
         log.warning("subscription %s not ours", sub["id"])
         return
+    before = {"status": row.status, "seats": getattr(row, "seats", None),
+              "cancel": getattr(row, "cancel_at_period_end", False), "plan": getattr(row, "plan_id", None)}  # fmt: skip
     row.stripe_subscription_id = sub["id"]
     row.status = sub.get("status", row.status)
     row.current_period_end = _period_end(sub) or row.current_period_end
@@ -110,8 +144,16 @@ def _subscription_changed(sub: dict, meta: dict) -> None:
         items = (sub.get("items") or {}).get("data") or []
         if items and items[0].get("quantity"):
             row.seats = items[0]["quantity"]
-        fields += ["cancel_at_period_end", "canceled_at", "seats"]
+        price_id = ((items[0].get("price") or {}).get("id") if items else None) or ""
+        new_plan = (
+            PlanPrice.objects.filter(stripe_price_id=price_id).values_list("plan_id", flat=True).first()
+        )
+        if new_plan:
+            row.plan_id = new_plan
+        fields += ["cancel_at_period_end", "canceled_at", "seats", "plan"]
     row.save(update_fields=fields)
+    if model is Subscription:
+        _record_changes(row, before)
     active = row.status in ("trialing", "active", "past_due")
     ends = row.current_period_end if active else timezone.now()
     if model is Subscription:
@@ -126,13 +168,114 @@ def _subscription_changed(sub: dict, meta: dict) -> None:
     )  # fmt: skip
 
 
-def _invoice_paid(inv: dict) -> None:
+LIVE = ("trialing", "active", "past_due")
+NOTICES = {
+    "customer.subscription.paused": "paused",
+    "customer.subscription.resumed": "resumed",
+    "customer.subscription.trial_will_end": "trial_ending",
+}
+
+
+def _subscription_notice(kind: str, sub: dict, meta: dict) -> None:
+    """Paused, resumed and trial-ending notices (plans only; add-ons have none)."""
+    what = NOTICES.get(kind)
+    if what is None or meta.get("kind") == "addon":
+        return
+    row = Subscription.objects.select_related("plan").filter(stripe_subscription_id=sub["id"]).first()
+    if row is not None:
+        services.subscription_notice(
+            row, what, date=_ts(sub.get("trial_end")) if what == "trial_ending" else None
+        )
+
+
+def _record_changes(row: Subscription, before: dict) -> None:
+    """The plan-change log (console > Subscriptions) and the subscriber's notices."""
+    started = before["status"] not in LIVE and row.status in ("trialing", "active")
+    if started and not SubscriptionEvent.objects.filter(subscription=row, kind="created").exists():
+        services.subscription_event(row, SubscriptionEvent.Kind.CREATED, to_value=row.plan.code)
+        services.subscription_notice(row, "started")
+    if before["plan"] and row.plan_id != before["plan"]:
+        old = PlanPrice.objects.filter(plan_id=before["plan"], currency_id=row.currency_id).first()
+        new = PlanPrice.objects.filter(plan_id=row.plan_id, currency_id=row.currency_id).first()
+        up = bool(old and new and new.amount_minor >= old.amount_minor)
+        codes = dict(Plan.objects.filter(pk__in=[before["plan"], row.plan_id]).values_list("id", "code"))
+        services.subscription_event(
+            row, SubscriptionEvent.Kind.UPGRADED if up else SubscriptionEvent.Kind.DOWNGRADED,
+            from_value=codes.get(before["plan"], ""), to_value=codes.get(row.plan_id, ""),
+        )  # fmt: skip
+    if before["seats"] and row.seats != before["seats"] and not started:
+        services.subscription_event(
+            row, SubscriptionEvent.Kind.SEATS_CHANGED, from_value=before["seats"], to_value=row.seats
+        )
+    ended = row.status == "canceled" and before["status"] != "canceled"
+    if not before["cancel"] and (row.cancel_at_period_end or ended):
+        services.subscription_event(row, SubscriptionEvent.Kind.CANCELLED, from_value=row.plan.code)
+        services.subscription_notice(row, "cancelled")
+
+
+def _subscription_of(inv: dict) -> Subscription | None:
     sub_id = inv.get("subscription") or (
         ((inv.get("parent") or {}).get("subscription_details") or {}).get("subscription")
     )
-    sub = Subscription.objects.filter(stripe_subscription_id=sub_id).first() if sub_id else None
+    return Subscription.objects.filter(stripe_subscription_id=sub_id).first() if sub_id else None
+
+
+def _order_invoice(inv: dict) -> None:
+    """A paid order's Stripe invoice (Checkout invoice_creation): staff download its PDF."""
+    meta = inv.get("metadata") or {}
+    if meta.get("kind") != "order":
+        return
+    order = Order.objects.filter(pk=meta.get("id")).first()
+    if order is None:
+        return
+    Invoice.objects.update_or_create(
+        stripe_invoice_id=inv["id"],
+        defaults={
+            "user_id": order.user_id, "org_id": order.org_id, "order": order, "number": inv.get("number") or "",
+            "currency_id": order.currency_id, "amount_minor": order.total_minor, "status": inv.get("status") or "paid",
+            "hosted_url": inv.get("hosted_invoice_url") or "", "pdf_url": inv.get("invoice_pdf") or "",
+            "issued_at": _ts(inv.get("created")) or timezone.now(),
+        },
+    )  # fmt: skip
+
+
+def _charge_succeeded(charge: dict) -> None:
+    """Card brand and last 4 digits for the console (Stripe never sends the full number)."""
+    details = charge.get("payment_method_details") or {}
+    kind = details.get("type") or ""
+    card = (details.get(kind) or {}) if kind in ("card", "card_present") else {}
+    fields = {"payment_method_type": kind[:32], "card_brand": (card.get("brand") or "")[:20],
+              "card_last4": (card.get("last4") or "")[:4]}  # fmt: skip
+    pi = charge.get("payment_intent") or ""
+    meta = charge.get("metadata") or {}
+    if meta.get("kind") == "order" and meta.get("id"):
+        Order.objects.filter(pk=meta["id"]).update(**fields, updated_at=timezone.now())
+    elif pi:
+        Order.objects.filter(stripe_payment_intent_id=pi).update(**fields, updated_at=timezone.now())
+    if pi:
+        Payment.objects.filter(provider_ref=pi).update(**fields, updated_at=timezone.now())
+
+
+def _invoice_failed(inv: dict) -> None:
+    sub = _subscription_of(inv)
     if sub is None:
         return
+    services.subscription_event(
+        sub, SubscriptionEvent.Kind.PAYMENT_FAILED, amount_minor=inv.get("amount_due")
+    )
+    services.subscription_notice(sub, "payment_failed")
+
+
+def _invoice_paid(inv: dict) -> None:
+    sub = _subscription_of(inv)
+    if sub is None:
+        _order_invoice(inv)
+        return
+    if inv.get("billing_reason") == "subscription_cycle":
+        services.subscription_event(
+            sub, SubscriptionEvent.Kind.RENEWED, to_value=sub.plan.code, amount_minor=inv.get("amount_paid")
+        )
+        services.subscription_notice(sub, "renewed")
     Invoice.objects.update_or_create(
         stripe_invoice_id=inv["id"],
         defaults={

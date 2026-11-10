@@ -73,9 +73,9 @@ export function useCompleteLecture(enrollmentId?: string) {
   })
 }
 
-export function sendHeartbeat(enrollmentId: string, body: { lecture_key: string; position_sec: number; watched_sec: number }, keepalive = false) {
+export function sendHeartbeat(enrollmentId: string, body: { lecture_key: string; position_sec: number; watched_sec: number; ended?: boolean }, keepalive = false) {
   // keepalive lets the last beat leave while the tab closes
-  return api.POST('/api/v1/learning/enrollments/{enrollment_id}/heartbeat', { params: { path: { enrollment_id: enrollmentId } }, body, keepalive })
+  return api.POST('/api/v1/learning/enrollments/{enrollment_id}/heartbeat', { params: { path: { enrollment_id: enrollmentId } }, body: { ...body, ended: body.ended ?? false }, keepalive })
 }
 
 export function useRefreshProgress(enrollmentId?: string) {
@@ -163,6 +163,15 @@ export function useDeleteNote(enrollmentId?: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => unwrap(api.DELETE('/api/v1/learning/notes/{note_id}', { params: { path: { note_id: id } } })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notes', enrollmentId] }),
+  })
+}
+
+export function useUpdateNote(enrollmentId?: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { id: string; timestamp_sec?: number; clear_timestamp?: boolean; body?: string }) =>
+      unwrap(api.PATCH('/api/v1/learning/notes/{note_id}', { params: { path: { note_id: v.id } }, body: { timestamp_sec: v.timestamp_sec, clear_timestamp: v.clear_timestamp ?? false, body: v.body } })),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notes', enrollmentId] }),
   })
 }

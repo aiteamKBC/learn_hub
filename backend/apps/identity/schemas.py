@@ -23,6 +23,7 @@ class MeOut(Schema):
     is_staff: bool
     preferred_currency: str
     is_instructor: bool
+    instructor_status: str  # none | pending | approved | suspended | rejected
     memberships: list[MembershipOut]
 
 
@@ -34,3 +35,9 @@ class MePatchIn(Schema):
 
 class OkOut(Schema):
     ok: bool = True
+
+
+class TotpQrOut(Schema):
+    """The pending 2-step key as a QR code (an SVG data URI), for the setup screen."""
+
+    image: str

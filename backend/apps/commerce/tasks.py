@@ -11,12 +11,26 @@ from . import pricing
 from .models import Order
 
 
-@shared_task(name="commerce.refresh_fx", autoretry_for=(Exception,), retry_backoff=600, max_retries=6)
-def refresh_fx_task() -> dict:
-    """Daily: ECB rates, then re-price tiers that drifted."""
-    with tenant_context(staff=True):  # reference tables are staff-write only
-        stored = pricing.fetch_ecb()
-        return {"rates": stored, "repriced": pricing.refresh_tier_amounts()}
+@shared_task(name="commerce.refresh_fx", bind=True, max_retries=6)
+def refresh_fx_task(self) -> dict:
+    """Daily: ECB rates, then re-price tiers that drifted. Off when the setting
+    pricing.fx_auto_refresh is off; staff hear about it when every retry failed."""
+    from apps.platform.services import get_setting
+
+    if not get_setting("pricing.fx_auto_refresh"):
+        return {"rates": 0, "repriced": 0, "skipped": True}
+    try:
+        with tenant_context(staff=True):  # reference tables are staff-write only
+            stored = pricing.fetch_ecb()
+            return {"rates": stored, "repriced": pricing.refresh_tier_amounts()}
+    except Exception as exc:
+        if self.request.retries >= self.max_retries:
+            from apps.engagement.notify import notify_staff
+
+            notify_staff("staff_fx_failed", {"detail": type(exc).__name__}, url="/console/pricing?tab=currencies",
+                         dedupe=f"fx-failed:{timezone.now():%Y%m%d}")  # fmt: skip
+            raise
+        raise self.retry(exc=exc, countdown=600 * 2**self.request.retries) from exc
 
 
 @shared_task(name="commerce.expire_checkouts")

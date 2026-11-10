@@ -22,12 +22,18 @@
  *   signal         notifications: rings spreading from a bell
  *   dials          settings: control dials with tick marks
  *   bubbles        help and support: a conversation drifting upwards
+ *   chartgrid      business reports: a wall of faint small charts
+ *   orgchart       business people: an org chart drawn like a constellation
+ *   floorplan      business units: a floor plan with map pins
+ *   storyboard     course builder curriculum: film-strip frames with sketched scenes
+ *   coins          studio money pages: coin stacks beside rising bars
+ *   stamp          console approvals: an approval seal over a stack of reviewed pages
  */
 import { memo, useId, type ReactNode } from 'react'
 
 import { cn } from '@/lib/cn'
 
-export type BackdropVariant = 'constellation' | 'mosaic' | 'waves' | 'path' | 'contours' | 'blueprint' | 'circuit' | 'aurora' | 'orbit' | 'ribbons' | 'confetti' | 'notebook' | 'guilloche' | 'honeycomb' | 'checklist' | 'signal' | 'dials' | 'bubbles'
+export type BackdropVariant = 'constellation' | 'mosaic' | 'waves' | 'path' | 'contours' | 'blueprint' | 'circuit' | 'aurora' | 'orbit' | 'ribbons' | 'confetti' | 'notebook' | 'guilloche' | 'honeycomb' | 'checklist' | 'signal' | 'dials' | 'bubbles' | 'chartgrid' | 'orgchart' | 'floorplan' | 'storyboard' | 'coins' | 'stamp'
 
 // small seeded PRNG (mulberry32): same seed, same art
 function rng(seed: number) {
@@ -526,6 +532,109 @@ const Dials = memo(function Dials() {
   )
 })
 
+// ---- orgchart (business people): a constellation-like org chart, nodes linked in a tree
+const OrgChart = memo(function OrgChart() {
+  const id = useId()
+  const r = rng(17)
+  // root -> 3 branches -> 2-3 leaves each, all on the right half
+  const root = { x: 1220, y: 70 }
+  const mids = [
+    { x: 1010, y: 220 },
+    { x: 1240, y: 240 },
+    { x: 1470, y: 210 },
+  ]
+  const leaves = mids.flatMap((m, i) => {
+    const n = i === 1 ? 3 : 2
+    return Array.from({ length: n }, (_, j) => ({ x: m.x + (j - (n - 1) / 2) * 92 + (r() - 0.5) * 16, y: m.y + 150 + (r() - 0.5) * 30, p: m }))
+  })
+  const stars = Array.from({ length: 30 }, () => ({ x: 760 + r() * 840, y: r() * 600, s: r() }))
+  const elbow = (a: { x: number; y: number }, b: { x: number; y: number }) => `M${a.x} ${a.y} V${(a.y + b.y) / 2} H${b.x} V${b.y}`
+  const node = (x: number, y: number, rad: number, color: string, strong: boolean, key: string) => (
+    <g key={key}>
+      <circle cx={x} cy={y} r={rad + 9} fill="none" stroke={color} strokeOpacity={strong ? 0.28 : 0.16} />
+      <circle cx={x} cy={y} r={rad} fill="var(--surface)" fillOpacity="0.6" stroke={color} strokeOpacity="0.5" strokeWidth="2" />
+      <circle cx={x} cy={y - rad * 0.22} r={rad * 0.3} fill={color} fillOpacity="0.45" />
+      <path d={`M${x - rad * 0.5} ${y + rad * 0.55} a ${rad * 0.5} ${rad * 0.42} 0 0 1 ${rad} 0`} fill={color} fillOpacity="0.35" />
+    </g>
+  )
+  return (
+    <Svg>
+      <Glow id={`${id}g`} cx={1240} cy={160} r={520} color="var(--primary)" opacity={0.18} />
+      <Glow id={`${id}g2`} cx={1500} cy={480} r={320} color="var(--chart-5)" opacity={0.1} />
+      {stars.map((s, i) => (
+        <circle key={`s${i}`} cx={s.x} cy={s.y} r={1.4 + s.s * 1.6} fill="var(--primary-soft-text)" fillOpacity={0.18 + s.s * 0.2} />
+      ))}
+      <g fill="none" stroke="var(--primary)" strokeOpacity="0.3" strokeWidth="1.5" strokeLinejoin="round">
+        {mids.map((m, i) => (
+          <path key={`m${i}`} d={elbow(root, m)} />
+        ))}
+      </g>
+      <g fill="none" stroke="var(--primary)" strokeOpacity="0.2" strokeWidth="1.2" strokeDasharray="3 6">
+        {leaves.map((l, i) => (
+          <path key={`l${i}`} d={elbow(l.p, l)} />
+        ))}
+      </g>
+      {node(root.x, root.y, 26, 'var(--primary)', true, 'root')}
+      {mids.map((m, i) => node(m.x, m.y, 20, i === 1 ? 'var(--chart-5)' : 'var(--primary)', true, `mn${i}`))}
+      {leaves.map((l, i) => node(l.x, l.y, 13, i % 3 === 0 ? 'var(--chart-2)' : 'var(--primary)', false, `ln${i}`))}
+    </Svg>
+  )
+})
+
+// ---- floorplan (business units): a site floor plan with map pins on its rooms
+const FloorPlan = memo(function FloorPlan() {
+  const id = useId()
+  const pin = (x: number, y: number, color: string, s: number, key: string) => (
+    <g key={key}>
+      <ellipse cx={x} cy={y + 2} rx={s * 0.7} ry={s * 0.22} fill={color} fillOpacity="0.18" />
+      <path d={`M${x} ${y} C ${x - s * 0.2} ${y - s * 0.7}, ${x - s} ${y - s * 1.1}, ${x - s} ${y - s * 1.7} a ${s} ${s} 0 0 1 ${s * 2} 0 C ${x + s} ${y - s * 1.1}, ${x + s * 0.2} ${y - s * 0.7}, ${x} ${y} Z`} fill={color} fillOpacity="0.4" stroke={color} strokeOpacity="0.6" strokeWidth="1.5" />
+      <circle cx={x} cy={y - s * 1.7} r={s * 0.38} fill="var(--surface)" fillOpacity="0.85" />
+    </g>
+  )
+  return (
+    <Svg>
+      <defs>
+        <pattern id={`${id}t`} width="20" height="20" patternUnits="userSpaceOnUse">
+          <path d="M20 0H0V20" fill="none" stroke="var(--primary)" strokeOpacity="0.06" />
+        </pattern>
+      </defs>
+      <Glow id={`${id}g`} cx={1230} cy={170} r={520} color="var(--primary)" opacity={0.16} />
+      <g transform="rotate(-4 1230 280)">
+        <rect x="900" y="40" width="660" height="440" fill={`url(#${id}t)`} />
+        {/* outer walls with a door gap, then rooms */}
+        <g fill="none" stroke="var(--primary)" strokeOpacity="0.32" strokeWidth="5" strokeLinecap="square">
+          <path d="M900 40 H1560 V480 H1180 M1110 480 H900 V40" />
+        </g>
+        <g fill="none" stroke="var(--primary)" strokeOpacity="0.22" strokeWidth="3">
+          <path d="M1120 40 V170 M1120 220 V300 H900" />
+          <path d="M1340 40 V140 M1340 190 V300 H1250 M1190 300 H1120" />
+          <path d="M1340 300 H1560 M1420 300 V480" />
+        </g>
+        {/* door swings */}
+        <g fill="none" stroke="var(--primary)" strokeOpacity="0.18" strokeWidth="1.5" strokeDasharray="3 4">
+          <path d="M1120 170 a 50 50 0 0 1 50 50" />
+          <path d="M1340 140 a 50 50 0 0 0 -50 50" />
+          <path d="M1110 480 a 70 70 0 0 1 70 -70" />
+        </g>
+        {/* furniture blocks */}
+        <g fill="var(--primary)" fillOpacity="0.07">
+          <rect x="940" y="80" width="140" height="60" rx="8" />
+          <rect x="1170" y="90" width="120" height="120" rx="60" />
+          <rect x="1380" y="80" width="140" height="40" rx="6" />
+          <rect x="1380" y="140" width="140" height="40" rx="6" />
+          <rect x="950" y="350" width="180" height="80" rx="10" />
+          <rect x="1450" y="340" width="80" height="110" rx="8" />
+        </g>
+      </g>
+      {pin(1010, 250, 'var(--primary)', 16, 'p1')}
+      {pin(1235, 175, 'var(--chart-5)', 20, 'p2')}
+      {pin(1460, 260, 'var(--chart-2)', 15, 'p3')}
+      {pin(1300, 420, 'var(--chart-3)', 13, 'p4')}
+      <path d="M1010 252 Q 1120 330 1235 178 T 1460 262" fill="none" stroke="var(--primary)" strokeOpacity="0.25" strokeWidth="1.5" strokeDasharray="2 7" strokeLinecap="round" />
+    </Svg>
+  )
+})
+
 const Bubbles = memo(function Bubbles() {
   const id = useId()
   const bubble = (x: number, y: number, w: number, h: number, left: boolean, color: string, o: number) => (
@@ -546,6 +655,250 @@ const Bubbles = memo(function Bubbles() {
       {bubble(1060, 30, 170, 56, true, 'var(--chart-2)', 0.14)}
       {bubble(1340, 330, 150, 52, false, 'var(--primary)', 0.1)}
       {bubble(640, 90, 130, 46, true, 'var(--chart-3)', 0.1)}
+    </Svg>
+  )
+})
+
+/** chartgrid (reports): a wall of faint small charts (bars, lines, donuts) on the right. */
+const ChartGrid = memo(function ChartGrid() {
+  const id = useId()
+  const r = rng(41)
+  const colors = ['var(--primary)', 'var(--chart-2)', 'var(--chart-5)', 'var(--chart-3)']
+  const cols = 4
+  const rows = 3
+  const pw = 170
+  const ph = 130
+  const gap = 26
+  const x0 = 840
+  const y0 = 30
+  const panels: ReactNode[] = []
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const x = x0 + col * (pw + gap) + (row % 2 ? 40 : 0)
+      const y = y0 + row * (ph + gap)
+      const kind = (row * cols + col) % 3
+      const c = colors[Math.floor(r() * colors.length)]!
+      const fade = 0.55 + 0.45 * ((x - x0) / (cols * (pw + gap)))
+      const inner: ReactNode[] = []
+      if (kind === 0) {
+        // bars
+        const n = 6
+        const bw = (pw - 40) / n - 6
+        for (let i = 0; i < n; i++) {
+          const h = 18 + r() * (ph - 54)
+          inner.push(<rect key={i} x={x + 20 + i * (bw + 6)} y={y + ph - 18 - h} width={bw} height={h} rx="3" fill={c} fillOpacity={0.22 + (i === n - 1 ? 0.18 : 0)} />)
+        }
+      } else if (kind === 1) {
+        // a line with its area
+        const pts = Array.from({ length: 7 }, (_, i) => [x + 18 + i * ((pw - 36) / 6), y + 30 + r() * (ph - 60)] as const)
+        const line = pts.map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)} ${py.toFixed(1)}`).join(' ')
+        inner.push(<path key="a" d={`${line} L${pts[6]![0]} ${y + ph - 16} L${pts[0]![0]} ${y + ph - 16} Z`} fill={c} fillOpacity="0.1" />)
+        inner.push(<path key="l" d={line} fill="none" stroke={c} strokeOpacity="0.5" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />)
+        inner.push(<circle key="d" cx={pts[6]![0]} cy={pts[6]![1]} r="4" fill={c} fillOpacity="0.6" />)
+      } else {
+        // a donut
+        const cx = x + pw / 2
+        const cy = y + ph / 2 + 4
+        const rad = 36
+        const circ = 2 * Math.PI * rad
+        const share = 0.45 + r() * 0.45
+        inner.push(<circle key="t" cx={cx} cy={cy} r={rad} fill="none" stroke="var(--text-subtle)" strokeOpacity="0.14" strokeWidth="11" />)
+        inner.push(<circle key="v" cx={cx} cy={cy} r={rad} fill="none" stroke={c} strokeOpacity="0.45" strokeWidth="11" strokeLinecap="round" strokeDasharray={`${circ * share} ${circ}`} transform={`rotate(-90 ${cx} ${cy})`} />)
+      }
+      panels.push(
+        <g key={`${row}-${col}`} opacity={fade}>
+          <rect x={x} y={y} width={pw} height={ph} rx="14" fill="var(--surface)" fillOpacity="0.45" stroke="var(--primary)" strokeOpacity="0.16" strokeWidth="1.5" />
+          <rect x={x + 16} y={y + 12} width={40 + r() * 40} height="6" rx="3" fill="var(--text-subtle)" fillOpacity="0.18" />
+          {inner}
+        </g>,
+      )
+    }
+  }
+  return (
+    <Svg>
+      <Glow id={`${id}g`} cx={1230} cy={150} r={520} color="var(--primary)" opacity={0.16} />
+      <Glow id={`${id}g2`} cx={300} cy={40} r={360} color="var(--chart-2)" opacity={0.08} />
+      <g stroke="var(--primary)" strokeOpacity="0.06">
+        {Array.from({ length: 9 }, (_, i) => (
+          <line key={i} x1="0" x2={W} y1={40 + i * 70} y2={40 + i * 70} />
+        ))}
+      </g>
+      {panels}
+    </Svg>
+  )
+})
+
+/** storyboard (curriculum builder): a tilted film strip of frames with sketched scenes,
+ * plus a few loose storyboard cards, all on the right. */
+const Storyboard = memo(function Storyboard() {
+  const id = useId()
+  const r = rng(53)
+  const colors = ['var(--primary)', 'var(--chart-5)', 'var(--chart-2)', 'var(--chart-3)']
+  const fw = 150
+  const fh = 104
+  const x0 = 820
+  const y0 = 150
+  const frames = 5
+  const scene = (x: number, y: number, kind: number, c: string) => {
+    // a play triangle (video)
+    if (kind === 0) return <path d={`M${x + fw / 2 - 14} ${y + fh / 2 - 18} L${x + fw / 2 + 18} ${y + fh / 2} L${x + fw / 2 - 14} ${y + fh / 2 + 18} Z`} fill={c} fillOpacity="0.32" />
+    // hills and a sun (a scene)
+    if (kind === 1)
+      return (
+        <g>
+          <circle cx={x + fw - 36} cy={y + 30} r="11" fill={c} fillOpacity="0.3" />
+          <path d={`M${x + 10} ${y + fh - 14} L${x + 52} ${y + 46} L${x + 82} ${y + 72} L${x + 106} ${y + 52} L${x + fw - 10} ${y + fh - 14} Z`} fill={c} fillOpacity="0.18" stroke={c} strokeOpacity="0.4" strokeWidth="1.5" strokeLinejoin="round" />
+        </g>
+      )
+    // lines of text (a reading)
+    if (kind === 2)
+      return (
+        <g fill={c} fillOpacity="0.22">
+          {[0, 1, 2, 3].map((i) => (
+            <rect key={i} x={x + 18} y={y + 22 + i * 17} width={(fw - 36) * (i === 3 ? 0.55 : 0.85 + r() * 0.15)} height="7" rx="3.5" />
+          ))}
+        </g>
+      )
+    // a tick in a circle (a quiz)
+    return (
+      <g fill="none" stroke={c} strokeOpacity="0.45" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx={x + fw / 2} cy={y + fh / 2} r="24" strokeOpacity="0.3" />
+        <path d={`M${x + fw / 2 - 11} ${y + fh / 2} l8 8 l15 -16`} />
+      </g>
+    )
+  }
+  const stripW = frames * (fw + 22) + 22
+  return (
+    <Svg>
+      <Glow id={`${id}g`} cx={1220} cy={170} r={540} color="var(--primary)" opacity={0.16} />
+      <Glow id={`${id}g2`} cx={260} cy={30} r={360} color="var(--chart-5)" opacity={0.08} />
+      {/* loose storyboard cards behind the strip */}
+      <g transform="rotate(6 1380 80)">
+        <rect x="1250" y="20" width="200" height="130" rx="12" fill="var(--surface)" fillOpacity="0.4" stroke="var(--primary)" strokeOpacity="0.18" strokeWidth="1.5" strokeDasharray="5 6" />
+        <rect x="1270" y="164" width="120" height="7" rx="3.5" fill="var(--text-subtle)" fillOpacity="0.16" />
+      </g>
+      <g transform="rotate(-8 980 470)">
+        <rect x="900" y="420" width="180" height="118" rx="12" fill="var(--surface)" fillOpacity="0.4" stroke="var(--chart-5)" strokeOpacity="0.2" strokeWidth="1.5" strokeDasharray="5 6" />
+      </g>
+      {/* the film strip: sprocket holes above and below a row of frames */}
+      <g transform={`rotate(-7 ${x0 + stripW / 2} ${y0 + fh / 2})`}>
+        <rect x={x0} y={y0 - 34} width={stripW} height={fh + 68} rx="10" fill="var(--primary)" fillOpacity="0.1" stroke="var(--primary)" strokeOpacity="0.24" strokeWidth="1.5" />
+        <g fill="var(--surface)" fillOpacity="0.75">
+          {Array.from({ length: Math.floor(stripW / 30) }, (_, i) => (
+            <g key={i}>
+              <rect x={x0 + 12 + i * 30} y={y0 - 24} width="14" height="10" rx="2.5" />
+              <rect x={x0 + 12 + i * 30} y={y0 + fh + 14} width="14" height="10" rx="2.5" />
+            </g>
+          ))}
+        </g>
+        {Array.from({ length: frames }, (_, i) => {
+          const x = x0 + 22 + i * (fw + 22)
+          const c = colors[i % colors.length]!
+          return (
+            <g key={i} opacity={0.6 + 0.4 * (i / (frames - 1))}>
+              <rect x={x} y={y0} width={fw} height={fh} rx="8" fill="var(--surface)" fillOpacity="0.55" stroke={c} strokeOpacity="0.3" strokeWidth="1.5" />
+              {scene(x, y0, i % 4, c)}
+            </g>
+          )
+        })}
+      </g>
+      {/* reorder arrows between the strip and the cards */}
+      <g fill="none" stroke="var(--primary)" strokeOpacity="0.25" strokeWidth="1.5" strokeDasharray="2 7" strokeLinecap="round">
+        <path d="M1180 120 C 1230 60, 1290 60, 1320 120" />
+        <path d="M1050 400 C 1010 440, 1000 470, 1010 500" />
+      </g>
+    </Svg>
+  )
+})
+
+/** coins (money pages): stacks of coins beside bars that rise to a trend line. */
+const Coins = memo(function Coins() {
+  const id = useId()
+  const r = rng(67)
+  const coin = (cx: number, cy: number, c: string, o: number, key: string) => (
+    <g key={key}>
+      <rect x={cx - 34} y={cy} width="68" height="12" fill={c} fillOpacity={o * 0.8} />
+      <ellipse cx={cx} cy={cy + 12} rx="34" ry="10" fill={c} fillOpacity={o * 0.8} />
+      <ellipse cx={cx} cy={cy} rx="34" ry="10" fill={c} fillOpacity={o} stroke={c} strokeOpacity="0.45" strokeWidth="1.2" />
+      <ellipse cx={cx} cy={cy} rx="22" ry="6" fill="none" stroke="var(--surface)" strokeOpacity="0.5" strokeWidth="1.2" />
+    </g>
+  )
+  const stack = (cx: number, base: number, n: number, c: string, key: string) =>
+    Array.from({ length: n }, (_, i) => coin(cx + (r() - 0.5) * 6, base - i * 14, c, 0.22 + (i === n - 1 ? 0.12 : 0), `${key}${i}`))
+  const bars = Array.from({ length: 7 }, (_, i) => ({ x: 860 + i * 58, h: 60 + i * 34 + r() * 30 }))
+  const baseY = 560
+  const trend = bars.map((b, i) => `${i ? 'L' : 'M'}${b.x + 18} ${(baseY - b.h - 18).toFixed(1)}`).join(' ')
+  const last = bars[bars.length - 1]!
+  return (
+    <Svg>
+      <Glow id={`${id}g`} cx={1230} cy={180} r={540} color="var(--chart-2)" opacity={0.14} />
+      <Glow id={`${id}g2`} cx={1000} cy={60} r={380} color="var(--primary)" opacity={0.12} />
+      <g stroke="var(--primary)" strokeOpacity="0.06">
+        {Array.from({ length: 8 }, (_, i) => (
+          <line key={i} x1="820" x2={W} y1={baseY - i * 64} y2={baseY - i * 64} />
+        ))}
+      </g>
+      {bars.map((b, i) => (
+        <rect key={i} x={b.x} y={baseY - b.h} width="36" height={b.h} rx="6" fill="var(--primary)" fillOpacity={0.08 + i * 0.025} stroke="var(--primary)" strokeOpacity="0.16" />
+      ))}
+      <path d={trend} fill="none" stroke="var(--chart-2)" strokeOpacity="0.5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={`M${last.x + 6} ${(baseY - last.h - 30).toFixed(1)} l12 -12 l12 12`} fill="none" stroke="var(--chart-2)" strokeOpacity="0.55" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      {stack(1330, 520, 6, 'var(--chart-3)', 'a')}
+      {stack(1420, 520, 9, 'var(--chart-2)', 'b')}
+      {stack(1510, 520, 4, 'var(--chart-3)', 'c')}
+      {coin(1480, 150, 'var(--chart-3)', 0.2, 'f1')}
+      {coin(1290, 90, 'var(--chart-2)', 0.14, 'f2')}
+    </Svg>
+  )
+})
+
+const Stamp = memo(function Stamp() {
+  const id = useId()
+  // a round approval seal (scalloped edge, inner rings, a tick) pressed over reviewed pages
+  const cx = 1290
+  const cy = 250
+  const scallop = Array.from({ length: 36 }, (_, i) => {
+    const a = (i / 36) * Math.PI * 2
+    const rr = i % 2 ? 150 : 162
+    return `${i ? 'L' : 'M'}${(cx + rr * Math.cos(a)).toFixed(1)} ${(cy + rr * Math.sin(a)).toFixed(1)}`
+  }).join(' ')
+  const ticks = Array.from({ length: 48 }, (_, i) => {
+    const a = (i / 48) * Math.PI * 2
+    return { x1: cx + 112 * Math.cos(a), y1: cy + 112 * Math.sin(a), x2: cx + 122 * Math.cos(a), y2: cy + 122 * Math.sin(a) }
+  })
+  const pages = [
+    { x: 940, y: 300, rot: -8 },
+    { x: 980, y: 280, rot: -3 },
+    { x: 1020, y: 262, rot: 2 },
+  ]
+  return (
+    <Svg>
+      <Glow id={`${id}g`} cx={1290} cy={240} r={460} color="var(--chart-2)" opacity={0.14} />
+      <Glow id={`${id}g2`} cx={980} cy={120} r={380} color="var(--primary)" opacity={0.12} />
+      {pages.map((p, i) => (
+        <g key={i} transform={`rotate(${p.rot} ${p.x + 110} ${p.y + 140})`}>
+          <rect x={p.x} y={p.y} width="220" height="280" rx="10" fill="var(--surface)" fillOpacity="0.5" stroke="var(--primary)" strokeOpacity={0.12 + i * 0.05} />
+          {Array.from({ length: 7 }, (_, j) => (
+            <line key={j} x1={p.x + 26} x2={p.x + (j % 3 === 2 ? 140 : 194)} y1={p.y + 50 + j * 28} y2={p.y + 50 + j * 28} stroke="var(--primary)" strokeOpacity={0.1 + i * 0.03} strokeWidth="5" strokeLinecap="round" />
+          ))}
+        </g>
+      ))}
+      <g transform={`rotate(-12 ${cx} ${cy})`}>
+        <path d={`${scallop} Z`} fill="var(--chart-2)" fillOpacity="0.08" stroke="var(--chart-2)" strokeOpacity="0.4" strokeWidth="2" />
+        <circle cx={cx} cy={cy} r="132" fill="none" stroke="var(--chart-2)" strokeOpacity="0.35" strokeWidth="2.5" />
+        <circle cx={cx} cy={cy} r="100" fill="none" stroke="var(--chart-2)" strokeOpacity="0.3" strokeWidth="1.5" strokeDasharray="4 6" />
+        <g stroke="var(--chart-2)" strokeOpacity="0.3" strokeWidth="1.5">
+          {ticks.map((t, i) => (
+            <line key={i} x1={t.x1.toFixed(1)} y1={t.y1.toFixed(1)} x2={t.x2.toFixed(1)} y2={t.y2.toFixed(1)} />
+          ))}
+        </g>
+        <path d={`M${cx - 46} ${cy + 2} l32 32 l62 -70`} fill="none" stroke="var(--chart-2)" strokeOpacity="0.55" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+      <g fill="none" stroke="var(--primary)" strokeOpacity="0.1">
+        {Array.from({ length: 4 }, (_, i) => (
+          <path key={i} d={`M 760 ${560 + i * 10} C 1000 ${520 + i * 10}, 1300 ${600 + i * 10}, 1600 ${540 + i * 10}`} />
+        ))}
+      </g>
     </Svg>
   )
 })
@@ -574,6 +927,12 @@ export function Backdrop({ variant, height = 560, className, from, to, fade = tr
     signal: <Signal />,
     dials: <Dials />,
     bubbles: <Bubbles />,
+    chartgrid: <ChartGrid />,
+    orgchart: <OrgChart />,
+    floorplan: <FloorPlan />,
+    storyboard: <Storyboard />,
+    coins: <Coins />,
+    stamp: <Stamp />,
   }[variant]
   return (
     <div

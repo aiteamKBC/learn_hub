@@ -39,6 +39,8 @@ export function RequireManager({ children }: { children: ReactNode }) {
 
 export function RequireRole({ allowed, children }: { allowed: 'instructor' | 'staff'; children: ReactNode }) {
   const { data: me } = useMe()
-  const ok = allowed === 'staff' ? me?.is_staff : me?.is_instructor
-  return ok ? children : <Navigate to="/learn" replace />
+  // staff open the course builder for platform-owned courses made in the console
+  const ok = allowed === 'staff' ? me?.is_staff : me?.is_instructor || me?.is_staff
+  // someone who isn't an approved instructor yet goes to the "teach" page (apply / pending)
+  return ok ? children : <Navigate to={allowed === 'instructor' ? '/teach' : '/learn'} replace />
 }

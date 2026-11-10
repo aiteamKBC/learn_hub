@@ -38,8 +38,27 @@ export function relativeDate(iso: string): string {
   return rtf.format(Math.round(days / 365), 'year')
 }
 
+// Console > Settings: the platform's date format and time zone (set once by SiteRoot).
+const DATE_STYLES: Record<string, [string, Intl.DateTimeFormatOptions]> = {
+  'd MMM yyyy': ['en-GB', { day: 'numeric', month: 'short', year: 'numeric' }],
+  'dd/MM/yyyy': ['en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }],
+  'yyyy-MM-dd': ['en-CA', { day: '2-digit', month: '2-digit', year: 'numeric' }],
+}
+let datePrefs: { format: string; timeZone?: string } = { format: 'd MMM yyyy' }
+
+export function setDatePrefs(format: string, timeZone?: string) {
+  let tz: string | undefined = timeZone
+  try {
+    if (tz) new Intl.DateTimeFormat('en-GB', { timeZone: tz })
+  } catch {
+    tz = undefined // an unknown zone falls back to the browser's
+  }
+  datePrefs = { format: DATE_STYLES[format] ? format : 'd MMM yyyy', timeZone: tz }
+}
+
 export function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  const [locale, opts] = DATE_STYLES[datePrefs.format]!
+  return new Date(iso).toLocaleDateString(locale, { ...opts, timeZone: datePrefs.timeZone })
 }
 
 export function initials(name: string): string {

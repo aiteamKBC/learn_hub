@@ -9,7 +9,7 @@ import { type Lecture, type Submission, uploadSubmissionFile, useSubmitAssignmen
 import { cn } from '@/lib/cn'
 import { shortDate } from '@/lib/format'
 
-import { CompleteBar, Html } from './shared'
+import { CompleteBar, Html, RichOrText } from './shared'
 import { Sheet } from './stages'
 
 type Props = { lecture: Lecture; enrollmentId: string; slug: string }
@@ -130,7 +130,7 @@ function SubmissionCard({ s, max }: { s: Submission; max: number }) {
       {s.feedback ? (
         <div className="mt-3 rounded-lg border-l-3 border-primary bg-primary-soft/50 px-3 py-2 text-sm">
           <p className="text-xs font-semibold text-primary-soft-text">Instructor feedback</p>
-          <p className="mt-1 whitespace-pre-wrap">{s.feedback}</p>
+          <RichOrText value={s.feedback} className="mt-1 text-sm [&_p]:mb-2 [&_p:last-child]:mb-0" />
         </div>
       ) : null}
     </li>

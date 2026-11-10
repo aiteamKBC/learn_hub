@@ -11,7 +11,7 @@ import { Ring } from '@/components/ui/ring'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, Td, Th, Tr } from '@/components/ui/table'
 import { Tooltip } from '@/components/ui/tooltip'
-import { downloadExport, type RequirementSummary, STATUS, type StatusKey, useDashboard, useRemind, useSummary } from '@/features/compliance/api'
+import { type Dashboard, downloadExport, type RequirementSummary, STATUS, type StatusKey, useDashboard, useRemind, useSummary } from '@/features/compliance/api'
 import { useWorkspace } from '@/features/identity/workspace'
 import { cn } from '@/lib/cn'
 import { relativeDate } from '@/lib/format'
@@ -87,7 +87,7 @@ function ByRequirement() {
   )
 }
 
-function Attention({ rows }: { rows: { id: string; status: string; due_at: string | null; member__user__full_name: string; requirement__name: string }[] }) {
+function Attention({ rows }: { rows: Dashboard['attention'] }) {
   const remind = useRemind()
   return (
     <Card>

@@ -15,6 +15,7 @@ import sys
 import time
 from pathlib import Path
 
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # Windows consoles default to cp1252
 ROOT = Path(__file__).resolve().parent.parent
 args = sys.argv[1:]
 if len(args) < 3 or args[1] != "--":

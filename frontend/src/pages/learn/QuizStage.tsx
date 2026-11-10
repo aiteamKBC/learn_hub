@@ -271,7 +271,7 @@ function TakeQuiz({ attempt, enrollmentId, title }: { attempt: Attempt; enrollme
 
       <Dialog open={confirm} onOpenChange={setConfirm}>
         <DialogContent title="Submit with unanswered questions?" description={`You've answered ${count} of ${questions.length}. Unanswered questions score nothing.`}>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <DialogClose asChild>
               <Button variant="secondary">Keep going</Button>
             </DialogClose>

@@ -75,12 +75,21 @@ class BusinessApiTest(SchemaTransactionTestCase):
         self.assertEqual(req.status_code, 200, req.content)
         rows = self.get("/compliance/matrix").json()["rows"]
         self.assertEqual(len(rows), 5)  # everyone, including the owner
-        self.assertEqual(self.get("/compliance/dashboard").json()["headcount"], 5)
+        dash = self.get("/compliance/dashboard").json()
+        self.assertEqual(dash["headcount"], 5)
+        self.assertEqual(dash["people_overdue"], 0)  # nobody is past due on day one
+        leeds = next(u for u in self.get("/org/units").json() if u["id"] == str(self.leeds.id))
+        self.assertEqual(leeds["manager_ids"], [str(self.m_mgr.id)])
 
         # the manager sees only Leeds, and cannot look at the South
         self.as_(self.manager)
-        names = {r["name"] for r in self.get("/compliance/matrix").json()["rows"]}
-        self.assertEqual(names, {"Sara Ahmed", "=CMD()", "Mo Manager"})
+        names = [r["name"] for r in self.get("/compliance/matrix").json()["rows"]]
+        self.assertEqual(names, ["=CMD()", "Mo Manager", "Sara Ahmed"])  # alphabetical
+        page1 = self.get("/compliance/matrix?limit=2").json()
+        page2 = self.get(f"/compliance/matrix?limit=2&cursor={page1['next_cursor']}").json()
+        self.assertEqual([r["name"] for r in page1["rows"] + page2["rows"]], names)
+        self.assertIsNone(page2["next_cursor"])
+        self.assertEqual([u["name"] for u in self.get("/org/units").json()], ["Leeds"])  # only their units
         self.assertEqual(self.get(f"/compliance/matrix?unit_id={self.south.id}").status_code, 403)
         self.assertEqual(self.get(f"/compliance/people/{self.m_omar.id}").status_code, 404)
         self.assertEqual(self.post("/compliance/requirements", {"course_id": str(self.fire.id), "name": "Extra rule",
@@ -127,6 +136,16 @@ class BusinessApiTest(SchemaTransactionTestCase):
         mine = self.get("/compliance/my").json()
         self.assertEqual((mine[0]["requirement"], mine[0]["status"]), ("Fire", "not_started"))
 
+        # an archived requirement leaves the matrix: no cells, no matches on its statuses
+        self.as_(self.hr)
+        self.assertEqual(
+            self.client.delete(f"{API}/compliance/requirements/{req.json()['id']}", **self.H).status_code, 200
+        )
+        matrix = self.get("/compliance/matrix").json()
+        self.assertEqual(matrix["requirements"], [])
+        self.assertTrue(all(r["cells"] == {} for r in matrix["rows"]))
+        self.assertEqual(self.get("/compliance/matrix?status=not_started").json()["rows"], [])
+
     def test_people_roles_invites_and_assigning(self):
         self.as_(self.hr)
         people = self.get("/org/people?q=sara").json()["items"]
@@ -150,7 +169,9 @@ class BusinessApiTest(SchemaTransactionTestCase):
         self.assertEqual(inv.status_code, 200, inv.content)
         token = mail.outbox[0].body.split("/invite/")[1].split()[0]
         self.client.logout()
-        self.assertEqual(self.client.get(f"{API}/org/invitations/{token}").json(), {"org_name": "Acme"})
+        self.assertEqual(
+            self.client.get(f"{API}/org/invitations/{token}").json(), {"org_name": "Acme", "role": "learner"}
+        )
         self.as_(self.omar)
         self.assertEqual(self.client.post(f"{API}/org/invitations/{token}/accept").status_code, 403)
         newbie = User.objects.create_user("new.person@acme.example.com", "x", full_name="New Person")
@@ -167,9 +188,18 @@ class BusinessApiTest(SchemaTransactionTestCase):
         self.as_(self.manager)
         lib = self.get("/org/library").json()
         self.assertEqual([c["slug"] for c in lib], ["fire"])
-        r = self.post("/org/assign", {"course_id": str(self.fire.id), "unit_ids": [str(self.leeds.id)],
-                                      "member_ids": [str(self.m_omar.id)]}).json()  # fmt: skip
-        self.assertEqual(r["enrolled"], 3)  # Mo, the new person and "=CMD()" (Sara moved to the South)
+        target = {
+            "course_id": str(self.fire.id),
+            "unit_ids": [str(self.leeds.id)],
+            "member_ids": [str(self.m_omar.id)],
+        }
+        preview = self.post("/org/assign", {**target, "dry_run": True}).json()
+        self.assertEqual(preview, {"enrolled": 3, "already_had_it": 0})  # counted, nothing written
+        r = self.post("/org/assign", target).json()
+        self.assertEqual(r["enrolled"], 3)
+        self.assertEqual(
+            self.post("/org/assign", {**target, "dry_run": True}).json()["already_had_it"], 3
+        )  # Mo, the new person and "=CMD()" (Sara moved to the South)
         self.as_(newbie)
         self.assertIn(
             "course_assigned",

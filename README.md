@@ -27,6 +27,7 @@ Optional but recommended: Redis for cache, sessions, rate limits and background 
 ```powershell
 docker compose up -d redis      # then set REDIS_URL=redis://localhost:6379/0 in backend\.env
 celery -A config worker -l info --pool=solo   # --pool=solo is needed on Windows
+celery -A config beat -l info                 # the timetable: video progress every minute, outbox every 30 s, nightly jobs
 ```
 Without Redis everything still runs: in-memory cache, database sessions, and tasks run inline.
 

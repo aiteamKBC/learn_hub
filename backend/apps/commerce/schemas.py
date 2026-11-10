@@ -31,6 +31,7 @@ class CartOut(Schema):
     total_minor: int
     coupon: str | None = None
     coupon_error: str | None = None
+    promotion: str | None = None  # the platform promotion applied, by name
 
 
 class CourseRef(Schema):

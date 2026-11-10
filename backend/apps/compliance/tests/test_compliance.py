@@ -262,6 +262,20 @@ class HrActionsTest(ComplianceBase):
             self.assertEqual(st.status, S.NOT_STARTED)
             self.assertTrue(CompletionRecord.objects.filter(pk=rec.pk, voided_at__isnull=False).exists())
 
+    def test_person_view_lists_units_roles_and_links_records_to_requirements(self):
+        req = self.require([{}])
+        with tenant_context(**self.ACME):
+            org_services.add_member_to_unit(member=self.m_sara, unit=self.leeds, primary=True)
+            org_services.set_job_roles(member=self.m_sara, job_roles=[self.carer])
+            st = MemberStatus.objects.get(member=self.m_sara, requirement=req)
+            ex = services.grant_exemption(status=st, reason="Long-term leave", granted_by=self.hr)
+            services.revoke_exemption(exemption=ex)
+            p = selectors.person(self.admin_scope(), self.m_sara.id)
+        self.assertEqual([u.unit_id for u in p["units"]], [self.leeds.id])
+        self.assertEqual([r.job_role_id for r in p["job_roles"]], [self.carer.id])
+        self.assertEqual(p["exemptions"][0].requirement_id, req.id)
+        self.assertIsNotNone(p["exemptions"][0].revoked_at)  # history keeps revoked exemptions
+
 
 class RemindersTest(ComplianceBase):
     def test_thresholds_are_idempotent_and_overdue_repeats(self):

@@ -38,9 +38,12 @@ def _redis():
 
 
 def record_heartbeat(
-    *, enrollment: Enrollment, lecture_key, position_sec: int, watched_delta_sec: int
+    *, enrollment: Enrollment, lecture_key, position_sec: int, watched_delta_sec: int, ended: bool = False
 ) -> None:
-    """Called by the player endpoint. Validation of ownership happens in the API layer."""
+    """Called by the player endpoint. Validation of ownership happens in the API layer.
+    `ended` (the video reached its end): this lecture's buffer is written now, so the
+    learner sees the lecture ticked at once instead of after the next flush. The rule
+    is unchanged: it completes only if enough was really watched."""
     watched = max(0, min(int(watched_delta_sec), MAX_WATCHED_PER_BEAT))
     position = max(0, int(position_sec))
     member = f"{enrollment.id}:{lecture_key}"
@@ -50,10 +53,27 @@ def record_heartbeat(
         return
     key = f"hb:{member}"
     pipe = r.pipeline()
+    if ended:  # take what is buffered for this lecture, add this beat, write it now
+        pipe.hgetall(key)
+        pipe.delete(key)
+        pipe.srem(DIRTY_SET, member)
+        data = {k.decode() if isinstance(k, bytes) else k: int(v) for k, v in pipe.execute()[0].items()}
+        _apply_batch(
+            [(enrollment.id, uuid.UUID(str(lecture_key)), position, data.get("watched", 0) + watched)]
+        )
+        return
     pipe.hset(key, "pos", position)
     pipe.hincrby(key, "watched", watched)
     pipe.sadd(DIRTY_SET, member)
     pipe.execute()
+
+
+def is_complete(enrollment: Enrollment, lecture_key) -> bool:
+    from .models import LectureProgress
+
+    return LectureProgress.objects.filter(
+        enrollment=enrollment, lecture_key=lecture_key, completed_at__isnull=False
+    ).exists()
 
 
 def flush_heartbeats() -> int:
@@ -125,7 +145,9 @@ def _apply_batch(batch: list[tuple]) -> None:
 
 def _complete_watched_videos(enrollment_ids: set) -> None:
     """Mark videos complete once watched_sec reaches the lecture's min_watch_pct:
-    ONE set-based UPDATE for the whole batch, then refresh affected enrolments."""
+    ONE set-based UPDATE for the whole batch, then refresh affected enrolments. The
+    length is the lecture's, or Bunny's for the video when the lecture has none (a video
+    attached before Bunny finished encoding it)."""
     from .services import refresh_course_progress
 
     with connection.cursor() as cur:
@@ -135,12 +157,14 @@ def _complete_watched_videos(enrollment_ids: set) -> None:
             FROM learning.enrollments e
             JOIN catalog.courses c ON c.id = e.course_id
             JOIN catalog.lectures l ON l.version_id = c.live_version_id
+            LEFT JOIN catalog.media_assets a ON a.id = l.video_id
+            CROSS JOIN LATERAL (SELECT COALESCE(NULLIF(l.duration_sec, 0), a.duration_sec, 0) AS sec) d
             WHERE p.enrollment_id = e.id
               AND p.enrollment_id = ANY(%s::uuid[])
               AND p.completed_at IS NULL
               AND l.lecture_key = p.lecture_key
-              AND l.kind = 'video' AND l.duration_sec > 0
-              AND p.watched_sec * 100 >= l.duration_sec * l.min_watch_pct
+              AND l.kind = 'video' AND d.sec > 0
+              AND p.watched_sec * 100 >= d.sec * l.min_watch_pct
             RETURNING p.enrollment_id
             """,
             [list(enrollment_ids)],

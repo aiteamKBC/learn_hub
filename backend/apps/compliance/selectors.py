@@ -43,40 +43,49 @@ def _scoped_status(scope: Scope, **kw):
 
 def matrix(scope: Scope, *, unit=None, q=None, job_role_id=None, status=None, requirement_id=None,
            after=None, limit: int = 50) -> dict:  # fmt: skip
-    """A page of people (keyset on member id) x active requirements. 3 queries."""
+    """A page of people (keyset on name, id: alphabetical) x active requirements. 3 queries.
+    `after` is the (name, member id) of the last row of the previous page."""
     limit = max(1, min(limit, 200))
     requirements = list(
         Requirement.objects.filter(org_id=scope.org_id, archived_at__isnull=True)
         .order_by("name")
         .values("id", "name")
     )
+    live = MemberStatus.objects.filter(org_id=scope.org_id, requirement__archived_at__isnull=True)
     members_qs = scoped_members(scope, unit=unit, q=q, job_role_id=job_role_id)
     if status or requirement_id:  # people with at least one matching cell
-        cells = MemberStatus.objects.filter(org_id=scope.org_id)
+        cells = live
         if status:
             cells = cells.filter(status=status)
         if requirement_id:
             cells = cells.filter(requirement_id=requirement_id)
         members_qs = members_qs.filter(id__in=cells.values("member_id"))
-    members_qs = members_qs.order_by("id")
-    if after:
-        members_qs = members_qs.filter(id__gt=after)
+    members_qs = after_name(members_qs.order_by("user__full_name", "id"), after)
     members = list(
         members_qs.values("id", "user__full_name", "user__email", "job_title", "employee_ref")[: limit + 1]
     )
     has_more = len(members) > limit
     members = members[:limit]
-    cells = MemberStatus.objects.filter(org_id=scope.org_id, member_id__in=[m["id"] for m in members]).values(
+    cells = live.filter(member_id__in=[m["id"] for m in members]).values(
         "id", "member_id", "requirement_id", "status", "due_at", "expires_at"
     )
     by_member: dict = {}
     for c in cells:
         by_member.setdefault(c["member_id"], {})[str(c["requirement_id"])] = c
+    last = members[-1] if has_more else None
     return {
         "requirements": requirements,
         "rows": [{**m, "cells": by_member.get(m["id"], {})} for m in members],
-        "next": members[-1]["id"] if has_more else None,
+        "next": (last["user__full_name"], str(last["id"])) if last else None,
     }
+
+
+def after_name(qs, after):
+    """Keyset step for member lists ordered by (user__full_name, id)."""
+    if not after:
+        return qs
+    name, member_id = after
+    return qs.filter(Q(user__full_name__gt=name) | Q(user__full_name=name, id__gt=member_id))
 
 
 def summary(scope: Scope, *, unit=None) -> list[dict]:
@@ -105,6 +114,7 @@ def dashboard(scope: Scope) -> dict:
         ok=Count("id", filter=Q(status__in=OK)),
         overdue=Count("id", filter=Q(status=S.OVERDUE)),
         expired=Count("id", filter=Q(status=S.EXPIRED)),
+        people_overdue=Count("member_id", distinct=True, filter=Q(status__in=[S.OVERDUE, S.EXPIRED])),
         expiring_30=Count("id", filter=Q(status__in=OK, expires_at__lte=now + timedelta(days=30))),
         due_30=Count(
             "id", filter=Q(status__in=[S.NOT_STARTED, S.IN_PROGRESS], due_at__lte=now + timedelta(days=30))
@@ -194,12 +204,21 @@ def person(scope: Scope, member_id) -> dict:
         .select_related("requirement", "recorded_by")
         .order_by("-completed_at")[:100]
     )
-    exemptions = list(
-        Exemption.objects.filter(org_id=scope.org_id, member=member, revoked_at__isnull=True).select_related(
-            "requirement", "granted_by"
-        )
+    exemptions = list(  # revoked ones too: they stay in the person's history
+        Exemption.objects.filter(org_id=scope.org_id, member=member)
+        .select_related("requirement", "granted_by")
+        .order_by("-starts_at")[:100]
     )
-    return {"member": member, "statuses": statuses, "records": records, "exemptions": exemptions}
+    units = list(
+        member.unit_links.filter(unit__archived_at__isnull=True)
+        .select_related("unit")
+        .order_by("-is_primary")
+    )
+    job_roles = list(
+        member.job_role_links.filter(job_role__archived_at__isnull=True).select_related("job_role")
+    )
+    return {"member": member, "statuses": statuses, "records": records, "exemptions": exemptions,
+            "units": units, "job_roles": job_roles}  # fmt: skip
 
 
 def my_required(*, org_id, user_id):

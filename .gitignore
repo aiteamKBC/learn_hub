@@ -33,7 +33,5 @@ _design_review/
 # E2E harness output
 shots/
 tools/harness/*.log
-
-# Check output (tools/run_check.py) and local hook state
-logs/
 .claude/hooks/.goal_state.json
+logs/

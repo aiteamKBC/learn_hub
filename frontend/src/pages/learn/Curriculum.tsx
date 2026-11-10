@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronDown, Circle, PlayCircle } from 'lucide-react'
+import { CheckCircle2, ChevronDown, Circle, Lock, PlayCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import type { Player } from '@/features/learning/api'
@@ -65,8 +65,8 @@ export function Curriculum({ player, current, onPick }: { player: Player; curren
                         className={cn('relative flex gap-3 px-4 py-2.5 text-sm transition-colors', here ? 'bg-primary-soft text-text' : 'hover:bg-surface-2')}
                       >
                         {here ? <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] bg-primary" /> : null}
-                        <span className="mt-0.5 shrink-0" aria-label={l.completed ? 'Completed' : 'Not completed'}>
-                          {l.completed ? <CheckCircle2 className="size-[18px] fill-success text-surface" /> : here ? <PlayCircle className="size-[18px] text-primary" /> : <Circle className="size-[18px] text-border-strong" />}
+                        <span className="mt-0.5 shrink-0" aria-label={l.completed ? 'Completed' : l.locked ? 'Locked' : 'Not completed'}>
+                          {l.completed ? <CheckCircle2 className="size-[18px] fill-success text-surface" /> : l.locked ? <Lock className="size-[18px] text-muted" /> : here ? <PlayCircle className="size-[18px] text-primary" /> : <Circle className="size-[18px] text-border-strong" />}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className={cn('block leading-snug', here && 'font-medium')}>{l.title}</span>
@@ -74,6 +74,7 @@ export function Curriculum({ player, current, onPick }: { player: Player; curren
                             <Icon className="size-3.5" /> {label}
                             {l.duration_sec ? ` · ${minutes(l.duration_sec)}` : ''}
                           </span>
+                          {l.locked && l.prerequisite_title ? <span className="mt-0.5 block text-xs text-muted">Finish “{l.prerequisite_title}” first</span> : null}
                         </span>
                       </Link>
                     </li>

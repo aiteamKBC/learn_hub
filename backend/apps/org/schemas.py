@@ -35,6 +35,7 @@ class UnitOut(Schema):
     depth: int
     people: int
     managers: list[str]
+    manager_ids: list[UUID]  # member ids, same order as managers
 
 
 class UnitIn(Schema):
@@ -115,6 +116,7 @@ class AssignIn(Schema):
     course_id: UUID
     member_ids: list[UUID] = Field(default_factory=list, max_length=5000)
     unit_ids: list[UUID] = Field(default_factory=list, max_length=100)
+    dry_run: bool = False  # count who would receive it, without assigning
 
 
 class LibraryCourse(Schema):
@@ -129,6 +131,31 @@ class LibraryCourse(Schema):
     total_duration_sec: int
     assigned: int
     completed: int
+
+
+class AssignOut(Schema):
+    enrolled: int
+    already_had_it: int
+
+
+class AssignmentRow(Schema):
+    enrollment_id: UUID
+    name: str
+    email: str
+    status: str
+    progress_pct: float
+    enrolled_at: datetime
+    completed_at: datetime | None
+    last_accessed_at: datetime | None
+
+
+class InvitationOut(Schema):
+    org_name: str
+    role: str
+
+
+class InviteAcceptOut(Schema):
+    org_id: UUID
 
 
 class AuditOut(Schema):

@@ -4,7 +4,9 @@ import { useSearchParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/input'
+import { PasswordInput, PasswordStrength } from '@/components/ui/password'
 import { AuthError, useSignup } from '@/features/identity/auth'
+import { usePublicSettings } from '@/features/platform/api'
 import { safeNext } from '@/lib/next'
 
 import { AuthShell } from './AuthShell'
@@ -18,11 +20,16 @@ export function SignupPage() {
   const signup = useSignup()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [mismatch, setMismatch] = useState(false)
   const [sent, setSent] = useState(false)
   const err = signup.error instanceof AuthError ? signup.error : null
+  const { settings } = usePublicSettings()
+  const minLength = settings['security.password_min_length']
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
+    if (password !== confirm) return setMismatch(true)
     signup.mutate({ email, password }, { onSuccess: (r) => (r === 'verify-email' ? setSent(true) : navigate(next, { replace: true })) })
   }
 
@@ -38,6 +45,24 @@ export function SignupPage() {
           </p>
           <p className="mt-3 text-xs text-muted">Nothing there? Check your junk folder.</p>
         </div>
+        {/* sign-up answers the same way for known emails (no account probing), so say what happens then */}
+        <p className="mt-4 text-center text-sm text-muted">
+          Already have an account with this email? We've emailed you a reminder instead.{' '}
+          <Link to="/login" className="font-medium text-primary hover:underline">
+            Log in
+          </Link>
+        </p>
+      </AuthShell>
+    )
+  }
+
+  if (!settings['access.registration_enabled']) {
+    // console > Settings: registration is off (the API refuses sign-ups too)
+    return (
+      <AuthShell title="Sign-ups are closed" subtitle="New accounts can't be created right now. If you already have one, you can still log in.">
+        <Button asChild size="lg" className="w-full">
+          <Link to={`/login${params.get('next') ? `?next=${encodeURIComponent(next)}` : ''}`}>Log in</Link>
+        </Button>
       </AuthShell>
     )
   }
@@ -64,8 +89,14 @@ export function SignupPage() {
         <Field label="Email" error={err?.fields.email}>
           {(p) => <Input {...p} type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />}
         </Field>
-        <Field label="Password" hint="At least 8 characters, not a common password." error={err?.fields.password}>
-          {(p) => <Input {...p} type="password" autoComplete="new-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />}
+        <div className="grid gap-2">
+          <Field label="Password" hint={`At least ${minLength} characters, not a common password.`} error={err?.fields.password}>
+            {(p) => <PasswordInput {...p} autoComplete="new-password" required minLength={minLength} value={password} onChange={(e) => (setPassword(e.target.value), setMismatch(false))} />}
+          </Field>
+          <PasswordStrength password={password} minLength={minLength} />
+        </div>
+        <Field label="Confirm password" error={mismatch ? "The passwords don't match." : undefined}>
+          {(p) => <PasswordInput {...p} autoComplete="new-password" required value={confirm} onChange={(e) => (setConfirm(e.target.value), setMismatch(false))} />}
         </Field>
         <Button type="submit" size="lg" loading={signup.isPending} className="w-full">
           Create account

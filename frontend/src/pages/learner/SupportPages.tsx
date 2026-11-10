@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronRight, LifeBuoy, Lock, MessageSquarePlus, Send } from 'lucide-react'
+import { ArrowLeft, ChevronRight, LifeBuoy, Lock, MessageSquarePlus, Paperclip, Send } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -11,7 +11,8 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Field, Input, NativeSelect, Textarea } from '@/components/ui/input'
 import { EmptyState, ErrorState, PageHeader } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useCloseTicket, useOpenTicket, useReplyTicket, useTicket, useTickets } from '@/features/engagement/api'
+import { openTicketAttachment, useCloseTicket, useOpenTicket, useReplyTicket, useTicket, useTickets } from '@/features/engagement/api'
+import { usePlatformName } from '@/features/platform/api'
 import { cn } from '@/lib/cn'
 import { relativeDate } from '@/lib/format'
 import { Link, useNavigate } from '@/lib/router'
@@ -71,7 +72,7 @@ function NewTicket({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
           </Field>
           <Field label="Subject">{(f) => <Input {...f} value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={200} required />}</Field>
           <Field label="Message">{(f) => <Textarea {...f} className="min-h-36" value={body} onChange={(e) => setBody(e.target.value)} maxLength={10000} required />}</Field>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
@@ -142,6 +143,7 @@ export function TicketPage() {
   const q = useTicket(id)
   const reply = useReplyTicket(id)
   const close = useCloseTicket(id)
+  const platform = usePlatformName()
   const [body, setBody] = useState('')
   const back = (
     <Button variant="ghost" size="sm" asChild className="-ml-2 mb-2">
@@ -185,9 +187,19 @@ export function TicketPage() {
             <Avatar name={m.author.name} src={m.author.avatar_url} size="sm" />
             <div className={cn('max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm', m.is_staff ? 'rounded-tl-sm border border-border bg-surface' : 'rounded-tr-sm bg-primary text-on-primary')}>
               <p className={cn('text-xs font-medium', m.is_staff ? 'text-primary' : 'text-on-primary/80')}>
-                {m.is_staff ? `${m.author.name} · LearnHub support` : 'You'} · {relativeDate(m.created_at)}
+                {m.is_staff ? `${m.author.name} · ${platform} support` : 'You'} · {relativeDate(m.created_at)}
               </p>
-              <p className="mt-1 whitespace-pre-wrap">{m.body}</p>
+              {m.body_html ? (
+                // cleaned on the server (nh3) before it is stored or sent
+                <div className="prose-sm mt-1 [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5" dangerouslySetInnerHTML={{ __html: m.body_html }} />
+              ) : (
+                <p className="mt-1 whitespace-pre-wrap">{m.body}</p>
+              )}
+              {m.attachment ? (
+                <button type="button" className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-current/20 px-2 py-1 text-xs font-medium hover:underline" onClick={() => void openTicketAttachment(t.id, m.id).catch((e: Error) => toast.error(e.message))}>
+                  <Paperclip className="size-3.5" /> {m.attachment.name}
+                </button>
+              ) : null}
             </div>
           </li>
         ))}

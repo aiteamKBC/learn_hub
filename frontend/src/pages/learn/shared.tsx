@@ -69,6 +69,12 @@ export function CompleteBar({ lecture, enrollmentId, slug, manual = true, classN
   )
 }
 
+/** Text the server stores as sanitised HTML, but which older rows may hold as plain text
+ * (e.g. marking feedback): HTML is rendered, plain text keeps its line breaks. */
+export function RichOrText({ value, className }: { value: string; className?: string }) {
+  return /<[a-z][^>]*>/i.test(value) ? <Html html={value} className={className} /> : <p className={cn('whitespace-pre-wrap', className)}>{value}</p>
+}
+
 export function Html({ html, className }: { html: string; className?: string }) {
   // sanitised on the server (nh3 allow-list, core/html.py) before it is stored
   return <div className={cn('prose-lesson', className)} dangerouslySetInnerHTML={{ __html: html }} />
