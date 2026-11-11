@@ -31,6 +31,7 @@ DOMAIN_APPS = [
     "apps.engagement",
     "apps.analytics",
     "apps.platform",
+    "apps.corporate",
 ]
 
 INSTALLED_APPS = [

@@ -29,6 +29,7 @@ class RevenueShare(BaseModel):
         MARKETPLACE = "marketplace", "Marketplace sale"
         INSTRUCTOR_COUPON = "instructor_coupon", "Sale through the instructor's own coupon"
         SUBSCRIPTION_POOL = "subscription_pool", "Share of personal-plan revenue"
+        TOKEN_SPEND = "token_spend", "Token-spend unlock (B2C)"
 
     channel = models.CharField(max_length=20, choices=Channel.choices, unique=True)
     instructor_bps = models.PositiveIntegerField()  # 3700 = 37%
@@ -95,6 +96,7 @@ class Earning(BaseModel):
         SALE = "sale", "Sale"
         REFUND = "refund", "Refund"
         SUBSCRIPTION = "subscription", "Personal-plan minutes"
+        TOKEN_SPEND = "token_spend", "Token-spend unlock"
         ADJUSTMENT = "adjustment", "Adjustment by staff"
 
     user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+", db_index=False)  # instructor
@@ -102,6 +104,9 @@ class Earning(BaseModel):
     course = models.ForeignKey("catalog.Course", on_delete=models.PROTECT, related_name="+")
     order_item = models.ForeignKey(
         "commerce.OrderItem", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    token_spend = models.ForeignKey(
+        "commerce.TokenSpend", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
     )
     period = models.DateField(null=True, blank=True)  # first day of the month (subscription lines)
     channel = models.CharField(max_length=20, choices=RevenueShare.Channel.choices)
@@ -127,6 +132,11 @@ class Earning(BaseModel):
                 fields=["user", "course", "period"],
                 condition=Q(kind="subscription"),
                 name="uq_earning_sub_month",
+            ),
+            models.UniqueConstraint(
+                fields=["user", "token_spend"],
+                condition=Q(token_spend__isnull=False),
+                name="uq_earning_token_spend",
             ),
         ]
         indexes = [

@@ -67,8 +67,14 @@ def dispatch(event: dict) -> None:
         _session_completed(obj, meta)
     elif kind == "checkout.session.expired" and meta.get("kind") == "order":
         services.expire_order(order_id=meta["id"])
+    elif kind == "checkout.session.expired" and meta.get("kind") in ("corporate_recorded", "corporate_live"):
+        from apps.corporate.fulfillment import expire_purchase
+        expire_purchase(obj, meta)
     elif kind == "checkout.session.async_payment_failed" and meta.get("kind") == "order":
         services.fail_order(order_id=meta["id"])
+    elif kind == "checkout.session.async_payment_failed" and meta.get("kind") in ("corporate_recorded", "corporate_live"):
+        from apps.corporate.fulfillment import fail_purchase
+        fail_purchase(obj, meta)
     elif kind.startswith("customer.subscription."):
         # created / updated / deleted / paused / resumed / pending_update_* / trial_will_end:
         # each carries the whole subscription, so access always follows its status
@@ -96,6 +102,22 @@ def _session_completed(session: dict, meta: dict) -> None:
             amount_minor=session.get("amount_total"),
             currency=session.get("currency") or "",
         )
+    elif meta.get("kind") == "cash_package":
+        _fulfil_cash_package(session, meta)
+    elif meta.get("kind") == "token_pack":
+        _fulfil_token_pack(session, meta)
+    elif meta.get("kind") == "token_topup":
+        _fulfil_token_topup(session, meta)
+    elif meta.get("kind") == "corporate_recorded":
+        if session.get("payment_status") != "paid":
+            return
+        from apps.corporate.fulfillment import fulfil_recorded_purchase
+        fulfil_recorded_purchase(session, meta)
+    elif meta.get("kind") == "corporate_live":
+        if session.get("payment_status") != "paid":
+            return
+        from apps.corporate.live_checkout import fulfil_live_purchase
+        fulfil_live_purchase(session, meta)
     elif meta.get("kind") in ("subscription", "addon"):
         model = Subscription if meta["kind"] == "subscription" else AddonSubscription
         linked = model.objects.filter(pk=meta["id"], stripe_subscription_id__isnull=True).update(
@@ -267,6 +289,11 @@ def _invoice_failed(inv: dict) -> None:
 
 
 def _invoice_paid(inv: dict) -> None:
+    meta = inv.get("metadata") or {}
+    if meta.get("kind") == "corporate_quote":
+        from apps.corporate.quotes import fulfil_quote
+        fulfil_quote(inv)
+        return
     sub = _subscription_of(inv)
     if sub is None:
         _order_invoice(inv)
@@ -290,4 +317,96 @@ def _invoice_paid(inv: dict) -> None:
             "pdf_url": inv.get("invoice_pdf") or "",
             "issued_at": _ts(inv.get("created")) or timezone.now(),
         },
+    )
+
+
+# ---------------------------------------------------------------- cash packages
+def _fulfil_cash_package(session: dict, meta: dict) -> None:
+    if session.get("payment_status") != "paid":
+        return
+    from . import packages
+
+    course_ids_str = meta.get("course_ids", "")
+    course_id_strs = [c.strip() for c in course_ids_str.split(",") if c.strip()]
+    if not course_id_strs:
+        log.warning("cash_package: no course_ids in session %s", session.get("id"))
+        return
+    packages.fulfil_package(
+        session_id=session.get("id", ""),
+        user_id=meta["user_id"],
+        package_id=meta["id"],
+        course_id_strs=course_id_strs,
+    )
+
+
+# ---------------------------------------------------------------- token top-ups
+def _fulfil_token_pack(session: dict, meta: dict) -> None:
+    if session.get("payment_status") != "paid":
+        return
+    from apps.commerce.models import TokenPack
+    from apps.identity.models import User
+
+    from . import wallet
+
+    user = User.objects.filter(pk=meta["user_id"]).first()
+    if user is None:
+        log.warning("token_pack: user %s not found", meta.get("user_id"))
+        return
+    pack = TokenPack.objects.filter(pk=meta["id"]).first()
+    token_amount = int(meta.get("token_amount") or (pack.token_amount if pack else 0))
+    if token_amount <= 0:
+        log.warning("token_pack: zero amount for session %s", session.get("id"))
+        return
+    amount_total = session.get("amount_total") or 0
+    from decimal import ROUND_HALF_UP, Decimal
+
+    if amount_total > 0 and token_amount > 0:
+        unit_cost = (Decimal(str(amount_total)) / Decimal(str(token_amount))).quantize(
+            Decimal("0.0001"), rounding=ROUND_HALF_UP
+        )
+    else:
+        unit_cost = None
+    wallet.grant_tokens(
+        user=user,
+        source="pack",
+        amount=token_amount,
+        unit_cost_gbp=unit_cost,
+        source_ref=f"pack:{meta['id']}",
+        stripe_session_id=session.get("id"),
+        note=f"Pack: {pack.name}" if pack else "Token pack purchase",
+    )
+
+
+def _fulfil_token_topup(session: dict, meta: dict) -> None:
+    if session.get("payment_status") != "paid":
+        return
+    from apps.identity.models import User
+
+    from . import wallet
+
+    user = User.objects.filter(pk=meta["user_id"]).first()
+    if user is None:
+        log.warning("token_topup: user %s not found", meta.get("user_id"))
+        return
+    token_amount = int(meta.get("token_amount", 0))
+    if token_amount <= 0:
+        log.warning("token_topup: zero amount for session %s", session.get("id"))
+        return
+    gbp_minor = int(meta.get("gbp_minor", 0))
+    from decimal import ROUND_HALF_UP, Decimal
+
+    if gbp_minor > 0 and token_amount > 0:
+        unit_cost = (Decimal(str(gbp_minor)) / Decimal(str(token_amount))).quantize(
+            Decimal("0.0001"), rounding=ROUND_HALF_UP
+        )
+    else:
+        unit_cost = None
+    wallet.grant_tokens(
+        user=user,
+        source="topup",
+        amount=token_amount,
+        unit_cost_gbp=unit_cost,
+        source_ref=f"topup:{meta.get('rate_id', '')}",
+        stripe_session_id=session.get("id"),
+        note=f"Top-up {meta.get('amount_minor', '')} {meta.get('currency', 'GBP')} minor",
     )

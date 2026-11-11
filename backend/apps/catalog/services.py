@@ -231,6 +231,18 @@ def create_draft(*, course: Course, by) -> CourseVersion:
     number = (course.versions.aggregate(m=Max("number"))["m"] or 0) + 1
     draft = CourseVersion.objects.create(course=course, number=number, based_on=source)
     _copy_content(source, draft)
+    # B2C-03: copy token prices from previous version. Fail-open: if this raises,
+    # log and continue — republish semantics must not change.
+    try:
+        from apps.commerce import pricing_service as _ps
+
+        _ps.migrate_token_pricing_on_republish(source, draft, actor=by)
+    except Exception:  # noqa: BLE001
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "migrate_token_pricing_on_republish failed for course %s", course.pk
+        )
     return draft
 
 

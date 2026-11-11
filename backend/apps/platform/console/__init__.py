@@ -13,6 +13,10 @@ from . import (  # noqa: F401 - each module adds its routes to the shared router
     commissions,
     communications,
     companies,
+    corporate_cancellations,
+    corporate_live,
+    corporate_packages,
+    corporate_reports,
     courses,
     dashboard,
     moderation,
@@ -25,6 +29,8 @@ from . import (  # noqa: F401 - each module adds its routes to the shared router
     sales,
     search,
     subscriptions,
+    token_pricing,
+    wallet,
 )
 from .common import router
 

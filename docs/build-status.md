@@ -2,6 +2,24 @@
 
 Maintained by Claude Code (`/status`) and read by the planner session. Newest milestone first.
 
+## B2C-01 — Unified Content Access Engine (2026-11-10, landed)
+
+Milestone brief: `docs/milestones/M9-b2c-token-unlock.md` (done section at the end).
+The additive foundation for B2C content authorization. **No wallet spending, no Stripe
+changes, no B2B logic changes.** New `platform.ContentEntitlement`, `platform.AccessAuditLog`
+and `apps.platform.access.resolve()` wire into `learning._check_unlocked` for personal
+enrolments. B2B assignments bypass the B2C resolver (`Enrollment.org_id IS NOT NULL`).
+
+Migrations generated (NOT applied to Neon by this milestone):
+- `platform 0004_accessauditlog_contententitlement` — the two new tables, all additive.
+- `platform 0005_b2c_access_engine_rls_and_backfill` — user-scoped RLS on both tables
+  plus idempotent `legacy_purchase` backfill (`ContentEntitlement` mirror for every
+  non-expired personal `Enrollment`). Safe to re-run; the existing `Enrollment` row is
+  never touched.
+
+Unblocks: M-wallet / M10 (cash package fulfilment), M12 (course-outline bulk fast path,
+Bunny/Azure/live-join gating), M16 (grandfathering completion).
+
 ## Where things stand (2026-11-08)
 | Area | State |
 |---|---|
@@ -351,3 +369,73 @@ Keep Bunny's player (no custom player, no hls.js).
    - the reviewer over the whole branch;
    - a click-through of the whole demo.
 4. Deployment.
+
+## B2C-03 — PR 2 done (2026-11-11)
+
+Admin monetization console endpoints + token-pricing contract wired in (PR 2 of 3).
+Django-Ninja routes under `/api/v1/console/pricing/token/*`, mounted alongside the
+existing cash pricing console via `apps/platform/console/__init__.py`. All endpoints
+require `StaffSessionAuth` + `staff(request)`; mutations forward `actor`, `reason`,
+and `request` to `apps.commerce.pricing_service`, which continues to own all state.
+
+New files:
+- `backend/apps/platform/console/token_pricing.py` — the whole token-pricing surface
+  plus `Console…`-prefixed request/response schemas.
+- `backend/apps/platform/tests/test_console_token_pricing.py` — 14 endpoint tests.
+
+Modified:
+- `backend/apps/platform/console/__init__.py` — registers the new module.
+- `backend/apps/catalog/services.py` — `create_draft` now runs
+  `pricing_service.migrate_token_pricing_on_republish` after `_copy_content`,
+  wrapped in try/except so republish semantics never change on failure.
+
+Endpoints: course list/detail/PATCH, `distribute-tokens` (server-authoritative,
+Hamilton allocation; client-side amounts are ignored), per-lecture/per-material
+PATCH, bulk course PATCH, token pack CRUD + soft delete, token rate list + create
+(past `effective_from` → 400 `RATE_EFFECTIVE_FROM_PAST`), per-currency top-up policy
+upsert, bonus campaign list/create/update (activation stays blocked → 409
+`F02_BLOCKED`), audit page scoped to token-pricing targets.
+
+UNSET vs null: PATCH bodies default each optional field to the string sentinel
+`"__UNSET__"`. The endpoint reads `payload.dict(exclude_unset=True)`; missing →
+UNSET (service leaves the column alone), explicit `null` → clears the column,
+value → sets the column. `price_tier_id` is resolved to a `PriceTier` row (404 on
+unknown id) before forwarding.
+
+Contract test (`core/tests/test_api_contract.py`) still passes — the `Console`
+schema-name prefix was already enforced for the console surface; every new schema
+starts with `Console…` and every typed response declares its shape.
+
+No new models or migrations. All BLOCKED items from PR 1 (C05, F02, T03, default
+top-up bounds) remain BLOCKED.
+
+## B2C-03 — PR 1 done (2026-11-10)
+
+Admin monetization & token pricing — foundation layer (PR 1 of 3). Models, migrations,
+service, and tests only. No API routes or UI yet (PR 2 / PR 3).
+
+New tables (all additive):
+- `commerce.token_packs`, `commerce.token_rates`, `commerce.topup_policies`,
+  `commerce.bonus_campaigns`, `commerce.price_snapshots`.
+- Partial unique index `uq_trate_one_open` — at most one open-ended `TokenRate` at a time.
+- Partial unique index `uq_topup_active_cur` — at most one active `TopUpPolicy` per currency.
+
+New columns (nullable / defaulted — existing rows unaffected):
+- `catalog.courses`: `cash_price_tier_id`, `full_course_token_price`, `token_pricing_mode`.
+- `catalog.lectures`: `token_price`, `is_free_preview`.
+- `catalog.lecture_resources`: `token_price`, `is_free_preview`.
+
+Service: `apps.commerce.pricing_service` (see M13 brief for signatures).
+Audit reuses the existing `platform.audit_logs` partitioned table via
+`apps.platform.services.audit()`.
+
+Migrations the user must run (owner connection, Neon):
+- `commerce.0005_tokenrate_pricesnapshot_topuppolicy_bonuscampaign_and_more`
+- `commerce.0006_token_pricing_constraints`
+- `catalog.0007_course_cash_price_tier_and_more`
+
+BLOCKED items (still open — PR 2 cannot close):
+- **C05** default auto-weights for token distribution.
+- **T03** default grant expiry duration.
+- **F02** bonus-campaign activation funding model.
+- Default TopUp bounds per currency.
