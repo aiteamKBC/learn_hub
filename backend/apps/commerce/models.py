@@ -235,9 +235,14 @@ class Plan(BaseModel):
         MONTH = "month", "Monthly"
         YEAR = "year", "Yearly"
 
+    class Kind(models.TextChoices):
+        STANDARD = "standard", "Standard plan"
+        UNLIMITED_B2C = "unlimited_b2c", "Unlimited B2C (all in-subscription courses)"
+
     code = models.SlugField(max_length=40, unique=True)
     name = models.CharField(max_length=80)
     audience = models.CharField(max_length=8, choices=Audience.choices)
+    kind = models.CharField(max_length=16, choices=Kind.choices, default="standard")
     interval = models.CharField(max_length=5, choices=Interval.choices)
     trial_days = models.PositiveSmallIntegerField(default=0)
     min_seats = models.PositiveSmallIntegerField(default=1)
@@ -606,4 +611,347 @@ class SubscriptionEvent(MixedTenantModel):
         indexes = [
             models.Index(fields=["subscription", "-at"], name="ix_sub_events_sub"),
             models.Index(fields=["kind", "-at"], name="ix_sub_events_kind"),
+        ]
+
+
+# ======================================================================= B2C-03 token pricing
+# Additive token-pricing models (milestone B2C-03 / M8 / M13). Multi-currency is handled the
+# same way as cash: a single GBP-base `TokenRate` is converted to other currencies via the
+# existing `FxRate` table. We do NOT store a per-currency rate row.
+#
+# Audit for every mutation goes through `apps.platform.services.audit()` (which writes to
+# the partitioned, append-only `platform.audit_logs` table). No parallel `PricingAuditLog`
+# is defined — the existing audit backend already matches the requirements (append-only,
+# WHO/WHAT/WHEN/WHY captured, plus `data` JSONB for before/after values and `reason`).
+#
+# Invariant: price changes affect FUTURE purchases only. Existing `ContentEntitlement` and
+# `PriceSnapshot` rows are never modified or deleted by any service in this milestone (A06).
+
+
+class TokenPack(BaseModel):
+    """A catalogue SKU: N tokens for a published cash price (via PriceTier)."""
+
+    name = models.CharField(max_length=120)
+    token_amount = models.PositiveIntegerField()
+    price_tier = models.ForeignKey(
+        PriceTier, on_delete=models.PROTECT, related_name="token_packs"
+    )
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        db_table = table(SCHEMA, "token_packs")
+        ordering = ["sort_order", "name"]
+        indexes = [
+            models.Index(
+                fields=["is_active", "sort_order"], name="ix_tpk_active", condition=Q(is_active=True)
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.token_amount})"
+
+
+class TokenRate(BaseModel):
+    """Versioned conversion rate (GBP base).
+
+    `tokens_per_gbp_minor` = tokens granted per 1 GBP minor unit (per penny). Keeping it on
+    the base currency means we convert to any other currency via `FxRate`, matching the
+    cash-pricing pattern used by PriceTier.gbp_minor.
+
+    Exactly one row at a time may have `effective_to IS NULL` (the live rate). Enforced by
+    a partial unique index in migration (see `0005_token_pricing.py`).
+    """
+
+    tokens_per_gbp_minor = models.DecimalField(max_digits=12, decimal_places=4)
+    effective_from = models.DateTimeField()
+    effective_to = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "token_rates")
+        ordering = ["-effective_from"]
+        indexes = [
+            models.Index(fields=["effective_from"], name="ix_trate_from"),
+        ]
+
+    def __str__(self) -> str:
+        return f"TokenRate({self.tokens_per_gbp_minor} /penny from {self.effective_from})"
+
+    @classmethod
+    def current(cls, *, at=None):
+        """Return the currently-effective rate (or None).
+
+        A rate is current when `effective_from <= at` and (`effective_to IS NULL` or
+        `effective_to > at`).
+        """
+        from django.utils import timezone as _tz
+
+        at = at or _tz.now()
+        return (
+            cls.objects.filter(effective_from__lte=at)
+            .filter(Q(effective_to__isnull=True) | Q(effective_to__gt=at))
+            .order_by("-effective_from")
+            .first()
+        )
+
+
+class TopUpPolicy(BaseModel):
+    """Per-currency min/max custom top-up bounds. One row active per currency at a time."""
+
+    currency = models.CharField(max_length=3)  # ISO 4217; not FK — policy may precede Currency rows
+    min_minor = models.PositiveIntegerField()
+    max_minor = models.PositiveIntegerField()
+    is_active = models.BooleanField(default=True)
+    updated_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        db_table = table(SCHEMA, "topup_policies")
+        indexes = [
+            models.Index(
+                fields=["currency"], name="ix_topup_active_cur", condition=Q(is_active=True)
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(max_minor__gte=models.F("min_minor")),
+                name="ck_topup_max_gte_min",
+            ),
+        ]
+
+
+class BonusCampaign(BaseModel):
+    """Configuration for bonus-token campaigns.
+
+    NOTE: Issuance of bonus tokens at purchase/top-up time is the wallet module's job
+    (see M7-b2c-wallet). This model is config-only; no wallet writes happen here.
+    Activation is GATED: see `pricing_service.upsert_bonus_campaign` — any attempt to set
+    `is_active=True` raises `ConfigurationBlocked("F02")` until the funding model lands.
+    """
+
+    class ConditionType(models.TextChoices):
+        TOPUP_MIN_AMOUNT = "topup_min_amount", "Top-up at or above a minimum amount"
+        FIRST_TOPUP = "first_topup", "First top-up by a user"
+        PACK_PURCHASE = "pack_purchase", "Token pack purchase"
+
+    name = models.CharField(max_length=120)
+    condition_type = models.CharField(max_length=20, choices=ConditionType.choices)
+    condition_value = models.JSONField(default=dict, blank=True)
+    bonus_tokens = models.PositiveIntegerField(null=True, blank=True)
+    bonus_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    bonus_expiry_days = models.PositiveIntegerField(null=True, blank=True)
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField()
+    is_active = models.BooleanField(default=False)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        db_table = table(SCHEMA, "bonus_campaigns")
+        constraints = [
+            # Exactly one of bonus_tokens or bonus_percent is non-null.
+            models.CheckConstraint(
+                condition=(
+                    (Q(bonus_tokens__isnull=False) & Q(bonus_percent__isnull=True))
+                    | (Q(bonus_tokens__isnull=True) & Q(bonus_percent__isnull=False))
+                ),
+                name="ck_bonus_amount_xor",
+            ),
+            models.CheckConstraint(
+                condition=Q(ends_at__gt=models.F("starts_at")),
+                name="ck_bonus_dates",
+            ),
+        ]
+
+
+class PriceSnapshot(BaseModel):
+    """Frozen pricing used at the moment of purchase / unlock / top-up. IMMUTABLE.
+
+    Populated by M-wallet and M-cash-package when they write `TokenSpend`, `Order`, or a
+    wallet top-up. Nothing in this milestone (B2C-03 / M8 / M13 PR 1) writes rows here —
+    the table ships so downstream modules have a stable write target.
+    """
+
+    class Scope(models.TextChoices):
+        COURSE = "course", "Course"
+        LECTURE = "lecture", "Lecture"
+        MATERIAL = "material", "Material / downloadable asset"
+        PACK = "pack", "Token pack"
+        CUSTOM_TOPUP = "custom_topup", "Custom cash top-up"
+
+    class SourceRefKind(models.TextChoices):
+        ORDER = "order", "commerce.Order"
+        TOKEN_SPEND = "token_spend", "commerce.TokenSpend"
+        WALLET_TOPUP = "wallet_topup", "commerce.WalletTopUp"
+
+    scope = models.CharField(max_length=16, choices=Scope.choices)
+    target_id = models.CharField(max_length=64)  # string — may be UUID or int depending on target
+    amount_minor = models.PositiveIntegerField(null=True, blank=True)  # cash side
+    token_amount = models.PositiveIntegerField(null=True, blank=True)  # token side
+    currency = models.CharField(max_length=3, blank=True)
+    source_rate = models.ForeignKey(
+        TokenRate, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    snapshot_at = models.DateTimeField(auto_now_add=True)
+    source_ref_kind = models.CharField(max_length=20, choices=SourceRefKind.choices)
+    source_ref = models.CharField(max_length=64)
+
+    class Meta:
+        db_table = table(SCHEMA, "price_snapshots")
+        indexes = [
+            models.Index(fields=["scope", "target_id"], name="ix_snap_target"),
+            models.Index(fields=["source_ref_kind", "source_ref"], name="ix_snap_source"),
+        ]
+
+
+# ======================================================================= B2C-02 wallet
+class TokenGrant(BaseModel):
+    """A lot of tokens granted to a user. FEFO: oldest-expiring lots are spent first.
+
+    Sources: pack purchase, custom top-up, admin adjustment, bonus campaign.
+    `remaining` is decremented atomically by spend_tokens(); never goes below 0.
+    """
+
+    class Source(models.TextChoices):
+        PACK = "pack", "Token pack purchase"
+        TOPUP = "topup", "Custom cash top-up"
+        ADMIN = "admin", "Admin adjustment"
+        BONUS = "bonus", "Bonus campaign"
+        REFUND = "refund", "Spend reversal / refund"
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+", db_index=False)
+    source = models.CharField(max_length=10, choices=Source.choices)
+    amount = models.PositiveIntegerField()
+    remaining = models.PositiveIntegerField()
+    unit_cost_gbp = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    granted_at = models.DateTimeField()
+    expires_at = models.DateTimeField(null=True, blank=True)
+    expired_at = models.DateTimeField(null=True, blank=True)
+    source_ref = models.CharField(max_length=64, blank=True)
+    stripe_session_id = models.CharField(max_length=128, null=True, blank=True, unique=True)
+    note = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "token_grants")
+        indexes = [
+            models.Index(
+                fields=["user", "expires_at", "granted_at", "id"],
+                name="ix_tgrant_fefo",
+                condition=Q(remaining__gt=0, expired_at__isnull=True),
+            ),
+            models.Index(fields=["user"], name="ix_tgrant_user"),
+            models.Index(
+                fields=["expires_at"],
+                name="ix_tgrant_expires",
+                condition=Q(expires_at__isnull=False, expired_at__isnull=True),
+            ),
+        ]
+
+    def __str__(self):
+        return f"Grant({self.user_id}, {self.amount}, remaining={self.remaining})"
+
+
+class TokenSpend(BaseModel):
+    """One unlock operation: user spent N tokens on a piece of content."""
+
+    class Scope(models.TextChoices):
+        COURSE = "course", "Course"
+        LECTURE = "lecture", "Lecture"
+        MATERIAL = "material", "Material"
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+", db_index=False)
+    scope = models.CharField(max_length=12, choices=Scope.choices)
+    target_id = models.UUIDField()
+    tokens_total = models.PositiveIntegerField()
+    weighted_unit_cost_gbp = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    course_id = models.UUIDField(null=True, blank=True)
+    instructor_id = models.UUIDField(null=True, blank=True)
+    entitlement = models.ForeignKey(
+        "platform.ContentEntitlement", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        db_table = table(SCHEMA, "token_spends")
+        indexes = [
+            models.Index(fields=["user", "-created_at"], name="ix_tspend_user"),
+            models.Index(
+                fields=["course_id"],
+                name="ix_tspend_course",
+                condition=Q(course_id__isnull=False),
+            ),
+        ]
+
+
+class TokenLedgerEntry(BaseModel):
+    """Append-only record of every token balance change. Never UPDATE or DELETE."""
+
+    class Kind(models.TextChoices):
+        GRANT = "grant", "Tokens granted"
+        SPEND = "spend", "Tokens spent on content"
+        EXPIRY = "expiry", "Tokens expired (FEFO)"
+        ADMIN_CLAWBACK = "admin_clawback", "Admin removed tokens"
+        REFUND_REVERSAL = "refund_reversal", "Spend reversed (refund)"
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+", db_index=False)
+    kind = models.CharField(max_length=20, choices=Kind.choices)
+    amount = models.IntegerField()
+    balance_after = models.PositiveIntegerField()
+    grant = models.ForeignKey(TokenGrant, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    spend = models.ForeignKey(TokenSpend, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    note = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "token_ledger")
+        indexes = [
+            models.Index(fields=["user", "-created_at"], name="ix_tledger_user"),
+        ]
+
+
+# ======================================================================= B2C-06 cash packages
+class CashPackage(BaseModel):
+    """A bundle of courses sold for a one-off cash price (via PriceTier)."""
+
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=120, unique=True)
+    description = models.TextField(blank=True, max_length=4000)
+    price_tier = models.ForeignKey(PriceTier, on_delete=models.PROTECT, related_name="cash_packages")
+    is_active = models.BooleanField(default=True)
+    starts_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        db_table = table(SCHEMA, "cash_packages")
+        indexes = [
+            models.Index(fields=["is_active", "slug"], name="ix_cpkg_active"),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class CashPackageCourse(BaseModel):
+    """Association: which courses are included in a package. Snapshot stores the
+    course's list GBP price at the time the package was last published/saved, so
+    pro-rata revenue share is deterministic."""
+
+    package = models.ForeignKey(CashPackage, on_delete=models.CASCADE, related_name="courses")
+    course = models.ForeignKey("catalog.Course", on_delete=models.CASCADE, related_name="+")
+    snapshot_gbp_minor = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = table(SCHEMA, "cash_package_courses")
+        constraints = [
+            models.UniqueConstraint(fields=["package", "course"], name="uq_cpkg_course"),
         ]

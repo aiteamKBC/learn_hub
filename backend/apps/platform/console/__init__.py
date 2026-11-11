@@ -25,6 +25,8 @@ from . import (  # noqa: F401 - each module adds its routes to the shared router
     sales,
     search,
     subscriptions,
+    token_pricing,
+    wallet,
 )
 from .common import router
 

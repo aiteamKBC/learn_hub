@@ -137,6 +137,25 @@ class Course(OwnedContent):
     student_count = models.PositiveIntegerField(default=0)
     rating_avg = models.DecimalField(max_digits=3, decimal_places=2, default=0)
     rating_count = models.PositiveIntegerField(default=0)
+    # B2C-03 (M8 / M13): cash tier (parallel to CoursePrice.tier — lets staff set the tier
+    # without declaring is_free; null preserves existing behaviour). Full-course token price
+    # NULL means the "pay full course in tokens" path is DISABLED for the course (T10).
+    cash_price_tier = models.ForeignKey(
+        "commerce.PriceTier",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    full_course_token_price = models.PositiveIntegerField(null=True, blank=True)
+
+    class TokenPricingMode(models.TextChoices):
+        MANUAL = "manual", "Manual per-lecture pricing"
+        AUTO_WEIGHTED = "auto_weighted", "Auto-distributed from course total"
+
+    token_pricing_mode = models.CharField(
+        max_length=16, choices=TokenPricingMode.choices, default=TokenPricingMode.MANUAL
+    )
 
     class Meta:
         db_table = table(SCHEMA, "courses")
@@ -270,6 +289,12 @@ class Lecture(OwnedContent):
     # Learners must finish this lecture first. A lecture_key (stable across versions), and
     # always an EARLIER lecture of the same version, so there can be no loops.
     prerequisite_key = models.UUIDField(null=True, blank=True)
+    # B2C-03 (M8): token price for individual-lecture unlock. NULL = not individually unlockable
+    # via tokens (full-course unlock may still cover it). `is_free_preview` is additive to the
+    # existing `is_preview` flag — kept separate because the resolver treats them differently.
+    token_price = models.PositiveIntegerField(null=True, blank=True)
+    is_free_preview = models.BooleanField(default=False)
+    excluded_from_subscription = models.BooleanField(default=False)
 
     class Meta:
         db_table = table(SCHEMA, "lectures")
@@ -292,6 +317,11 @@ class LectureResource(OwnedContent):
     asset = models.ForeignKey("MediaAsset", on_delete=models.PROTECT, related_name="+")
     title = models.CharField(max_length=200)
     position = models.PositiveIntegerField(default=0)
+
+    # B2C-03 (M8): materials behave as separately-unlockable artefacts (T06). Token price
+    # NULL = not individually unlockable via tokens.
+    token_price = models.PositiveIntegerField(null=True, blank=True)
+    is_free_preview = models.BooleanField(default=False)
 
     class Meta:
         db_table = table(SCHEMA, "lecture_resources")

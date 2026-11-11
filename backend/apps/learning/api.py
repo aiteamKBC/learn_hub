@@ -74,22 +74,44 @@ def _lecture(e: Enrollment, key) -> Lecture:
 
 
 def _check_unlocked(e: Enrollment, lec: Lecture) -> None:
-    """A lesson with a prerequisite stays locked until that earlier lesson is complete.
-    A prerequisite missing from the live version (deleted later) does not lock anything."""
-    if not lec.prerequisite_key:
+    """Two gates run here:
+
+    1. Prerequisite lesson: a lesson with ``prerequisite_key`` stays locked until that
+       earlier lesson is complete. A prerequisite missing from the live version (deleted
+       later) does not lock anything (fail-open — learners are never stuck).
+    2. B2C content-access resolver (milestone B2C-01 / M9): delegates to
+       :func:`apps.platform.access.resolve`. Company enrolments (``org_id`` set) and
+       legacy personal enrolments both resolve through the new engine, which recognises
+       the existing enrolment as a ``legacy_purchase`` ALLOW. A deny from the resolver
+       becomes a stable 403 with ``reason_code`` the frontend can key upgrade hints on.
+    """
+    # 1) prerequisite (unchanged legacy behaviour)
+    if lec.prerequisite_key:
+        before = (
+            Lecture.objects.filter(version_id=lec.version_id, lecture_key=lec.prerequisite_key)
+            .only("title")
+            .first()
+        )
+        if before is not None:
+            done = LectureProgress.objects.filter(
+                enrollment=e, lecture_key=lec.prerequisite_key, completed_at__isnull=False
+            ).exists()
+            if not done:
+                raise ServiceError("locked", f"Finish “{before.title}” first.", status=403)
+
+    # 2) content-access resolver. Company (B2B) enrolments bypass the B2C resolver:
+    #    their access is controlled by the org assignment itself, unchanged.
+    if e.org_id is not None:
         return
-    before = (
-        Lecture.objects.filter(version_id=lec.version_id, lecture_key=lec.prerequisite_key)
-        .only("title")
-        .first()
-    )
-    if before is None:
-        return
-    done = LectureProgress.objects.filter(
-        enrollment=e, lecture_key=lec.prerequisite_key, completed_at__isnull=False
-    ).exists()
-    if not done:
-        raise ServiceError("locked", f"Finish “{before.title}” first.", status=403)
+    from apps.platform import access as _access
+
+    decision = _access.resolve(e.user, _access.SCOPE_LECTURE, lec.id, lecture_hint=lec)
+    if not decision.allowed:
+        raise ServiceError(
+            decision.reason_code or "no_access",
+            "You don't have access to this lecture.",
+            status=403,
+        )
 
 
 # ---------------------------------------------------------------- my learning

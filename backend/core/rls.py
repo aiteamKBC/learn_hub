@@ -185,6 +185,29 @@ def personal(schema: str, table: str, column: str = "user_id") -> tuple[str, str
     return forward, _disable(q, "tenant_personal")
 
 
+def enable_user_rls_sql(schema: str, table: str, user_column: str = "user_id") -> tuple[str, str]:
+    """User-owned personal rows (B2C entitlements, access audit log): the owning user
+    SELECTs their own rows; staff see all; only staff or background jobs may write.
+
+    Separate policies for SELECT and modify-ALL so the learner request can read its
+    own entitlement rows but no learner endpoint can forge one.
+    """
+    q = _qualified(schema, table)
+    _ident(user_column)
+    forward = _enable(q) + (
+        f"CREATE POLICY user_rls_select ON {q} FOR SELECT"
+        f" USING ({user_column} = {USER} OR {STAFF});\n"
+        f"CREATE POLICY user_rls_modify ON {q} FOR ALL USING ({STAFF}) WITH CHECK ({STAFF});"
+    )
+    reverse = (
+        f"DROP POLICY IF EXISTS user_rls_select ON {q};\n"
+        f"DROP POLICY IF EXISTS user_rls_modify ON {q};\n"
+        f"ALTER TABLE {q} NO FORCE ROW LEVEL SECURITY;\n"
+        f"ALTER TABLE {q} DISABLE ROW LEVEL SECURITY;\n"
+    )
+    return forward, reverse
+
+
 def staff_only(schema: str, table: str) -> tuple[str, str]:
     """Internal tables (raw provider webhooks): invisible to every request but staff jobs."""
     q = _qualified(schema, table)
