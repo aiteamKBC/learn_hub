@@ -221,6 +221,12 @@ def spend_tokens(
         },
         request=request,
     )
+
+    # Record the instructor's share in the same transaction as the token debit.
+    # The payout service ignores platform-owned courses and spends without a cost.
+    from apps.payouts.services_tokens import record_token_spend_earning
+
+    record_token_spend_earning(spend.id)
     return spend
 
 

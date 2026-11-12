@@ -1,6 +1,7 @@
 """Seed demo token monetisation config: token packs, the live token rate, and the
-GBP custom top-up policy. Idempotent (safe to re-run). Payment is NOT wired to Stripe
-yet; this only makes the learner token pages show real, priced data.
+GBP custom top-up policy. Idempotent (safe to re-run), but uses demo prices and must
+not be run in production without reviewing those values. Stripe checkout and webhook
+handling are implemented separately and require the corresponding environment secrets.
 
     python manage.py seed_tokens
 """
@@ -29,7 +30,7 @@ TOPUP = ("GBP", 500, 50000)
 
 
 class Command(BaseCommand):
-    help = "Seed demo token packs, token rate and GBP top-up policy (idempotent, no Stripe)."
+    help = "Seed demo token packs, rate and GBP top-up policy (review prices before production)."
 
     @transaction.atomic
     def handle(self, *args, **opts):
