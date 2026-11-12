@@ -493,3 +493,63 @@ class CompanyHttpTest(SchemaTransactionTestCase):
             (10000, 30000),
             "changing live never touches recorded",
         )
+
+    # ------------------------------------------- assign training: recorded uses seats
+
+    def _assign(self, dry_run):
+        with tenant_context(staff=True):
+            member = OrgMember.objects.get(org=self.org, user=self.emp)
+        self.client.force_login(self.admin)
+        return self.client.post(
+            "/api/v1/org/assign",
+            {"course_id": str(self.course.id), "member_ids": [str(member.id)], "dry_run": dry_run},
+            content_type="application/json",
+            HTTP_X_ORG_ID=str(self.org.id),
+        )
+
+    def test_assign_recorded_course_sold_per_seat_needs_seats(self):
+        r = self._assign(dry_run=True)
+        self.assertEqual(r.status_code, 200, r.content)
+        seats = r.json()["seats"]
+        self.assertEqual(
+            (seats["free"], seats["needed"], seats["short"], seats["price_minor"]), (0, 1, 1, 10000)
+        )
+        r = self._assign(dry_run=False)
+        self.assertEqual(r.status_code, 409, r.content)
+        self.assertEqual(r.json()["error"]["code"], "not_enough_seats")
+        with tenant_context(staff=True):
+            self.assertFalse(
+                Enrollment.objects.filter(user=self.emp, course=self.course).exists(), "nothing assigned"
+            )
+
+    def test_assign_recorded_uses_a_paid_seat(self):
+        self._paid_recorded(qty=1)
+        self.assertEqual(self._assign(dry_run=True).json()["seats"]["short"], 0)
+        r = self._assign(dry_run=False)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()["enrolled"], 1)
+        with tenant_context(staff=True):
+            from apps.corporate.models import SeatAllocation
+
+            alloc = SeatAllocation.objects.get(org=self.org, user=self.emp)
+            self.assertEqual(alloc.status, "active")
+            self.assertIsNotNone(alloc.enrollment_id, "the seat gives the course")
+        again = self._assign(dry_run=True).json()
+        self.assertEqual(
+            (again["enrolled"], again["already_had_it"]), (0, 1), "no second seat for the same person"
+        )
+
+    def test_assign_course_without_company_price_stays_free(self):
+        with tenant_context(staff=True):
+            CorporateOffering.objects.filter(pk=self.recorded.pk).update(is_active=False)
+        r = self._assign(dry_run=True)
+        self.assertIsNone(r.json()["seats"], "not sold per seat")
+        r = self._assign(dry_run=False)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()["enrolled"], 1)
+        with tenant_context(staff=True):
+            from apps.corporate.models import SeatAllocation
+
+            self.assertFalse(
+                SeatAllocation.objects.filter(org=self.org, user=self.emp).exists(), "no seat used"
+            )

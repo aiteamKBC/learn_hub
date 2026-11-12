@@ -11,6 +11,9 @@ import { CourseThumb } from '@/components/ui/course-thumb'
 import { Input } from '@/components/ui/input'
 import { EmptyState, ErrorState, PageHeader } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
+import { DeliveryPicker, SeatNotice } from '@/features/corporate/AssignDelivery'
+import { type Delivery, useLiveOption } from '@/features/corporate/liveOption'
+import { useSubmitTrainingRequest } from '@/features/corporate/api'
 import { type AssignResult, unitLevel, useAssign, useAssignPreview, useLibrary, usePeopleSearch, useUnits } from '@/features/org/api'
 import { CheckList, RoleBadge, useDebounced } from '@/features/org/ui'
 import { cn } from '@/lib/cn'
@@ -61,6 +64,9 @@ export function AssignPage() {
   const [unitIds, setUnitIds] = useState<string[]>([])
   const [names, setNames] = useState<Record<string, string>>({})
   const [result, setResult] = useState<AssignResult | null>(null)
+  const [delivery, setDelivery] = useState<Delivery>('recorded')
+  const [liveSent, setLiveSent] = useState<number | null>(null)
+  const requestLive = useSubmitTrainingRequest()
 
   const course = library?.find((c) => c.id === courseId) ?? null
   const courses = useMemo(() => (courseQ.trim() ? (library ?? []).filter((c) => c.title.toLowerCase().includes(courseQ.trim().toLowerCase())) : (library ?? [])), [library, courseQ])
@@ -70,6 +76,24 @@ export function AssignPage() {
   const preview = useAssignPreview(step === 2 && courseId && !result ? { course_id: courseId, member_ids: memberIds, unit_ids: unitIds } : null)
   const willGet = preview.data?.enrolled ?? 0
   const alreadyHave = preview.data?.already_had_it ?? 0
+  const seats = preview.data?.seats ?? null // recorded, sold per seat: paid seats are used
+  const everyone = willGet + alreadyHave // live: everyone chosen goes in the group, even if they have the recorded course
+  const live = useLiveOption(courseId, step === 2)
+  const isLive = delivery === 'live' && !!live.pkg
+
+  const sendLive = () => {
+    if (!courseId) return
+    requestLive.mutate(
+      { course_id: courseId, seats: everyone, preferred_intake: '', preferred_delivery_mode: '' },
+      {
+        onSuccess: () => {
+          setLiveSent(everyone)
+          toast.success('Live training requested')
+        },
+        onError: (e) => toast.error((e as Error).message),
+      },
+    )
+  }
 
   const submit = () => {
     if (!courseId) return
@@ -87,6 +111,8 @@ export function AssignPage() {
 
   const restart = () => {
     setResult(null)
+    setLiveSent(null)
+    setDelivery('recorded')
     setMemberIds([])
     setUnitIds([])
     setStep(0)
@@ -97,9 +123,29 @@ export function AssignPage() {
     <>
       <PageHeader title="Assign training" description="Give a course to people or whole teams. They get a notification and it appears in their learning." />
       <div className="mx-auto max-w-4xl">
-        <Stepper step={result ? 3 : step} />
+        <Stepper step={result || liveSent !== null ? 3 : step} />
 
-        {result ? (
+        {liveSent !== null ? (
+          <Card className="animate-reveal">
+            <EmptyState
+              icon={<CheckCircle2 />}
+              title="Live training requested"
+              body={
+                <>
+                  We will plan a group for <span className="font-semibold text-text">{liveSent}</span> {liveSent === 1 ? 'person' : 'people'} on {course?.title ?? 'the course'}, then send you the dates and the price. Nobody is enrolled until you pay.
+                </>
+              }
+              action={
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button variant="secondary" asChild>
+                    <Link to="/business/live-bookings">See your requests</Link>
+                  </Button>
+                  <Button onClick={restart}>Assign another course</Button>
+                </div>
+              }
+            />
+          </Card>
+        ) : result ? (
           <Card className="animate-reveal">
             <EmptyState
               icon={<CheckCircle2 />}
@@ -107,6 +153,7 @@ export function AssignPage() {
               body={
                 <>
                   <span className="font-semibold text-text">{result.enrolled}</span> {result.enrolled === 1 ? 'person' : 'people'} enrolled on {course?.title ?? 'the course'}
+                  {result.seats && result.enrolled ? ` using ${result.enrolled} paid ${result.enrolled === 1 ? 'seat' : 'seats'}` : ''}
                   {result.already_had_it ? (
                     <>
                       , <span className="font-semibold text-text">{result.already_had_it}</span> already had it
@@ -283,10 +330,21 @@ export function AssignPage() {
                   </div>
                 </div>
               </div>
+              <DeliveryPicker value={isLive ? 'live' : 'recorded'} onChange={setDelivery} live={live} />
               {preview.error ? (
                 <ErrorState message={(preview.error as Error).message} onRetry={() => void preview.refetch()} />
               ) : preview.isLoading || !preview.data ? (
                 <Skeleton className="h-12 rounded-lg" />
+              ) : isLive ? (
+                <div aria-live="polite" className={cn('animate-reveal rounded-lg px-4 py-3 text-sm', everyone && everyone <= 200 ? 'bg-primary-soft text-primary-soft-text' : 'bg-warning-soft text-warning')}>
+                  {everyone > 200 ? (
+                    <p>A live request can be for up to 200 people. Choose fewer people or units.</p>
+                  ) : (
+                    <p>
+                      A live training request for <span className="font-semibold tabular">{everyone}</span> {everyone === 1 ? 'person' : 'people'}. No payment now.
+                    </p>
+                  )}
+                </div>
               ) : (
                 <div aria-live="polite" className={cn('animate-reveal rounded-lg px-4 py-3 text-sm', willGet ? 'bg-primary-soft text-primary-soft-text' : 'bg-warning-soft text-warning')}>
                   {willGet ? (
@@ -296,6 +354,7 @@ export function AssignPage() {
                   ) : (
                     <p>Nobody new would get this course. Go back and choose other people or units.</p>
                   )}
+                  {seats && willGet ? <div className="mt-2">{<SeatNotice seats={seats} />}</div> : null}
                   {alreadyHave ? (
                     <p className="mt-0.5 opacity-90">
                       <span className="font-semibold tabular">{alreadyHave}</span> {alreadyHave === 1 ? 'person already has' : 'people already have'} it.
@@ -307,9 +366,15 @@ export function AssignPage() {
                 <Button variant="secondary" onClick={() => setStep(1)}>
                   <ArrowLeft /> Back
                 </Button>
-                <Button loading={assign.isPending} disabled={!willGet} onClick={submit}>
-                  Assign course
-                </Button>
+                {isLive ? (
+                  <Button loading={requestLive.isPending} disabled={!everyone || everyone > 200} onClick={sendLive}>
+                    Send live request
+                  </Button>
+                ) : (
+                  <Button loading={assign.isPending} disabled={!willGet || !!seats?.short} onClick={submit}>
+                    Assign course
+                  </Button>
+                )}
               </div>
             </CardBody>
           </Card>

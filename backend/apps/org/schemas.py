@@ -133,9 +133,21 @@ class LibraryCourse(Schema):
     completed: int
 
 
+class AssignSeatsOut(Schema):
+    """Recorded courses sold per seat: the company's free seats for this assignment."""
+
+    offering_id: UUID
+    price_minor: int
+    currency: str
+    free: int
+    needed: int
+    short: int
+
+
 class AssignOut(Schema):
     enrolled: int
     already_had_it: int
+    seats: AssignSeatsOut | None = None  # None: free from the library (no seats used)
 
 
 class AssignmentRow(Schema):

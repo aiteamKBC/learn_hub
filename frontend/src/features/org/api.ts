@@ -262,7 +262,7 @@ export function useAssign() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: AssignTarget) => unwrap(api.POST('/api/v1/org/assign', { body: { ...body, dry_run: false } })),
-    onSuccess: () => refresh(qc, ['org', 'library'], ['org', 'assignments'], ['compliance']),
+    onSuccess: () => refresh(qc, ['org', 'library'], ['org', 'assignments'], ['compliance'], ['corporate']), // seats may be used
   })
 }
 

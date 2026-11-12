@@ -8090,6 +8090,28 @@ export interface components {
             enrolled: number;
             /** Already Had It */
             already_had_it: number;
+            seats?: components["schemas"]["AssignSeatsOut"] | null;
+        };
+        /**
+         * AssignSeatsOut
+         * @description Recorded courses sold per seat: the company's free seats for this assignment.
+         */
+        AssignSeatsOut: {
+            /**
+             * Offering Id
+             * Format: uuid
+             */
+            offering_id: string;
+            /** Price Minor */
+            price_minor: number;
+            /** Currency */
+            currency: string;
+            /** Free */
+            free: number;
+            /** Needed */
+            needed: number;
+            /** Short */
+            short: number;
         };
         /** AssignIn */
         AssignIn: {
