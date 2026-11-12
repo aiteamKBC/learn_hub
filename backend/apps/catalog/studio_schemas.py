@@ -105,6 +105,7 @@ class StudioEditorLectureOut(Schema):
     title: str
     position: int
     is_preview: bool
+    token_price: int | None = None
     is_required: bool
     duration_sec: int
     body: str
@@ -112,6 +113,9 @@ class StudioEditorLectureOut(Schema):
     live_starts_at: datetime | None = None
     live_duration_min: int | None = None
     live_join_url: str
+    live_provider: str = "manual"
+    teams_meeting_id: str = ""
+    teams_organizer: str = ""
     min_watch_pct: int
     prerequisite_key: UUID | None = None  # an earlier lesson learners must finish first
     resources: list[StudioEditorResourceOut]

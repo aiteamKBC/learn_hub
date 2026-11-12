@@ -224,6 +224,11 @@ export function useCurriculum(courseId: string) {
         unwrap(api.PATCH('/api/v1/studio/lectures/{lecture_id}', { params: { path: { lecture_id: v.lectureId } }, body: v.body })),
       onSuccess: done,
     }),
+    createTeamsMeeting: useMutation({
+      mutationFn: (lectureId: string) =>
+        unwrap(api.POST('/api/v1/studio/lectures/{lecture_id}/teams-meeting', { params: { path: { lecture_id: lectureId } } })),
+      onSuccess: done,
+    }),
     deleteLecture: useMutation({
       mutationFn: (lectureId: string) => unwrap(api.DELETE('/api/v1/studio/lectures/{lecture_id}', { params: { path: { lecture_id: lectureId } } })),
       onSuccess: done,

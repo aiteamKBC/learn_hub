@@ -153,8 +153,10 @@ def course_detail(request, slug: str, currency: str | None = None):
         card["price"] = None
     sections = [
         {"id": s.id, "title": s.title, "lectures": [
-            {"key": lec.lecture_key, "title": lec.title, "kind": lec.kind, "duration_sec": lec.duration_sec,
-             "is_preview": lec.is_preview} for lec in s.lectures.all()]}
+            {"id": lec.id, "key": lec.lecture_key, "title": lec.title, "kind": lec.kind,
+             "duration_sec": lec.duration_sec, "is_preview": lec.is_preview,
+             "token_price": lec.token_price, "is_free_preview": lec.is_free_preview,
+             "excluded_from_subscription": lec.excluded_from_subscription} for lec in s.lectures.all()]}
         for s in selectors.curriculum(course.live_version)
     ]  # fmt: skip
     from apps.engagement.models import Review
@@ -191,6 +193,8 @@ def course_detail(request, slug: str, currency: str | None = None):
         "published_at": course.published_at, "updated_at": course.updated_at,
         "topics": [t.name for t in course.topics.all()], "instructor_profiles": profiles,
         "rating_breakdown": breakdown, "sections": sections, "viewer": viewer,
+        "full_course_token_price": course.full_course_token_price,
+        "token_pricing_mode": course.token_pricing_mode, "in_subscription": course.in_subscription,
     }  # fmt: skip
 
 

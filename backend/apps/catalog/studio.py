@@ -37,7 +37,7 @@ from core.errors import ServiceError
 from core.permissions import OrgRole, org_scope
 from core.tenancy import tenant_context
 
-from . import bunny, media, resources, services
+from . import bunny, media, resources, services, teams
 from . import permissions as instructor_perms
 from .models import (
     Assignment,
@@ -191,6 +191,8 @@ class LecturePatch(Schema):
     title: str | None = Field(None, min_length=1, max_length=200)
     body: str | None = Field(None, max_length=100000)
     is_preview: bool | None = None
+    # A null value deliberately means this lesson cannot be unlocked by itself with tokens.
+    token_price: int | None = Field(None, ge=1)
     is_required: bool | None = None
     duration_sec: int | None = Field(None, ge=0, le=86400)
     external_url: str | None = Field(None, max_length=500)
@@ -427,9 +429,12 @@ def _editor_tree(version: CourseVersion) -> list:
         for lec in sorted(s.lectures.all(), key=lambda x: x.position):
             item = {"id": lec.id, "key": lec.lecture_key, "kind": lec.kind, "title": lec.title,
                     "position": lec.position, "is_preview": lec.is_preview, "is_required": lec.is_required,
+                    "token_price": lec.token_price,
                     "duration_sec": lec.duration_sec, "body": lec.body, "external_url": lec.external_url,
                     "live_starts_at": lec.live_starts_at, "live_duration_min": lec.live_duration_min,
-                    "live_join_url": lec.live_join_url, "min_watch_pct": lec.min_watch_pct,
+                    "live_join_url": lec.live_join_url, "live_provider": lec.live_provider,
+                    "teams_meeting_id": lec.teams_meeting_id, "teams_organizer": lec.teams_organizer,
+                    "min_watch_pct": lec.min_watch_pct,
                     "prerequisite_key": lec.prerequisite_key}  # fmt: skip
             item["resources"] = [
                 resources.payload(r) for r in sorted(lec.resources.all(), key=lambda r: r.position)
@@ -544,10 +549,6 @@ def submit(request, version_id: str, body: SubmitIn):
     v = services.submit(version=v, by=request.user, change_summary=html.plain(body.change_summary, 2000),
                         requires_recompletion=body.requires_recompletion,
                         is_major_change=body.is_major_change)  # fmt: skip
-    if v.status == CourseVersion.Status.IN_REVIEW and instructor_perms.publishes_without_review(
-        request.user, v.course
-    ):
-        v = services.approve(version=v, reviewer=request.user, notes="Published without review (permission).")
     return {"status": v.status}
 
 
@@ -603,6 +604,35 @@ def order_lectures(request, section_id: str, body: OrderIn):
 def update_lecture(request, lecture_id: str, body: LecturePatch):
     services.update_lecture(lecture=_lecture(request, lecture_id), **body.dict(exclude_unset=True))
     return {"ok": True}
+
+
+class TeamsMeetingOut(Schema):
+    meeting_id: str
+    join_url: str
+    organizer: str
+
+
+@router.post("/lectures/{lecture_id}/teams-meeting", response=TeamsMeetingOut)
+def create_teams_meeting(request, lecture_id: str):
+    """Create a Teams meeting for a saved live-session draft.
+
+    Course-edit permission is checked by ``_lecture``; the Graph organiser is always
+    the configured service account, never request input.
+    """
+    lecture = _lecture(request, lecture_id)
+    if lecture.kind != Lecture.Kind.LIVE_SESSION:
+        raise ServiceError("not_live_session", "Teams meetings can only be added to a live session.")
+    if not lecture.live_starts_at or not lecture.live_duration_min:
+        raise ServiceError("schedule_required", "Save a start time and duration before creating Teams meeting.")
+    meeting = teams.create_meeting(lecture=lecture)
+    services.update_lecture(
+        lecture=lecture,
+        live_provider=Lecture.LiveProvider.TEAMS,
+        live_join_url=meeting["join_url"],
+        teams_meeting_id=meeting["meeting_id"],
+        teams_organizer=meeting["organizer"],
+    )
+    return meeting
 
 
 @router.delete("/lectures/{lecture_id}", response=OkOut)

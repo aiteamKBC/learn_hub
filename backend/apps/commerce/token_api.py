@@ -141,6 +141,7 @@ def list_packs(request, currency: str | None = None):
 class PackCheckoutIn(Schema):
     success_url: str = Field(..., min_length=1)
     cancel_url: str = Field(..., min_length=1)
+    customer_email: str | None = None  # override for Stripe receipt email
 
 
 @router.post("/packs/{pack_id}/checkout", response=CheckoutUrlOut)
@@ -170,7 +171,7 @@ def pack_checkout(request, pack_id: UUID, body: PackCheckoutIn):
             "user_id": str(request.user.id),
             "token_amount": str(pack.token_amount),
         },
-        customer_email=request.user.email,
+        customer_email=body.customer_email or request.user.email,
         success_url=body.success_url,
         cancel_url=body.cancel_url,
         idempotency_key=idempotency_key,
@@ -290,6 +291,7 @@ class TopUpCheckoutIn(Schema):
     currency: str = Field("GBP", min_length=3, max_length=3)
     success_url: str = Field(..., min_length=1)
     cancel_url: str = Field(..., min_length=1)
+    customer_email: str | None = None
 
 
 @router.post("/topup/checkout", response=CheckoutUrlOut)
@@ -349,7 +351,7 @@ def topup_checkout(request, body: TopUpCheckoutIn):
             "rate_id": str(rate.id),
             "gbp_minor": str(gbp_minor),
         },
-        customer_email=request.user.email,
+        customer_email=body.customer_email or request.user.email,
         success_url=body.success_url,
         cancel_url=body.cancel_url,
         idempotency_key=idempotency_key,
@@ -371,6 +373,7 @@ class CashPackageOut(Schema):
     description: str
     amount_minor: int
     currency: str
+    owned_count: int = 0  # how many of this package's courses the viewer already has
     courses: list[PackageCourseOut]
 
 
@@ -379,7 +382,8 @@ def list_packages(request, currency: str | None = None):
     from . import packages
 
     cur = request_currency(request, currency)
-    return packages.list_active_packages(cur["code"])
+    user = request.user if getattr(request.user, "is_authenticated", False) else None
+    return packages.list_active_packages(cur["code"], user=user)
 
 
 # ---------------------------------------------------------------- subscriptions
@@ -423,6 +427,7 @@ class SubCheckoutIn(Schema):
     plan_id: UUID
     success_url: str = Field(..., min_length=1)
     cancel_url: str = Field(..., min_length=1)
+    customer_email: str | None = None
 
 
 @router.post("/subscriptions/checkout", response=CheckoutUrlOut)
@@ -436,6 +441,7 @@ def subscription_checkout(request, body: SubCheckoutIn):
         currency_code=cur["code"],
         success_url=body.success_url,
         cancel_url=body.cancel_url,
+        customer_email=body.customer_email,
     )
     return {"url": result["url"]}
 
@@ -443,6 +449,7 @@ def subscription_checkout(request, body: SubCheckoutIn):
 class PackageCheckoutIn(Schema):
     success_url: str = Field(..., min_length=1)
     cancel_url: str = Field(..., min_length=1)
+    customer_email: str | None = None
 
 
 @router.post("/packages/{package_id}/checkout", response=CheckoutUrlOut)
@@ -456,5 +463,6 @@ def package_checkout(request, package_id: UUID, body: PackageCheckoutIn):
         currency_code=cur["code"],
         success_url=body.success_url,
         cancel_url=body.cancel_url,
+        customer_email=body.customer_email,
     )
     return {"url": result["url"]}

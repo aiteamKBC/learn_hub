@@ -721,6 +721,30 @@ function Overview({ go }: { go: (t: Tab, status?: string) => void }) {
           </>
         )}
       </section>
+      {d ? (
+        <section className="grid gap-4 md:grid-cols-2" aria-label="Marketplace revenue split">
+          <Card className="border-primary/20 bg-primary-soft/30">
+            <CardBody className="flex items-start gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary"><CircleDollarSign className="size-5" /></span>
+              <div>
+                <p className="text-sm font-medium">Tutor earnings from marketplace sales</p>
+                <p className="mt-1 text-2xl font-semibold tabular">{gbp(d.tutor_earned_gbp_minor)}</p>
+                <p className="mt-1 text-xs text-muted">{d.tutor_keeps_pct === null ? 'No marketplace sale recorded yet.' : `Effective tutor share: ${d.tutor_keeps_pct}% after the commission rules active at each sale.`}</p>
+              </div>
+            </CardBody>
+          </Card>
+          <Card>
+            <CardBody className="flex items-start gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-muted"><Wallet className="size-5" /></span>
+              <div>
+                <p className="text-sm font-medium">Platform retained from those sales</p>
+                <p className="mt-1 text-2xl font-semibold tabular">{gbp(d.platform_retained_gbp_minor)}</p>
+                <p className="mt-1 text-xs text-muted">This is only marketplace split revenue; it excludes platform-owned courses and payout timing.</p>
+              </div>
+            </CardBody>
+          </Card>
+        </section>
+      ) : null}
       <div className="grid gap-5 lg:grid-cols-3">
         {[
           { show: (d?.disputed_requests ?? 0) > 0, Icon: AlertTriangle, title: `${d?.disputed_requests} disputed request${d?.disputed_requests === 1 ? '' : 's'}`, body: 'On hold. Approve or reject once checked.', label: 'Review disputes', onClick: () => go('requests', 'disputed') },

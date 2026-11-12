@@ -1,4 +1,4 @@
-import { Award, BookOpen, CheckCircle2, ChevronRight, CircleAlert, ClipboardCheck, Clock, ExternalLink, FileText, History, Inbox, ListChecks, MessageSquareText, Pencil, PlayCircle, Search, ShieldCheck, Star, User, X } from 'lucide-react'
+import { Award, BookOpen, CheckCircle2, ChevronRight, CircleAlert, ClipboardCheck, Clock, Coins, ExternalLink, FileText, History, Inbox, ListChecks, MessageSquareText, Pencil, PlayCircle, Search, ShieldCheck, Star, User, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -126,6 +126,9 @@ function CourseReview({ id }: { id: string }) {
   if (isLoading || !v) return <div className="grid gap-4 lg:col-span-2"><Skeleton className="h-36" /><Skeleton className="h-96" /></div>
   const c = v.course
   const inc = v.includes
+  const lessons = v.sections.flatMap((s) => s.lectures)
+  const protectedLessons = lessons.filter((l) => !l.is_preview)
+  const tokenPriced = protectedLessons.filter((l) => l.token_price != null && l.token_price > 0).length
   return (
     <>
       <div className="grid min-w-0 gap-4 animate-reveal">
@@ -188,6 +191,15 @@ function CourseReview({ id }: { id: string }) {
               ) : null}
             </TabsContent>
             <TabsContent value="content" className="grid gap-4">
+              <section className="rounded-lg border border-border p-4">
+                <h3 className="flex items-center gap-2 font-semibold"><Coins className="size-4 text-primary" aria-hidden /> Pricing &amp; access review</h3>
+                <dl className="mt-3 grid grid-cols-2 gap-3 text-[13px] sm:grid-cols-4">
+                  <div><dt className="text-muted">Cash price</dt><dd className="font-semibold tabular">{c.is_free ? 'Free' : c.price_gbp_minor != null ? gbp(c.price_gbp_minor) : 'Not set'}</dd></div>
+                  <div><dt className="text-muted">Full course</dt><dd className="font-semibold tabular">{c.full_course_token_price != null ? `${c.full_course_token_price.toLocaleString('en-GB')} tokens` : 'Per lesson'}</dd></div>
+                  <div><dt className="text-muted">Lessons priced</dt><dd className="font-semibold tabular">{tokenPriced} / {protectedLessons.length}</dd></div>
+                  <div><dt className="text-muted">Subscription</dt><dd className="font-semibold">{c.in_subscription ? 'Included' : 'Excluded'}</dd></div>
+                </dl>
+              </section>
               {v.checklist.length ? (
                 <div role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-[13px] text-danger">
                   <p className="font-medium">The builder checklist found problems:</p>
@@ -204,6 +216,8 @@ function CourseReview({ id }: { id: string }) {
                           <span className="min-w-0 truncate">{l.title}</span>
                           <span className="flex shrink-0 items-center gap-2 text-muted">
                             {l.is_preview ? <Badge tone="info">Preview</Badge> : null}
+                            {!l.is_preview && l.token_price != null ? <Badge tone="primary">{l.token_price.toLocaleString('en-GB')} tokens</Badge> : null}
+                            {!l.is_preview && l.token_price == null && c.full_course_token_price == null ? <Badge tone="warning">Unpriced</Badge> : null}
                             {KIND_LABEL[l.kind] ?? l.kind}
                             {l.duration_sec ? ` · ${duration(l.duration_sec)}` : ''}
                           </span>
@@ -285,6 +299,7 @@ function Decision({ v }: { v: ReviewVersion }) {
   const decide = useCourseDecision()
   useEffect(() => (setNotes(''), setNoteError('')), [v.version_id])
   const open = v.status === 'in_review'
+  const ready = v.checklist.length === 0
   const run = (decision: CourseDecision, text: string) =>
     decide.mutate(
       { versionId: v.version_id, decision, text },
@@ -303,7 +318,7 @@ function Decision({ v }: { v: ReviewVersion }) {
         <h3 className="flex items-center gap-2 font-semibold"><ClipboardCheck className="size-4 text-primary" aria-hidden /> Review decision</h3>
         {!open ? <p className="mt-2 text-[13px] text-muted">This version has been decided already ({v.status.replace('_', ' ')}).</p> : null}
         <div className="mt-3 grid gap-2">
-          <Button className="bg-success text-white hover:bg-success/90" disabled={!open} loading={decide.isPending && decide.variables?.decision === 'approve'} onClick={() => run('approve', notes.trim())}>
+          <Button className="bg-success text-white hover:bg-success/90" disabled={!open || !ready} loading={decide.isPending && decide.variables?.decision === 'approve'} onClick={() => run('approve', notes.trim())}>
             <CheckCircle2 /> Approve course
           </Button>
           <Button variant="soft" disabled={!open} loading={decide.isPending && decide.variables?.decision === 'request-changes'} onClick={() => (notes.trim() ? run('request-changes', notes.trim()) : setNoteError('Write what the instructor should change.'))}>
@@ -313,6 +328,7 @@ function Decision({ v }: { v: ReviewVersion }) {
             <X /> Reject course
           </Button>
         </div>
+        {open && !ready ? <p className="mt-2 text-xs text-warning">Approval is blocked until the instructor fixes the checklist, including price and token pricing.</p> : null}
       </Card>
       <Card className="p-4 sm:p-5">
         <label htmlFor="review-notes" className="flex items-center gap-2 font-semibold"><MessageSquareText className="size-4 text-primary" aria-hidden /> Review notes <span className="font-normal text-muted">(needed to request changes)</span></label>

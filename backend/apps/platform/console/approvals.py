@@ -137,6 +137,9 @@ class ConsoleReviewCourseOut(Schema):
     requirements: list[str] = []
     price_gbp_minor: int | None = None
     is_free: bool = False
+    full_course_token_price: int | None = None
+    token_pricing_mode: str = "manual"
+    in_subscription: bool = True
     status: str = ""
 
 
@@ -232,7 +235,8 @@ def _quick_checks(
         {"label": "Course details are complete", "ok": bool(course.title and course.subtitle and course.category_id)},
         {"label": "At least one section and lesson", "ok": bool(lectures) and version.sections.exists()},
         {"label": "Assessments included (quiz or assignment)", "ok": bool(kinds & {"quiz", "assignment"})},
-        {"label": "Price is set", "ok": price is not None},
+        {"label": "Cash/free price is set", "ok": price is not None},
+        {"label": "Token pricing is complete", "ok": not any("token price" in p.lower() for p in problems)},
         {"label": "Description and learning outcomes", "ok": bool(course.description.strip() and course.outcomes)},
         {"label": "Course image", "ok": bool(course.thumbnail_url)},
         {"label": "Every lesson is ready (builder checklist)", "ok": not problems},
@@ -247,7 +251,7 @@ def review_version(request, version_id: UUID):
 
     v = get_object_or_404(CourseVersion.objects.select_related("course__category"), pk=version_id)
     c = v.course
-    lectures = list(Lecture.objects.filter(version=v).only("id", "kind", "duration_sec", "is_preview", "video_id",
+    lectures = list(Lecture.objects.filter(version=v).only("id", "kind", "duration_sec", "is_preview", "token_price", "video_id",
                                                           "section_id", "position"))  # fmt: skip
     problems = catalog.publish_checklist(v)
     price = CoursePrice.objects.filter(course=c).select_related("tier").first()
@@ -295,7 +299,10 @@ def review_version(request, version_id: UUID):
                    "level": c.get_level_display(), "category": c.category.name if c.category else None,
                    "thumbnail_url": c.thumbnail_url, "outcomes": c.outcomes, "requirements": c.requirements,
                    "price_gbp_minor": price.tier.gbp_minor if price and price.tier else None,
-                   "is_free": bool(price and price.is_free), "status": c.status},
+                   "is_free": bool(price and price.is_free),
+                   "full_course_token_price": c.full_course_token_price,
+                   "token_pricing_mode": c.token_pricing_mode, "in_subscription": c.in_subscription,
+                   "status": c.status},
         "checklist": problems, "quick_checks": _quick_checks(c, v, lectures, problems, price),
         "includes": {"lessons": len(lectures), "quizzes": sum(1 for x in lectures if x.kind == "quiz"),
                      "assignments": sum(1 for x in lectures if x.kind == "assignment"),

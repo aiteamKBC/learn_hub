@@ -231,6 +231,7 @@ export function LiveStage(props: StageProps) {
   const ends = starts && live?.duration_min ? starts + live.duration_min * 60_000 : null
   const state = !starts ? 'unscheduled' : now < starts ? 'upcoming' : ends && now > ends ? 'ended' : 'live'
   const joinOpensIn = starts ? starts - 15 * 60_000 - now : 0
+  const providerName = live?.provider === 'teams' ? 'Microsoft Teams' : 'the live classroom'
 
   // the join link is only sent from 15 minutes before; fetch it when that moment comes
   useEffect(() => {
@@ -276,12 +277,12 @@ export function LiveStage(props: StageProps) {
           {live?.join_url ? (
             <Button asChild>
               <a href={live.join_url} target="_blank" rel="noopener noreferrer">
-                Join the session <ExternalLink />
+                Join in {providerName} <ExternalLink />
               </a>
             </Button>
           ) : (
             <p className="inline-flex items-center gap-2 text-sm text-muted">
-              <Clock className="size-4" /> {state === 'ended' ? 'This session has finished.' : 'The join link appears here 15 minutes before the start.'}
+              <Clock className="size-4" /> {state === 'ended' ? 'This session has finished.' : `The ${providerName} link appears here 15 minutes before the start.`}
             </p>
           )}
         </div>

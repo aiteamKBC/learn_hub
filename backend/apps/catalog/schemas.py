@@ -53,11 +53,17 @@ class CoursePage(Schema):
 
 
 class LectureOut(Schema):
+    id: UUID  # the live lecture row's pk — the target_id for token unlock / access checks
     key: UUID
     title: str
     kind: str
     duration_sec: int
     is_preview: bool
+    # B2C token monetization (additive). token_price is the price in tokens to unlock this
+    # lecture on its own; None means it is not individually sold for tokens.
+    token_price: int | None = None
+    is_free_preview: bool = False
+    excluded_from_subscription: bool = False
 
 
 class SectionOut(Schema):
@@ -85,6 +91,11 @@ class CourseDetail(CourseCard):
     rating_breakdown: dict[str, int]  # {"5": 120, "4": 30, ...}
     sections: list[SectionOut]
     viewer: ViewerOut
+    # B2C token monetization (additive). full_course_token_price: tokens to unlock the whole
+    # course (None = not sold for tokens). in_subscription: included in the unlimited plan.
+    full_course_token_price: int | None = None
+    token_pricing_mode: str | None = None
+    in_subscription: bool = True
 
 
 class PlaybackOut(Schema):

@@ -81,6 +81,27 @@ class MarketplaceApiTest(SchemaTransactionTestCase):
         subs = self.client.get("/api/v1/commerce/subscriptions").json()
         self.assertEqual((subs[0]["plan"], subs[0]["status"]), ("Personal", "active"))
 
+    def test_course_detail_exposes_b2c_token_fields(self):
+        # Course-level token / subscription fields are additive and default safely.
+        d = self.client.get("/api/v1/catalog/courses/py").json()
+        self.assertIn("full_course_token_price", d)
+        self.assertIsNone(d["full_course_token_price"])
+        self.assertIn("in_subscription", d)
+        with tenant_context(user_id=self.staff.id, staff=True):
+            type(self.py).objects.filter(pk=self.py.pk).update(
+                full_course_token_price=500, token_pricing_mode="per_lecture", in_subscription=False
+            )
+        d = self.client.get("/api/v1/catalog/courses/py").json()
+        self.assertEqual(d["full_course_token_price"], 500)
+        self.assertEqual(d["token_pricing_mode"], "per_lecture")
+        self.assertFalse(d["in_subscription"])
+        # Every lecture carries its pk (the unlock/access target_id) and its token fields.
+        for s in d["sections"]:
+            for lec in s["lectures"]:
+                self.assertIn("id", lec)
+                self.assertIn("token_price", lec)
+                self.assertIn("is_free_preview", lec)
+
     def test_free_course_checkout_needs_no_payment(self):
         self.client.force_login(self.omar)
         with mock.patch("apps.commerce.gateway.create_checkout_session") as stripe:

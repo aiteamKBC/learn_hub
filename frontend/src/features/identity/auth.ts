@@ -238,7 +238,10 @@ export function useLogout() {
       // an invitation waiting in this browser belongs to whoever was signed in
       forgetInvite()
       qc.clear()
-      void qc.invalidateQueries()
+      // A full reload to the home page guarantees a clean logged-out state with no stale,
+      // user-scoped cache lingering (a client-side navigate can leave the UI showing the
+      // old session until the next manual refresh).
+      window.location.assign('/')
     },
   })
 }
@@ -286,7 +289,8 @@ export function useChangePassword() {
 export function useUpdateMe() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: { full_name?: string | null; timezone?: string | null; preferred_currency?: string | null }) => unwrap(api.PATCH('/api/v1/identity/me', { body })),
+    mutationFn: (body: { full_name?: string | null; timezone?: string | null; preferred_currency?: string | null; phone?: string | null; country?: string | null }) =>
+      unwrap(api.PATCH('/api/v1/identity/me', { body })),
     onSuccess: (me) => qc.setQueryData(['me'], me),
   })
 }

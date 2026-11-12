@@ -68,7 +68,8 @@ def get_active_subscription(user) -> dict | None:
 
 
 def create_subscription_checkout(
-    *, user, plan_id: UUID, currency_code: str, success_url: str, cancel_url: str
+    *, user, plan_id: UUID, currency_code: str, success_url: str, cancel_url: str,
+    customer_email: str | None = None,
 ) -> dict:
     from core.errors import ServiceError
 
@@ -107,7 +108,7 @@ def create_subscription_checkout(
             "kind": "subscription",
             "id": str(sub.id),
         },
-        customer_email=user.email,
+        customer_email=customer_email or user.email,
         success_url=success_url,
         cancel_url=cancel_url,
         subscription_data={

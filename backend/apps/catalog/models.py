@@ -283,6 +283,16 @@ class Lecture(OwnedContent):
     live_starts_at = models.DateTimeField(null=True, blank=True)  # UTC (decision 12)
     live_duration_min = models.PositiveSmallIntegerField(null=True, blank=True)
     live_join_url = models.URLField(blank=True)
+    class LiveProvider(models.TextChoices):
+        MANUAL = "manual", "Manual link"
+        TEAMS = "teams", "Microsoft Teams"
+
+    # The join URL remains the learner-facing value.  The provider metadata lets us
+    # show an honest Teams experience and correlate a Graph-created meeting without
+    # exposing host/admin links to learners.
+    live_provider = models.CharField(max_length=16, choices=LiveProvider.choices, default=LiveProvider.MANUAL)
+    teams_meeting_id = models.CharField(max_length=512, blank=True)
+    teams_organizer = models.CharField(max_length=255, blank=True)
     min_watch_pct = models.PositiveSmallIntegerField(
         default=90, validators=[MaxValueValidator(100)]
     )  # video counts as complete after this share watched

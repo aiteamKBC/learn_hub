@@ -1,4 +1,4 @@
-import { Check, CheckCircle2, Clock, Eye, Lock, Settings2, Star } from 'lucide-react'
+import { Check, CheckCircle2, Clock, Coins, Eye, Lock, Settings2, Star, Video } from 'lucide-react'
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -25,7 +25,7 @@ const INTRO: Record<LectureKind, string> = {
   video: 'Add or edit a video lesson, manage its media and set how it is completed.',
   article: 'Write the reading and choose how it counts towards the course.',
   external_link: 'Send learners to a web page that opens in a new tab.',
-  live_session: 'Schedule an online class and share the join link.',
+  live_session: 'Schedule a live class. Create a Microsoft Teams meeting or paste a secure join link.',
   download: 'Attach the files learners download.',
   quiz: 'Set up the quiz and write its questions.',
   assignment: 'Write the brief and choose how you mark it.',
@@ -36,6 +36,7 @@ const TIMED: string[] = ['video', 'article', 'external_link', 'download']
 type LectureDraft = {
   title: string
   is_preview: boolean
+  token_price: string
   is_required: boolean
   body: string
   external_url: string
@@ -56,6 +57,7 @@ function lectureDraft(l: StudioLecture): LectureDraft {
   return {
     title: l.title,
     is_preview: l.is_preview,
+    token_price: l.token_price == null ? '' : String(l.token_price),
     is_required: l.is_required,
     body: l.body,
     external_url: l.external_url,
@@ -105,7 +107,7 @@ export function LessonEditor({ course, lecture, number, readOnly, onDirty, onSav
   onCancel: () => void
   onAddKind: (kind: LectureKind) => void
 }) {
-  const { updateLecture, updateQuiz, updateAssignment } = useCurriculum(course.id)
+  const { updateLecture, updateQuiz, updateAssignment, createTeamsMeeting } = useCurriculum(course.id)
   const uid = useId()
   const kind = lecture.kind
   const meta = kindMeta(kind)
@@ -153,6 +155,7 @@ export function LessonEditor({ course, lecture, number, readOnly, onDirty, onSav
   // client checks, mirroring the server's
   const errs: Record<string, string> = {}
   if (!lec.title.trim()) errs.title = 'Give the lesson a title.'
+  if (lec.token_price && (!/^\d+$/.test(lec.token_price) || Number(lec.token_price) < 1)) errs.token_price = 'Use at least 1 token, or leave it blank.'
   if (kind === 'external_link' && (!lec.external_url || !httpsOk(lec.external_url))) errs.external_url = 'Enter a full link starting with https://'
   if (kind === 'live_session') {
     if (!httpsOk(lec.live_join_url)) errs.live_join_url = 'Links must start with https://'
@@ -186,6 +189,7 @@ export function LessonEditor({ course, lecture, number, readOnly, onDirty, onSav
       const body: LecturePatch = {}
       if (lec.title !== s.title) body.title = lec.title.trim()
       if (lec.is_preview !== s.is_preview) body.is_preview = lec.is_preview
+      if (lec.token_price !== s.token_price) body.token_price = lec.token_price === '' ? null : Number(lec.token_price)
       if (lec.is_required !== s.is_required) body.is_required = lec.is_required
       if (lec.body !== s.body) body.body = lec.body
       if (lec.external_url !== s.external_url) body.external_url = lec.external_url.trim()
@@ -281,9 +285,22 @@ export function LessonEditor({ course, lecture, number, readOnly, onDirty, onSav
                   {(p) => <Input {...p} type="number" min={5} max={600} value={lec.live_duration_min} disabled={readOnly} onChange={(e) => set({ live_duration_min: e.target.value })} />}
                 </Field>
                 <div className="sm:col-span-2">
-                  <Field label="Join link" hint="Teams, Zoom or similar. Learners see it 15 minutes before the start." error={show('live_join_url')}>
+                  <Field label="Join link" hint="A Teams meeting is visible to learners 15 minutes before the start." error={show('live_join_url')}>
                     {(p) => <Input {...p} type="url" inputMode="url" placeholder="https://" value={lec.live_join_url} maxLength={500} disabled={readOnly} onChange={(e) => set({ live_join_url: e.target.value })} />}
                   </Field>
+                </div>
+                <div className="sm:col-span-2 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface-2/50 p-3">
+                  <span className="flex size-9 items-center justify-center rounded-md bg-primary-soft text-primary-soft-text"><Video className="size-4" /></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">Microsoft Teams</p>
+                    <p className="text-xs text-muted">{lecture.live_provider === 'teams' ? `Meeting created by ${lecture.teams_organizer || 'the training organiser'}.` : 'Save the session time first, then create the meeting from LearnHub.'}</p>
+                  </div>
+                  {lecture.live_provider === 'teams' ? <span className="text-xs font-medium text-success">Connected</span> : (
+                    <Button type="button" variant="secondary" size="sm" disabled={readOnly || saving || createTeamsMeeting.isPending || !lec.live_at || !lec.live_duration_min || dirty} onClick={() => void createTeamsMeeting.mutateAsync(lecture.id).then(() => onSaved()).catch((e) => setError(errText(e)))}>
+                      <Video /> {createTeamsMeeting.isPending ? 'Creating…' : 'Create Teams meeting'}
+                    </Button>
+                  )}
+                  {dirty && !readOnly ? <p className="basis-full text-xs text-amber-700">Save your session changes before creating the Teams meeting.</p> : null}
                 </div>
               </div>
             ) : null}
@@ -353,6 +370,14 @@ export function LessonEditor({ course, lecture, number, readOnly, onDirty, onSav
             <SettingRow icon={<Eye />} title="Free preview" body="Anyone can open this lesson before buying the course.">
               <Switch checked={lec.is_preview} disabled={readOnly} onCheckedChange={(is_preview) => set({ is_preview })} aria-label="Free preview" />
             </SettingRow>
+
+            <div className="grid gap-2">
+              <SettingRow icon={<Coins />} title="Token price" body="Tokens needed to unlock this lesson on its own. Leave blank if it is available only with the full course, subscription or as a preview." />
+              <div className="ml-7">
+                <Input aria-label="Token price" type="number" min={1} step={1} inputMode="numeric" placeholder="Not sold separately" value={lec.token_price} disabled={readOnly} aria-invalid={show('token_price') ? true : undefined} onChange={(e) => set({ token_price: e.target.value.replace(/[^\d]/g, '') })} />
+                {show('token_price') ? <p className="mt-1 text-[13px] text-danger">{show('token_price')}</p> : null}
+              </div>
+            </div>
 
             {timed ? (
               <div className="grid gap-2">

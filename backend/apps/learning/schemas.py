@@ -69,6 +69,7 @@ class LiveOut(Schema):
     starts_at: datetime | None
     duration_min: int | None
     join_url: str | None  # appears 15 minutes before the start
+    provider: str = "manual"
 
 
 class ResourceOut(Schema):
