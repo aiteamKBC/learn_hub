@@ -397,6 +397,10 @@ GRAPH_BASE_URL = _env("MICROSOFT_GRAPH_BASE_URL", default="https://graph.microso
 GRAPH_SENDER = _env(
     "MICROSOFT_GRAPH_SENDER", "GRAPH_SENDER", "MAIL_SENDER", default="no-reply@example.com"
 )  # no-reply mailbox
+# Microsoft Teams meetings use the same Entra application credentials as mail, but
+# intentionally have their own organiser.  This prevents a content author from
+# choosing an arbitrary user in the tenant as the meeting host.
+TEAMS_MEETING_ORGANIZER = _env("TEAMS_MEETING_ORGANIZER", default="")
 MAIL_ALLOWED_DOMAINS = {
     d.strip().lower() for d in os.getenv("MAIL_ALLOWED_DOMAINS", "").split(",") if d.strip()
 }

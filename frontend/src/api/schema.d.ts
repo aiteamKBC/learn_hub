@@ -1405,6 +1405,261 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/commerce/tokens/wallet/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Balance */
+        get: operations["apps_commerce_token_api_my_balance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/tokens/wallet/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Grants */
+        get: operations["apps_commerce_token_api_my_grants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/tokens/wallet/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Ledger */
+        get: operations["apps_commerce_token_api_my_ledger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/tokens/packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Packs */
+        get: operations["apps_commerce_token_api_list_packs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/tokens/packs/{pack_id}/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pack Checkout */
+        post: operations["apps_commerce_token_api_pack_checkout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/tokens/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unlock Content */
+        post: operations["apps_commerce_token_api_unlock_content"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/tokens/access/{scope}/{target_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Check Access */
+        get: operations["apps_commerce_token_api_check_access"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/tokens/rate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current Rate */
+        get: operations["apps_commerce_token_api_current_rate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/tokens/topup-limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Topup Limits */
+        get: operations["apps_commerce_token_api_topup_limits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/tokens/topup/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Topup Checkout */
+        post: operations["apps_commerce_token_api_topup_checkout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/tokens/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Packages */
+        get: operations["apps_commerce_token_api_list_packages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/tokens/subscriptions/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Subscription Plans */
+        get: operations["apps_commerce_token_api_list_subscription_plans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/tokens/subscriptions/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Subscription */
+        get: operations["apps_commerce_token_api_my_subscription"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/tokens/subscriptions/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Subscription Checkout */
+        post: operations["apps_commerce_token_api_subscription_checkout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/tokens/packages/{package_id}/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Package Checkout */
+        post: operations["apps_commerce_token_api_package_checkout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/payouts/me": {
         parameters: {
             query?: never;
@@ -1913,6 +2168,246 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/corporate/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Packages */
+        get: operations["apps_corporate_api_list_packages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/packages/{offering_id}/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Checkout */
+        post: operations["apps_corporate_api_checkout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/purchases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Purchases */
+        get: operations["apps_corporate_api_list_purchases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Quotes */
+        get: operations["apps_corporate_api_list_quotes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Inventory */
+        get: operations["apps_corporate_api_inventory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/training-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Training Requests */
+        get: operations["apps_corporate_api_list_training_requests"];
+        put?: never;
+        /** Submit Request */
+        post: operations["apps_corporate_api_submit_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/training-requests/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel Training Request */
+        delete: operations["apps_corporate_api_cancel_training_request"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/live-bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Live Bookings */
+        get: operations["apps_corporate_api_list_live_bookings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/live-bookings/{cc_id}/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Live Checkout */
+        post: operations["apps_corporate_api_live_checkout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company Dashboard */
+        get: operations["apps_corporate_api_company_dashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/employee-progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Employee Progress */
+        get: operations["apps_corporate_api_employee_progress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/attendance-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Attendance Summary */
+        get: operations["apps_corporate_api_attendance_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/cancellation-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Cancellations */
+        get: operations["apps_corporate_api_list_cancellations"];
+        put?: never;
+        /** Submit Cancellation */
+        post: operations["apps_corporate_api_submit_cancellation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/live-bookings/{cc_id}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Booking Schedule */
+        get: operations["apps_corporate_api_booking_schedule"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/studio/instructor-profile": {
         parameters: {
             query?: never;
@@ -2139,6 +2634,29 @@ export interface paths {
         head?: never;
         /** Update Lecture */
         patch: operations["apps_catalog_studio_update_lecture"];
+        trace?: never;
+    };
+    "/api/v1/studio/lectures/{lecture_id}/teams-meeting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Teams Meeting
+         * @description Create a Teams meeting for a saved live-session draft.
+         *
+         *     Course-edit permission is checked by ``_lecture``; the Graph organiser is always
+         *     the configured service account, never request input.
+         */
+        post: operations["apps_catalog_studio_create_teams_meeting"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/studio/quizzes/{quiz_id}": {
@@ -3814,6 +4332,609 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/corporate/cancellations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Cancellations */
+        get: operations["apps_platform_console_corporate_cancellations_list_cancellations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/cancellations/{cancellation_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review Cancellation */
+        post: operations["apps_platform_console_corporate_cancellations_review_cancellation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/cancellations/{cancellation_id}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Process Refund */
+        post: operations["apps_platform_console_corporate_cancellations_process_refund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/departure-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Departure Policies */
+        get: operations["apps_platform_console_corporate_cancellations_list_departure_policies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/departure-policies/{org_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Departure Policy */
+        put: operations["apps_platform_console_corporate_cancellations_set_departure_policy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/departure-policies/{org_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Departure */
+        post: operations["apps_platform_console_corporate_cancellations_apply_departure"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Requests */
+        get: operations["apps_platform_console_corporate_live_list_requests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/requests/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Request */
+        patch: operations["apps_platform_console_corporate_live_update_request"];
+        trace?: never;
+    };
+    "/api/v1/console/corporate/cohorts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Cohorts */
+        get: operations["apps_platform_console_corporate_live_list_cohorts"];
+        put?: never;
+        /** Create Cohort */
+        post: operations["apps_platform_console_corporate_live_create_cohort"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/cohorts/{cohort_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Cohort */
+        patch: operations["apps_platform_console_corporate_live_update_cohort"];
+        trace?: never;
+    };
+    "/api/v1/console/corporate/cohorts/{cohort_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Cohort */
+        post: operations["apps_platform_console_corporate_live_confirm_cohort"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/cohorts/{cohort_id}/companies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Cohort Companies */
+        get: operations["apps_platform_console_corporate_live_list_cohort_companies"];
+        put?: never;
+        /** Add Company */
+        post: operations["apps_platform_console_corporate_live_add_company"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/cohorts/{cohort_id}/companies/{org_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Company */
+        delete: operations["apps_platform_console_corporate_live_remove_company"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/cohorts/{cohort_id}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sessions */
+        get: operations["apps_platform_console_corporate_live_list_sessions"];
+        put?: never;
+        /** Add Session */
+        post: operations["apps_platform_console_corporate_live_add_session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel Session */
+        delete: operations["apps_platform_console_corporate_live_cancel_session"];
+        options?: never;
+        head?: never;
+        /** Update Session */
+        patch: operations["apps_platform_console_corporate_live_update_session"];
+        trace?: never;
+    };
+    "/api/v1/console/corporate/tutors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tutors */
+        get: operations["apps_platform_console_corporate_live_list_tutors"];
+        put?: never;
+        /** Create Tutor */
+        post: operations["apps_platform_console_corporate_live_create_tutor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/tutors/{tutor_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Approve Tutor */
+        patch: operations["apps_platform_console_corporate_live_approve_tutor"];
+        trace?: never;
+    };
+    "/api/v1/console/corporate/tutors/{tutor_id}/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Suspend Tutor */
+        patch: operations["apps_platform_console_corporate_live_suspend_tutor"];
+        trace?: never;
+    };
+    "/api/v1/console/corporate/tutors/{tutor_id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Assign Tutor */
+        post: operations["apps_platform_console_corporate_live_assign_tutor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/offerings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Offerings */
+        get: operations["apps_platform_console_corporate_packages_list_offerings"];
+        put?: never;
+        /** Create Offering */
+        post: operations["apps_platform_console_corporate_packages_create_offering"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/offerings/{offering_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Offering */
+        patch: operations["apps_platform_console_corporate_packages_update_offering"];
+        trace?: never;
+    };
+    "/api/v1/console/corporate/purchases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Purchases */
+        get: operations["apps_platform_console_corporate_packages_list_purchases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/allocations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Allocations */
+        get: operations["apps_platform_console_corporate_packages_list_allocations"];
+        put?: never;
+        /** Create Allocation */
+        post: operations["apps_platform_console_corporate_packages_create_allocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/allocations/{allocation_id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Release Allocation */
+        post: operations["apps_platform_console_corporate_packages_release_allocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/allocations/{allocation_id}/reassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reassign Allocation */
+        post: operations["apps_platform_console_corporate_packages_reassign_allocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Inventory Summary */
+        get: operations["apps_platform_console_corporate_packages_inventory_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Quotes */
+        get: operations["apps_platform_console_corporate_packages_list_quotes"];
+        put?: never;
+        /** Create Quote */
+        post: operations["apps_platform_console_corporate_packages_create_quote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/quotes/{quote_id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send Quote */
+        post: operations["apps_platform_console_corporate_packages_send_quote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/quotes/{quote_id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Void Quote */
+        post: operations["apps_platform_console_corporate_packages_void_quote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/reports/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Corporate Overview */
+        get: operations["apps_platform_console_corporate_reports_corporate_overview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/reports/revenue-series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Revenue Series */
+        get: operations["apps_platform_console_corporate_reports_revenue_series"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/reports/company-rankings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company Rankings */
+        get: operations["apps_platform_console_corporate_reports_company_rankings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/reports/attendance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Attendance Report */
+        get: operations["apps_platform_console_corporate_reports_attendance_report"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/reports/attendance/{attendance_id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify Attendance */
+        post: operations["apps_platform_console_corporate_reports_verify_attendance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/reports/attendance/{attendance_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Attendance */
+        post: operations["apps_platform_console_corporate_reports_reject_attendance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/courses": {
         parameters: {
             query?: never;
@@ -4206,6 +5327,45 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Packages */
+        get: operations["apps_platform_console_packages_list_packages"];
+        put?: never;
+        /** Create Package */
+        post: operations["apps_platform_console_packages_create_package"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/packages/{package_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Package
+         * @description Soft delete: deactivate so existing buyers keep their entitlements.
+         */
+        delete: operations["apps_platform_console_packages_delete_package"];
+        options?: never;
+        head?: never;
+        /** Update Package */
+        patch: operations["apps_platform_console_packages_update_package"];
         trace?: never;
     };
     "/api/v1/console/payouts/overview": {
@@ -5887,6 +7047,300 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/pricing/token/courses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Token Courses */
+        get: operations["apps_platform_console_token_pricing_list_token_courses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/pricing/token/courses/{course_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Token Course */
+        get: operations["apps_platform_console_token_pricing_get_token_course"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Token Course */
+        patch: operations["apps_platform_console_token_pricing_patch_token_course"];
+        trace?: never;
+    };
+    "/api/v1/console/pricing/token/courses/{course_id}/distribute-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Distribute Tokens */
+        post: operations["apps_platform_console_token_pricing_distribute_tokens"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/pricing/token/lectures/{lecture_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Token Lecture */
+        patch: operations["apps_platform_console_token_pricing_patch_token_lecture"];
+        trace?: never;
+    };
+    "/api/v1/console/pricing/token/materials/{material_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Token Material */
+        patch: operations["apps_platform_console_token_pricing_patch_token_material"];
+        trace?: never;
+    };
+    "/api/v1/console/pricing/token/courses-bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bulk Patch Courses */
+        post: operations["apps_platform_console_token_pricing_bulk_patch_courses"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/pricing/token/packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Token Packs */
+        get: operations["apps_platform_console_token_pricing_list_token_packs"];
+        put?: never;
+        /** Create Token Pack */
+        post: operations["apps_platform_console_token_pricing_create_token_pack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/pricing/token/packs/{pack_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Token Pack */
+        delete: operations["apps_platform_console_token_pricing_delete_token_pack"];
+        options?: never;
+        head?: never;
+        /** Update Token Pack */
+        patch: operations["apps_platform_console_token_pricing_update_token_pack"];
+        trace?: never;
+    };
+    "/api/v1/console/pricing/token/rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Token Rates */
+        get: operations["apps_platform_console_token_pricing_list_token_rates"];
+        put?: never;
+        /** Create Token Rate */
+        post: operations["apps_platform_console_token_pricing_create_token_rate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/pricing/token/topup-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Topup Policies */
+        get: operations["apps_platform_console_token_pricing_list_topup_policies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/pricing/token/topup-policies/{currency}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Upsert Topup Policy */
+        put: operations["apps_platform_console_token_pricing_upsert_topup_policy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/pricing/token/bonus-campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Bonus Campaigns */
+        get: operations["apps_platform_console_token_pricing_list_bonus_campaigns"];
+        put?: never;
+        /** Create Bonus Campaign */
+        post: operations["apps_platform_console_token_pricing_create_bonus_campaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/pricing/token/bonus-campaigns/{campaign_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Bonus Campaign */
+        patch: operations["apps_platform_console_token_pricing_update_bonus_campaign"];
+        trace?: never;
+    };
+    "/api/v1/console/pricing/token/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Token Audit */
+        get: operations["apps_platform_console_token_pricing_token_audit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/wallet/user/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Wallet Detail */
+        get: operations["apps_platform_console_wallet_wallet_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/wallet/user/{user_id}/adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Wallet Adjust */
+        post: operations["apps_platform_console_wallet_wallet_adjust"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/wallet/user/{user_id}/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Wallet Ledger */
+        get: operations["apps_platform_console_wallet_wallet_ledger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5918,6 +7372,10 @@ export interface components {
             is_staff: boolean;
             /** Preferred Currency */
             preferred_currency: string;
+            /** Phone */
+            phone: string;
+            /** Country */
+            country: string;
             /** Is Instructor */
             is_instructor: boolean;
             /** Instructor Status */
@@ -5957,6 +7415,10 @@ export interface components {
             timezone?: string | null;
             /** Preferred Currency */
             preferred_currency?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Country */
+            country?: string | null;
         };
         /**
          * TotpQrOut
@@ -6484,6 +7946,15 @@ export interface components {
             /** Sections */
             sections: components["schemas"]["SectionOut"][];
             viewer: components["schemas"]["ViewerOut"];
+            /** Full Course Token Price */
+            full_course_token_price?: number | null;
+            /** Token Pricing Mode */
+            token_pricing_mode?: string | null;
+            /**
+             * In Subscription
+             * @default true
+             */
+            in_subscription: boolean;
         };
         /** InstructorBrief */
         InstructorBrief: {
@@ -6510,6 +7981,11 @@ export interface components {
         /** LectureOut */
         LectureOut: {
             /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
              * Key
              * Format: uuid
              */
@@ -6522,6 +7998,18 @@ export interface components {
             duration_sec: number;
             /** Is Preview */
             is_preview: boolean;
+            /** Token Price */
+            token_price?: number | null;
+            /**
+             * Is Free Preview
+             * @default false
+             */
+            is_free_preview: boolean;
+            /**
+             * Excluded From Subscription
+             * @default false
+             */
+            excluded_from_subscription: boolean;
         };
         /** SectionOut */
         SectionOut: {
@@ -6801,6 +8289,11 @@ export interface components {
             duration_min: number | null;
             /** Join Url */
             join_url: string | null;
+            /**
+             * Provider
+             * @default manual
+             */
+            provider: string;
         };
         /** ResourceOut */
         ResourceOut: {
@@ -7819,28 +9312,15 @@ export interface components {
         };
         /** CheckoutOut */
         CheckoutOut: {
-            /**
-             * Order Id
-             * Format: uuid
-             */
-            order_id: string;
-            /** Status */
-            status: string;
+            /** Purchase Id */
+            purchase_id: string;
             /** Checkout Url */
-            checkout_url: string | null;
-            /** Total Minor */
-            total_minor: number;
-            /** Currency */
-            currency: string;
+            checkout_url: string;
         };
         /** CheckoutIn */
         CheckoutIn: {
-            /** Course Ids */
-            course_ids: string[];
-            /** Currency */
-            currency: string;
-            /** Coupon */
-            coupon?: string | null;
+            /** Quantity */
+            quantity: number;
         };
         /** OrderItemOut */
         OrderItemOut: {
@@ -8034,6 +9514,262 @@ export interface components {
             pdf_url: string;
             /** Issued At */
             issued_at: string | null;
+        };
+        /** TokenBalanceOut */
+        TokenBalanceOut: {
+            /** Balance */
+            balance: number;
+            /** Expiring Within 7 Days */
+            expiring_within_7_days: number;
+        };
+        /** TokenGrantOut */
+        TokenGrantOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Source */
+            source: string;
+            /** Amount */
+            amount: number;
+            /** Remaining */
+            remaining: number;
+            /** Granted At */
+            granted_at: string;
+            /** Expires At */
+            expires_at: string | null;
+            /** Note */
+            note: string;
+        };
+        /** TokenLedgerOut */
+        TokenLedgerOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Amount */
+            amount: number;
+            /** Balance After */
+            balance_after: number;
+            /** Note */
+            note: string;
+            /** Created At */
+            created_at: string;
+        };
+        /** TokenPackOut */
+        TokenPackOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Token Amount */
+            token_amount: number;
+            /**
+             * Price Tier Id
+             * Format: uuid
+             */
+            price_tier_id: string;
+            /** Amount Minor */
+            amount_minor: number;
+            /** Currency */
+            currency: string;
+            /** Sort Order */
+            sort_order: number;
+        };
+        /** CheckoutUrlOut */
+        CheckoutUrlOut: {
+            /** Url */
+            url: string;
+        };
+        /** PackCheckoutIn */
+        PackCheckoutIn: {
+            /** Success Url */
+            success_url: string;
+            /** Cancel Url */
+            cancel_url: string;
+            /** Customer Email */
+            customer_email?: string | null;
+        };
+        /** UnlockOut */
+        UnlockOut: {
+            /**
+             * Entitlement Id
+             * Format: uuid
+             */
+            entitlement_id: string;
+            /** Scope */
+            scope: string;
+            /**
+             * Target Id
+             * Format: uuid
+             */
+            target_id: string;
+            /** Tokens Spent */
+            tokens_spent: number;
+        };
+        /** UnlockIn */
+        UnlockIn: {
+            /** Scope */
+            scope: string;
+            /**
+             * Target Id
+             * Format: uuid
+             */
+            target_id: string;
+        };
+        /** AccessOut */
+        AccessOut: {
+            /** Allowed */
+            allowed: boolean;
+            /** Reason */
+            reason: string;
+            /** Source */
+            source: string;
+            /** Entitlement Id */
+            entitlement_id?: string | null;
+            /** Expires At */
+            expires_at?: string | null;
+        };
+        /** TokenRateOut */
+        TokenRateOut: {
+            /** Tokens Per Gbp Minor */
+            tokens_per_gbp_minor: string;
+            /** Effective From */
+            effective_from: string;
+        };
+        /** TopUpLimitsOut */
+        TopUpLimitsOut: {
+            /** Currency */
+            currency: string;
+            /** Min Minor */
+            min_minor: number;
+            /** Max Minor */
+            max_minor: number;
+        };
+        /** TopUpCheckoutIn */
+        TopUpCheckoutIn: {
+            /** Amount Minor */
+            amount_minor: number;
+            /**
+             * Currency
+             * @default GBP
+             */
+            currency: string;
+            /** Success Url */
+            success_url: string;
+            /** Cancel Url */
+            cancel_url: string;
+            /** Customer Email */
+            customer_email?: string | null;
+        };
+        /** CashPackageOut */
+        CashPackageOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Description */
+            description: string;
+            /** Amount Minor */
+            amount_minor: number;
+            /** Currency */
+            currency: string;
+            /**
+             * Owned Count
+             * @default 0
+             */
+            owned_count: number;
+            /** Courses */
+            courses: components["schemas"]["PackageCourseOut"][];
+        };
+        /** PackageCourseOut */
+        PackageCourseOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Slug */
+            slug: string;
+        };
+        /** UnlimitedPlanOut */
+        UnlimitedPlanOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Interval */
+            interval: string;
+            /** Trial Days */
+            trial_days: number;
+            /** Description */
+            description: string;
+            /** Amount Minor */
+            amount_minor: number;
+            /** Currency */
+            currency: string;
+        };
+        /** ActiveSubOut */
+        ActiveSubOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Plan Code */
+            plan_code: string;
+            /** Plan Name */
+            plan_name: string;
+            /** Status */
+            status: string;
+            /** Interval */
+            interval: string;
+            /** Current Period End */
+            current_period_end?: string | null;
+            /** Cancel At Period End */
+            cancel_at_period_end: boolean;
+        };
+        /** SubCheckoutIn */
+        SubCheckoutIn: {
+            /**
+             * Plan Id
+             * Format: uuid
+             */
+            plan_id: string;
+            /** Success Url */
+            success_url: string;
+            /** Cancel Url */
+            cancel_url: string;
+            /** Customer Email */
+            customer_email?: string | null;
+        };
+        /** PackageCheckoutIn */
+        PackageCheckoutIn: {
+            /** Success Url */
+            success_url: string;
+            /** Cancel Url */
+            cancel_url: string;
+            /** Customer Email */
+            customer_email?: string | null;
         };
         /** PayoutsBalanceOut */
         PayoutsBalanceOut: {
@@ -8671,6 +10407,221 @@ export interface components {
             /** Ends At */
             ends_at: string | null;
         };
+        /** PackageOut */
+        PackageOut: {
+            /** Id */
+            id: string;
+            /** Course Id */
+            course_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Course Slug */
+            course_slug: string;
+            /** Delivery Type */
+            delivery_type: string;
+            /** Price Gbp Minor */
+            price_gbp_minor: number;
+            /** Custom Quote Enabled */
+            custom_quote_enabled: boolean;
+            /** Description */
+            description: string;
+        };
+        /** PurchaseOut */
+        PurchaseOut: {
+            /** Id */
+            id: string;
+            /** Offering Id */
+            offering_id: string;
+            /** Quantity */
+            quantity: number;
+            /** Unit Price Minor */
+            unit_price_minor: number;
+            /** Currency */
+            currency: string;
+            /** Total Minor */
+            total_minor: number;
+            /** Status */
+            status: string;
+            /** Paid At */
+            paid_at?: string | null;
+            /** Created At */
+            created_at: string;
+        };
+        /** QuoteOut */
+        QuoteOut: {
+            /** Id */
+            id: string;
+            /** Status */
+            status: string;
+            /** Currency */
+            currency: string;
+            /** Total Minor */
+            total_minor: number;
+            /** Valid Until */
+            valid_until: string;
+            /** Stripe Invoice Url */
+            stripe_invoice_url: string;
+            /** Notes */
+            notes: string;
+            /** Created At */
+            created_at: string;
+        };
+        /** InventoryOut */
+        InventoryOut: {
+            /** Offering Id */
+            offering_id: string;
+            /** Purchased */
+            purchased: number;
+            /** Allocated */
+            allocated: number;
+            /** Available */
+            available: number;
+        };
+        /** TrainingRequestOut */
+        TrainingRequestOut: {
+            /** Id */
+            id: string;
+            /** Course Id */
+            course_id: string;
+            /** Requested Seats */
+            requested_seats: number;
+            /** Preferred Intake */
+            preferred_intake: string;
+            /** Preferred Delivery Mode */
+            preferred_delivery_mode: string;
+            /** Status */
+            status: string;
+            /** Status Label */
+            status_label: string;
+            /** Created At */
+            created_at: string;
+        };
+        /** TrainingRequestIn */
+        TrainingRequestIn: {
+            /** Course Id */
+            course_id: string;
+            /** Seats */
+            seats: number;
+            /**
+             * Preferred Intake
+             * @default
+             */
+            preferred_intake: string;
+            /**
+             * Preferred Delivery Mode
+             * @default
+             */
+            preferred_delivery_mode: string;
+        };
+        /** LiveBookingOut */
+        LiveBookingOut: {
+            /** Id */
+            id: string;
+            /** Cohort Id */
+            cohort_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Approved Seats */
+            approved_seats: number;
+            /** Status */
+            status: string;
+            /** Payment Deadline */
+            payment_deadline?: string | null;
+        };
+        /** CompanyDashboardOut */
+        CompanyDashboardOut: {
+            /** Total Seats Purchased */
+            total_seats_purchased: number;
+            /** Seats Allocated */
+            seats_allocated: number;
+            /** Seats Available */
+            seats_available: number;
+            /** Active Cohorts */
+            active_cohorts: number;
+            /** Pending Requests */
+            pending_requests: number;
+            /** Total Spend Minor */
+            total_spend_minor: number;
+        };
+        /** EmployeeProgressOut */
+        EmployeeProgressOut: {
+            /** User Id */
+            user_id: string;
+            /** User Email */
+            user_email: string;
+            /** User Name */
+            user_name: string;
+            /** Course Title */
+            course_title: string;
+            /** Enrollment Status */
+            enrollment_status: string;
+            /** Progress Pct */
+            progress_pct: number;
+            /** Allocated At */
+            allocated_at?: string | null;
+            /** Activated At */
+            activated_at?: string | null;
+        };
+        /** AttendanceSummaryOut */
+        AttendanceSummaryOut: {
+            /** User Email */
+            user_email: string;
+            /** User Name */
+            user_name: string;
+            /** Session Title */
+            session_title: string;
+            /** Course Title */
+            course_title: string;
+            /** Join At */
+            join_at: string;
+            /** Leave At */
+            leave_at?: string | null;
+            /** Duration Seconds */
+            duration_seconds: number;
+            /** Match Status */
+            match_status: string;
+        };
+        /** CancellationOut */
+        CancellationOut: {
+            /** Id */
+            id: string;
+            /** Type */
+            type: string;
+            /** Status */
+            status: string;
+            /** Reason */
+            reason: string;
+            /** Created At */
+            created_at: string;
+        };
+        /** CancellationIn */
+        CancellationIn: {
+            /** Type */
+            type: string;
+            /** Reason */
+            reason: string;
+            /** Seat Purchase Id */
+            seat_purchase_id?: string | null;
+            /** Cohort Company Id */
+            cohort_company_id?: string | null;
+        };
+        /** SessionOut */
+        SessionOut: {
+            /** Sequence */
+            sequence: number;
+            /** Title */
+            title: string;
+            /** Scheduled At */
+            scheduled_at: string;
+            /** Duration Min */
+            duration_min: number;
+            /** Delivery Mode */
+            delivery_mode: string;
+            /** Location */
+            location: string;
+            /** Status */
+            status: string;
+        };
         /** StudioStatusOut */
         StudioStatusOut: {
             /** Status */
@@ -8840,6 +10791,8 @@ export interface components {
             position: number;
             /** Is Preview */
             is_preview: boolean;
+            /** Token Price */
+            token_price?: number | null;
             /** Is Required */
             is_required: boolean;
             /** Duration Sec */
@@ -8854,6 +10807,21 @@ export interface components {
             live_duration_min?: number | null;
             /** Live Join Url */
             live_join_url: string;
+            /**
+             * Live Provider
+             * @default manual
+             */
+            live_provider: string;
+            /**
+             * Teams Meeting Id
+             * @default
+             */
+            teams_meeting_id: string;
+            /**
+             * Teams Organizer
+             * @default
+             */
+            teams_organizer: string;
             /** Min Watch Pct */
             min_watch_pct: number;
             /** Prerequisite Key */
@@ -9142,6 +11110,8 @@ export interface components {
             body?: string | null;
             /** Is Preview */
             is_preview?: boolean | null;
+            /** Token Price */
+            token_price?: number | null;
             /** Is Required */
             is_required?: boolean | null;
             /** Duration Sec */
@@ -9162,6 +11132,15 @@ export interface components {
             section_id?: string | null;
             /** Prerequisite Key */
             prerequisite_key?: string | null;
+        };
+        /** TeamsMeetingOut */
+        TeamsMeetingOut: {
+            /** Meeting Id */
+            meeting_id: string;
+            /** Join Url */
+            join_url: string;
+            /** Organizer */
+            organizer: string;
         };
         /** QuizPatch */
         QuizPatch: {
@@ -10053,6 +12032,18 @@ export interface components {
              * @default false
              */
             is_free: boolean;
+            /** Full Course Token Price */
+            full_course_token_price?: number | null;
+            /**
+             * Token Pricing Mode
+             * @default manual
+             */
+            token_pricing_mode: string;
+            /**
+             * In Subscription
+             * @default true
+             */
+            in_subscription: boolean;
             /**
              * Status
              * @default
@@ -11406,6 +13397,839 @@ export interface components {
              */
             role: string;
         };
+        /** ConsoleCancellationOut */
+        ConsoleCancellationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Org Name */
+            org_name: string;
+            /** Type */
+            type: string;
+            /** Status */
+            status: string;
+            /** Requester Email */
+            requester_email: string;
+            /** Reason */
+            reason: string;
+            /** Admin Notes */
+            admin_notes: string;
+            /** Reviewed By Email */
+            reviewed_by_email?: string | null;
+            /** Reviewed At */
+            reviewed_at?: string | null;
+            /** Refund Amount Minor */
+            refund_amount_minor?: number | null;
+            /** Refund Currency */
+            refund_currency: string;
+            /** Stripe Refund Id */
+            stripe_refund_id: string;
+            /** Refunded At */
+            refunded_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ConsoleCancellationReview */
+        ConsoleCancellationReview: {
+            /** Approve */
+            approve: boolean;
+            /**
+             * Admin Notes
+             * @default
+             */
+            admin_notes: string;
+        };
+        /** ConsoleRefundIn */
+        ConsoleRefundIn: {
+            /** Amount Minor */
+            amount_minor: number;
+            /**
+             * Currency
+             * @default GBP
+             */
+            currency: string;
+        };
+        /** ConsoleDeparturePolicyOut */
+        ConsoleDeparturePolicyOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Org Name */
+            org_name: string;
+            /** Action */
+            action: string;
+            /** Notes */
+            notes: string;
+            /** Set By Email */
+            set_by_email?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ConsoleDeparturePolicyIn */
+        ConsoleDeparturePolicyIn: {
+            /** Action */
+            action: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+        };
+        /** ConsoleDepartureApplyIn */
+        ConsoleDepartureApplyIn: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
+        /** ConsoleTrainingRequestOut */
+        ConsoleTrainingRequestOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Org Name */
+            org_name: string;
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Requester Email */
+            requester_email: string;
+            /** Requested Seats */
+            requested_seats: number;
+            /** Preferred Intake */
+            preferred_intake: string;
+            /** Preferred Delivery Mode */
+            preferred_delivery_mode: string;
+            /** Status */
+            status: string;
+            /** Admin Notes */
+            admin_notes: string;
+            /** Status Label */
+            status_label: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ConsoleRequestPatch */
+        ConsoleRequestPatch: {
+            /** Status */
+            status?: string | null;
+            /** Admin Notes */
+            admin_notes?: string | null;
+            /** Status Label */
+            status_label?: string | null;
+        };
+        /** ConsoleCohortOut */
+        ConsoleCohortOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Title */
+            title: string;
+            /** Intake */
+            intake: string;
+            /** Status */
+            status: string;
+            /** Delivery Mode */
+            delivery_mode: string;
+            /** Min Learners */
+            min_learners: number;
+            /** Max Learners */
+            max_learners: number;
+            /** Current Seats */
+            current_seats: number;
+            /** Scheduled Start */
+            scheduled_start?: string | null;
+            /** Scheduled End */
+            scheduled_end?: string | null;
+            /** Notes */
+            notes: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ConsoleCohortIn */
+        ConsoleCohortIn: {
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Delivery Mode */
+            delivery_mode: string;
+            /** Max Learners */
+            max_learners: number;
+            /**
+             * Min Learners
+             * @default 1
+             */
+            min_learners: number;
+            /**
+             * Intake
+             * @default
+             */
+            intake: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+        };
+        /** ConsoleCohortPatch */
+        ConsoleCohortPatch: {
+            /** Title */
+            title?: string | null;
+            /** Intake */
+            intake?: string | null;
+            /** Delivery Mode */
+            delivery_mode?: string | null;
+            /** Min Learners */
+            min_learners?: number | null;
+            /** Max Learners */
+            max_learners?: number | null;
+            /** Scheduled Start */
+            scheduled_start?: string | null;
+            /** Scheduled End */
+            scheduled_end?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Status */
+            status?: string | null;
+        };
+        /** ConsoleAddCompanyIn */
+        ConsoleAddCompanyIn: {
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Seats */
+            seats: number;
+            /** Training Request Id */
+            training_request_id?: string | null;
+        };
+        /** ConsoleCohortCompanyOut */
+        ConsoleCohortCompanyOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Org Name */
+            org_name: string;
+            /**
+             * Cohort Id
+             * Format: uuid
+             */
+            cohort_id: string;
+            /** Approved Seats */
+            approved_seats: number;
+            /** Status */
+            status: string;
+            /** Payment Deadline */
+            payment_deadline?: string | null;
+        };
+        /** ConsoleSessionOut */
+        ConsoleSessionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Cohort Id
+             * Format: uuid
+             */
+            cohort_id: string;
+            /** Sequence */
+            sequence: number;
+            /** Title */
+            title: string;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /** Duration Min */
+            duration_min: number;
+            /** Delivery Mode */
+            delivery_mode: string;
+            /** Location */
+            location: string;
+            /** Status */
+            status: string;
+            /** Actual Start */
+            actual_start?: string | null;
+            /** Actual End */
+            actual_end?: string | null;
+        };
+        /** ConsoleSessionIn */
+        ConsoleSessionIn: {
+            /** Sequence */
+            sequence: number;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /** Duration Min */
+            duration_min: number;
+            /** Delivery Mode */
+            delivery_mode?: string | null;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Location
+             * @default
+             */
+            location: string;
+        };
+        /** ConsoleSessionPatch */
+        ConsoleSessionPatch: {
+            /** Title */
+            title?: string | null;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+            /** Duration Min */
+            duration_min?: number | null;
+            /** Delivery Mode */
+            delivery_mode?: string | null;
+            /** Location */
+            location?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Reschedule Note */
+            reschedule_note?: string | null;
+        };
+        /** ConsoleTutorOut */
+        ConsoleTutorOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** User Email */
+            user_email: string;
+            /** User Name */
+            user_name: string;
+            /** Type */
+            type: string;
+            /** Status */
+            status: string;
+            /** Bio */
+            bio: string;
+            /** Specializations */
+            specializations: unknown[];
+            /** Approved At */
+            approved_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ConsoleTutorIn */
+        ConsoleTutorIn: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Type */
+            type: string;
+            /**
+             * Bio
+             * @default
+             */
+            bio: string;
+            /**
+             * Specializations
+             * @default []
+             */
+            specializations: string[];
+        };
+        /** ConsoleAssignTutorIn */
+        ConsoleAssignTutorIn: {
+            /**
+             * Cohort Id
+             * Format: uuid
+             */
+            cohort_id: string;
+        };
+        /** ConsoleOfferingOut */
+        ConsoleOfferingOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Delivery Type */
+            delivery_type: string;
+            /**
+             * Price Tier Id
+             * Format: uuid
+             */
+            price_tier_id: string;
+            /** Tier Name */
+            tier_name: string;
+            /** Gbp Minor */
+            gbp_minor: number;
+            /** Is Active */
+            is_active: boolean;
+            /** Custom Quote Enabled */
+            custom_quote_enabled: boolean;
+            /** Description */
+            description: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ConsoleOfferingIn */
+        ConsoleOfferingIn: {
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Delivery Type */
+            delivery_type: string;
+            /**
+             * Price Tier Id
+             * Format: uuid
+             */
+            price_tier_id: string;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /**
+             * Custom Quote Enabled
+             * @default false
+             */
+            custom_quote_enabled: boolean;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /** ConsoleOfferingPatch */
+        ConsoleOfferingPatch: {
+            /** Price Tier Id */
+            price_tier_id?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Custom Quote Enabled */
+            custom_quote_enabled?: boolean | null;
+            /** Description */
+            description?: string | null;
+        };
+        /** ConsoleSeatPurchaseOut */
+        ConsoleSeatPurchaseOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Org Name */
+            org_name: string;
+            /**
+             * Offering Id
+             * Format: uuid
+             */
+            offering_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Delivery Type */
+            delivery_type: string;
+            /** Buyer Email */
+            buyer_email: string;
+            /** Quantity */
+            quantity: number;
+            /** Allocated */
+            allocated: number;
+            /** Available */
+            available: number;
+            /** Unit Price Minor */
+            unit_price_minor: number;
+            /** Currency */
+            currency: string;
+            /** Total Minor */
+            total_minor: number;
+            /** Status */
+            status: string;
+            /** Paid At */
+            paid_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ConsoleSeatAllocationOut */
+        ConsoleSeatAllocationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Seat Purchase Id
+             * Format: uuid
+             */
+            seat_purchase_id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** User Email */
+            user_email: string;
+            /** User Name */
+            user_name: string;
+            /** Status */
+            status: string;
+            /**
+             * Allocated At
+             * Format: date-time
+             */
+            allocated_at: string;
+            /** Activated At */
+            activated_at: string | null;
+            /** Released At */
+            released_at: string | null;
+            /** Enrollment Id */
+            enrollment_id: string | null;
+        };
+        /** ConsoleAllocateIn */
+        ConsoleAllocateIn: {
+            /**
+             * Seat Purchase Id
+             * Format: uuid
+             */
+            seat_purchase_id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
+        /** ConsoleReleaseIn */
+        ConsoleReleaseIn: {
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /** ConsoleReassignIn */
+        ConsoleReassignIn: {
+            /**
+             * New User Id
+             * Format: uuid
+             */
+            new_user_id: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /** ConsoleInventorySummary */
+        ConsoleInventorySummary: {
+            /**
+             * Offering Id
+             * Format: uuid
+             */
+            offering_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Delivery Type */
+            delivery_type: string;
+            /** Total Purchased */
+            total_purchased: number;
+            /** Total Allocated */
+            total_allocated: number;
+            /** Total Available */
+            total_available: number;
+        };
+        /** ConsoleQuoteItemOut */
+        ConsoleQuoteItemOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Offering Id
+             * Format: uuid
+             */
+            offering_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Delivery Type */
+            delivery_type: string;
+            /** Quantity */
+            quantity: number;
+            /** Unit Price Minor */
+            unit_price_minor: number;
+            /** Line Total Minor */
+            line_total_minor: number;
+        };
+        /** ConsoleQuoteOut */
+        ConsoleQuoteOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Org Name */
+            org_name: string;
+            /** Buyer Email */
+            buyer_email: string;
+            /** Status */
+            status: string;
+            /** Currency */
+            currency: string;
+            /** Total Minor */
+            total_minor: number;
+            /**
+             * Valid Until
+             * Format: date-time
+             */
+            valid_until: string;
+            /** Stripe Invoice Id */
+            stripe_invoice_id: string;
+            /** Stripe Invoice Url */
+            stripe_invoice_url: string;
+            /** Notes */
+            notes: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["ConsoleQuoteItemOut"][];
+        };
+        /** ConsoleQuoteIn */
+        ConsoleQuoteIn: {
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /**
+             * Buyer Id
+             * Format: uuid
+             */
+            buyer_id: string;
+            /**
+             * Currency
+             * @default GBP
+             */
+            currency: string;
+            /**
+             * Valid Until
+             * Format: date-time
+             */
+            valid_until: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /** Items */
+            items: components["schemas"]["ConsoleQuoteItemIn"][];
+        };
+        /** ConsoleQuoteItemIn */
+        ConsoleQuoteItemIn: {
+            /**
+             * Offering Id
+             * Format: uuid
+             */
+            offering_id: string;
+            /** Quantity */
+            quantity: number;
+            /** Unit Price Minor */
+            unit_price_minor: number;
+        };
+        /** ConsoleCorporateOverview */
+        ConsoleCorporateOverview: {
+            revenue: components["schemas"]["ConsoleKpiOut"];
+            seats_sold: components["schemas"]["ConsoleKpiOut"];
+            allocations_made: components["schemas"]["ConsoleKpiOut"];
+            /** Active Cohorts */
+            active_cohorts: number;
+            /** Pending Requests */
+            pending_requests: number;
+            /** Open Quotes */
+            open_quotes: number;
+        };
+        /** ConsoleRevenuePoint */
+        ConsoleRevenuePoint: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Revenue */
+            revenue: number;
+            /** Seats */
+            seats: number;
+        };
+        /** ConsoleCompanyRanking */
+        ConsoleCompanyRanking: {
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Org Name */
+            org_name: string;
+            /** Total Spend */
+            total_spend: number;
+            /** Total Seats */
+            total_seats: number;
+            /** Purchase Count */
+            purchase_count: number;
+        };
+        /** ConsoleAttendanceOut */
+        ConsoleAttendanceOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /** Session Sequence */
+            session_sequence: number;
+            /** Session Title */
+            session_title: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** User Email */
+            user_email: string;
+            /** User Name */
+            user_name: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Org Name */
+            org_name: string;
+            /** Join At */
+            join_at: string;
+            /** Leave At */
+            leave_at?: string | null;
+            /** Duration Seconds */
+            duration_seconds: number;
+            /** Match Status */
+            match_status: string;
+            /** Is Verified */
+            is_verified: boolean;
+            /** Source */
+            source: string;
+        };
         /** ConsoleCourseKpisOut */
         ConsoleCourseKpisOut: {
             /** Total */
@@ -12051,6 +14875,77 @@ export interface components {
              */
             note: string;
         };
+        /** ConsolePackageCourseOut */
+        ConsolePackageCourseOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Slug */
+            slug: string;
+        };
+        /** ConsolePackageOut */
+        ConsolePackageOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Description */
+            description: string;
+            /**
+             * Price Tier Id
+             * Format: uuid
+             */
+            price_tier_id: string;
+            /** Price Gbp Minor */
+            price_gbp_minor: number;
+            /** Courses Cash Total Minor */
+            courses_cash_total_minor: number;
+            /** Is Active */
+            is_active: boolean;
+            /** Course Count */
+            course_count: number;
+            /** Courses */
+            courses: components["schemas"]["ConsolePackageCourseOut"][];
+        };
+        /** ConsolePackageIn */
+        ConsolePackageIn: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Price Tier Id
+             * Format: uuid
+             */
+            price_tier_id: string;
+            /** Course Ids */
+            course_ids?: string[];
+        };
+        /** ConsolePackagePatch */
+        ConsolePackagePatch: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Price Tier Id */
+            price_tier_id?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Course Ids */
+            course_ids?: string[] | null;
+        };
         /** ConsolePayoutOverviewOut */
         ConsolePayoutOverviewOut: {
             /** Pending Requests */
@@ -12070,6 +14965,12 @@ export interface components {
             total_balance_gbp_minor: number;
             /** Unverified Accounts */
             unverified_accounts: number;
+            /** Tutor Earned Gbp Minor */
+            tutor_earned_gbp_minor: number;
+            /** Platform Retained Gbp Minor */
+            platform_retained_gbp_minor: number;
+            /** Tutor Keeps Pct */
+            tutor_keeps_pct: number | null;
             settings: components["schemas"]["ConsolePayoutSettingsOut"];
         };
         /** ConsolePayoutSettingsOut */
@@ -14200,6 +17101,573 @@ export interface components {
             /** Next Cursor */
             next_cursor: string | null;
         };
+        /** ConsoleCourseTokenPage */
+        ConsoleCourseTokenPage: {
+            /** Items */
+            items: components["schemas"]["ConsoleCourseTokenRow"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /** ConsoleCourseTokenRow */
+        ConsoleCourseTokenRow: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Slug */
+            slug: string;
+            /** Cash Price Tier Id */
+            cash_price_tier_id: string | null;
+            /** Full Course Token Price */
+            full_course_token_price: number | null;
+            /** Token Pricing Mode */
+            token_pricing_mode: string;
+            /** Lectures Priced Count */
+            lectures_priced_count: number;
+            /** Materials Priced Count */
+            materials_priced_count: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ConsoleCourseTokenDetail */
+        ConsoleCourseTokenDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Slug */
+            slug: string;
+            /** Cash Price Tier Id */
+            cash_price_tier_id: string | null;
+            /** Full Course Token Price */
+            full_course_token_price: number | null;
+            /** Token Pricing Mode */
+            token_pricing_mode: string;
+            /** Live Version Id */
+            live_version_id: string | null;
+            /** Sections */
+            sections: components["schemas"]["ConsoleSectionTokenOut"][];
+        };
+        /** ConsoleLectureTokenOut */
+        ConsoleLectureTokenOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Kind */
+            kind: string;
+            /** Position */
+            position: number;
+            /** Duration Min */
+            duration_min: number;
+            /** Token Price */
+            token_price: number | null;
+            /** Is Free Preview */
+            is_free_preview: boolean;
+            /** Is Preview */
+            is_preview: boolean;
+            /** Materials */
+            materials: components["schemas"]["ConsoleMaterialTokenOut"][];
+        };
+        /** ConsoleMaterialTokenOut */
+        ConsoleMaterialTokenOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Position */
+            position: number;
+            /** Token Price */
+            token_price: number | null;
+            /** Is Free Preview */
+            is_free_preview: boolean;
+        };
+        /** ConsoleSectionTokenOut */
+        ConsoleSectionTokenOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Position */
+            position: number;
+            /** Lectures */
+            lectures: components["schemas"]["ConsoleLectureTokenOut"][];
+        };
+        /**
+         * ConsoleCourseTokenPatch
+         * @description UNSET vs null:
+         *
+         *     A field left out of the request body stays at its current value (UNSET sentinel).
+         *     A field sent explicitly as JSON `null` clears the column. A field sent with a
+         *     value sets the column.
+         */
+        ConsoleCourseTokenPatch: {
+            /**
+             * Price Tier Id
+             * @default __UNSET__
+             */
+            price_tier_id: unknown;
+            /**
+             * Full Course Token Price
+             * @default __UNSET__
+             */
+            full_course_token_price: unknown;
+            /**
+             * Token Pricing Mode
+             * @default __UNSET__
+             */
+            token_pricing_mode: unknown;
+            /** Reason */
+            reason: string;
+        };
+        /** ConsoleDistributePreviewOut */
+        ConsoleDistributePreviewOut: {
+            /** Allocation */
+            allocation: components["schemas"]["ConsoleDistributeRow"][];
+            /** Applied */
+            applied: boolean;
+        };
+        /** ConsoleDistributeRow */
+        ConsoleDistributeRow: {
+            /**
+             * Lecture Id
+             * Format: uuid
+             */
+            lecture_id: string;
+            /** Title */
+            title: string;
+            /** Current Price */
+            current_price: number | null;
+            /** Allocated Price */
+            allocated_price: number;
+        };
+        /** ConsoleDistributeIn */
+        ConsoleDistributeIn: {
+            /** Total Tokens */
+            total_tokens: number;
+            weights_config?: components["schemas"]["ConsoleDistributeWeightsIn"] | null;
+            /**
+             * Dry Run
+             * @default true
+             */
+            dry_run: boolean;
+            /** Reason */
+            reason: string;
+        };
+        /** ConsoleDistributeWeightsIn */
+        ConsoleDistributeWeightsIn: {
+            /** Lecture Types */
+            lecture_types: {
+                [key: string]: number;
+            };
+            /**
+             * Use Duration
+             * @default false
+             */
+            use_duration: boolean;
+        };
+        /** ConsoleLectureTokenPatch */
+        ConsoleLectureTokenPatch: {
+            /**
+             * Token Price
+             * @default __UNSET__
+             */
+            token_price: unknown;
+            /**
+             * Is Free Preview
+             * @default __UNSET__
+             */
+            is_free_preview: unknown;
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /** Reason */
+            reason: string;
+        };
+        /** ConsoleMaterialTokenPatch */
+        ConsoleMaterialTokenPatch: {
+            /**
+             * Token Price
+             * @default __UNSET__
+             */
+            token_price: unknown;
+            /**
+             * Is Free Preview
+             * @default __UNSET__
+             */
+            is_free_preview: unknown;
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /** Reason */
+            reason: string;
+        };
+        /** ConsoleBulkCourseResult */
+        ConsoleBulkCourseResult: {
+            /** Results */
+            results: components["schemas"]["ConsoleBulkCourseRow"][];
+        };
+        /** ConsoleBulkCourseRow */
+        ConsoleBulkCourseRow: {
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Ok */
+            ok: boolean;
+            /** Error */
+            error: string | null;
+        };
+        /** ConsoleBulkCourseIn */
+        ConsoleBulkCourseIn: {
+            /** Course Ids */
+            course_ids: string[];
+            patch: components["schemas"]["ConsoleBulkCourseTokenPatch"];
+            /** Reason */
+            reason: string;
+        };
+        /** ConsoleBulkCourseTokenPatch */
+        ConsoleBulkCourseTokenPatch: {
+            /**
+             * Price Tier Id
+             * @default __UNSET__
+             */
+            price_tier_id: unknown;
+            /**
+             * Full Course Token Price
+             * @default __UNSET__
+             */
+            full_course_token_price: unknown;
+            /**
+             * Token Pricing Mode
+             * @default __UNSET__
+             */
+            token_pricing_mode: unknown;
+        };
+        /** ConsoleTokenPackOut */
+        ConsoleTokenPackOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Token Amount */
+            token_amount: number;
+            /**
+             * Price Tier Id
+             * Format: uuid
+             */
+            price_tier_id: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Sort Order */
+            sort_order: number;
+        };
+        /** ConsoleTokenPackIn */
+        ConsoleTokenPackIn: {
+            /** Name */
+            name: string;
+            /** Token Amount */
+            token_amount: number;
+            /**
+             * Price Tier Id
+             * Format: uuid
+             */
+            price_tier_id: string;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /**
+             * Sort Order
+             * @default 0
+             */
+            sort_order: number;
+            /** Reason */
+            reason: string;
+        };
+        /** ConsoleTokenRateOut */
+        ConsoleTokenRateOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Tokens Per Gbp Minor */
+            tokens_per_gbp_minor: string;
+            /**
+             * Effective From
+             * Format: date-time
+             */
+            effective_from: string;
+            /** Effective To */
+            effective_to: string | null;
+            /** Notes */
+            notes: string;
+            /** Is Current */
+            is_current: boolean;
+        };
+        /** ConsoleTokenRateIn */
+        ConsoleTokenRateIn: {
+            /** Tokens Per Gbp Minor */
+            tokens_per_gbp_minor: number | string;
+            /**
+             * Effective From
+             * Format: date-time
+             */
+            effective_from: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /** Reason */
+            reason: string;
+        };
+        /** ConsoleTopUpPolicyOut */
+        ConsoleTopUpPolicyOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Currency */
+            currency: string;
+            /** Min Minor */
+            min_minor: number;
+            /** Max Minor */
+            max_minor: number;
+            /** Is Active */
+            is_active: boolean;
+        };
+        /** ConsoleTopUpPolicyIn */
+        ConsoleTopUpPolicyIn: {
+            /** Min Minor */
+            min_minor: number;
+            /** Max Minor */
+            max_minor: number;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /** Reason */
+            reason: string;
+        };
+        /** ConsoleBonusCampaignOut */
+        ConsoleBonusCampaignOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Condition Type */
+            condition_type: string;
+            /** Condition Value */
+            condition_value: {
+                [key: string]: unknown;
+            };
+            /** Bonus Tokens */
+            bonus_tokens: number | null;
+            /** Bonus Percent */
+            bonus_percent: string | null;
+            /** Bonus Expiry Days */
+            bonus_expiry_days: number | null;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Is Active */
+            is_active: boolean;
+        };
+        /** ConsoleBonusCampaignIn */
+        ConsoleBonusCampaignIn: {
+            /** Name */
+            name: string;
+            /** Condition Type */
+            condition_type: string;
+            /**
+             * Condition Value
+             * @default {}
+             */
+            condition_value: {
+                [key: string]: unknown;
+            };
+            /** Bonus Tokens */
+            bonus_tokens?: number | null;
+            /** Bonus Percent */
+            bonus_percent?: number | string | null;
+            /** Bonus Expiry Days */
+            bonus_expiry_days?: number | null;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /**
+             * Is Active
+             * @default false
+             */
+            is_active: boolean;
+            /** Reason */
+            reason: string;
+        };
+        /** ConsoleTokenAuditPage */
+        ConsoleTokenAuditPage: {
+            /** Items */
+            items: components["schemas"]["ConsoleTokenAuditRow"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /** ConsoleTokenAuditRow */
+        ConsoleTokenAuditRow: {
+            /** Id */
+            id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Actor Id */
+            actor_id: string | null;
+            /** Action */
+            action: string;
+            /** Target Type */
+            target_type: string;
+            /** Target Id */
+            target_id: string;
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+        };
+        /** ConsoleWalletBalanceOut */
+        ConsoleWalletBalanceOut: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Balance */
+            balance: number;
+            /** Expiring Within 7 Days */
+            expiring_within_7_days: number;
+        };
+        /** ConsoleWalletDetailOut */
+        ConsoleWalletDetailOut: {
+            balance: components["schemas"]["ConsoleWalletBalanceOut"];
+            /** Grants */
+            grants: components["schemas"]["ConsoleWalletGrantOut"][];
+        };
+        /** ConsoleWalletGrantOut */
+        ConsoleWalletGrantOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Source */
+            source: string;
+            /** Amount */
+            amount: number;
+            /** Remaining */
+            remaining: number;
+            /** Unit Cost Gbp */
+            unit_cost_gbp: string | null;
+            /**
+             * Granted At
+             * Format: date-time
+             */
+            granted_at: string;
+            /** Expires At */
+            expires_at: string | null;
+            /** Expired At */
+            expired_at: string | null;
+            /** Note */
+            note: string;
+        };
+        /** ConsoleWalletAdjustIn */
+        ConsoleWalletAdjustIn: {
+            /**
+             * Amount
+             * @description Positive to add, negative to remove
+             */
+            amount: number;
+            /** Note */
+            note: string;
+        };
+        /** ConsoleWalletLedgerOut */
+        ConsoleWalletLedgerOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Amount */
+            amount: number;
+            /** Balance After */
+            balance_after: number;
+            /** Grant Id */
+            grant_id: string | null;
+            /** Spend Id */
+            spend_id: string | null;
+            /** Note */
+            note: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -16265,6 +19733,345 @@ export interface operations {
             };
         };
     };
+    apps_commerce_token_api_my_balance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenBalanceOut"];
+                };
+            };
+        };
+    };
+    apps_commerce_token_api_my_grants: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenGrantOut"][];
+                };
+            };
+        };
+    };
+    apps_commerce_token_api_my_ledger: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenLedgerOut"][];
+                };
+            };
+        };
+    };
+    apps_commerce_token_api_list_packs: {
+        parameters: {
+            query?: {
+                currency?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenPackOut"][];
+                };
+            };
+        };
+    };
+    apps_commerce_token_api_pack_checkout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackCheckoutIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutUrlOut"];
+                };
+            };
+        };
+    };
+    apps_commerce_token_api_unlock_content: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnlockIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnlockOut"];
+                };
+            };
+        };
+    };
+    apps_commerce_token_api_check_access: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scope: string;
+                target_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessOut"];
+                };
+            };
+        };
+    };
+    apps_commerce_token_api_current_rate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenRateOut"] | null;
+                };
+            };
+        };
+    };
+    apps_commerce_token_api_topup_limits: {
+        parameters: {
+            query?: {
+                currency?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopUpLimitsOut"] | null;
+                };
+            };
+        };
+    };
+    apps_commerce_token_api_topup_checkout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopUpCheckoutIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutUrlOut"];
+                };
+            };
+        };
+    };
+    apps_commerce_token_api_list_packages: {
+        parameters: {
+            query?: {
+                currency?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CashPackageOut"][];
+                };
+            };
+        };
+    };
+    apps_commerce_token_api_list_subscription_plans: {
+        parameters: {
+            query?: {
+                currency?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnlimitedPlanOut"][];
+                };
+            };
+        };
+    };
+    apps_commerce_token_api_my_subscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveSubOut"] | null;
+                };
+            };
+        };
+    };
+    apps_commerce_token_api_subscription_checkout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubCheckoutIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutUrlOut"];
+                };
+            };
+        };
+    };
+    apps_commerce_token_api_package_checkout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                package_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackageCheckoutIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutUrlOut"];
+                };
+            };
+        };
+    };
     apps_payouts_api_my_payouts: {
         parameters: {
             query?: never;
@@ -17030,6 +20837,348 @@ export interface operations {
             };
         };
     };
+    apps_corporate_api_list_packages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_checkout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                offering_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckoutIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_list_purchases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_list_quotes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuoteOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_inventory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_list_training_requests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingRequestOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_submit_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrainingRequestIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingRequestOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_cancel_training_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_corporate_api_list_live_bookings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveBookingOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_live_checkout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_company_dashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyDashboardOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_employee_progress: {
+        parameters: {
+            query?: {
+                offering_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeProgressOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_attendance_summary: {
+        parameters: {
+            query?: {
+                cohort_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceSummaryOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_list_cancellations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancellationOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_submit_cancellation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancellationIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancellationOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_booking_schedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"][];
+                };
+            };
+        };
+    };
     apps_catalog_studio_apply_as_instructor: {
         parameters: {
             query?: never;
@@ -17436,6 +21585,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OkOut"];
+                };
+            };
+        };
+    };
+    apps_catalog_studio_create_teams_meeting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lecture_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamsMeetingOut"];
                 };
             };
         };
@@ -19894,6 +24065,1048 @@ export interface operations {
             };
         };
     };
+    apps_platform_console_corporate_cancellations_list_cancellations: {
+        parameters: {
+            query?: {
+                org_id?: string | null;
+                status?: string | null;
+                type?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleCancellationOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_cancellations_review_cancellation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cancellation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleCancellationReview"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_cancellations_process_refund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cancellation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleRefundIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_cancellations_list_departure_policies: {
+        parameters: {
+            query?: {
+                org_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleDeparturePolicyOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_cancellations_set_departure_policy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleDeparturePolicyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_cancellations_apply_departure: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleDepartureApplyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_list_requests: {
+        parameters: {
+            query?: {
+                org_id?: string | null;
+                status?: string | null;
+                course_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleTrainingRequestOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_update_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleRequestPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_list_cohorts: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                course_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleCohortOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_create_cohort: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleCohortIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleIdOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_update_cohort: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleCohortPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_confirm_cohort: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_list_cohort_companies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleCohortCompanyOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_add_company: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleAddCompanyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleIdOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_remove_company: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cohort_id: string;
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_list_sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleSessionOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_add_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleSessionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleIdOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_cancel_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_update_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleSessionPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_list_tutors: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleTutorOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_create_tutor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleTutorIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleIdOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_approve_tutor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tutor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_suspend_tutor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tutor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_assign_tutor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tutor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleAssignTutorIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleIdOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_packages_list_offerings: {
+        parameters: {
+            query?: {
+                active_only?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOfferingOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_packages_create_offering: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleOfferingIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleIdOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_packages_update_offering: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                offering_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleOfferingPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_packages_list_purchases: {
+        parameters: {
+            query?: {
+                org_id?: string | null;
+                status?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleSeatPurchaseOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_packages_list_allocations: {
+        parameters: {
+            query?: {
+                purchase_id?: string | null;
+                org_id?: string | null;
+                status?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleSeatAllocationOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_packages_create_allocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleAllocateIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleIdOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_packages_release_allocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                allocation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleReleaseIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_packages_reassign_allocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                allocation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleReassignIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleIdOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_packages_inventory_summary: {
+        parameters: {
+            query?: {
+                org_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleInventorySummary"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_packages_list_quotes: {
+        parameters: {
+            query?: {
+                org_id?: string | null;
+                status?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleQuoteOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_packages_create_quote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleQuoteIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleQuoteOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_packages_send_quote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                quote_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleQuoteOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_packages_void_quote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                quote_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_reports_corporate_overview: {
+        parameters: {
+            query?: {
+                range?: string;
+                start?: string | null;
+                end?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleCorporateOverview"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_reports_revenue_series: {
+        parameters: {
+            query?: {
+                range?: string;
+                start?: string | null;
+                end?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleRevenuePoint"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_reports_company_rankings: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleCompanyRanking"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_reports_attendance_report: {
+        parameters: {
+            query?: {
+                cohort_id?: string | null;
+                session_id?: string | null;
+                match_status?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleAttendanceOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_reports_verify_attendance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attendance_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_platform_console_corporate_reports_reject_attendance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attendance_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     apps_platform_console_courses_courses: {
         parameters: {
             query?: {
@@ -20437,6 +25650,98 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ConsoleDismissIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_packages_list_packages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsolePackageOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_packages_create_package: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsolePackageIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleIdOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_packages_delete_package: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                package_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_packages_update_package: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                package_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsolePackagePatch"];
             };
         };
         responses: {
@@ -22885,6 +28190,535 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConsoleSubEventPageOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_list_token_courses: {
+        parameters: {
+            query?: {
+                search?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleCourseTokenPage"];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_get_token_course: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleCourseTokenDetail"];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_patch_token_course: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleCourseTokenPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_distribute_tokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleDistributeIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleDistributePreviewOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_patch_token_lecture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lecture_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleLectureTokenPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_patch_token_material: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                material_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleMaterialTokenPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_bulk_patch_courses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleBulkCourseIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleBulkCourseResult"];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_list_token_packs: {
+        parameters: {
+            query?: {
+                include_inactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleTokenPackOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_create_token_pack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleTokenPackIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleTokenPackOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_delete_token_pack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_update_token_pack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleTokenPackIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleTokenPackOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_list_token_rates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleTokenRateOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_create_token_rate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleTokenRateIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleTokenRateOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_list_topup_policies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleTopUpPolicyOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_upsert_topup_policy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                currency: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleTopUpPolicyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleTopUpPolicyOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_list_bonus_campaigns: {
+        parameters: {
+            query?: {
+                include_inactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleBonusCampaignOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_create_bonus_campaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleBonusCampaignIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleBonusCampaignOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_update_bonus_campaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleBonusCampaignIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleBonusCampaignOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_token_pricing_token_audit: {
+        parameters: {
+            query?: {
+                entity_type?: string | null;
+                entity_id?: string | null;
+                from_date?: string | null;
+                to_date?: string | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleTokenAuditPage"];
+                };
+            };
+        };
+    };
+    apps_platform_console_wallet_wallet_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleWalletDetailOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_wallet_wallet_adjust: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleWalletAdjustIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_wallet_wallet_ledger: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleWalletLedgerOut"][];
                 };
             };
         };

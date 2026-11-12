@@ -3,10 +3,8 @@
 import uuid
 from decimal import Decimal
 
-from django.utils import timezone
-
 from apps.catalog.models import Category, Course, CourseInstructor, CourseVersion
-from apps.commerce.models import TokenGrant, TokenSpend
+from apps.commerce.models import TokenSpend
 from apps.identity.models import User
 from apps.payouts.models import Earning, RevenueShare
 from apps.payouts.services_tokens import record_token_spend_earning
@@ -15,18 +13,23 @@ from core.tests.base import SchemaTransactionTestCase
 
 
 class TokenSpendEarningTest(SchemaTransactionTestCase):
-
     def setUp(self):
         tag = uuid.uuid4().hex[:8]
         with tenant_context(user_id=None, staff=True):
             self.learner = User.objects.create_user(
-                f"earn-l-{tag}@learnhub-demo.com", "test123", is_staff=False,
+                f"earn-l-{tag}@learnhub-demo.com",
+                "test123",
+                is_staff=False,
             )
             self.instructor = User.objects.create_user(
-                f"earn-i-{tag}@learnhub-demo.com", "test123", is_staff=False,
+                f"earn-i-{tag}@learnhub-demo.com",
+                "test123",
+                is_staff=False,
             )
             self.staff = User.objects.create_user(
-                f"earn-s-{tag}@learnhub-demo.com", "test123", is_staff=True,
+                f"earn-s-{tag}@learnhub-demo.com",
+                "test123",
+                is_staff=True,
             )
             self._setup_catalog(tag)
             self._setup_revenue_share()
@@ -34,26 +37,36 @@ class TokenSpendEarningTest(SchemaTransactionTestCase):
 
     def _setup_catalog(self, tag):
         self.category = Category.objects.create(
-            slug=f"earn-cat-{tag}", name=f"EarnCat {tag}", sort_order=0,
+            slug=f"earn-cat-{tag}",
+            name=f"EarnCat {tag}",
+            sort_order=0,
         )
         self.course = Course.objects.create(
-            ownership="instructor", status="published", created_by=self.instructor,
-            category=self.category, slug=f"earn-c-{tag}", title=f"Earn Course {tag}",
+            ownership="instructor",
+            status="published",
+            created_by=self.instructor,
+            category=self.category,
+            slug=f"earn-c-{tag}",
+            title=f"Earn Course {tag}",
         )
         v = CourseVersion.objects.create(course=self.course, number=1, status="published")
         self.course.live_version = v
         self.course.save(update_fields=["live_version"])
         CourseInstructor.objects.create(
-            course=self.course, user=self.instructor, position=0,
+            course=self.course,
+            user=self.instructor,
+            position=0,
             revenue_share_bps=10000,
         )
 
     def _setup_revenue_share(self):
         RevenueShare.objects.get_or_create(
-            channel="marketplace", defaults={"instructor_bps": 7000},
+            channel="marketplace",
+            defaults={"instructor_bps": 7000},
         )
         RevenueShare.objects.get_or_create(
-            channel="token_spend", defaults={"instructor_bps": 8000},
+            channel="token_spend",
+            defaults={"instructor_bps": 8000},
         )
 
     def _setup_spend(self, tag):

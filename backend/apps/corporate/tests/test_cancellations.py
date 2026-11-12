@@ -17,46 +17,54 @@ from apps.corporate.departure import apply_departure, get_or_default_policy, set
 from apps.corporate.models import (
     CancellationRequest,
     CorporateOffering,
-    DeparturePolicy,
-    SeatAllocation,
     SeatPurchase,
 )
 from apps.corporate.services import allocate_seat
 from apps.identity.models import User
-from apps.org.models import OrgMember, Organization
+from apps.org.models import Organization, OrgMember
 from core.errors import ServiceError
 from core.tenancy import tenant_context
 from core.tests.base import SchemaTransactionTestCase
 
 
 class CancellationTest(SchemaTransactionTestCase):
-
     def setUp(self):
         tag = uuid.uuid4().hex[:8]
         now = timezone.now()
         with tenant_context(user_id=None, staff=True):
             self.staff = User.objects.create_user(
-                f"cancel-staff-{tag}@test.com", "test123", is_staff=True,
+                f"cancel-staff-{tag}@test.com",
+                "test123",
+                is_staff=True,
             )
             self.org = Organization.objects.create(
-                name=f"CancelCorp {tag}", slug=f"cancelcorp-{tag}", status="active",
+                name=f"CancelCorp {tag}",
+                slug=f"cancelcorp-{tag}",
+                status="active",
             )
             self.admin_user = User.objects.create_user(
-                f"cancel-admin-{tag}@test.com", "test123",
+                f"cancel-admin-{tag}@test.com",
+                "test123",
             )
             self.employee = User.objects.create_user(
-                f"cancel-emp-{tag}@test.com", "test123",
+                f"cancel-emp-{tag}@test.com",
+                "test123",
             )
             OrgMember.objects.create(org=self.org, user=self.admin_user, role="admin", joined_at=now)
             OrgMember.objects.create(org=self.org, user=self.employee, role="learner", joined_at=now)
 
             self.category = Category.objects.create(
-                slug=f"cancel-cat-{tag}", name=f"CancelCat {tag}", sort_order=0,
+                slug=f"cancel-cat-{tag}",
+                name=f"CancelCat {tag}",
+                sort_order=0,
             )
             self.course = Course.objects.create(
-                ownership="platform", status="published",
-                created_by=self.staff, category=self.category,
-                slug=f"cancel-c-{tag}", title=f"Cancel Course {tag}",
+                ownership="platform",
+                status="published",
+                created_by=self.staff,
+                category=self.category,
+                slug=f"cancel-c-{tag}",
+                title=f"Cancel Course {tag}",
             )
             v = CourseVersion.objects.create(course=self.course, number=1, status="published")
             self.course.live_version = v
@@ -64,14 +72,22 @@ class CancellationTest(SchemaTransactionTestCase):
 
             self.tier = PriceTier.objects.create(name=f"CancelTier-{tag}", gbp_minor=5000, sort_order=0)
             self.offering = CorporateOffering.objects.create(
-                course=self.course, delivery_type="recorded",
-                price_tier=self.tier, is_active=True,
+                course=self.course,
+                delivery_type="recorded",
+                price_tier=self.tier,
+                is_active=True,
             )
             self.purchase = SeatPurchase.objects.create(
-                org=self.org, offering=self.offering, buyer=self.admin_user,
-                quantity=3, unit_price_minor=5000, currency="GBP",
-                total_minor=15000, gbp_total_minor=15000,
-                status="paid", paid_at=timezone.now(),
+                org=self.org,
+                offering=self.offering,
+                buyer=self.admin_user,
+                quantity=3,
+                unit_price_minor=5000,
+                currency="GBP",
+                total_minor=15000,
+                gbp_total_minor=15000,
+                status="paid",
+                paid_at=timezone.now(),
                 payment_intent="pi_test_cancel_123",
             )
 
@@ -105,12 +121,15 @@ class CancellationTest(SchemaTransactionTestCase):
         with tenant_context(staff=True):
             cr = submit_cancellation(
                 self._request(self.admin_user),
-                type="recorded_refund", reason="Want refund",
+                type="recorded_refund",
+                reason="Want refund",
                 seat_purchase_id=self.purchase.id,
             )
             reviewed = review_cancellation(
-                self._request(), str(cr.id),
-                approve=True, admin_notes="Approved by admin",
+                self._request(),
+                str(cr.id),
+                approve=True,
+                admin_notes="Approved by admin",
             )
         self.assertEqual(reviewed.status, "approved")
         self.assertIsNotNone(reviewed.reviewed_at)
@@ -119,10 +138,13 @@ class CancellationTest(SchemaTransactionTestCase):
         with tenant_context(staff=True):
             cr = submit_cancellation(
                 self._request(self.admin_user),
-                type="recorded_refund", reason="Want refund",
+                type="recorded_refund",
+                reason="Want refund",
             )
             reviewed = review_cancellation(
-                self._request(), str(cr.id), approve=False,
+                self._request(),
+                str(cr.id),
+                approve=False,
             )
         self.assertEqual(reviewed.status, "rejected")
 
@@ -131,13 +153,16 @@ class CancellationTest(SchemaTransactionTestCase):
         with tenant_context(staff=True):
             cr = submit_cancellation(
                 self._request(self.admin_user),
-                type="recorded_refund", reason="Refund please",
+                type="recorded_refund",
+                reason="Refund please",
                 seat_purchase_id=self.purchase.id,
             )
             review_cancellation(self._request(), str(cr.id), approve=True)
             processed = process_refund(
-                self._request(), str(cr.id),
-                amount_minor=5000, currency="GBP",
+                self._request(),
+                str(cr.id),
+                amount_minor=5000,
+                currency="GBP",
             )
         self.assertEqual(processed.status, "processed")
         self.assertEqual(processed.refund_amount_minor, 5000)
@@ -148,7 +173,8 @@ class CancellationTest(SchemaTransactionTestCase):
         with tenant_context(staff=True):
             cr = submit_cancellation(
                 self._request(self.admin_user),
-                type="recorded_refund", reason="Refund please",
+                type="recorded_refund",
+                reason="Refund please",
                 seat_purchase_id=self.purchase.id,
             )
             with self.assertRaises(ServiceError) as cm:
@@ -157,29 +183,38 @@ class CancellationTest(SchemaTransactionTestCase):
 
 
 class DeparturePolicyTest(SchemaTransactionTestCase):
-
     def setUp(self):
         tag = uuid.uuid4().hex[:8]
         now = timezone.now()
         with tenant_context(user_id=None, staff=True):
             self.staff = User.objects.create_user(
-                f"dep-staff-{tag}@test.com", "test123", is_staff=True,
+                f"dep-staff-{tag}@test.com",
+                "test123",
+                is_staff=True,
             )
             self.org = Organization.objects.create(
-                name=f"DepCorp {tag}", slug=f"depcorp-{tag}", status="active",
+                name=f"DepCorp {tag}",
+                slug=f"depcorp-{tag}",
+                status="active",
             )
             self.employee = User.objects.create_user(
-                f"dep-emp-{tag}@test.com", "test123",
+                f"dep-emp-{tag}@test.com",
+                "test123",
             )
             OrgMember.objects.create(org=self.org, user=self.employee, role="learner", joined_at=now)
 
             self.category = Category.objects.create(
-                slug=f"dep-cat-{tag}", name=f"DepCat {tag}", sort_order=0,
+                slug=f"dep-cat-{tag}",
+                name=f"DepCat {tag}",
+                sort_order=0,
             )
             self.course = Course.objects.create(
-                ownership="platform", status="published",
-                created_by=self.staff, category=self.category,
-                slug=f"dep-c-{tag}", title=f"Departure Course {tag}",
+                ownership="platform",
+                status="published",
+                created_by=self.staff,
+                category=self.category,
+                slug=f"dep-c-{tag}",
+                title=f"Departure Course {tag}",
             )
             v = CourseVersion.objects.create(course=self.course, number=1, status="published")
             self.course.live_version = v
@@ -187,14 +222,22 @@ class DeparturePolicyTest(SchemaTransactionTestCase):
 
             self.tier = PriceTier.objects.create(name=f"DepTier-{tag}", gbp_minor=5000, sort_order=0)
             self.offering = CorporateOffering.objects.create(
-                course=self.course, delivery_type="recorded",
-                price_tier=self.tier, is_active=True,
+                course=self.course,
+                delivery_type="recorded",
+                price_tier=self.tier,
+                is_active=True,
             )
             self.purchase = SeatPurchase.objects.create(
-                org=self.org, offering=self.offering, buyer=self.staff,
-                quantity=3, unit_price_minor=5000, currency="GBP",
-                total_minor=15000, gbp_total_minor=15000,
-                status="paid", paid_at=timezone.now(),
+                org=self.org,
+                offering=self.offering,
+                buyer=self.staff,
+                quantity=3,
+                unit_price_minor=5000,
+                currency="GBP",
+                total_minor=15000,
+                gbp_total_minor=15000,
+                status="paid",
+                paid_at=timezone.now(),
             )
 
     def _request(self, user=None):
@@ -234,7 +277,6 @@ class DeparturePolicyTest(SchemaTransactionTestCase):
 
 
 class LiveCertificateGateTest(SchemaTransactionTestCase):
-
     def test_live_certificate_blocked(self):
         with self.assertRaises(ConfigurationBlocked):
             issue_live_certificate("fake-enrollment-id", "fake-cohort-id")

@@ -20,6 +20,7 @@ from . import (  # noqa: F401 - each module adds its routes to the shared router
     courses,
     dashboard,
     moderation,
+    packages,
     payouts,
     people,
     platform_settings,

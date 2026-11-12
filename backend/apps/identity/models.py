@@ -39,6 +39,8 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
     avatar_url = models.URLField(blank=True)
     timezone = models.CharField(max_length=64, default="UTC")  # display only; data is UTC
     preferred_currency = models.CharField(max_length=3, blank=True)  # ISO 4217, '' = auto
+    phone = models.CharField(max_length=20, blank=True)  # collected at checkout review
+    country = models.CharField(max_length=2, blank=True)  # ISO 3166-1 alpha-2
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)  # platform staff (console)
     stripe_customer_id = models.CharField(max_length=64, blank=True)

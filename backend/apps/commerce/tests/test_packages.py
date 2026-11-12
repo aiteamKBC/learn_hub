@@ -2,8 +2,6 @@
 
 import uuid
 
-from django.utils import timezone
-
 from apps.commerce import webhooks
 from apps.commerce.models import CashPackage, CashPackageCourse, PriceTier
 from apps.identity.models import User
@@ -14,15 +12,18 @@ from core.tests.base import SchemaTransactionTestCase
 
 
 class CashPackageFulfilTest(SchemaTransactionTestCase):
-
     def setUp(self):
         tag = uuid.uuid4().hex[:8]
         with tenant_context(user_id=None, staff=True):
             self.user = User.objects.create_user(
-                f"pkg-{tag}@learnhub-demo.com", "test123", is_staff=False,
+                f"pkg-{tag}@learnhub-demo.com",
+                "test123",
+                is_staff=False,
             )
             self.staff = User.objects.create_user(
-                f"pkg-staff-{tag}@learnhub-demo.com", "test123", is_staff=True,
+                f"pkg-staff-{tag}@learnhub-demo.com",
+                "test123",
+                is_staff=True,
             )
             self._setup_catalog(tag)
             self._setup_package(tag)
@@ -31,15 +32,25 @@ class CashPackageFulfilTest(SchemaTransactionTestCase):
         from apps.catalog.models import Category, Course, CourseVersion
 
         self.category = Category.objects.create(
-            slug=f"pkg-cat-{tag}", name=f"PkgCat {tag}", sort_order=0,
+            slug=f"pkg-cat-{tag}",
+            name=f"PkgCat {tag}",
+            sort_order=0,
         )
         self.course1 = Course.objects.create(
-            ownership="platform", status="published", created_by=self.staff,
-            category=self.category, slug=f"pkg-c1-{tag}", title=f"Course 1 {tag}",
+            ownership="platform",
+            status="published",
+            created_by=self.staff,
+            category=self.category,
+            slug=f"pkg-c1-{tag}",
+            title=f"Course 1 {tag}",
         )
         self.course2 = Course.objects.create(
-            ownership="platform", status="published", created_by=self.staff,
-            category=self.category, slug=f"pkg-c2-{tag}", title=f"Course 2 {tag}",
+            ownership="platform",
+            status="published",
+            created_by=self.staff,
+            category=self.category,
+            slug=f"pkg-c2-{tag}",
+            title=f"Course 2 {tag}",
         )
         v1 = CourseVersion.objects.create(course=self.course1, number=1, status="published")
         v2 = CourseVersion.objects.create(course=self.course2, number=1, status="published")
@@ -51,14 +62,20 @@ class CashPackageFulfilTest(SchemaTransactionTestCase):
     def _setup_package(self, tag):
         self.tier = PriceTier.objects.create(name=f"PkgTier {tag}", gbp_minor=8000)
         self.package = CashPackage.objects.create(
-            name=f"Bundle {tag}", slug=f"bundle-{tag}",
-            price_tier=self.tier, is_active=True,
+            name=f"Bundle {tag}",
+            slug=f"bundle-{tag}",
+            price_tier=self.tier,
+            is_active=True,
         )
         CashPackageCourse.objects.create(
-            package=self.package, course=self.course1, snapshot_gbp_minor=4000,
+            package=self.package,
+            course=self.course1,
+            snapshot_gbp_minor=4000,
         )
         CashPackageCourse.objects.create(
-            package=self.package, course=self.course2, snapshot_gbp_minor=6000,
+            package=self.package,
+            course=self.course2,
+            snapshot_gbp_minor=6000,
         )
 
     def _session(self, session_id=None):
@@ -82,7 +99,8 @@ class CashPackageFulfilTest(SchemaTransactionTestCase):
             webhooks._fulfil_cash_package(session, session["metadata"])
         with tenant_context(user_id=str(self.user.id), staff=True):
             ents = ContentEntitlement.objects.filter(
-                user=self.user, source=ContentEntitlement.Source.CASH_PACKAGE,
+                user=self.user,
+                source=ContentEntitlement.Source.CASH_PACKAGE,
             )
             self.assertEqual(ents.count(), 2)
             scopes = set(ents.values_list("scope", flat=True))
@@ -106,7 +124,8 @@ class CashPackageFulfilTest(SchemaTransactionTestCase):
             webhooks._fulfil_cash_package(session, session["metadata"])
         with tenant_context(user_id=str(self.user.id), staff=True):
             ents = ContentEntitlement.objects.filter(
-                user=self.user, source=ContentEntitlement.Source.CASH_PACKAGE,
+                user=self.user,
+                source=ContentEntitlement.Source.CASH_PACKAGE,
             )
             self.assertEqual(ents.count(), 2)
 
@@ -116,9 +135,7 @@ class CashPackageFulfilTest(SchemaTransactionTestCase):
         with tenant_context(staff=True):
             webhooks._fulfil_cash_package(session, session["metadata"])
         with tenant_context(user_id=str(self.user.id), staff=True):
-            self.assertEqual(
-                ContentEntitlement.objects.filter(user=self.user).count(), 0
-            )
+            self.assertEqual(ContentEntitlement.objects.filter(user=self.user).count(), 0)
 
     def test_dispatch_routes_cash_package(self):
         session = self._session()
@@ -130,6 +147,7 @@ class CashPackageFulfilTest(SchemaTransactionTestCase):
             webhooks.dispatch(event)
         with tenant_context(user_id=str(self.user.id), staff=True):
             ents = ContentEntitlement.objects.filter(
-                user=self.user, source=ContentEntitlement.Source.CASH_PACKAGE,
+                user=self.user,
+                source=ContentEntitlement.Source.CASH_PACKAGE,
             )
             self.assertEqual(ents.count(), 2)

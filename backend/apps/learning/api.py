@@ -234,7 +234,8 @@ def lecture(request, enrollment_id: str, lecture_key: str):
         # the join link appears 15 minutes before the start, never earlier
         joinable = bool(starts) and starts - timedelta(minutes=15) <= now
         out["live"] = {"starts_at": starts, "duration_min": lec.live_duration_min,
-                       "join_url": lec.live_join_url if joinable else None}  # fmt: skip
+                       "join_url": lec.live_join_url if joinable else None,
+                       "provider": lec.live_provider}  # fmt: skip
     elif lec.kind == Lecture.Kind.QUIZ:
         q = lec.quiz
         attempts = QuizAttempt.objects.filter(enrollment=e, quiz=q).order_by("attempt_no")

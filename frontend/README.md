@@ -16,6 +16,13 @@ npm run analyze      # dist/stats.html: what is inside each JS chunk
 - One folder per backend domain under `src/features`; route screens under `src/pages`.
 - Every page is lazy-loaded; `/design` renders the whole design system for review.
 
+### Theme-safe native controls
+
+Native inputs inherit the active `color-scheme`, and `src/index.css` explicitly themes
+`select` options, browser autofill and scrollbars. Keep form fields on the shared
+`Input`, `Textarea` and `NativeSelect` components; do not add page-level white/black
+overrides. Intentional paper-like previews (certificates and QR codes) may stay white.
+
 ## Page artwork (standing rule)
 
 No page uses a flat background colour. Every page, and every new page in later

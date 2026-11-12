@@ -95,7 +95,11 @@ class SeatPurchase(TenantModel):
     expires_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
     quote = models.ForeignKey(
-        CorporateQuote, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+        CorporateQuote,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
     )
 
     class Meta:
@@ -122,7 +126,11 @@ class SeatAllocation(TenantModel):
     released_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     release_reason = models.TextField(blank=True)
     enrollment = models.ForeignKey(
-        "learning.Enrollment", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+        "learning.Enrollment",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
     )
 
     class Meta:
@@ -239,10 +247,18 @@ class CohortCompany(TenantModel):
 
     cohort = models.ForeignKey(LiveCohort, on_delete=models.PROTECT, related_name="companies")
     training_request = models.ForeignKey(
-        TrainingRequest, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+        TrainingRequest,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
     )
     seat_purchase = models.ForeignKey(
-        SeatPurchase, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+        SeatPurchase,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
     )
     approved_seats = models.PositiveIntegerField(default=0)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.INTERESTED)
@@ -344,15 +360,27 @@ class CancellationRequest(TenantModel):
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.SUBMITTED)
     requester = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+")
     seat_purchase = models.ForeignKey(
-        SeatPurchase, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+        SeatPurchase,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
     )
     cohort_company = models.ForeignKey(
-        "CohortCompany", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+        "CohortCompany",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
     )
     reason = models.TextField()
     admin_notes = models.TextField(blank=True)
     reviewed_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
     refund_amount_minor = models.IntegerField(null=True, blank=True)
@@ -422,7 +450,9 @@ class SessionAttendance(BaseModel):
     duration_seconds = models.PositiveIntegerField(default=0)
     is_verified = models.BooleanField(default=False)
     verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
-    zoom_event = models.ForeignKey(ZoomEvent, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    zoom_event = models.ForeignKey(
+        ZoomEvent, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
     zoom_participant_email = models.CharField(max_length=255, blank=True)
     zoom_display_name = models.CharField(max_length=255, blank=True)
 

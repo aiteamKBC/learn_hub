@@ -5,9 +5,8 @@ Follows the CommerceBase / tenant_context pattern used by test_console_pricing.p
 
 import json
 from datetime import timedelta
-from decimal import Decimal
 
-from django.db import connection, connections
+from django.db import connections
 from django.utils import timezone
 
 from apps.catalog import services as cat
@@ -34,20 +33,20 @@ class _Base(SchemaTransactionTestCase):
         # on a fresh Neon test DB the first SELECT against the new columns can hit a
         # stale schema snapshot. One cheap read populates it for the rest of the run.
         from apps.catalog.models import Course
+
         try:
             Course.objects.only("id").first()
-        except Exception:
+        except Exception:  # noqa: BLE001, S110 - warm-up is best effort in test setup
             pass
 
     def setUp(self):
         self.staff = User.objects.create_user("staff-ctp@learnhub-demo.com", "x", is_staff=True)
         self.learner = User.objects.create_user("learner-ctp@learnhub-demo.com", "x")
         with tenant_context(user_id=self.staff.id, staff=True):
-            self.tier, _ = PriceTier.objects.get_or_create(
-                name="Tier-CTP", defaults={"gbp_minor": 999}
-            )
+            self.tier, _ = PriceTier.objects.get_or_create(name="Tier-CTP", defaults={"gbp_minor": 999})
             self.lib, _ = VideoLibrary.objects.get_or_create(
-                environment="test", bunny_library_id=101,
+                environment="test",
+                bunny_library_id=101,
                 defaults={"name": "L-ctp", "cdn_hostname": "vz-ctp.test", "is_default": False},
             )
         self.course, self.lectures = self._course("ctp-c1")
@@ -55,14 +54,16 @@ class _Base(SchemaTransactionTestCase):
     def _course(self, slug):
         with tenant_context(user_id=self.staff.id, staff=True):
             course = cat.create_course(
-                title=f"CTP-{slug}", slug=slug, ownership="platform",
-                created_by=self.staff, owner_org_id=None,
+                title=f"CTP-{slug}",
+                slug=slug,
+                ownership="platform",
+                created_by=self.staff,
+                owner_org_id=None,
             )
             v = course.versions.get()
             sec = cat.add_section(version=v, title="S")
             lectures = [
-                cat.add_lecture(section=sec, kind="article", title=f"L{i}", body="body")
-                for i in range(4)
+                cat.add_lecture(section=sec, kind="article", title=f"L{i}", body="body") for i in range(4)
             ]
             cat.submit(version=v, by=self.staff)
             course.refresh_from_db()
@@ -86,16 +87,19 @@ class _Base(SchemaTransactionTestCase):
         return self.client.get(f"{API}{path}")
 
     def _post(self, path, body):
-        return self.client.post(f"{API}{path}", data=json.dumps(body, default=str),
-                                content_type="application/json")
+        return self.client.post(
+            f"{API}{path}", data=json.dumps(body, default=str), content_type="application/json"
+        )
 
     def _patch(self, path, body):
-        return self.client.patch(f"{API}{path}", data=json.dumps(body, default=str),
-                                 content_type="application/json")
+        return self.client.patch(
+            f"{API}{path}", data=json.dumps(body, default=str), content_type="application/json"
+        )
 
     def _put(self, path, body):
-        return self.client.put(f"{API}{path}", data=json.dumps(body, default=str),
-                               content_type="application/json")
+        return self.client.put(
+            f"{API}{path}", data=json.dumps(body, default=str), content_type="application/json"
+        )
 
     def _delete(self, path):
         return self.client.delete(f"{API}{path}")
@@ -172,7 +176,11 @@ class LecturePreviewTests(_Base):
             lec = self.lectures[0]
             asset = MediaAsset.objects.create(kind="document", uploaded_by=self.staff)
             self.mat = LectureResource.objects.create(
-                lecture=lec, asset=asset, title="pdf", position=0, token_price=10,
+                lecture=lec,
+                asset=asset,
+                title="pdf",
+                position=0,
+                token_price=10,
             )
 
     def test_material_preview_requires_confirm(self):
@@ -209,19 +217,22 @@ class DistributeTests(_Base):
         self.assertEqual(r.json()["error"]["code"], "C05_BLOCKED")
 
     def test_dry_run_no_writes(self):
-        before = [l.token_price for l in Lecture.objects.filter(
+        before = [lecture.token_price for lecture in Lecture.objects.filter(
             version=self.course.live_version).order_by("id")]  # fmt: skip
         r = self._post(
             f"/pricing/token/courses/{self.course.id}/distribute-tokens",
-            {"total_tokens": 100,
-             "weights_config": {"lecture_types": {"article": 1.0}, "use_duration": False},
-             "dry_run": True, "reason": "preview"},
+            {
+                "total_tokens": 100,
+                "weights_config": {"lecture_types": {"article": 1.0}, "use_duration": False},
+                "dry_run": True,
+                "reason": "preview",
+            },
         )
         self.assertEqual(r.status_code, 200, r.content)
         body = r.json()
         self.assertFalse(body["applied"])
         self.assertEqual(sum(a["allocated_price"] for a in body["allocation"]), 100)
-        after = [l.token_price for l in Lecture.objects.filter(
+        after = [lecture.token_price for lecture in Lecture.objects.filter(
             version=self.course.live_version).order_by("id")]  # fmt: skip
         self.assertEqual(before, after)
 
@@ -229,15 +240,18 @@ class DistributeTests(_Base):
         before_audit = self._audit_rows("lecture")
         r = self._post(
             f"/pricing/token/courses/{self.course.id}/distribute-tokens",
-            {"total_tokens": 120,
-             "weights_config": {"lecture_types": {"article": 1.0}},
-             "dry_run": False, "reason": "apply"},
+            {
+                "total_tokens": 120,
+                "weights_config": {"lecture_types": {"article": 1.0}},
+                "dry_run": False,
+                "reason": "apply",
+            },
         )
         self.assertEqual(r.status_code, 200, r.content)
         body = r.json()
         self.assertTrue(body["applied"])
         self.assertEqual(sum(a["allocated_price"] for a in body["allocation"]), 120)
-        total = sum(l.token_price or 0 for l in Lecture.objects.filter(
+        total = sum(lecture.token_price or 0 for lecture in Lecture.objects.filter(
             version=self.course.live_version))  # fmt: skip
         self.assertEqual(total, 120)
         after_audit = self._audit_rows("lecture")
@@ -246,10 +260,13 @@ class DistributeTests(_Base):
     def test_ignores_client_allocation(self):
         r = self._post(
             f"/pricing/token/courses/{self.course.id}/distribute-tokens",
-            {"total_tokens": 80,
-             "weights_config": {"lecture_types": {"article": 1.0}},
-             "dry_run": True, "reason": "test-x",
-             "client_allocation": [{"lecture_id": "deadbeef", "price": 9999}]},
+            {
+                "total_tokens": 80,
+                "weights_config": {"lecture_types": {"article": 1.0}},
+                "dry_run": True,
+                "reason": "test-x",
+                "client_allocation": [{"lecture_id": "deadbeef", "price": 9999}],
+            },
         )
         self.assertEqual(r.status_code, 200, r.content)
         body = r.json()
@@ -263,9 +280,11 @@ class BulkTests(_Base):
         bad_id = "00000000-0000-0000-0000-000000000000"
         r = self._post(
             "/pricing/token/courses-bulk",
-            {"course_ids": [str(self.course.id), bad_id],
-             "patch": {"full_course_token_price": 300},
-             "reason": "bulk"},
+            {
+                "course_ids": [str(self.course.id), bad_id],
+                "patch": {"full_course_token_price": 300},
+                "reason": "bulk",
+            },
         )
         self.assertEqual(r.status_code, 200, r.content)
         results = r.json()["results"]
@@ -280,15 +299,27 @@ class TokenPackTests(_Base):
         self.client.force_login(self.staff)
         r = self._post(
             "/pricing/token/packs",
-            {"name": "Starter", "token_amount": 100, "price_tier_id": str(self.tier.id),
-             "is_active": True, "sort_order": 1, "reason": "create"},
+            {
+                "name": "Starter",
+                "token_amount": 100,
+                "price_tier_id": str(self.tier.id),
+                "is_active": True,
+                "sort_order": 1,
+                "reason": "create",
+            },
         )
         self.assertEqual(r.status_code, 200, r.content)
         pack_id = r.json()["id"]
         r = self._patch(
             f"/pricing/token/packs/{pack_id}",
-            {"name": "Starter+", "token_amount": 150, "price_tier_id": str(self.tier.id),
-             "is_active": True, "sort_order": 2, "reason": "update"},
+            {
+                "name": "Starter+",
+                "token_amount": 150,
+                "price_tier_id": str(self.tier.id),
+                "is_active": True,
+                "sort_order": 2,
+                "reason": "update",
+            },
         )
         self.assertEqual(r.status_code, 200, r.content)
         self.assertEqual(r.json()["token_amount"], 150)
@@ -304,9 +335,12 @@ class TokenRateTests(_Base):
         self.client.force_login(self.staff)
         r = self._post(
             "/pricing/token/rates",
-            {"tokens_per_gbp_minor": "0.1",
-             "effective_from": (timezone.now() - timedelta(hours=1)).isoformat(),
-             "notes": "", "reason": "xyz"},
+            {
+                "tokens_per_gbp_minor": "0.1",
+                "effective_from": (timezone.now() - timedelta(hours=1)).isoformat(),
+                "notes": "",
+                "reason": "xyz",
+            },
         )
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.json()["error"]["code"], "RATE_EFFECTIVE_FROM_PAST")
@@ -315,33 +349,39 @@ class TokenRateTests(_Base):
         self.client.force_login(self.staff)
         t1 = (timezone.now() + timedelta(days=1)).isoformat()
         t2 = (timezone.now() + timedelta(days=2)).isoformat()
-        self.assertEqual(self._post("/pricing/token/rates",
-            {"tokens_per_gbp_minor": "0.1", "effective_from": t1,
-             "notes": "", "reason": "first"}).status_code, 200)
-        self.assertEqual(self._post("/pricing/token/rates",
-            {"tokens_per_gbp_minor": "0.2", "effective_from": t2,
-             "notes": "", "reason": "second"}).status_code, 200)
         self.assertEqual(
-            TokenRate.objects.filter(effective_to__isnull=True).count(), 1
+            self._post(
+                "/pricing/token/rates",
+                {"tokens_per_gbp_minor": "0.1", "effective_from": t1, "notes": "", "reason": "first"},
+            ).status_code,
+            200,
         )
+        self.assertEqual(
+            self._post(
+                "/pricing/token/rates",
+                {"tokens_per_gbp_minor": "0.2", "effective_from": t2, "notes": "", "reason": "second"},
+            ).status_code,
+            200,
+        )
+        self.assertEqual(TokenRate.objects.filter(effective_to__isnull=True).count(), 1)
 
 
 # ============================================================================= top-up policy
 class TopUpTests(_Base):
     def test_separate_currencies_coexist(self):
         self.client.force_login(self.staff)
-        r = self._put("/pricing/token/topup-policies/GBP",
-            {"min_minor": 100, "max_minor": 10000, "is_active": True, "reason": "gbp"})
-        self.assertEqual(r.status_code, 200, r.content)
-        r = self._put("/pricing/token/topup-policies/USD",
-            {"min_minor": 200, "max_minor": 20000, "is_active": True, "reason": "usd"})
-        self.assertEqual(r.status_code, 200, r.content)
-        self.assertEqual(
-            TopUpPolicy.objects.filter(is_active=True, currency="GBP").count(), 1
+        r = self._put(
+            "/pricing/token/topup-policies/GBP",
+            {"min_minor": 100, "max_minor": 10000, "is_active": True, "reason": "gbp"},
         )
-        self.assertEqual(
-            TopUpPolicy.objects.filter(is_active=True, currency="USD").count(), 1
+        self.assertEqual(r.status_code, 200, r.content)
+        r = self._put(
+            "/pricing/token/topup-policies/USD",
+            {"min_minor": 200, "max_minor": 20000, "is_active": True, "reason": "usd"},
         )
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(TopUpPolicy.objects.filter(is_active=True, currency="GBP").count(), 1)
+        self.assertEqual(TopUpPolicy.objects.filter(is_active=True, currency="USD").count(), 1)
 
 
 # ============================================================================= bonus campaign
@@ -349,22 +389,38 @@ class BonusTests(_Base):
     def test_active_blocked(self):
         self.client.force_login(self.staff)
         now = timezone.now()
-        r = self._post("/pricing/token/bonus-campaigns",
-            {"name": "X", "condition_type": "first_topup", "condition_value": {},
-             "bonus_tokens": 10, "starts_at": now.isoformat(),
-             "ends_at": (now + timedelta(days=30)).isoformat(),
-             "is_active": True, "reason": "try-x"})
+        r = self._post(
+            "/pricing/token/bonus-campaigns",
+            {
+                "name": "X",
+                "condition_type": "first_topup",
+                "condition_value": {},
+                "bonus_tokens": 10,
+                "starts_at": now.isoformat(),
+                "ends_at": (now + timedelta(days=30)).isoformat(),
+                "is_active": True,
+                "reason": "try-x",
+            },
+        )
         self.assertEqual(r.status_code, 409)
         self.assertEqual(r.json()["error"]["code"], "F02_BLOCKED")
 
     def test_draft_ok(self):
         self.client.force_login(self.staff)
         now = timezone.now()
-        r = self._post("/pricing/token/bonus-campaigns",
-            {"name": "Draft", "condition_type": "first_topup", "condition_value": {},
-             "bonus_tokens": 10, "starts_at": now.isoformat(),
-             "ends_at": (now + timedelta(days=30)).isoformat(),
-             "is_active": False, "reason": "draft"})
+        r = self._post(
+            "/pricing/token/bonus-campaigns",
+            {
+                "name": "Draft",
+                "condition_type": "first_topup",
+                "condition_value": {},
+                "bonus_tokens": 10,
+                "starts_at": now.isoformat(),
+                "ends_at": (now + timedelta(days=30)).isoformat(),
+                "is_active": False,
+                "reason": "draft",
+            },
+        )
         self.assertEqual(r.status_code, 200, r.content)
         self.assertEqual(BonusCampaign.objects.count(), 1)
 

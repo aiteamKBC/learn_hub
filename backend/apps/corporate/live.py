@@ -13,7 +13,9 @@ from .models import CohortCompany, LiveCohort, TrainingRequest
 
 
 @transaction.atomic
-def submit_request(request, course_id, seats: int, preferred_intake="", preferred_delivery="") -> TrainingRequest:
+def submit_request(
+    request, course_id, seats: int, preferred_intake="", preferred_delivery=""
+) -> TrainingRequest:
     org_id = getattr(request, "org_id", None)
     if org_id is None:
         raise ServiceError("no_org", "Organization context required.", status=400)
@@ -30,7 +32,10 @@ def submit_request(request, course_id, seats: int, preferred_intake="", preferre
     )
 
     audit_request(
-        request, "training_request_submitted", "training_request", tr.id,
+        request,
+        "training_request_submitted",
+        "training_request",
+        tr.id,
         data={"course_id": str(course_id), "seats": seats},
     )
     return tr
@@ -38,12 +43,15 @@ def submit_request(request, course_id, seats: int, preferred_intake="", preferre
 
 def cancel_request(request, request_id) -> TrainingRequest:
     tr = TrainingRequest.objects.filter(
-        pk=request_id, org_id=getattr(request, "org_id", None),
+        pk=request_id,
+        org_id=getattr(request, "org_id", None),
     ).first()
     if tr is None:
         raise ServiceError("not_found", "Training request not found.", status=404)
     if tr.status not in (TrainingRequest.Status.SUBMITTED, TrainingRequest.Status.UNDER_REVIEW):
-        raise ServiceError("not_cancellable", "Only submitted or under-review requests can be cancelled.", status=400)
+        raise ServiceError(
+            "not_cancellable", "Only submitted or under-review requests can be cancelled.", status=400
+        )
 
     tr.status = TrainingRequest.Status.CANCELLED
     tr.status_label = "Cancelled"
@@ -54,8 +62,9 @@ def cancel_request(request, request_id) -> TrainingRequest:
 
 
 @transaction.atomic
-def create_cohort(request, *, course_id, delivery_mode, max_learners, min_learners=1,
-                  intake="", title="", notes="") -> LiveCohort:
+def create_cohort(
+    request, *, course_id, delivery_mode, max_learners, min_learners=1, intake="", title="", notes=""
+) -> LiveCohort:
     cohort = LiveCohort.objects.create(
         course_id=course_id,
         title=title,
@@ -66,7 +75,10 @@ def create_cohort(request, *, course_id, delivery_mode, max_learners, min_learne
         notes=notes,
     )
     audit_request(
-        request, "cohort_created", "live_cohort", cohort.id,
+        request,
+        "cohort_created",
+        "live_cohort",
+        cohort.id,
         data={"course_id": str(course_id), "delivery_mode": delivery_mode},
     )
     return cohort
@@ -95,10 +107,10 @@ def add_company_to_cohort(request, cohort_id, org_id, seats, training_request_id
     )
 
     cohort.current_seats = (
-        CohortCompany.objects
-        .filter(cohort=cohort)
+        CohortCompany.objects.filter(cohort=cohort)
         .exclude(status__in=["cancelled", "withdrawn"])
-        .aggregate(total=Sum("approved_seats"))["total"] or 0
+        .aggregate(total=Sum("approved_seats"))["total"]
+        or 0
     )
     cohort.save(update_fields=["current_seats", "updated_at"])
 
@@ -110,7 +122,10 @@ def add_company_to_cohort(request, cohort_id, org_id, seats, training_request_id
         )
 
     audit_request(
-        request, "company_added_to_cohort", "cohort_company", cc.id,
+        request,
+        "company_added_to_cohort",
+        "cohort_company",
+        cc.id,
         data={"cohort_id": str(cohort_id), "org_id": str(org_id), "seats": seats},
     )
     return cc
@@ -129,15 +144,18 @@ def remove_company_from_cohort(request, cohort_id, org_id) -> None:
 
     cohort = LiveCohort.objects.select_for_update().get(pk=cohort_id)
     cohort.current_seats = (
-        CohortCompany.objects
-        .filter(cohort=cohort)
+        CohortCompany.objects.filter(cohort=cohort)
         .exclude(status__in=["cancelled", "withdrawn"])
-        .aggregate(total=Sum("approved_seats"))["total"] or 0
+        .aggregate(total=Sum("approved_seats"))["total"]
+        or 0
     )
     cohort.save(update_fields=["current_seats", "updated_at"])
 
     audit_request(
-        request, "company_removed_from_cohort", "cohort_company", cc.id,
+        request,
+        "company_removed_from_cohort",
+        "cohort_company",
+        cc.id,
         data={"cohort_id": str(cohort_id), "org_id": str(org_id)},
     )
 
@@ -162,7 +180,8 @@ def confirm_cohort(request, cohort_id) -> LiveCohort:
     cohort.save(update_fields=["status", "updated_at"])
 
     CohortCompany.objects.filter(
-        cohort=cohort, status=CohortCompany.Status.INTERESTED,
+        cohort=cohort,
+        status=CohortCompany.Status.INTERESTED,
     ).update(status=CohortCompany.Status.OFFERED, updated_at=timezone.now())
 
     audit_request(request, "cohort_confirmed", "live_cohort", cohort.id)

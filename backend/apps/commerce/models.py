@@ -633,14 +633,10 @@ class TokenPack(BaseModel):
 
     name = models.CharField(max_length=120)
     token_amount = models.PositiveIntegerField()
-    price_tier = models.ForeignKey(
-        PriceTier, on_delete=models.PROTECT, related_name="token_packs"
-    )
+    price_tier = models.ForeignKey(PriceTier, on_delete=models.PROTECT, related_name="token_packs")
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
-    created_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
-    )
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     class Meta:
         db_table = table(SCHEMA, "token_packs")
@@ -669,9 +665,7 @@ class TokenRate(BaseModel):
     tokens_per_gbp_minor = models.DecimalField(max_digits=12, decimal_places=4)
     effective_from = models.DateTimeField()
     effective_to = models.DateTimeField(null=True, blank=True)
-    created_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
-    )
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -709,16 +703,12 @@ class TopUpPolicy(BaseModel):
     min_minor = models.PositiveIntegerField()
     max_minor = models.PositiveIntegerField()
     is_active = models.BooleanField(default=True)
-    updated_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
-    )
+    updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     class Meta:
         db_table = table(SCHEMA, "topup_policies")
         indexes = [
-            models.Index(
-                fields=["currency"], name="ix_topup_active_cur", condition=Q(is_active=True)
-            ),
+            models.Index(fields=["currency"], name="ix_topup_active_cur", condition=Q(is_active=True)),
         ]
         constraints = [
             models.CheckConstraint(
@@ -746,16 +736,12 @@ class BonusCampaign(BaseModel):
     condition_type = models.CharField(max_length=20, choices=ConditionType.choices)
     condition_value = models.JSONField(default=dict, blank=True)
     bonus_tokens = models.PositiveIntegerField(null=True, blank=True)
-    bonus_percent = models.DecimalField(
-        max_digits=5, decimal_places=2, null=True, blank=True
-    )
+    bonus_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     bonus_expiry_days = models.PositiveIntegerField(null=True, blank=True)
     starts_at = models.DateTimeField()
     ends_at = models.DateTimeField()
     is_active = models.BooleanField(default=False)
-    created_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
-    )
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     class Meta:
         db_table = table(SCHEMA, "bonus_campaigns")

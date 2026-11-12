@@ -7,10 +7,10 @@ from ninja import Schema
 
 from apps.corporate import reports as corp_reports
 
-from .common import ConsoleKpiOut, ConsolePointOut, clamp, kpi, parse_range, router, staff
-
+from .common import ConsoleKpiOut, clamp, kpi, parse_range, router, staff
 
 # ---- Schemas ----
+
 
 class ConsoleCorporateOverview(Schema):
     revenue: ConsoleKpiOut
@@ -55,9 +55,9 @@ class ConsoleAttendanceOut(Schema):
 
 # ---- Endpoints ----
 
+
 @router.get("/corporate/reports/overview", response=ConsoleCorporateOverview)
-def corporate_overview(request, range: str = "30d",
-                       start: date | None = None, end: date | None = None):
+def corporate_overview(request, range: str = "30d", start: date | None = None, end: date | None = None):
     staff(request)
     r = parse_range(range, start, end)
     current = corp_reports.admin_overview(r.start, r.end)
@@ -74,8 +74,7 @@ def corporate_overview(request, range: str = "30d",
 
 
 @router.get("/corporate/reports/revenue-series", response=list[ConsoleRevenuePoint])
-def revenue_series(request, range: str = "30d",
-                   start: date | None = None, end: date | None = None):
+def revenue_series(request, range: str = "30d", start: date | None = None, end: date | None = None):
     staff(request)
     r = parse_range(range, start, end)
     return corp_reports.admin_revenue_series(r.start, r.end)
@@ -98,14 +97,21 @@ def company_rankings(request, limit: int = 20):
 
 
 @router.get("/corporate/reports/attendance", response=list[ConsoleAttendanceOut])
-def attendance_report(request, cohort_id: UUID | None = None,
-                      session_id: UUID | None = None,
-                      match_status: str | None = None,
-                      limit: int = 100, offset: int = 0):
+def attendance_report(
+    request,
+    cohort_id: UUID | None = None,
+    session_id: UUID | None = None,
+    match_status: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+):
     staff(request)
     from apps.corporate.models import SessionAttendance
+
     qs = SessionAttendance.objects.select_related(
-        "session", "user", "org",
+        "session",
+        "user",
+        "org",
     ).order_by("-join_at")
     if cohort_id:
         qs = qs.filter(session__cohort_id=cohort_id)
@@ -140,6 +146,7 @@ def attendance_report(request, cohort_id: UUID | None = None,
 def verify_attendance(request, attendance_id: UUID):
     staff(request)
     from apps.corporate.attendance import verify_attendance as _verify
+
     _verify(request, str(attendance_id))
     return {"ok": True}
 
@@ -148,5 +155,6 @@ def verify_attendance(request, attendance_id: UUID):
 def reject_attendance(request, attendance_id: UUID):
     staff(request)
     from apps.corporate.attendance import reject_attendance as _reject
+
     _reject(request, str(attendance_id))
     return {"ok": True}

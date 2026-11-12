@@ -8,7 +8,6 @@ from django.shortcuts import get_object_or_404
 from ninja import Field, Schema
 
 from apps.corporate.models import (
-    AllocationEvent,
     CorporateOffering,
     CorporateQuote,
     QuoteItem,
@@ -16,13 +15,12 @@ from apps.corporate.models import (
     SeatPurchase,
 )
 from apps.corporate.services import allocate_seat, reassign_seat, release_seat
-from core.errors import ServiceError
 
 from ..services import audit_request
 from .common import ConsoleIdOut, ConsoleOkOut, clamp, router, staff
 
-
 # ---- Schemas ----
+
 
 class ConsoleOfferingIn(Schema):
     course_id: UUID
@@ -152,6 +150,7 @@ class ConsoleQuoteOut(Schema):
 
 # ---- Offerings CRUD ----
 
+
 @router.get("/corporate/offerings", response=list[ConsoleOfferingOut])
 def list_offerings(request, active_only: bool = False, limit: int = 50, offset: int = 0):
     staff(request)
@@ -193,9 +192,16 @@ def create_offering(request, body: ConsoleOfferingIn):
         custom_quote_enabled=body.custom_quote_enabled,
         description=body.description,
     )
-    audit_request(request, "offering_created", "corporate_offering", offering.id, {
-        "course_id": str(course.id), "delivery_type": body.delivery_type,
-    })
+    audit_request(
+        request,
+        "offering_created",
+        "corporate_offering",
+        offering.id,
+        {
+            "course_id": str(course.id),
+            "delivery_type": body.delivery_type,
+        },
+    )
     return {"id": offering.id}
 
 
@@ -225,15 +231,22 @@ def update_offering(request, offering_id: UUID, body: ConsoleOfferingPatch):
 
 # ---- Seat Purchases ----
 
+
 @router.get("/corporate/purchases", response=list[ConsoleSeatPurchaseOut])
-def list_purchases(request, org_id: UUID | None = None, status: str | None = None, limit: int = 50, offset: int = 0):
+def list_purchases(
+    request, org_id: UUID | None = None, status: str | None = None, limit: int = 50, offset: int = 0
+):
     staff(request)
-    qs = SeatPurchase.objects.select_related("org", "offering__course", "buyer").annotate(
-        allocated_count=Count(
-            "allocations",
-            filter=Q(allocations__status__in=["allocated", "active"]),
+    qs = (
+        SeatPurchase.objects.select_related("org", "offering__course", "buyer")
+        .annotate(
+            allocated_count=Count(
+                "allocations",
+                filter=Q(allocations__status__in=["allocated", "active"]),
+            )
         )
-    ).order_by("-created_at")
+        .order_by("-created_at")
+    )
     if org_id:
         qs = qs.filter(org_id=org_id)
     if status:
@@ -263,6 +276,7 @@ def list_purchases(request, org_id: UUID | None = None, status: str | None = Non
 
 
 # ---- Seat Allocations ----
+
 
 @router.get("/corporate/allocations", response=list[ConsoleSeatAllocationOut])
 def list_allocations(
@@ -322,6 +336,7 @@ def reassign_allocation(request, allocation_id: UUID, body: ConsoleReassignIn):
 
 # ---- Inventory Summary ----
 
+
 @router.get("/corporate/inventory", response=list[ConsoleInventorySummary])
 def inventory_summary(request, org_id: UUID | None = None):
     staff(request)
@@ -349,6 +364,7 @@ def inventory_summary(request, org_id: UUID | None = None):
 
 
 # ---- Quotes ----
+
 
 def _quote_out(q, items=None):
     if items is None:
@@ -382,7 +398,9 @@ def _quote_out(q, items=None):
 
 
 @router.get("/corporate/quotes", response=list[ConsoleQuoteOut])
-def list_quotes(request, org_id: UUID | None = None, status: str | None = None, limit: int = 50, offset: int = 0):
+def list_quotes(
+    request, org_id: UUID | None = None, status: str | None = None, limit: int = 50, offset: int = 0
+):
     staff(request)
     qs = CorporateQuote.objects.select_related("org", "buyer").order_by("-created_at")
     if org_id:
@@ -400,33 +418,46 @@ def list_quotes(request, org_id: UUID | None = None, status: str | None = None, 
 @router.post("/corporate/quotes", response=ConsoleQuoteOut)
 def create_quote(request, body: ConsoleQuoteIn):
     staff(request)
+    from django.db import transaction
+
     from apps.identity.models import User
     from apps.org.models import Organization
-    from django.db import transaction
 
     org = get_object_or_404(Organization, pk=body.org_id)
     buyer = get_object_or_404(User, pk=body.buyer_id)
     with transaction.atomic():
         total = sum(i.unit_price_minor * i.quantity for i in body.items)
         quote = CorporateQuote.objects.create(
-            org=org, buyer=buyer,
-            currency=body.currency, total_minor=total,
-            valid_until=body.valid_until, notes=body.notes,
+            org=org,
+            buyer=buyer,
+            currency=body.currency,
+            total_minor=total,
+            valid_until=body.valid_until,
+            notes=body.notes,
             created_by_staff=request.auth,
         )
         items = []
         for item_in in body.items:
             offering = get_object_or_404(CorporateOffering, pk=item_in.offering_id)
             qi = QuoteItem.objects.create(
-                org=org, quote=quote, offering=offering,
+                org=org,
+                quote=quote,
+                offering=offering,
                 quantity=item_in.quantity,
                 unit_price_minor=item_in.unit_price_minor,
                 line_total_minor=item_in.unit_price_minor * item_in.quantity,
             )
             items.append(qi)
-    audit_request(request, "quote_created", "corporate_quote", quote.id, {
-        "org_id": str(org.id), "total": total,
-    })
+    audit_request(
+        request,
+        "quote_created",
+        "corporate_quote",
+        quote.id,
+        {
+            "org_id": str(org.id),
+            "total": total,
+        },
+    )
     for i in items:
         i.offering = CorporateOffering.objects.select_related("course").get(pk=i.offering_id)
     return _quote_out(quote, items)
@@ -436,6 +467,7 @@ def create_quote(request, body: ConsoleQuoteIn):
 def send_quote(request, quote_id: UUID):
     staff(request)
     from apps.corporate.quotes import send_quote as _send_quote
+
     quote = _send_quote(request, quote_id)
     quote = CorporateQuote.objects.select_related("org", "buyer").get(pk=quote.id)
     return _quote_out(quote)
@@ -445,5 +477,6 @@ def send_quote(request, quote_id: UUID):
 def void_quote(request, quote_id: UUID):
     staff(request)
     from apps.corporate.quotes import void_quote as _void_quote
+
     _void_quote(request, quote_id)
     return {"ok": True}

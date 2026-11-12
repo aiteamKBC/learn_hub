@@ -129,7 +129,9 @@ class ContentEntitlement(BaseModel):
                 name="ix_cent_active",
                 condition=Q(revoked_at__isnull=True),
             ),
-            models.Index(fields=["expires_at"], name="ix_cent_expires", condition=Q(expires_at__isnull=False)),
+            models.Index(
+                fields=["expires_at"], name="ix_cent_expires", condition=Q(expires_at__isnull=False)
+            ),
         ]
         constraints = [
             # One live entitlement per (user, scope, target, source) — prevents duplicates

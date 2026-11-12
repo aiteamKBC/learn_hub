@@ -23,7 +23,7 @@ from apps.corporate.models import (
 )
 from apps.corporate.services import allocate_seat
 from apps.identity.models import User
-from apps.org.models import OrgMember, Organization
+from apps.org.models import Organization, OrgMember
 from core.tenancy import tenant_context
 from core.tests.base import SchemaTransactionTestCase
 
@@ -36,12 +36,16 @@ class MultiCompanyRLSTest(SchemaTransactionTestCase):
         now = timezone.now()
         with tenant_context(user_id=None, staff=True):
             self.staff = User.objects.create_user(
-                f"rls-staff-{tag}@test.com", "test123", is_staff=True,
+                f"rls-staff-{tag}@test.com",
+                "test123",
+                is_staff=True,
             )
 
             # Company A
             self.org_a = Organization.objects.create(
-                name=f"CompanyA {tag}", slug=f"company-a-{tag}", status="active",
+                name=f"CompanyA {tag}",
+                slug=f"company-a-{tag}",
+                status="active",
             )
             self.buyer_a = User.objects.create_user(f"rls-buyer-a-{tag}@test.com", "test123")
             self.emp_a = User.objects.create_user(f"rls-emp-a-{tag}@test.com", "test123")
@@ -50,7 +54,9 @@ class MultiCompanyRLSTest(SchemaTransactionTestCase):
 
             # Company B
             self.org_b = Organization.objects.create(
-                name=f"CompanyB {tag}", slug=f"company-b-{tag}", status="active",
+                name=f"CompanyB {tag}",
+                slug=f"company-b-{tag}",
+                status="active",
             )
             self.buyer_b = User.objects.create_user(f"rls-buyer-b-{tag}@test.com", "test123")
             self.emp_b = User.objects.create_user(f"rls-emp-b-{tag}@test.com", "test123")
@@ -58,12 +64,17 @@ class MultiCompanyRLSTest(SchemaTransactionTestCase):
             OrgMember.objects.create(org=self.org_b, user=self.emp_b, role="learner", joined_at=now)
 
             self.category = Category.objects.create(
-                slug=f"rls-cat-{tag}", name=f"RLSCat {tag}", sort_order=0,
+                slug=f"rls-cat-{tag}",
+                name=f"RLSCat {tag}",
+                sort_order=0,
             )
             self.course = Course.objects.create(
-                ownership="platform", status="published",
-                created_by=self.staff, category=self.category,
-                slug=f"rls-c-{tag}", title=f"RLS Course {tag}",
+                ownership="platform",
+                status="published",
+                created_by=self.staff,
+                category=self.category,
+                slug=f"rls-c-{tag}",
+                title=f"RLS Course {tag}",
             )
             v = CourseVersion.objects.create(course=self.course, number=1, status="published")
             self.course.live_version = v
@@ -71,53 +82,90 @@ class MultiCompanyRLSTest(SchemaTransactionTestCase):
 
             self.tier = PriceTier.objects.create(name=f"RLSTier-{tag}", gbp_minor=5000, sort_order=0)
             self.offering = CorporateOffering.objects.create(
-                course=self.course, delivery_type="recorded",
-                price_tier=self.tier, is_active=True,
+                course=self.course,
+                delivery_type="recorded",
+                price_tier=self.tier,
+                is_active=True,
             )
 
             # Both companies buy seats for the same offering
             self.purchase_a = SeatPurchase.objects.create(
-                org=self.org_a, offering=self.offering, buyer=self.buyer_a,
-                quantity=2, unit_price_minor=5000, currency="GBP",
-                total_minor=10000, gbp_total_minor=10000,
-                status="paid", paid_at=now,
+                org=self.org_a,
+                offering=self.offering,
+                buyer=self.buyer_a,
+                quantity=2,
+                unit_price_minor=5000,
+                currency="GBP",
+                total_minor=10000,
+                gbp_total_minor=10000,
+                status="paid",
+                paid_at=now,
             )
             self.purchase_b = SeatPurchase.objects.create(
-                org=self.org_b, offering=self.offering, buyer=self.buyer_b,
-                quantity=2, unit_price_minor=5000, currency="GBP",
-                total_minor=10000, gbp_total_minor=10000,
-                status="paid", paid_at=now,
+                org=self.org_b,
+                offering=self.offering,
+                buyer=self.buyer_b,
+                quantity=2,
+                unit_price_minor=5000,
+                currency="GBP",
+                total_minor=10000,
+                gbp_total_minor=10000,
+                status="paid",
+                paid_at=now,
             )
 
             # Both in a shared cohort
             self.cohort = LiveCohort.objects.create(
-                course=self.course, delivery_mode="online", max_learners=50, status="in_progress",
+                course=self.course,
+                delivery_mode="online",
+                max_learners=50,
+                status="in_progress",
             )
             CohortCompany.objects.create(
-                org=self.org_a, cohort=self.cohort, approved_seats=5, status="active",
+                org=self.org_a,
+                cohort=self.cohort,
+                approved_seats=5,
+                status="active",
             )
             CohortCompany.objects.create(
-                org=self.org_b, cohort=self.cohort, approved_seats=5, status="active",
+                org=self.org_b,
+                cohort=self.cohort,
+                approved_seats=5,
+                status="active",
             )
             self.session = Session.objects.create(
-                cohort=self.cohort, sequence=1, title="Shared Session",
-                scheduled_at=now, duration_min=60, delivery_mode="online",
+                cohort=self.cohort,
+                sequence=1,
+                title="Shared Session",
+                scheduled_at=now,
+                duration_min=60,
+                delivery_mode="online",
                 zoom_meeting_id="shared_zoom_meeting",
             )
             self.zoom_event = ZoomEvent.objects.create(
-                event_id=f"rls_evt_{tag}", event_type="meeting.participant_joined",
-                meeting_id="shared_zoom_meeting", payload={},
+                event_id=f"rls_evt_{tag}",
+                event_type="meeting.participant_joined",
+                meeting_id="shared_zoom_meeting",
+                payload={},
             )
             # Attendance for each company's employee
             self.att_a = SessionAttendance.objects.create(
-                session=self.session, user=self.emp_a, org=self.org_a,
-                source="zoom_webhook", match_status="verified",
-                join_at=now, zoom_event=self.zoom_event,
+                session=self.session,
+                user=self.emp_a,
+                org=self.org_a,
+                source="zoom_webhook",
+                match_status="verified",
+                join_at=now,
+                zoom_event=self.zoom_event,
             )
             self.att_b = SessionAttendance.objects.create(
-                session=self.session, user=self.emp_b, org=self.org_b,
-                source="zoom_webhook", match_status="verified",
-                join_at=now, zoom_event=self.zoom_event,
+                session=self.session,
+                user=self.emp_b,
+                org=self.org_b,
+                source="zoom_webhook",
+                match_status="verified",
+                join_at=now,
+                zoom_event=self.zoom_event,
             )
 
     def test_000_warmup(self):
@@ -170,8 +218,8 @@ class MultiCompanyRLSTest(SchemaTransactionTestCase):
         req_b.META = {"REMOTE_ADDR": "127.0.0.1"}
 
         with tenant_context(staff=True):
-            alloc_a = allocate_seat(req_a, self.purchase_a.id, self.emp_a.id)
-            alloc_b = allocate_seat(req_b, self.purchase_b.id, self.emp_b.id)
+            allocate_seat(req_a, self.purchase_a.id, self.emp_a.id)
+            allocate_seat(req_b, self.purchase_b.id, self.emp_b.id)
 
         # Each company sees only its own allocations
         with tenant_context(org_id=self.org_a.id, user_id=self.buyer_a.id):

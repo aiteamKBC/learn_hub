@@ -15,7 +15,6 @@ from core.tests.base import SchemaTransactionTestCase
 
 
 class WalletTestCase(SchemaTransactionTestCase):
-
     def setUp(self):
         with tenant_context(user_id=None, staff=True):
             self.user = User.objects.create_user(
@@ -29,8 +28,7 @@ class WalletTestCase(SchemaTransactionTestCase):
                 is_staff=True,
             )
 
-    def _grant(self, amount, expires_at=None, source="pack", unit_cost_gbp=None,
-               stripe_session_id=None):
+    def _grant(self, amount, expires_at=None, source="pack", unit_cost_gbp=None, stripe_session_id=None):
         with tenant_context(user_id=str(self.staff.id), staff=True):
             return wallet.grant_tokens(
                 user=self.user,
@@ -135,26 +133,20 @@ class WalletTestCase(SchemaTransactionTestCase):
     # ---------------------------------------------------------------- admin adjust
     def test_admin_adjust_positive(self):
         with tenant_context(user_id=str(self.staff.id), staff=True):
-            wallet.admin_adjust(
-                user=self.user, amount=50, note="Comp tokens", actor=self.staff
-            )
+            wallet.admin_adjust(user=self.user, amount=50, note="Comp tokens", actor=self.staff)
             self.assertEqual(wallet.get_balance(self.user), 50)
 
     def test_admin_adjust_negative(self):
         self._grant(100)
         with tenant_context(user_id=str(self.staff.id), staff=True):
-            wallet.admin_adjust(
-                user=self.user, amount=-30, note="Penalty", actor=self.staff
-            )
+            wallet.admin_adjust(user=self.user, amount=-30, note="Penalty", actor=self.staff)
             self.assertEqual(wallet.get_balance(self.user), 70)
 
     def test_admin_adjust_negative_insufficient(self):
         self._grant(10)
         with tenant_context(user_id=str(self.staff.id), staff=True):
             with self.assertRaises(InsufficientTokens):
-                wallet.admin_adjust(
-                    user=self.user, amount=-20, note="Too much", actor=self.staff
-                )
+                wallet.admin_adjust(user=self.user, amount=-20, note="Too much", actor=self.staff)
 
     # ---------------------------------------------------------------- expiry
     def test_expire_grants(self):

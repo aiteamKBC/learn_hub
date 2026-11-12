@@ -12,7 +12,6 @@ from ninja import Field, Router, Schema
 
 from apps.commerce import gateway, wallet
 from apps.commerce.models import (
-    PriceTier,
     PriceTierAmount,
     TokenPack,
     TokenRate,
@@ -91,8 +90,11 @@ def my_grants(request, limit: int = 50):
     grants = TokenGrant.objects.filter(user=request.user).order_by("-granted_at")[:limit]
     return [
         {
-            "id": g.id, "source": g.source, "amount": g.amount,
-            "remaining": g.remaining, "granted_at": g.granted_at.isoformat(),
+            "id": g.id,
+            "source": g.source,
+            "amount": g.amount,
+            "remaining": g.remaining,
+            "granted_at": g.granted_at.isoformat(),
             "expires_at": g.expires_at.isoformat() if g.expires_at else None,
             "note": g.note,
         }
@@ -108,8 +110,11 @@ def my_ledger(request, limit: int = 50):
     entries = TokenLedgerEntry.objects.filter(user=request.user).order_by("-created_at")[:limit]
     return [
         {
-            "id": e.id, "kind": e.kind, "amount": e.amount,
-            "balance_after": e.balance_after, "note": e.note,
+            "id": e.id,
+            "kind": e.kind,
+            "amount": e.amount,
+            "balance_after": e.balance_after,
+            "note": e.note,
             "created_at": e.created_at.isoformat(),
         }
         for e in entries
@@ -129,10 +134,13 @@ def list_packs(request, currency: str | None = None):
     }
     return [
         {
-            "id": p.id, "name": p.name, "token_amount": p.token_amount,
+            "id": p.id,
+            "name": p.name,
+            "token_amount": p.token_amount,
             "price_tier_id": p.price_tier_id,
             "amount_minor": amounts.get(p.price_tier_id, p.price_tier.gbp_minor),
-            "currency": cur["code"], "sort_order": p.sort_order,
+            "currency": cur["code"],
+            "sort_order": p.sort_order,
         }
         for p in packs
     ]
@@ -141,6 +149,7 @@ def list_packs(request, currency: str | None = None):
 class PackCheckoutIn(Schema):
     success_url: str = Field(..., min_length=1)
     cancel_url: str = Field(..., min_length=1)
+    customer_email: str | None = None  # override for Stripe receipt email
 
 
 @router.post("/packs/{pack_id}/checkout", response=CheckoutUrlOut)
@@ -156,21 +165,23 @@ def pack_checkout(request, pack_id: UUID, body: PackCheckoutIn):
     idempotency_key = f"token_pack:{pack.id}:{request.user.id}:{pack.updated_at.timestamp():.0f}"
     session = gateway.create_checkout_session(
         mode="payment",
-        line_items=[{
-            "price_data": {
-                "currency": currency_code.lower(),
-                "unit_amount": stripe_amount,
-                "product_data": {"name": f"{pack.name} ({pack.token_amount} tokens)"},
-            },
-            "quantity": 1,
-        }],
+        line_items=[
+            {
+                "price_data": {
+                    "currency": currency_code.lower(),
+                    "unit_amount": stripe_amount,
+                    "product_data": {"name": f"{pack.name} ({pack.token_amount} tokens)"},
+                },
+                "quantity": 1,
+            }
+        ],
         metadata={
             "kind": "token_pack",
             "id": str(pack.id),
             "user_id": str(request.user.id),
             "token_amount": str(pack.token_amount),
         },
-        customer_email=request.user.email,
+        customer_email=body.customer_email or request.user.email,
         success_url=body.success_url,
         cancel_url=body.cancel_url,
         idempotency_key=idempotency_key,
@@ -199,29 +210,32 @@ def unlock_content(request, body: UnlockIn):
 
     try:
         if body.scope == "course":
-            ent = unlock.unlock_course(
-                user=request.user, course_id=body.target_id, request=request
-            )
+            ent = unlock.unlock_course(user=request.user, course_id=body.target_id, request=request)
             from apps.catalog.models import Course
-            price = Course.objects.filter(pk=body.target_id).values_list(
-                "full_course_token_price", flat=True
-            ).first() or 0
+
+            price = (
+                Course.objects.filter(pk=body.target_id)
+                .values_list("full_course_token_price", flat=True)
+                .first()
+                or 0
+            )
         elif body.scope == "lecture":
-            ent = unlock.unlock_lecture(
-                user=request.user, lecture_id=body.target_id, request=request
-            )
+            ent = unlock.unlock_lecture(user=request.user, lecture_id=body.target_id, request=request)
             from apps.catalog.models import Lecture
-            price = Lecture.objects.filter(pk=body.target_id).values_list(
-                "token_price", flat=True
-            ).first() or 0
-        else:
-            ent = unlock.unlock_material(
-                user=request.user, material_id=body.target_id, request=request
+
+            price = (
+                Lecture.objects.filter(pk=body.target_id).values_list("token_price", flat=True).first() or 0
             )
+        else:
+            ent = unlock.unlock_material(user=request.user, material_id=body.target_id, request=request)
             from apps.catalog.models import LectureResource
-            price = LectureResource.objects.filter(pk=body.target_id).values_list(
-                "token_price", flat=True
-            ).first() or 0
+
+            price = (
+                LectureResource.objects.filter(pk=body.target_id)
+                .values_list("token_price", flat=True)
+                .first()
+                or 0
+            )
     except AlreadyUnlocked as e:
         raise ServiceError("already_unlocked", str(e), status=409) from e
     except NoPriceSet as e:
@@ -290,6 +304,7 @@ class TopUpCheckoutIn(Schema):
     currency: str = Field("GBP", min_length=3, max_length=3)
     success_url: str = Field(..., min_length=1)
     cancel_url: str = Field(..., min_length=1)
+    customer_email: str | None = None
 
 
 @router.post("/topup/checkout", response=CheckoutUrlOut)
@@ -306,7 +321,8 @@ def topup_checkout(request, body: TopUpCheckoutIn):
     if rate is None:
         raise ServiceError("no_rate", "No active token rate. Contact support.", status=503)
 
-    from apps.commerce.models import Currency as CurrencyModel, FxRate
+    from apps.commerce.models import Currency as CurrencyModel
+    from apps.commerce.models import FxRate
 
     if code == "GBP":
         gbp_minor = body.amount_minor
@@ -329,17 +345,20 @@ def topup_checkout(request, body: TopUpCheckoutIn):
     stripe_amount = gateway.to_stripe_amount(body.amount_minor, code, exponent)
 
     import time
+
     idempotency_key = f"token_topup:{request.user.id}:{body.amount_minor}:{code}:{int(time.time()) // 60}"
     session = gateway.create_checkout_session(
         mode="payment",
-        line_items=[{
-            "price_data": {
-                "currency": code.lower(),
-                "unit_amount": stripe_amount,
-                "product_data": {"name": f"Token top-up ({token_amount} tokens)"},
-            },
-            "quantity": 1,
-        }],
+        line_items=[
+            {
+                "price_data": {
+                    "currency": code.lower(),
+                    "unit_amount": stripe_amount,
+                    "product_data": {"name": f"Token top-up ({token_amount} tokens)"},
+                },
+                "quantity": 1,
+            }
+        ],
         metadata={
             "kind": "token_topup",
             "user_id": str(request.user.id),
@@ -349,7 +368,7 @@ def topup_checkout(request, body: TopUpCheckoutIn):
             "rate_id": str(rate.id),
             "gbp_minor": str(gbp_minor),
         },
-        customer_email=request.user.email,
+        customer_email=body.customer_email or request.user.email,
         success_url=body.success_url,
         cancel_url=body.cancel_url,
         idempotency_key=idempotency_key,
@@ -371,6 +390,7 @@ class CashPackageOut(Schema):
     description: str
     amount_minor: int
     currency: str
+    owned_count: int = 0  # how many of this package's courses the viewer already has
     courses: list[PackageCourseOut]
 
 
@@ -379,7 +399,8 @@ def list_packages(request, currency: str | None = None):
     from . import packages
 
     cur = request_currency(request, currency)
-    return packages.list_active_packages(cur["code"])
+    user = request.user if getattr(request.user, "is_authenticated", False) else None
+    return packages.list_active_packages(cur["code"], user=user)
 
 
 # ---------------------------------------------------------------- subscriptions
@@ -423,6 +444,7 @@ class SubCheckoutIn(Schema):
     plan_id: UUID
     success_url: str = Field(..., min_length=1)
     cancel_url: str = Field(..., min_length=1)
+    customer_email: str | None = None
 
 
 @router.post("/subscriptions/checkout", response=CheckoutUrlOut)
@@ -436,6 +458,7 @@ def subscription_checkout(request, body: SubCheckoutIn):
         currency_code=cur["code"],
         success_url=body.success_url,
         cancel_url=body.cancel_url,
+        customer_email=body.customer_email,
     )
     return {"url": result["url"]}
 
@@ -443,6 +466,7 @@ def subscription_checkout(request, body: SubCheckoutIn):
 class PackageCheckoutIn(Schema):
     success_url: str = Field(..., min_length=1)
     cancel_url: str = Field(..., min_length=1)
+    customer_email: str | None = None
 
 
 @router.post("/packages/{package_id}/checkout", response=CheckoutUrlOut)
@@ -456,5 +480,6 @@ def package_checkout(request, package_id: UUID, body: PackageCheckoutIn):
         currency_code=cur["code"],
         success_url=body.success_url,
         cancel_url=body.cancel_url,
+        customer_email=body.customer_email,
     )
     return {"url": result["url"]}

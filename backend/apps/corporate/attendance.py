@@ -7,7 +7,7 @@ SessionAttendance records. Unresolved identities queued for admin review.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, UTC
+from datetime import datetime
 
 from django.utils import timezone
 
@@ -40,8 +40,7 @@ def process_participant_event(zoom_event: ZoomEvent, data: dict) -> None:
         return
 
     companies = list(
-        CohortCompany.objects
-        .filter(cohort=session.cohort)
+        CohortCompany.objects.filter(cohort=session.cohort)
         .exclude(status__in=["cancelled", "withdrawn"])
         .values_list("org_id", flat=True)
     )
@@ -54,11 +53,10 @@ def process_participant_event(zoom_event: ZoomEvent, data: dict) -> None:
         user = User.objects.filter(email__iexact=email).first()
         if user:
             from apps.org.models import OrgMember
-            membership = (
-                OrgMember.objects
-                .filter(user=user, org_id__in=companies, removed_at__isnull=True)
-                .first()
-            )
+
+            membership = OrgMember.objects.filter(
+                user=user, org_id__in=companies, removed_at__isnull=True
+            ).first()
             if membership:
                 org_id = membership.org_id
                 match_status = SessionAttendance.MatchStatus.VERIFIED
@@ -71,6 +69,7 @@ def process_participant_event(zoom_event: ZoomEvent, data: dict) -> None:
 
     if org_id is None:
         from apps.org.models import OrgMember
+
         any_membership = OrgMember.objects.filter(user=user, removed_at__isnull=True).first()
         org_id = any_membership.org_id if any_membership else companies[0] if companies else None
 
@@ -83,7 +82,9 @@ def process_participant_event(zoom_event: ZoomEvent, data: dict) -> None:
 
     if event_type == "meeting.participant_joined":
         existing = SessionAttendance.objects.filter(
-            session=session, user=user, leave_at__isnull=True,
+            session=session,
+            user=user,
+            leave_at__isnull=True,
         ).first()
         if existing:
             return
@@ -101,9 +102,15 @@ def process_participant_event(zoom_event: ZoomEvent, data: dict) -> None:
         )
 
     elif event_type == "meeting.participant_left":
-        att = SessionAttendance.objects.filter(
-            session=session, user=user, leave_at__isnull=True,
-        ).order_by("-join_at").first()
+        att = (
+            SessionAttendance.objects.filter(
+                session=session,
+                user=user,
+                leave_at__isnull=True,
+            )
+            .order_by("-join_at")
+            .first()
+        )
         if att:
             att.leave_at = leave_dt or now
             att.duration_seconds = max(0, int((att.leave_at - att.join_at).total_seconds()))
@@ -139,6 +146,7 @@ def verify_attendance(request, attendance_id) -> SessionAttendance:
     att = SessionAttendance.objects.filter(pk=attendance_id).first()
     if att is None:
         from core.errors import ServiceError
+
         raise ServiceError("not_found", "Attendance record not found.", status=404)
 
     att.is_verified = True
@@ -152,6 +160,7 @@ def reject_attendance(request, attendance_id) -> SessionAttendance:
     att = SessionAttendance.objects.filter(pk=attendance_id).first()
     if att is None:
         from core.errors import ServiceError
+
         raise ServiceError("not_found", "Attendance record not found.", status=404)
 
     att.match_status = SessionAttendance.MatchStatus.REJECTED
