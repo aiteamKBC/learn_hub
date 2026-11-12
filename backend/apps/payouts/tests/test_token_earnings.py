@@ -142,4 +142,3 @@ class TokenSpendEarningTest(SchemaTransactionTestCase):
             self.spend.save(update_fields=["weighted_unit_cost_gbp"])
             count = record_token_spend_earning(self.spend.id)
         self.assertEqual(count, 0)
-
