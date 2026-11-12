@@ -1,10 +1,10 @@
-"""B2C-02 — Token wallet: grant, FEFO spend, admin adjust, expiry.
+"""B2C-02 â€” Token wallet: grant, FEFO spend, admin adjust, expiry.
 
 Invariants
 ----------
 - Tokens are integers. Money is Decimal(12,2). Rate is Decimal(12,4).
 - FEFO ordering: expires_at ASC NULLS LAST, granted_at ASC, id ASC.
-- Atomic spend: SELECT … FOR UPDATE prevents double-debit.
+- Atomic spend: SELECT â€¦ FOR UPDATE prevents double-debit.
 - Idempotent grant on stripe_session_id (webhook replay safety).
 - No default expiry invented (T03 BLOCKED).
 """

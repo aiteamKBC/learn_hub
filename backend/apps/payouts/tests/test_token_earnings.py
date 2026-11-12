@@ -97,7 +97,7 @@ class TokenSpendEarningTest(SchemaTransactionTestCase):
             record_token_spend_earning(self.spend.id)
             e = Earning.objects.get(token_spend=self.spend)
         self.assertEqual(e.share_bps, 7000)
-        self.assertEqual(e.amount_gbp_minor, 2)  # 4 * 7000 / 10000 = 2.8 → truncated to 2
+        self.assertEqual(e.amount_gbp_minor, 2)  # 4 * 7000 / 10000 = 2.8 â†’ truncated to 2
 
     def test_idempotent(self):
         with tenant_context(staff=True):

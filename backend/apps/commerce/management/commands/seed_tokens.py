@@ -16,16 +16,16 @@ from apps.commerce.models import PriceTier, TokenPack, TokenRate, TopUpPolicy
 
 # name -> (token_amount, price-tier gbp_minor, sort_order). Bigger packs give better value.
 PACKS = [
-    ("Starter", 500, 999, 1),  # £9.99  -> 50 tokens/£
-    ("Plus", 1200, 1999, 2),  # £19.99 -> 60 tokens/£
-    ("Pro", 2500, 3499, 3),  # £34.99 -> 71 tokens/£
-    ("Ultimate", 6000, 5999, 4),  # £59.99 -> 100 tokens/£
+    ("Starter", 500, 999, 1),  # Â£9.99  -> 50 tokens/Â£
+    ("Plus", 1200, 1999, 2),  # Â£19.99 -> 60 tokens/Â£
+    ("Pro", 2500, 3499, 3),  # Â£34.99 -> 71 tokens/Â£
+    ("Ultimate", 6000, 5999, 4),  # Â£59.99 -> 100 tokens/Â£
 ]
 
-# Base conversion for custom top-ups and course unlocks: £1 = 50 tokens (0.50 tokens/penny).
+# Base conversion for custom top-ups and course unlocks: Â£1 = 50 tokens (0.50 tokens/penny).
 TOKENS_PER_GBP_MINOR = "0.50"
 
-# Custom top-up bounds in GBP pence: £5 min, £500 max.
+# Custom top-up bounds in GBP pence: Â£5 min, Â£500 max.
 TOPUP = ("GBP", 500, 50000)
 
 
@@ -53,7 +53,7 @@ class Command(BaseCommand):
                 pack.sort_order = order
                 pack.save()
             self.stdout.write(
-                f"{'created' if created else 'updated'} pack {name}: {tokens} tokens @ £{gbp_minor / 100:.2f}"
+                f"{'created' if created else 'updated'} pack {name}: {tokens} tokens @ Â£{gbp_minor / 100:.2f}"
             )
 
         # --- live token rate (effective now; seed uses a past timestamp on purpose) ---
@@ -62,9 +62,9 @@ class Command(BaseCommand):
                 tokens_per_gbp_minor=TOKENS_PER_GBP_MINOR,
                 effective_from=timezone.now() - timedelta(days=1),
                 effective_to=None,
-                notes="Seeded demo rate (£1 = 50 tokens).",
+                notes="Seeded demo rate (Â£1 = 50 tokens).",
             )
-            self.stdout.write("created live token rate: £1 = 50 tokens")
+            self.stdout.write("created live token rate: Â£1 = 50 tokens")
         else:
             self.stdout.write("token rate already set; left as-is")
 
@@ -79,7 +79,7 @@ class Command(BaseCommand):
             policy.min_minor, policy.max_minor = mn, mx
             policy.save()
         self.stdout.write(
-            f"{'created' if created else 'updated'} top-up policy {cur}: £{mn / 100:.0f}–£{mx / 100:.0f}"
+            f"{'created' if created else 'updated'} top-up policy {cur}: Â£{mn / 100:.0f}â€“Â£{mx / 100:.0f}"
         )
 
         self.stdout.write(self.style.SUCCESS("token seed complete"))
