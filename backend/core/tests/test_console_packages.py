@@ -33,7 +33,9 @@ class ConsolePackagesTest(CommerceBase):
         self.assertTrue(row["is_active"])
 
         # the snapshot price is stored per included course
-        snaps = set(CashPackageCourse.objects.filter(package_id=pkg_id).values_list("snapshot_gbp_minor", flat=True))
+        snaps = set(
+            CashPackageCourse.objects.filter(package_id=pkg_id).values_list("snapshot_gbp_minor", flat=True)
+        )
         self.assertTrue(snaps and 0 not in snaps)
 
         # update: rename and drop one course
@@ -58,25 +60,37 @@ class ConsolePackagesTest(CommerceBase):
     def test_bundle_cannot_cost_more_than_buying_separately(self):
         self.client.force_login(self.staff)
         from apps.commerce.models import PriceTier
+
         # python (Tier 5 = 3499) + sql (Tier 1 = 1499) -> separate total 4998.
         too_high = PriceTier.objects.filter(gbp_minor__gt=4998, is_active=True).order_by("gbp_minor").first()
-        r = self.client.post(f"{API}/packages", {
-            "name": "Rip-off", "price_tier_id": str(too_high.id),
-            "course_ids": [str(self.python.id), str(self.sql.id)],
-        }, content_type="application/json")
+        r = self.client.post(
+            f"{API}/packages",
+            {
+                "name": "Rip-off",
+                "price_tier_id": str(too_high.id),
+                "course_ids": [str(self.python.id), str(self.sql.id)],
+            },
+            content_type="application/json",
+        )
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.json()["code"], "price_too_high")
 
     def test_unpublished_course_is_rejected(self):
         self.client.force_login(self.staff)
         from apps.catalog.models import Course
+
         draft = Course.objects.filter(owner_org_id__isnull=True).exclude(status="published").first()
         if draft is None:
             self.skipTest("no unpublished course available")
-        r = self.client.post(f"{API}/packages", {
-            "name": "Has a draft", "price_tier_id": str(self.tier5.id),
-            "course_ids": [str(draft.id)],
-        }, content_type="application/json")
+        r = self.client.post(
+            f"{API}/packages",
+            {
+                "name": "Has a draft",
+                "price_tier_id": str(self.tier5.id),
+                "course_ids": [str(draft.id)],
+            },
+            content_type="application/json",
+        )
         self.assertEqual(r.status_code, 400)
 
     def test_non_staff_cannot_manage_packages(self):

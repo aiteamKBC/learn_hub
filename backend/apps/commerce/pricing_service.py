@@ -57,8 +57,7 @@ def _actor_id(actor):
     return getattr(actor, "id", None) if actor is not None else None
 
 
-def _audit(action: str, target_type: str, target_id, *, actor, reason: str, data: dict,
-           request=None) -> None:
+def _audit(action: str, target_type: str, target_id, *, actor, reason: str, data: dict, request=None) -> None:
     payload = {"reason": reason, **data}
     if request is not None:
         audit_request(request, action, target_type, str(target_id), payload)
@@ -106,11 +105,9 @@ def set_course_price(
             if live_version is not None:
                 from apps.catalog.models import Lecture
 
-                lecture_sum = (
-                    Lecture.objects.filter(
-                        version=live_version, token_price__isnull=False
-                    ).values_list("token_price", flat=True)
-                )
+                lecture_sum = Lecture.objects.filter(
+                    version=live_version, token_price__isnull=False
+                ).values_list("token_price", flat=True)
                 conflicting = [t for t in lecture_sum if t is not None]
                 total = sum(conflicting)
                 if total > full_course_token_price:
@@ -194,8 +191,9 @@ def set_material_token_price(material, amount, *, actor, reason: str, request=No
 
 
 @transaction.atomic
-def set_preview_flag(target, is_free_preview: bool, *, actor, reason: str,
-                     confirm: bool = False, request=None):
+def set_preview_flag(
+    target, is_free_preview: bool, *, actor, reason: str, confirm: bool = False, request=None
+):
     """Toggle `is_free_preview` on a Lecture or Material.
 
     Guard: enabling preview on a Material whose parent Lecture is NOT preview would make the
@@ -250,9 +248,8 @@ def _hamilton_allocate(raw_weights: list[float], total: int) -> list[int]:
     allocated = list(floors)
     for i in order[: max(0, remainder)]:
         allocated[i] += 1
-    assert sum(allocated) == total, (
-        f"Hamilton allocation broken: sum(allocated)={sum(allocated)} != total={total}"
-    )
+    if sum(allocated) != total:
+        raise RuntimeError(f"Hamilton allocation broken: sum(allocated)={sum(allocated)} != total={total}")
     return allocated
 
 
@@ -283,9 +280,7 @@ def distribute_course_token_price(
     """
     _require_staff(actor)
     if weights_config is None:
-        raise ConfigurationBlocked(
-            "C05 default weights not approved — pass an explicit weights_config."
-        )
+        raise ConfigurationBlocked("C05 default weights not approved — pass an explicit weights_config.")
     if total_tokens < 0:
         raise ValidationError("total_tokens must be >= 0")
 
@@ -295,9 +290,7 @@ def distribute_course_token_price(
 
     from apps.catalog.models import Lecture
 
-    lectures = list(
-        Lecture.objects.filter(version=live_version).order_by("id")
-    )
+    lectures = list(Lecture.objects.filter(version=live_version).order_by("id"))
     if not lectures:
         raise ValidationError("Course has no lectures to distribute across.")
 
@@ -305,9 +298,7 @@ def distribute_course_token_price(
     use_duration = bool(weights_config.get("use_duration", False))
     missing_types = sorted({lec.kind for lec in lectures if lec.kind not in type_weights})
     if missing_types:
-        raise ValidationError(
-            f"Missing weight for lecture types: {missing_types}"
-        )
+        raise ValidationError(f"Missing weight for lecture types: {missing_types}")
 
     raw = []
     for lec in lectures:
@@ -326,12 +317,12 @@ def distribute_course_token_price(
             "current_price": lec.token_price,
             "allocated_price": alloc,
         }
-        for lec, alloc in zip(lectures, allocated)
+        for lec, alloc in zip(lectures, allocated, strict=True)
     ]
     if dry_run:
         return result
 
-    for lec, alloc in zip(lectures, allocated):
+    for lec, alloc in zip(lectures, allocated, strict=True):
         if lec.token_price != alloc:
             set_lecture_token_price(
                 lec, alloc, actor=actor, reason=f"{reason} [auto-distribute]", request=request
@@ -342,8 +333,7 @@ def distribute_course_token_price(
         course.id,
         actor=actor,
         reason=reason,
-        data={"total_tokens": total_tokens, "lectures": len(lectures),
-              "use_duration": use_duration},
+        data={"total_tokens": total_tokens, "lectures": len(lectures), "use_duration": use_duration},
         request=request,
     )
     return result
@@ -372,8 +362,10 @@ def upsert_token_pack(
     if pack_id:
         pack = TokenPack.objects.select_for_update().get(pk=pack_id)
         before = {
-            "name": pack.name, "token_amount": pack.token_amount,
-            "price_tier_id": pack.price_tier_id, "is_active": pack.is_active,
+            "name": pack.name,
+            "token_amount": pack.token_amount,
+            "price_tier_id": pack.price_tier_id,
+            "is_active": pack.is_active,
             "sort_order": pack.sort_order,
         }
         pack.name = name
@@ -394,12 +386,24 @@ def upsert_token_pack(
         )
         before = None
         action = "token_pack.create"
-    _audit(action, "token_pack", pack.id, actor=actor, reason=reason,
-           data={"before": before,
-                 "after": {"name": name, "token_amount": token_amount,
-                           "price_tier_id": getattr(price_tier, "id", None),
-                           "is_active": is_active, "sort_order": sort_order}},
-           request=request)
+    _audit(
+        action,
+        "token_pack",
+        pack.id,
+        actor=actor,
+        reason=reason,
+        data={
+            "before": before,
+            "after": {
+                "name": name,
+                "token_amount": token_amount,
+                "price_tier_id": getattr(price_tier, "id", None),
+                "is_active": is_active,
+                "sort_order": sort_order,
+            },
+        },
+        request=request,
+    )
     return pack
 
 
@@ -445,8 +449,7 @@ def upsert_token_rate(
         new_rate.id,
         actor=actor,
         reason=reason,
-        data={"tokens_per_gbp_minor": str(rate),
-              "effective_from": effective_from.isoformat()},
+        data={"tokens_per_gbp_minor": str(rate), "effective_from": effective_from.isoformat()},
         request=request,
     )
     return new_rate
@@ -489,8 +492,7 @@ def upsert_topup_policy(
         policy.id,
         actor=actor,
         reason=reason,
-        data={"currency": currency, "min_minor": min_minor,
-              "max_minor": max_minor, "is_active": is_active},
+        data={"currency": currency, "min_minor": min_minor, "max_minor": max_minor, "is_active": is_active},
         request=request,
     )
     return policy
@@ -525,9 +527,7 @@ def upsert_bonus_campaign(
             "(is_active=False) in PR 1."
         )
     if (bonus_tokens is None) == (bonus_percent is None):
-        raise ValidationError(
-            "Exactly one of bonus_tokens or bonus_percent must be provided."
-        )
+        raise ValidationError("Exactly one of bonus_tokens or bonus_percent must be provided.")
     if ends_at <= starts_at:
         raise ValidationError("ends_at must be after starts_at")
 
@@ -553,19 +553,29 @@ def upsert_bonus_campaign(
     else:
         camp = BonusCampaign.objects.create(created_by=actor, **fields)
         action = "bonus_campaign.create"
-    _audit(action, "bonus_campaign", camp.id, actor=actor, reason=reason,
-           data={"name": name, "condition_type": condition_type,
-                 "bonus_tokens": bonus_tokens,
-                 "bonus_percent": str(bonus_percent) if bonus_percent is not None else None,
-                 "starts_at": starts_at.isoformat(),
-                 "ends_at": ends_at.isoformat()},
-           request=request)
+    _audit(
+        action,
+        "bonus_campaign",
+        camp.id,
+        actor=actor,
+        reason=reason,
+        data={
+            "name": name,
+            "condition_type": condition_type,
+            "bonus_tokens": bonus_tokens,
+            "bonus_percent": str(bonus_percent) if bonus_percent is not None else None,
+            "starts_at": starts_at.isoformat(),
+            "ends_at": ends_at.isoformat(),
+        },
+        request=request,
+    )
     return camp
 
 
 # ---------------------------------------------------------------- republish survival
-def migrate_token_pricing_on_republish(old_version, new_version, *, actor=None,
-                                       extra_key_map: dict | None = None) -> dict:
+def migrate_token_pricing_on_republish(
+    old_version, new_version, *, actor=None, extra_key_map: dict | None = None
+) -> dict:
     """Copy `token_price` and `is_free_preview` from `old_version`'s lectures to
     `new_version`'s lectures, mapped by `lecture_key` (stable identifier).
 
@@ -604,9 +614,11 @@ def migrate_token_pricing_on_republish(old_version, new_version, *, actor=None,
                 new_lec.id,
                 actor=actor,
                 reason="republish:system",
-                data={"from_lecture": str(old_lec.id),
-                      "token_price": old_lec.token_price,
-                      "is_free_preview": old_lec.is_free_preview},
+                data={
+                    "from_lecture": str(old_lec.id),
+                    "token_price": old_lec.token_price,
+                    "is_free_preview": old_lec.is_free_preview,
+                },
                 request=None,
             )
 
@@ -638,9 +650,11 @@ def migrate_token_pricing_on_republish(old_version, new_version, *, actor=None,
                     new_mat.id,
                     actor=actor,
                     reason="republish:system",
-                    data={"from_material": str(old_mat.id),
-                          "token_price": old_mat.token_price,
-                          "is_free_preview": old_mat.is_free_preview},
+                    data={
+                        "from_material": str(old_mat.id),
+                        "token_price": old_mat.token_price,
+                        "is_free_preview": old_mat.is_free_preview,
+                    },
                     request=None,
                 )
 

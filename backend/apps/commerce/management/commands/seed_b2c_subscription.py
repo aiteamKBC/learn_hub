@@ -12,7 +12,7 @@ Access model: a plan with no explicit course list grants every course marked
 
 from django.core.management.base import BaseCommand
 
-from apps.commerce.models import Plan, PlanPrice, Currency
+from apps.commerce.models import Currency, Plan, PlanPrice
 from apps.platform.console import subscriptions as cs
 
 DB = "owner"  # RLS bypass; required for unlimited_b2c plans.
@@ -51,7 +51,8 @@ class Command(BaseCommand):
             # create_price hits Stripe (sandbox); idempotency key guards duplicates.
             price_id = cs._stripe_price(yearly, ccode, minor)
             PlanPrice.objects.using(DB).update_or_create(
-                plan=yearly, currency_id=ccode,
+                plan=yearly,
+                currency_id=ccode,
                 defaults={"amount_minor": minor, "stripe_price_id": price_id},
             )
             self.stdout.write(f"yearly {ccode}: {minor} -> stripe {price_id[:14]}...")

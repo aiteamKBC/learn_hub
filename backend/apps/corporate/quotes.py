@@ -14,18 +14,12 @@ from apps.org.models import Organization
 from apps.platform.services import audit_request
 from core.errors import ServiceError
 
-from .models import CorporateOffering, CorporateQuote, QuoteItem, SeatPurchase
+from .models import CorporateQuote, QuoteItem, SeatPurchase
 
 
 @transaction.atomic
 def send_quote(request, quote_id) -> CorporateQuote:
-    quote = (
-        CorporateQuote.objects
-        .select_for_update()
-        .select_related("org")
-        .filter(pk=quote_id)
-        .first()
-    )
+    quote = CorporateQuote.objects.select_for_update().select_related("org").filter(pk=quote_id).first()
     if quote is None:
         raise ServiceError("quote_not_found", "Quote not found.", status=404)
     if quote.status != CorporateQuote.Status.DRAFT:
@@ -48,7 +42,8 @@ def send_quote(request, quote_id) -> CorporateQuote:
             idempotency_key=f"corp_customer_{org.id}",
         )
         Organization.objects.filter(pk=org.id).update(
-            stripe_customer_id=customer_id, updated_at=timezone.now(),
+            stripe_customer_id=customer_id,
+            updated_at=timezone.now(),
         )
 
     inv = gateway.create_invoice(
@@ -74,7 +69,7 @@ def send_quote(request, quote_id) -> CorporateQuote:
             quantity=item.quantity,
         )
 
-    finalized = gateway.finalize_invoice(inv["id"])
+    gateway.finalize_invoice(inv["id"])
     sent = gateway.send_invoice(inv["id"])
 
     quote.status = CorporateQuote.Status.SENT
@@ -83,7 +78,10 @@ def send_quote(request, quote_id) -> CorporateQuote:
     quote.save(update_fields=["status", "stripe_invoice_id", "stripe_invoice_url", "updated_at"])
 
     audit_request(
-        request, "quote_sent", "corporate_quote", quote.id,
+        request,
+        "quote_sent",
+        "corporate_quote",
+        quote.id,
         data={"stripe_invoice_id": inv["id"], "total": quote.total_minor},
     )
 
@@ -92,12 +90,7 @@ def send_quote(request, quote_id) -> CorporateQuote:
 
 @transaction.atomic
 def void_quote(request, quote_id) -> CorporateQuote:
-    quote = (
-        CorporateQuote.objects
-        .select_for_update()
-        .filter(pk=quote_id)
-        .first()
-    )
+    quote = CorporateQuote.objects.select_for_update().filter(pk=quote_id).first()
     if quote is None:
         raise ServiceError("quote_not_found", "Quote not found.", status=404)
     if quote.status not in (CorporateQuote.Status.DRAFT, CorporateQuote.Status.SENT):
@@ -120,12 +113,7 @@ def fulfil_quote(invoice: dict) -> None:
     if not quote_id:
         return
 
-    quote = (
-        CorporateQuote.objects
-        .select_for_update()
-        .filter(pk=quote_id)
-        .first()
-    )
+    quote = CorporateQuote.objects.select_for_update().filter(pk=quote_id).first()
     if quote is None:
         return
     if quote.status == CorporateQuote.Status.ACCEPTED:

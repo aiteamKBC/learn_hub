@@ -11,20 +11,25 @@ from core.tests.base import SchemaTransactionTestCase
 
 
 class TokenPackWebhookTest(SchemaTransactionTestCase):
-
     def setUp(self):
         tag = uuid.uuid4().hex[:8]
         with tenant_context(user_id=None, staff=True):
             self.user = User.objects.create_user(
-                f"topup-test-{tag}@learnhub-demo.com", "test123", is_staff=False,
+                f"topup-test-{tag}@learnhub-demo.com",
+                "test123",
+                is_staff=False,
             )
             from apps.commerce.models import PriceTier
+
             self.tier, _ = PriceTier.objects.get_or_create(
                 name=f"Pack Tier {tag}", defaults={"gbp_minor": 500}
             )
             self.pack = TokenPack.objects.create(
-                name=f"50 Tokens {tag}", token_amount=50, price_tier=self.tier,
-                is_active=True, sort_order=1,
+                name=f"50 Tokens {tag}",
+                token_amount=50,
+                price_tier=self.tier,
+                is_active=True,
+                sort_order=1,
             )
 
     def _session(self, *, session_id=None, kind="token_pack", extra_meta=None):
@@ -86,14 +91,16 @@ class TokenPackWebhookTest(SchemaTransactionTestCase):
 
 
 class TokenTopUpWebhookTest(SchemaTransactionTestCase):
-
     def setUp(self):
         tag = uuid.uuid4().hex[:8]
         with tenant_context(user_id=None, staff=True):
             self.user = User.objects.create_user(
-                f"topup-custom-{tag}@learnhub-demo.com", "test123", is_staff=False,
+                f"topup-custom-{tag}@learnhub-demo.com",
+                "test123",
+                is_staff=False,
             )
             from django.utils import timezone
+
             self.rate = TokenRate.objects.create(
                 tokens_per_gbp_minor=Decimal("0.1000"),
                 effective_from=timezone.now(),

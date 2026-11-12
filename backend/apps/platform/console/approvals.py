@@ -138,7 +138,7 @@ class ConsoleReviewCourseOut(Schema):
     price_gbp_minor: int | None = None
     is_free: bool = False
     full_course_token_price: int | None = None
-    token_pricing_mode: str = "manual"
+    token_pricing_mode: str = "manual"  # noqa: S105 - enum default, not a password
     in_subscription: bool = True
     status: str = ""
 

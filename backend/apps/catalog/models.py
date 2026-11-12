@@ -283,6 +283,7 @@ class Lecture(OwnedContent):
     live_starts_at = models.DateTimeField(null=True, blank=True)  # UTC (decision 12)
     live_duration_min = models.PositiveSmallIntegerField(null=True, blank=True)
     live_join_url = models.URLField(blank=True)
+
     class LiveProvider(models.TextChoices):
         MANUAL = "manual", "Manual link"
         TEAMS = "teams", "Microsoft Teams"

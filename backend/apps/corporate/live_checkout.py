@@ -11,10 +11,10 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.commerce import gateway
-from apps.org.models import OrgMember, Organization
+from apps.org.models import Organization, OrgMember
 from apps.platform.services import audit_request
 from core.errors import ServiceError
-from core.permissions import OrgRole, ROLE_RANK
+from core.permissions import ROLE_RANK, OrgRole
 
 from .models import CohortCompany, LiveCohort, SeatPurchase
 
@@ -25,17 +25,12 @@ def create_live_checkout(request, cohort_company_id) -> dict:
     if org_id is None:
         raise ServiceError("no_org", "Organization context required.", status=400)
 
-    member = (
-        OrgMember.objects
-        .filter(org_id=org_id, user_id=request.user.id, removed_at__isnull=True)
-        .first()
-    )
+    member = OrgMember.objects.filter(org_id=org_id, user_id=request.user.id, removed_at__isnull=True).first()
     if member is None or ROLE_RANK.get(OrgRole(member.role), -1) < ROLE_RANK[OrgRole.ADMIN]:
         raise ServiceError("forbidden", "Only company admins or owners may pay.", status=403)
 
     cc = (
-        CohortCompany.objects
-        .select_for_update()
+        CohortCompany.objects.select_for_update()
         .select_related("cohort__course")
         .filter(pk=cohort_company_id, org_id=org_id)
         .first()
@@ -55,8 +50,11 @@ def create_live_checkout(request, cohort_company_id) -> dict:
         raise ServiceError("cohort_not_confirmed", "Cohort schedule is not confirmed yet.", status=400)
 
     from .models import CorporateOffering
+
     offering = CorporateOffering.objects.filter(
-        course=cohort.course, delivery_type="live", is_active=True,
+        course=cohort.course,
+        delivery_type="live",
+        is_active=True,
     ).first()
     if offering is None:
         raise ServiceError("no_offering", "No active live offering for this course.", status=404)
@@ -87,16 +85,18 @@ def create_live_checkout(request, cohort_company_id) -> dict:
 
     session = gateway.create_checkout_session(
         mode="payment",
-        line_items=[{
-            "price_data": {
-                "currency": currency.lower(),
-                "unit_amount": unit_price,
-                "product_data": {
-                    "name": f"{cohort.course.title} — Live Training ({quantity} seats)",
+        line_items=[
+            {
+                "price_data": {
+                    "currency": currency.lower(),
+                    "unit_amount": unit_price,
+                    "product_data": {
+                        "name": f"{cohort.course.title} — Live Training ({quantity} seats)",
+                    },
                 },
-            },
-            "quantity": quantity,
-        }],
+                "quantity": quantity,
+            }
+        ],
         metadata={
             "kind": "corporate_live",
             "id": str(purchase.id),
@@ -115,7 +115,10 @@ def create_live_checkout(request, cohort_company_id) -> dict:
     purchase.save(update_fields=["stripe_session_id", "updated_at"])
 
     audit_request(
-        request, "live_checkout_started", "seat_purchase", purchase.id,
+        request,
+        "live_checkout_started",
+        "seat_purchase",
+        purchase.id,
         data={"cohort_id": str(cohort.id), "seats": quantity, "total": total},
     )
 
@@ -125,10 +128,12 @@ def create_live_checkout(request, cohort_company_id) -> dict:
 def fulfil_live_purchase(session: dict, meta: dict) -> None:
     """Called from webhook when corporate_live checkout completes."""
     from .fulfillment import fulfil_recorded_purchase
+
     fulfil_recorded_purchase(session, meta)
 
     cc_id = meta.get("cohort_company_id")
     if cc_id:
         CohortCompany.objects.filter(pk=cc_id, status="pending_pay").update(
-            status="paid", updated_at=timezone.now(),
+            status="paid",
+            updated_at=timezone.now(),
         )

@@ -304,7 +304,9 @@ TOKEN_AUDIT_TARGETS = (
 
 def _course_row(c: Course, lectures_priced=0, materials_priced=0) -> dict:
     return {
-        "id": c.id, "title": c.title, "slug": c.slug,
+        "id": c.id,
+        "title": c.title,
+        "slug": c.slug,
         "cash_price_tier_id": c.cash_price_tier_id,
         "full_course_token_price": c.full_course_token_price,
         "token_pricing_mode": c.token_pricing_mode,
@@ -347,7 +349,6 @@ def list_token_courses(request, search: str = "", page: int = 1, page_size: int 
         qs = qs.filter(title__icontains=search.strip()[:100])
     total = qs.count()
     rows = list(qs.order_by("-updated_at")[(page - 1) * page_size : page * page_size])
-    ids = [c.id for c in rows]
     # Per-course counts of priced lectures/materials (via live version)
     lec_counts: dict = {}
     mat_counts: dict = {}
@@ -362,7 +363,9 @@ def list_token_courses(request, search: str = "", page: int = 1, page_size: int 
         ).count()
     return {
         "items": [_course_row(c, lec_counts.get(c.id, 0), mat_counts.get(c.id, 0)) for c in rows],
-        "total": total, "page": page, "page_size": page_size,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
     }
 
 
@@ -377,29 +380,44 @@ def get_token_course(request, course_id: UUID):
         for lec in Lecture.objects.filter(version_id=c.live_version_id).order_by("position"):
             lectures_by_sec.setdefault(lec.section_id, []).append(lec)
         mats_by_lec: dict = {}
-        all_lec_ids = [l.id for s in secs for l in lectures_by_sec.get(s.id, [])]
+        all_lec_ids = [lecture.id for section in secs for lecture in lectures_by_sec.get(section.id, [])]
         for m in LectureResource.objects.filter(lecture_id__in=all_lec_ids).order_by("position"):
             mats_by_lec.setdefault(m.lecture_id, []).append(m)
         for s in secs:
-            sections.append({
-                "id": s.id, "title": s.title, "position": s.position,
-                "lectures": [
-                    {
-                        "id": l.id, "title": l.title, "kind": l.kind, "position": l.position,
-                        "duration_min": (l.duration_sec or 0) // 60,
-                        "token_price": l.token_price, "is_free_preview": l.is_free_preview,
-                        "is_preview": l.is_preview,
-                        "materials": [
-                            {"id": m.id, "title": m.title, "position": m.position,
-                             "token_price": m.token_price, "is_free_preview": m.is_free_preview}
-                            for m in mats_by_lec.get(l.id, [])
-                        ],
-                    }
-                    for l in lectures_by_sec.get(s.id, [])
-                ],
-            })
+            sections.append(
+                {
+                    "id": s.id,
+                    "title": s.title,
+                    "position": s.position,
+                    "lectures": [
+                        {
+                            "id": lecture.id,
+                            "title": lecture.title,
+                            "kind": lecture.kind,
+                            "position": lecture.position,
+                            "duration_min": (lecture.duration_sec or 0) // 60,
+                            "token_price": lecture.token_price,
+                            "is_free_preview": lecture.is_free_preview,
+                            "is_preview": lecture.is_preview,
+                            "materials": [
+                                {
+                                    "id": m.id,
+                                    "title": m.title,
+                                    "position": m.position,
+                                    "token_price": m.token_price,
+                                    "is_free_preview": m.is_free_preview,
+                                }
+                                for m in mats_by_lec.get(lecture.id, [])
+                            ],
+                        }
+                        for lecture in lectures_by_sec.get(s.id, [])
+                    ],
+                }
+            )
     return {
-        "id": c.id, "title": c.title, "slug": c.slug,
+        "id": c.id,
+        "title": c.title,
+        "slug": c.slug,
         "cash_price_tier_id": c.cash_price_tier_id,
         "full_course_token_price": c.full_course_token_price,
         "token_pricing_mode": c.token_pricing_mode,
@@ -414,36 +432,46 @@ def patch_token_course(request, course_id: UUID, payload: ConsoleCourseTokenPatc
     c = get_object_or_404(Course, pk=course_id)
     try:
         pricing_service.set_course_price(
-            c, **_resolve_course_patch(payload),
-            actor=request.user, reason=payload.reason, request=request,
+            c,
+            **_resolve_course_patch(payload),
+            actor=request.user,
+            reason=payload.reason,
+            request=request,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - centralized mapper converts service-layer errors
         _map_service_exc(e)
     return {"ok": True}
 
 
 # Server-authoritative quotes: any per-lecture amounts supplied by the client are ignored;
 # the returned allocation is computed on the server from the weights_config.
-@router.post("/pricing/token/courses/{course_id}/distribute-tokens",
-             response=ConsoleDistributePreviewOut)
+@router.post("/pricing/token/courses/{course_id}/distribute-tokens", response=ConsoleDistributePreviewOut)
 def distribute_tokens(request, course_id: UUID, payload: ConsoleDistributeIn):
     staff(request)
     c = get_object_or_404(Course, pk=course_id)
     weights = payload.weights_config.dict() if payload.weights_config else None
     try:
         rows = pricing_service.distribute_course_token_price(
-            c, payload.total_tokens, weights_config=weights,
-            actor=request.user, reason=payload.reason,
-            dry_run=payload.dry_run, request=request,
+            c,
+            payload.total_tokens,
+            weights_config=weights,
+            actor=request.user,
+            reason=payload.reason,
+            dry_run=payload.dry_run,
+            request=request,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - centralized mapper converts service-layer errors
         _map_service_exc(e)
-    titles = {l.id: l.title for l in Lecture.objects.filter(
+    titles = {lecture.id: lecture.title for lecture in Lecture.objects.filter(
         id__in=[r["lecture_id"] for r in rows])}  # fmt: skip
     return {
         "allocation": [
-            {"lecture_id": r["lecture_id"], "title": titles.get(r["lecture_id"], ""),
-             "current_price": r["current_price"], "allocated_price": r["allocated_price"]}
+            {
+                "lecture_id": r["lecture_id"],
+                "title": titles.get(r["lecture_id"], ""),
+                "current_price": r["current_price"],
+                "allocated_price": r["allocated_price"],
+            }
             for r in rows
         ],
         "applied": not payload.dry_run,
@@ -461,15 +489,22 @@ def patch_token_lecture(request, lecture_id: UUID, payload: ConsoleLectureTokenP
     try:
         if "token_price" in sent:
             pricing_service.set_lecture_token_price(
-                lec, sent["token_price"], actor=request.user,
-                reason=payload.reason, request=request,
+                lec,
+                sent["token_price"],
+                actor=request.user,
+                reason=payload.reason,
+                request=request,
             )
         if "is_free_preview" in sent:
             pricing_service.set_preview_flag(
-                lec, sent["is_free_preview"], actor=request.user,
-                reason=payload.reason, confirm=payload.confirm, request=request,
+                lec,
+                sent["is_free_preview"],
+                actor=request.user,
+                reason=payload.reason,
+                confirm=payload.confirm,
+                request=request,
             )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - centralized mapper converts service-layer errors
         _map_service_exc(e)
     return {"ok": True}
 
@@ -482,15 +517,22 @@ def patch_token_material(request, material_id: UUID, payload: ConsoleMaterialTok
     try:
         if "token_price" in sent:
             pricing_service.set_material_token_price(
-                mat, sent["token_price"], actor=request.user,
-                reason=payload.reason, request=request,
+                mat,
+                sent["token_price"],
+                actor=request.user,
+                reason=payload.reason,
+                request=request,
             )
         if "is_free_preview" in sent:
             pricing_service.set_preview_flag(
-                mat, sent["is_free_preview"], actor=request.user,
-                reason=payload.reason, confirm=payload.confirm, request=request,
+                mat,
+                sent["is_free_preview"],
+                actor=request.user,
+                reason=payload.reason,
+                confirm=payload.confirm,
+                request=request,
             )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - centralized mapper converts service-layer errors
         _map_service_exc(e)
     return {"ok": True}
 
@@ -518,8 +560,11 @@ def bulk_patch_courses(request, payload: ConsoleBulkCourseIn):
             if "token_pricing_mode" in patch_sent:
                 kwargs["mode"] = patch_sent["token_pricing_mode"]
             pricing_service.set_course_price(
-                c, **kwargs, actor=request.user,
-                reason=payload.reason, request=request,
+                c,
+                **kwargs,
+                actor=request.user,
+                reason=payload.reason,
+                request=request,
             )
             results.append({"course_id": cid, "ok": True, "error": None})
         except Course.DoesNotExist:
@@ -533,9 +578,14 @@ def bulk_patch_courses(request, payload: ConsoleBulkCourseIn):
 # TOKEN PACKS
 # ============================================================================
 def _pack_out(p: TokenPack) -> dict:
-    return {"id": p.id, "name": p.name, "token_amount": p.token_amount,
-            "price_tier_id": p.price_tier_id, "is_active": p.is_active,
-            "sort_order": p.sort_order}
+    return {
+        "id": p.id,
+        "name": p.name,
+        "token_amount": p.token_amount,
+        "price_tier_id": p.price_tier_id,
+        "is_active": p.is_active,
+        "sort_order": p.sort_order,
+    }
 
 
 @router.get("/pricing/token/packs", response=list[ConsoleTokenPackOut])
@@ -553,11 +603,16 @@ def create_token_pack(request, payload: ConsoleTokenPackIn):
     tier = get_object_or_404(PriceTier, pk=payload.price_tier_id)
     try:
         pack = pricing_service.upsert_token_pack(
-            name=payload.name, token_amount=payload.token_amount,
-            price_tier=tier, is_active=payload.is_active, sort_order=payload.sort_order,
-            actor=request.user, reason=payload.reason, request=request,
+            name=payload.name,
+            token_amount=payload.token_amount,
+            price_tier=tier,
+            is_active=payload.is_active,
+            sort_order=payload.sort_order,
+            actor=request.user,
+            reason=payload.reason,
+            request=request,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - centralized mapper converts service-layer errors
         _map_service_exc(e)
     return _pack_out(pack)
 
@@ -568,11 +623,17 @@ def update_token_pack(request, pack_id: UUID, payload: ConsoleTokenPackIn):
     tier = get_object_or_404(PriceTier, pk=payload.price_tier_id)
     try:
         pack = pricing_service.upsert_token_pack(
-            pack_id=pack_id, name=payload.name, token_amount=payload.token_amount,
-            price_tier=tier, is_active=payload.is_active, sort_order=payload.sort_order,
-            actor=request.user, reason=payload.reason, request=request,
+            pack_id=pack_id,
+            name=payload.name,
+            token_amount=payload.token_amount,
+            price_tier=tier,
+            is_active=payload.is_active,
+            sort_order=payload.sort_order,
+            actor=request.user,
+            reason=payload.reason,
+            request=request,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - centralized mapper converts service-layer errors
         _map_service_exc(e)
     return _pack_out(pack)
 
@@ -587,11 +648,17 @@ def delete_token_pack(request, pack_id: UUID):
     pack = get_object_or_404(TokenPack, pk=pack_id)
     try:
         pricing_service.upsert_token_pack(
-            pack_id=pack.id, name=pack.name, token_amount=pack.token_amount,
-            price_tier=pack.price_tier, is_active=False, sort_order=pack.sort_order,
-            actor=request.user, reason="soft-delete", request=request,
+            pack_id=pack.id,
+            name=pack.name,
+            token_amount=pack.token_amount,
+            price_tier=pack.price_tier,
+            is_active=False,
+            sort_order=pack.sort_order,
+            actor=request.user,
+            reason="soft-delete",
+            request=request,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - centralized mapper converts service-layer errors
         _map_service_exc(e)
     return {"ok": True}
 
@@ -605,9 +672,14 @@ def list_token_rates(request):
     current = TokenRate.current()
     cur_id = current.id if current else None
     return [
-        {"id": r.id, "tokens_per_gbp_minor": str(r.tokens_per_gbp_minor),
-         "effective_from": r.effective_from, "effective_to": r.effective_to,
-         "notes": r.notes, "is_current": r.id == cur_id}
+        {
+            "id": r.id,
+            "tokens_per_gbp_minor": str(r.tokens_per_gbp_minor),
+            "effective_from": r.effective_from,
+            "effective_to": r.effective_to,
+            "notes": r.notes,
+            "is_current": r.id == cur_id,
+        }
         for r in TokenRate.objects.order_by("-effective_from")
     ]
 
@@ -619,22 +691,34 @@ def create_token_rate(request, payload: ConsoleTokenRateIn):
         r = pricing_service.upsert_token_rate(
             tokens_per_gbp_minor=payload.tokens_per_gbp_minor,
             effective_from=payload.effective_from,
-            notes=payload.notes, actor=request.user,
-            reason=payload.reason, request=request,
+            notes=payload.notes,
+            actor=request.user,
+            reason=payload.reason,
+            request=request,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - centralized mapper converts service-layer errors
         _map_service_exc(e)
-    return {"id": r.id, "tokens_per_gbp_minor": str(r.tokens_per_gbp_minor),
-            "effective_from": r.effective_from, "effective_to": r.effective_to,
-            "notes": r.notes, "is_current": True}
+    return {
+        "id": r.id,
+        "tokens_per_gbp_minor": str(r.tokens_per_gbp_minor),
+        "effective_from": r.effective_from,
+        "effective_to": r.effective_to,
+        "notes": r.notes,
+        "is_current": True,
+    }
 
 
 # ============================================================================
 # TOP-UP POLICIES
 # ============================================================================
 def _policy_out(p: TopUpPolicy) -> dict:
-    return {"id": p.id, "currency": p.currency, "min_minor": p.min_minor,
-            "max_minor": p.max_minor, "is_active": p.is_active}
+    return {
+        "id": p.id,
+        "currency": p.currency,
+        "min_minor": p.min_minor,
+        "max_minor": p.max_minor,
+        "is_active": p.is_active,
+    }
 
 
 @router.get("/pricing/token/topup-policies", response=list[ConsoleTopUpPolicyOut])
@@ -649,18 +733,24 @@ def upsert_topup_policy(request, currency: str, payload: ConsoleTopUpPolicyIn):
     code = currency.upper()[:3]
     # Idempotent short-circuit: identical active row → no new audit, no new row.
     existing = TopUpPolicy.objects.filter(
-        currency=code, is_active=True, min_minor=payload.min_minor,
+        currency=code,
+        is_active=True,
+        min_minor=payload.min_minor,
         max_minor=payload.max_minor,
     ).first()
     if existing and payload.is_active:
         return _policy_out(existing)
     try:
         p = pricing_service.upsert_topup_policy(
-            currency=code, min_minor=payload.min_minor, max_minor=payload.max_minor,
-            is_active=payload.is_active, actor=request.user,
-            reason=payload.reason, request=request,
+            currency=code,
+            min_minor=payload.min_minor,
+            max_minor=payload.max_minor,
+            is_active=payload.is_active,
+            actor=request.user,
+            reason=payload.reason,
+            request=request,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - centralized mapper converts service-layer errors
         _map_service_exc(e)
     return _policy_out(p)
 
@@ -670,12 +760,16 @@ def upsert_topup_policy(request, currency: str, payload: ConsoleTopUpPolicyIn):
 # ============================================================================
 def _camp_out(c: BonusCampaign) -> dict:
     return {
-        "id": c.id, "name": c.name, "condition_type": c.condition_type,
+        "id": c.id,
+        "name": c.name,
+        "condition_type": c.condition_type,
         "condition_value": c.condition_value or {},
         "bonus_tokens": c.bonus_tokens,
         "bonus_percent": str(c.bonus_percent) if c.bonus_percent is not None else None,
         "bonus_expiry_days": c.bonus_expiry_days,
-        "starts_at": c.starts_at, "ends_at": c.ends_at, "is_active": c.is_active,
+        "starts_at": c.starts_at,
+        "ends_at": c.ends_at,
+        "is_active": c.is_active,
     }
 
 
@@ -693,15 +787,20 @@ def create_bonus_campaign(request, payload: ConsoleBonusCampaignIn):
     staff(request)
     try:
         camp = pricing_service.upsert_bonus_campaign(
-            name=payload.name, condition_type=payload.condition_type,
+            name=payload.name,
+            condition_type=payload.condition_type,
             condition_value=payload.condition_value,
-            bonus_tokens=payload.bonus_tokens, bonus_percent=payload.bonus_percent,
+            bonus_tokens=payload.bonus_tokens,
+            bonus_percent=payload.bonus_percent,
             bonus_expiry_days=payload.bonus_expiry_days,
-            starts_at=payload.starts_at, ends_at=payload.ends_at,
-            is_active=payload.is_active, actor=request.user,
-            reason=payload.reason, request=request,
+            starts_at=payload.starts_at,
+            ends_at=payload.ends_at,
+            is_active=payload.is_active,
+            actor=request.user,
+            reason=payload.reason,
+            request=request,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - centralized mapper converts service-layer errors
         _map_service_exc(e)
     return _camp_out(camp)
 
@@ -712,15 +811,20 @@ def update_bonus_campaign(request, campaign_id: UUID, payload: ConsoleBonusCampa
     try:
         camp = pricing_service.upsert_bonus_campaign(
             campaign_id=campaign_id,
-            name=payload.name, condition_type=payload.condition_type,
+            name=payload.name,
+            condition_type=payload.condition_type,
             condition_value=payload.condition_value,
-            bonus_tokens=payload.bonus_tokens, bonus_percent=payload.bonus_percent,
+            bonus_tokens=payload.bonus_tokens,
+            bonus_percent=payload.bonus_percent,
             bonus_expiry_days=payload.bonus_expiry_days,
-            starts_at=payload.starts_at, ends_at=payload.ends_at,
-            is_active=payload.is_active, actor=request.user,
-            reason=payload.reason, request=request,
+            starts_at=payload.starts_at,
+            ends_at=payload.ends_at,
+            is_active=payload.is_active,
+            actor=request.user,
+            reason=payload.reason,
+            request=request,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - centralized mapper converts service-layer errors
         _map_service_exc(e)
     return _camp_out(camp)
 
@@ -768,12 +872,21 @@ def token_audit(
         )
         rows = cur.fetchall()
     import json
+
     return {
         "items": [
-            {"id": r[0], "created_at": r[1], "actor_id": r[2], "action": r[3],
-             "target_type": r[4], "target_id": r[5],
-             "data": r[6] if isinstance(r[6], dict) else json.loads(r[6] or "{}")}
+            {
+                "id": r[0],
+                "created_at": r[1],
+                "actor_id": r[2],
+                "action": r[3],
+                "target_type": r[4],
+                "target_id": r[5],
+                "data": r[6] if isinstance(r[6], dict) else json.loads(r[6] or "{}"),
+            }
             for r in rows
         ],
-        "total": total, "page": page, "page_size": page_size,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
     }

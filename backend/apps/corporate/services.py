@@ -20,8 +20,7 @@ ACTIVE_ALLOC = Q(status__in=[SeatAllocation.Status.ALLOCATED, SeatAllocation.Sta
 @transaction.atomic
 def allocate_seat(request, seat_purchase_id, user_id) -> SeatAllocation:
     sp = (
-        SeatPurchase.objects
-        .select_for_update()
+        SeatPurchase.objects.select_for_update()
         .select_related("offering")
         .filter(pk=seat_purchase_id)
         .first()
@@ -35,17 +34,15 @@ def allocate_seat(request, seat_purchase_id, user_id) -> SeatAllocation:
     if used >= sp.quantity:
         raise ServiceError("no_seats_available", "All seats in this purchase are allocated.", status=409)
 
-    member = (
-        OrgMember.objects
-        .filter(org_id=sp.org_id, user_id=user_id, removed_at__isnull=True)
-        .first()
-    )
+    member = OrgMember.objects.filter(org_id=sp.org_id, user_id=user_id, removed_at__isnull=True).first()
     if member is None:
         raise ServiceError("not_a_member", "User is not an active member of this company.", status=400)
 
     existing = sp.allocations.filter(user_id=user_id).filter(ACTIVE_ALLOC).first()
     if existing is not None:
-        raise ServiceError("already_allocated", "This user already has an active seat from this purchase.", status=409)
+        raise ServiceError(
+            "already_allocated", "This user already has an active seat from this purchase.", status=409
+        )
 
     allocation = SeatAllocation.objects.create(
         org_id=sp.org_id,
@@ -82,7 +79,10 @@ def allocate_seat(request, seat_purchase_id, user_id) -> SeatAllocation:
     )
 
     audit_request(
-        request, "seat_allocated", "seat_allocation", allocation.id,
+        request,
+        "seat_allocated",
+        "seat_allocation",
+        allocation.id,
         data={"purchase_id": str(sp.id), "user_id": str(user_id), "course_id": str(sp.offering.course_id)},
     )
 
@@ -91,12 +91,7 @@ def allocate_seat(request, seat_purchase_id, user_id) -> SeatAllocation:
 
 @transaction.atomic
 def release_seat(request, allocation_id, reason="") -> SeatAllocation:
-    alloc = (
-        SeatAllocation.objects
-        .select_for_update()
-        .filter(pk=allocation_id)
-        .first()
-    )
+    alloc = SeatAllocation.objects.select_for_update().filter(pk=allocation_id).first()
     if alloc is None:
         raise ServiceError("allocation_not_found", "Seat allocation not found.", status=404)
     if alloc.status not in (SeatAllocation.Status.ALLOCATED, SeatAllocation.Status.ACTIVE):
@@ -106,6 +101,7 @@ def release_seat(request, allocation_id, reason="") -> SeatAllocation:
 
     if alloc.enrollment_id is not None:
         from apps.learning.models import Enrollment
+
         Enrollment.objects.filter(pk=alloc.enrollment_id).update(status="revoked")
 
     alloc.status = SeatAllocation.Status.REVOKED
@@ -124,7 +120,10 @@ def release_seat(request, allocation_id, reason="") -> SeatAllocation:
     )
 
     audit_request(
-        request, "seat_released", "seat_allocation", alloc.id,
+        request,
+        "seat_released",
+        "seat_allocation",
+        alloc.id,
         data={"user_id": str(alloc.user_id), "reason": reason},
     )
 
@@ -134,8 +133,7 @@ def release_seat(request, allocation_id, reason="") -> SeatAllocation:
 @transaction.atomic
 def reassign_seat(request, allocation_id, new_user_id, reason="") -> SeatAllocation:
     old_alloc = (
-        SeatAllocation.objects
-        .select_for_update()
+        SeatAllocation.objects.select_for_update()
         .select_related("seat_purchase__offering")
         .filter(pk=allocation_id)
         .first()
@@ -143,7 +141,9 @@ def reassign_seat(request, allocation_id, new_user_id, reason="") -> SeatAllocat
     if old_alloc is None:
         raise ServiceError("allocation_not_found", "Seat allocation not found.", status=404)
     if old_alloc.status not in (SeatAllocation.Status.ALLOCATED, SeatAllocation.Status.ACTIVE):
-        raise ServiceError("not_reassignable", "Only allocated or active seats can be reassigned.", status=400)
+        raise ServiceError(
+            "not_reassignable", "Only allocated or active seats can be reassigned.", status=400
+        )
 
     sp = SeatPurchase.objects.select_for_update().get(pk=old_alloc.seat_purchase_id)
     now = timezone.now()
@@ -151,6 +151,7 @@ def reassign_seat(request, allocation_id, new_user_id, reason="") -> SeatAllocat
 
     if old_alloc.enrollment_id is not None:
         from apps.learning.models import Enrollment
+
         Enrollment.objects.filter(pk=old_alloc.enrollment_id).update(status="revoked")
 
     old_alloc.status = SeatAllocation.Status.RELEASED
@@ -159,17 +160,15 @@ def reassign_seat(request, allocation_id, new_user_id, reason="") -> SeatAllocat
     old_alloc.release_reason = reason or f"Reassigned to user {new_user_id}"
     old_alloc.save(update_fields=["status", "released_at", "released_by", "release_reason", "updated_at"])
 
-    member = (
-        OrgMember.objects
-        .filter(org_id=sp.org_id, user_id=new_user_id, removed_at__isnull=True)
-        .first()
-    )
+    member = OrgMember.objects.filter(org_id=sp.org_id, user_id=new_user_id, removed_at__isnull=True).first()
     if member is None:
         raise ServiceError("not_a_member", "New user is not an active member of this company.", status=400)
 
     existing = sp.allocations.filter(user_id=new_user_id).filter(ACTIVE_ALLOC).first()
     if existing is not None:
-        raise ServiceError("already_allocated", "New user already has an active seat from this purchase.", status=409)
+        raise ServiceError(
+            "already_allocated", "New user already has an active seat from this purchase.", status=409
+        )
 
     new_alloc = SeatAllocation.objects.create(
         org_id=sp.org_id,
@@ -206,7 +205,10 @@ def reassign_seat(request, allocation_id, new_user_id, reason="") -> SeatAllocat
     )
 
     audit_request(
-        request, "seat_reassigned", "seat_allocation", new_alloc.id,
+        request,
+        "seat_reassigned",
+        "seat_allocation",
+        new_alloc.id,
         data={
             "old_allocation_id": str(old_alloc.id),
             "old_user_id": str(old_user_id),
@@ -232,8 +234,7 @@ def seat_inventory(org_id, offering_id=None) -> dict:
         oid = row["offering_id"]
         purchased = row["total_purchased"] or 0
         allocated = (
-            SeatAllocation.objects
-            .filter(seat_purchase__offering_id=oid, seat_purchase__org_id=org_id)
+            SeatAllocation.objects.filter(seat_purchase__offering_id=oid, seat_purchase__org_id=org_id)
             .filter(ACTIVE_ALLOC)
             .count()
         )

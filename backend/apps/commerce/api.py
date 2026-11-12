@@ -19,7 +19,6 @@ from core.money import request_currency
 from core.permissions import OrgRole, org_scope
 
 from . import gateway, services, webhooks
-from .token_api import router as token_router
 from .models import (
     Addon,
     CartItem,
@@ -55,6 +54,7 @@ from .schemas import (
     WishlistOut,
     WishlistToggleOut,
 )
+from .token_api import router as token_router
 
 router = Router(tags=["commerce"])
 router.add_router("/tokens", token_router)

@@ -57,7 +57,8 @@ def handle_webhook(payload: bytes, signature: str, timestamp: str) -> str:
         with tenant_context(staff=True):
             _dispatch(zoom_event, data)
             ZoomEvent.objects.filter(pk=zoom_event.pk).update(
-                processed_at=timezone.now(), error="",
+                processed_at=timezone.now(),
+                error="",
             )
     except Exception as exc:
         log.exception("Zoom event %s failed", dedupe_key)
@@ -71,4 +72,5 @@ def _dispatch(zoom_event: ZoomEvent, data: dict) -> None:
     event_type = data.get("event", "")
     if event_type in ("meeting.participant_joined", "meeting.participant_left"):
         from .attendance import process_participant_event
+
         process_participant_event(zoom_event, data)

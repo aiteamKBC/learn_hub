@@ -44,7 +44,10 @@ def set_policy(request, org_id, action: str, notes: str = "") -> DeparturePolicy
         },
     )
     audit_request(
-        request, "departure_policy_set", "departure_policy", policy.id,
+        request,
+        "departure_policy_set",
+        "departure_policy",
+        policy.id,
         data={"action": action, "org_id": str(org_id)},
     )
     return policy
@@ -55,9 +58,9 @@ def apply_departure(request, org_id, user_id) -> dict:
     policy_action = get_or_default_policy(org_id)
 
     active_allocs = list(
-        SeatAllocation.objects
-        .select_for_update()
-        .filter(org_id=org_id, user_id=user_id, status__in=["allocated", "active"])
+        SeatAllocation.objects.select_for_update().filter(
+            org_id=org_id, user_id=user_id, status__in=["allocated", "active"]
+        )
     )
 
     if not active_allocs:
@@ -74,6 +77,7 @@ def apply_departure(request, org_id, user_id) -> dict:
         elif policy_action == DeparturePolicy.Action.PRESERVE_COMPLETED:
             if alloc.enrollment_id:
                 from apps.learning.models import Enrollment
+
                 enrollment = Enrollment.objects.filter(pk=alloc.enrollment_id).first()
                 if enrollment and enrollment.status == "completed":
                     preserved += 1
@@ -85,10 +89,16 @@ def apply_departure(request, org_id, user_id) -> dict:
             preserved += 1
 
     audit_request(
-        request, "departure_applied", "org_member", None,
+        request,
+        "departure_applied",
+        "org_member",
+        None,
         data={
-            "org_id": str(org_id), "user_id": str(user_id),
-            "policy": policy_action, "revoked": revoked, "preserved": preserved,
+            "org_id": str(org_id),
+            "user_id": str(user_id),
+            "policy": policy_action,
+            "revoked": revoked,
+            "preserved": preserved,
         },
     )
 
@@ -100,6 +110,7 @@ def _revoke_allocation(alloc: SeatAllocation, request) -> None:
 
     if alloc.enrollment_id:
         from apps.learning.models import Enrollment
+
         Enrollment.objects.filter(pk=alloc.enrollment_id).update(status="revoked")
 
     alloc.status = SeatAllocation.Status.REVOKED
@@ -109,6 +120,7 @@ def _revoke_allocation(alloc: SeatAllocation, request) -> None:
     alloc.save(update_fields=["status", "released_at", "released_by", "release_reason", "updated_at"])
 
     from .models import AllocationEvent
+
     AllocationEvent.objects.create(
         org_id=alloc.org_id,
         allocation=alloc,

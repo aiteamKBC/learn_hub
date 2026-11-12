@@ -46,9 +46,7 @@ def get_balance_detail(user) -> dict:
     qs = _balance_qs(user)
     total = qs.aggregate(t=Sum("remaining"))["t"] or 0
     expiring_soon = (
-        qs.filter(expires_at__isnull=False, expires_at__lte=soon)
-        .aggregate(t=Sum("remaining"))["t"]
-        or 0
+        qs.filter(expires_at__isnull=False, expires_at__lte=soon).aggregate(t=Sum("remaining"))["t"] or 0
     )
     return {
         "balance": total,
@@ -164,9 +162,7 @@ def spend_tokens(
 
     available = sum(g.remaining for g in grants)
     if available < tokens:
-        raise InsufficientTokens(
-            f"Need {tokens} tokens but only {available} available."
-        )
+        raise InsufficientTokens(f"Need {tokens} tokens but only {available} available.")
 
     to_consume = tokens
     cost_parts = []
@@ -185,9 +181,9 @@ def spend_tokens(
     if cost_parts:
         total_qty = sum(q for q, _ in cost_parts)
         if total_qty > 0:
-            weighted_cost = sum(
-                Decimal(str(q)) * Decimal(str(c)) for q, c in cost_parts
-            ) / Decimal(str(total_qty))
+            weighted_cost = sum(Decimal(str(q)) * Decimal(str(c)) for q, c in cost_parts) / Decimal(
+                str(total_qty)
+            )
             weighted_cost = weighted_cost.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
 
     spend = TokenSpend.objects.create(
@@ -252,9 +248,7 @@ def admin_adjust(*, user, amount: int, note: str, actor, request=None):
         to_remove = abs(amount)
         balance = get_balance(user)
         if balance < to_remove:
-            raise InsufficientTokens(
-                f"Cannot remove {to_remove} tokens; balance is {balance}."
-            )
+            raise InsufficientTokens(f"Cannot remove {to_remove} tokens; balance is {balance}.")
 
         grants = list(
             TokenGrant.objects.select_for_update()

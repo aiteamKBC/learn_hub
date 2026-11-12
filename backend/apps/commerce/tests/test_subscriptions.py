@@ -13,15 +13,18 @@ from core.tests.base import SchemaTransactionTestCase
 
 
 class UnlimitedSubscriptionTest(SchemaTransactionTestCase):
-
     def setUp(self):
         tag = uuid.uuid4().hex[:8]
         with tenant_context(user_id=None, staff=True):
             self.user = User.objects.create_user(
-                f"sub-{tag}@learnhub-demo.com", "test123", is_staff=False,
+                f"sub-{tag}@learnhub-demo.com",
+                "test123",
+                is_staff=False,
             )
             self.staff = User.objects.create_user(
-                f"sub-staff-{tag}@learnhub-demo.com", "test123", is_staff=True,
+                f"sub-staff-{tag}@learnhub-demo.com",
+                "test123",
+                is_staff=True,
             )
             self._setup_catalog(tag)
             self._setup_plan(tag)
@@ -30,16 +33,26 @@ class UnlimitedSubscriptionTest(SchemaTransactionTestCase):
         from apps.catalog.models import Category, Course, CourseVersion, Lecture, Section
 
         self.category = Category.objects.create(
-            slug=f"sub-cat-{tag}", name=f"SubCat {tag}", sort_order=0,
+            slug=f"sub-cat-{tag}",
+            name=f"SubCat {tag}",
+            sort_order=0,
         )
         self.course = Course.objects.create(
-            ownership="platform", status="published", created_by=self.staff,
-            category=self.category, slug=f"sub-c1-{tag}", title=f"Sub Course {tag}",
+            ownership="platform",
+            status="published",
+            created_by=self.staff,
+            category=self.category,
+            slug=f"sub-c1-{tag}",
+            title=f"Sub Course {tag}",
             in_subscription=True,
         )
         self.course_excluded = Course.objects.create(
-            ownership="platform", status="published", created_by=self.staff,
-            category=self.category, slug=f"sub-c2-{tag}", title=f"Excluded Course {tag}",
+            ownership="platform",
+            status="published",
+            created_by=self.staff,
+            category=self.category,
+            slug=f"sub-c2-{tag}",
+            title=f"Excluded Course {tag}",
             in_subscription=False,
         )
         v = CourseVersion.objects.create(course=self.course, number=1, status="published")
@@ -50,29 +63,45 @@ class UnlimitedSubscriptionTest(SchemaTransactionTestCase):
         self.course_excluded.save(update_fields=["live_version"])
         sec = Section.objects.create(version=v, title="S1", position=0)
         self.lecture = Lecture.objects.create(
-            version=v, section=sec, lecture_key=uuid.uuid4(),
-            kind="video", title="L1", position=0,
+            version=v,
+            section=sec,
+            lecture_key=uuid.uuid4(),
+            kind="video",
+            title="L1",
+            position=0,
         )
         self.lecture_excluded = Lecture.objects.create(
-            version=v, section=sec, lecture_key=uuid.uuid4(),
-            kind="video", title="L2 excluded", position=1,
+            version=v,
+            section=sec,
+            lecture_key=uuid.uuid4(),
+            kind="video",
+            title="L2 excluded",
+            position=1,
             excluded_from_subscription=True,
         )
 
     def _setup_plan(self, tag):
         self.plan = Plan.objects.create(
-            code=f"unlimited-{tag}", name=f"Unlimited {tag}",
-            audience="personal", kind="unlimited_b2c",
-            interval="month", trial_days=7, is_active=True,
+            code=f"unlimited-{tag}",
+            name=f"Unlimited {tag}",
+            audience="personal",
+            kind="unlimited_b2c",
+            interval="month",
+            trial_days=7,
+            is_active=True,
         )
         PlanPrice.objects.create(
-            plan=self.plan, currency_id="GBP",
-            amount_minor=999, stripe_price_id=f"price_{tag}",
+            plan=self.plan,
+            currency_id="GBP",
+            amount_minor=999,
+            stripe_price_id=f"price_{tag}",
         )
 
     def _subscribe(self, status="active"):
         return Subscription.objects.create(
-            user=self.user, plan=self.plan, currency_id="GBP",
+            user=self.user,
+            plan=self.plan,
+            currency_id="GBP",
             status=status,
             current_period_end=timezone.now() + timezone.timedelta(days=30),
         )

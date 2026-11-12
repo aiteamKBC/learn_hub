@@ -20,7 +20,8 @@ from .models import Plan, PlanPrice, Subscription
 
 def list_unlimited_plans(currency_code: str) -> list[dict]:
     plans = Plan.objects.filter(
-        kind="unlimited_b2c", is_active=True,
+        kind="unlimited_b2c",
+        is_active=True,
     ).order_by("interval", "name")
 
     result = []
@@ -30,30 +31,35 @@ def list_unlimited_plans(currency_code: str) -> list[dict]:
             price_row = PlanPrice.objects.filter(plan=plan, currency_id="GBP").first()
         if price_row is None:
             continue
-        result.append({
-            "id": plan.id,
-            "code": plan.code,
-            "name": plan.name,
-            "interval": plan.interval,
-            "trial_days": plan.trial_days,
-            "description": plan.description,
-            "amount_minor": price_row.amount_minor,
-            "currency": price_row.currency_id,
-            "stripe_price_id": price_row.stripe_price_id,
-        })
+        result.append(
+            {
+                "id": plan.id,
+                "code": plan.code,
+                "name": plan.name,
+                "interval": plan.interval,
+                "trial_days": plan.trial_days,
+                "description": plan.description,
+                "amount_minor": price_row.amount_minor,
+                "currency": price_row.currency_id,
+                "stripe_price_id": price_row.stripe_price_id,
+            }
+        )
     return result
 
 
 def get_active_subscription(user) -> dict | None:
     now = timezone.now()
-    sub = Subscription.objects.filter(
-        user=user,
-        org__isnull=True,
-        plan__kind="unlimited_b2c",
-        status__in=("active", "trialing", "past_due"),
-    ).filter(
-        Q(current_period_end__isnull=True) | Q(current_period_end__gt=now)
-    ).select_related("plan").first()
+    sub = (
+        Subscription.objects.filter(
+            user=user,
+            org__isnull=True,
+            plan__kind="unlimited_b2c",
+            status__in=("active", "trialing", "past_due"),
+        )
+        .filter(Q(current_period_end__isnull=True) | Q(current_period_end__gt=now))
+        .select_related("plan")
+        .first()
+    )
     if sub is None:
         return None
     return {
@@ -68,7 +74,12 @@ def get_active_subscription(user) -> dict | None:
 
 
 def create_subscription_checkout(
-    *, user, plan_id: UUID, currency_code: str, success_url: str, cancel_url: str,
+    *,
+    user,
+    plan_id: UUID,
+    currency_code: str,
+    success_url: str,
+    cancel_url: str,
     customer_email: str | None = None,
 ) -> dict:
     from core.errors import ServiceError
@@ -78,12 +89,20 @@ def create_subscription_checkout(
         raise ServiceError("not_found", "Plan not found or inactive.", status=404)
 
     now = timezone.now()
-    existing = Subscription.objects.filter(
-        user=user, org__isnull=True, plan__kind="unlimited_b2c",
-        status__in=("active", "trialing"),
-    ).filter(Q(current_period_end__isnull=True) | Q(current_period_end__gt=now)).exists()
+    existing = (
+        Subscription.objects.filter(
+            user=user,
+            org__isnull=True,
+            plan__kind="unlimited_b2c",
+            status__in=("active", "trialing"),
+        )
+        .filter(Q(current_period_end__isnull=True) | Q(current_period_end__gt=now))
+        .exists()
+    )
     if existing:
-        raise ServiceError("already_subscribed", "You already have an active unlimited subscription.", status=409)
+        raise ServiceError(
+            "already_subscribed", "You already have an active unlimited subscription.", status=409
+        )
 
     price_row = PlanPrice.objects.filter(plan=plan, currency_id=currency_code).first()
     if price_row is None:
@@ -100,10 +119,12 @@ def create_subscription_checkout(
 
     session = gateway.create_checkout_session(
         mode="subscription",
-        line_items=[{
-            "price": price_row.stripe_price_id,
-            "quantity": 1,
-        }],
+        line_items=[
+            {
+                "price": price_row.stripe_price_id,
+                "quantity": 1,
+            }
+        ],
         metadata={
             "kind": "subscription",
             "id": str(sub.id),

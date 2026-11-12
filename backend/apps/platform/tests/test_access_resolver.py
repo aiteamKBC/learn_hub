@@ -16,7 +16,6 @@ Covers:
 
 from datetime import timedelta
 
-from django.db import connection
 from django.utils import timezone
 
 from apps.catalog import services as cat
@@ -63,8 +62,16 @@ class AccessBase(SchemaTransactionTestCase):
         return course, lectures
 
     # ---- factories
-    def _ent(self, *, user=None, scope="course", target_id=None, source="cash_package",
-             expires_at=None, revoked_at=None):
+    def _ent(
+        self,
+        *,
+        user=None,
+        scope="course",
+        target_id=None,
+        source="cash_package",
+        expires_at=None,
+        revoked_at=None,
+    ):
         user = user or self.sara
         with tenant_context(user_id=self.staff.id, staff=True):
             return ContentEntitlement.objects.create(
@@ -127,7 +134,9 @@ class ResolverPrecedenceTest(AccessBase):
         self._ent(source="full_course_token_unlock")
         with tenant_context(**self.SARA):
             d = access.resolve(self.sara, "course", self.course.id)
-            row = AccessAuditLog.objects.filter(user=self.sara, scope="course").order_by("-checked_at").first()
+            row = (
+                AccessAuditLog.objects.filter(user=self.sara, scope="course").order_by("-checked_at").first()
+            )
         self.assertTrue(d.allowed)
         self.assertEqual(d.reason_code, "full_course_token_unlock")
         self.assertIsNotNone(row)
@@ -156,8 +165,12 @@ class GrandfatheringTest(AccessBase):
     def test_pre_backfill_enrollment_allows_via_legacy_branch(self):
         with tenant_context(**self.SARA):
             Enrollment.objects.create(
-                user=self.sara, org=None, course=self.course, source="purchase",
-                enrolled_at=timezone.now(), status="active",
+                user=self.sara,
+                org=None,
+                course=self.course,
+                source="purchase",
+                enrolled_at=timezone.now(),
+                status="active",
             )
             # No ContentEntitlement exists at this point.
             self.assertFalse(ContentEntitlement.objects.filter(user=self.sara).exists())
@@ -168,14 +181,22 @@ class GrandfatheringTest(AccessBase):
     def test_backfill_coexists_with_enrollment_no_double_grant(self):
         with tenant_context(**self.SARA):
             enrol = Enrollment.objects.create(
-                user=self.sara, org=None, course=self.course, source="purchase",
-                enrolled_at=timezone.now(), status="active",
+                user=self.sara,
+                org=None,
+                course=self.course,
+                source="purchase",
+                enrolled_at=timezone.now(),
+                status="active",
             )
         # Simulate the backfill writing one row.
         with tenant_context(user_id=self.staff.id, staff=True):
             ContentEntitlement.objects.create(
-                user=self.sara, scope="course", target_id=self.course.id,
-                source="legacy_purchase", source_ref=enrol.id, source_ref_kind="enrollment",
+                user=self.sara,
+                scope="course",
+                target_id=self.course.id,
+                source="legacy_purchase",
+                source_ref=enrol.id,
+                source_ref_kind="enrollment",
                 granted_at=timezone.now(),
             )
         with tenant_context(**self.SARA):
@@ -194,14 +215,16 @@ class B2BIsolationTest(AccessBase):
         with tenant_context(org_id=acme.id, user_id=self.bob.id):
             OrgMember.objects.create(org=acme, user=self.sara, role="learner", joined_at=timezone.now())
             Enrollment.objects.create(
-                user=self.sara, org=acme, course=self.course, source="organization",
-                enrolled_at=timezone.now(), status="active",
+                user=self.sara,
+                org=acme,
+                course=self.course,
+                source="organization",
+                enrolled_at=timezone.now(),
+                status="active",
             )
         # (a) B2B path still works — company enrolment row exists.
         with tenant_context(org_id=acme.id, user_id=self.sara.id):
-            self.assertTrue(
-                Enrollment.objects.filter(user=self.sara, org=acme, course=self.course).exists()
-            )
+            self.assertTrue(Enrollment.objects.filter(user=self.sara, org=acme, course=self.course).exists())
         # (b) No personal ContentEntitlement was ever written for the B2B assignment.
         self.assertEqual(
             ContentEntitlement.objects.filter(user=self.sara).count(),
@@ -220,12 +243,14 @@ class RLSTest(AccessBase):
         self._ent(user=self.sara, source="cash_package")
         with tenant_context(**self.SARA):
             self.assertEqual(
-                ContentEntitlement.objects.filter(user=self.sara).count(), 1,
+                ContentEntitlement.objects.filter(user=self.sara).count(),
+                1,
                 "Owner should see their own row",
             )
         with tenant_context(**self.BOB):
             self.assertEqual(
-                ContentEntitlement.objects.filter(user=self.sara).count(), 0,
+                ContentEntitlement.objects.filter(user=self.sara).count(),
+                0,
                 "RLS must hide another user's ContentEntitlement",
             )
 

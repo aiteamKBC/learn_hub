@@ -22,7 +22,9 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--host-email", required=True, help="Existing Microsoft 365 host/login email")
         parser.add_argument("--learner-email", required=True, help="Existing learner/login email")
-        parser.add_argument("--password", default="DemoPass!2026", help="Password only for newly-created local users")
+        parser.add_argument(
+            "--password", default="DemoPass!2026", help="Password only for newly-created local users"
+        )
         parser.add_argument("--start-in-minutes", type=int, default=20)
 
     def handle(self, *args, **opts):
@@ -31,8 +33,12 @@ class Command(BaseCommand):
         if host_email == learner_email:
             raise CommandError("Use two different email addresses for the host and learner.")
         User = get_user_model()
-        host, host_new = User.objects.get_or_create(email=host_email, defaults={"full_name": "Teams Demo Host"})
-        learner, learner_new = User.objects.get_or_create(email=learner_email, defaults={"full_name": "Teams Demo Learner"})
+        host, host_new = User.objects.get_or_create(
+            email=host_email, defaults={"full_name": "Teams Demo Host"}
+        )
+        learner, learner_new = User.objects.get_or_create(
+            email=learner_email, defaults={"full_name": "Teams Demo Learner"}
+        )
         for user, is_new in ((host, host_new), (learner, learner_new)):
             if is_new:
                 user.set_password(opts["password"])
@@ -62,12 +68,25 @@ class Command(BaseCommand):
 
         for user in (host, learner):
             Enrollment.objects.get_or_create(
-                user=user, course=course, org=None,
-                defaults={"source": Enrollment.Source.ADMIN_GRANT, "status": Enrollment.Status.ACTIVE,
-                          "enrolled_at": timezone.now()},
+                user=user,
+                course=course,
+                org=None,
+                defaults={
+                    "source": Enrollment.Source.ADMIN_GRANT,
+                    "status": Enrollment.Status.ACTIVE,
+                    "enrolled_at": timezone.now(),
+                },
             )
         self.stdout.write(self.style.SUCCESS(f"Ready: /learn/{course.slug}"))
-        self.stdout.write("Host: open Studio, edit ‘Teams live test session’, save it, then create the Teams meeting.")
-        self.stdout.write("Learner: the Teams join button appears exactly 15 minutes before the scheduled time.")
+        self.stdout.write(
+            "Host: open Studio, edit ‘Teams live test session’, save it, then create the Teams meeting."
+        )
+        self.stdout.write(
+            "Learner: the Teams join button appears exactly 15 minutes before the scheduled time."
+        )
         if host_new or learner_new:
-            self.stdout.write(self.style.WARNING("One or more local accounts were created with the supplied demo password; change it after testing."))
+            self.stdout.write(
+                self.style.WARNING(
+                    "One or more local accounts were created with the supplied demo password; change it after testing."
+                )
+            )

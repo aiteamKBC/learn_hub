@@ -12,16 +12,18 @@ class TokenPricingColumnsTests(SchemaTransactionTestCase):
     def setUp(self):
         self.staff = User.objects.create_user("s-tpc@learnhub-demo.com", "x", is_staff=True)
         with tenant_context(user_id=self.staff.id, staff=True):
-            self.tier, _ = PriceTier.objects.get_or_create(
-                name="Tier-TPC", defaults={"gbp_minor": 2000}
-            )
+            self.tier, _ = PriceTier.objects.get_or_create(name="Tier-TPC", defaults={"gbp_minor": 2000})
             VideoLibrary.objects.get_or_create(
-                environment="test", bunny_library_id=98,
+                environment="test",
+                bunny_library_id=98,
                 defaults={"name": "L-tpc", "cdn_hostname": "vz-tpc.test"},
             )
         self.course = cat.create_course(
-            title="TPC", slug="tpc", ownership="platform",
-            created_by=self.staff, owner_org_id=None,
+            title="TPC",
+            slug="tpc",
+            ownership="platform",
+            created_by=self.staff,
+            owner_org_id=None,
         )
         v = self.course.versions.get()
         sec = cat.add_section(version=v, title="S")
@@ -39,9 +41,13 @@ class TokenPricingColumnsTests(SchemaTransactionTestCase):
             self.course.cash_price_tier = self.tier
             self.course.full_course_token_price = 500
             self.course.token_pricing_mode = "auto_weighted"
-            self.course.save(update_fields=[
-                "cash_price_tier", "full_course_token_price", "token_pricing_mode",
-            ])
+            self.course.save(
+                update_fields=[
+                    "cash_price_tier",
+                    "full_course_token_price",
+                    "token_pricing_mode",
+                ]
+            )
             reloaded = Course.objects.get(pk=self.course.pk)
         self.assertEqual(reloaded.cash_price_tier_id, self.tier.id)
         self.assertEqual(reloaded.full_course_token_price, 500)
@@ -63,9 +69,13 @@ class TokenPricingColumnsTests(SchemaTransactionTestCase):
     def test_material_token_defaults(self):
         with tenant_context(user_id=self.staff.id, staff=True):
             from apps.catalog.models import MediaAsset
+
             asset = MediaAsset.objects.create(kind="document", uploaded_by=self.staff)
             mat = LectureResource.objects.create(
-                lecture=self.lec, asset=asset, title="pdf", position=0,
+                lecture=self.lec,
+                asset=asset,
+                title="pdf",
+                position=0,
             )
         self.assertIsNone(mat.token_price)
         self.assertFalse(mat.is_free_preview)

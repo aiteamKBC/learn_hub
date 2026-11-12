@@ -70,8 +70,11 @@ def _validate_courses(course_ids: list) -> tuple[set, dict]:
     Draft/unpublished courses can't be sold, so they must not go in a sellable bundle."""
     ids = set(
         Course.objects.filter(
-            pk__in=course_ids, owner_org_id__isnull=True, deleted_at__isnull=True,
-            status="published", live_version__isnull=False,
+            pk__in=course_ids,
+            owner_org_id__isnull=True,
+            deleted_at__isnull=True,
+            status="published",
+            live_version__isnull=False,
         ).values_list("id", flat=True)
     )
     if course_ids and not ids:
@@ -118,10 +121,15 @@ def _row(pkg: CashPackage) -> dict:
         .values_list("course_id", "course__title", "course__slug", "snapshot_gbp_minor")
     )
     return {
-        "id": pkg.id, "name": pkg.name, "slug": pkg.slug, "description": pkg.description,
-        "price_tier_id": pkg.price_tier_id, "price_gbp_minor": pkg.price_tier.gbp_minor,
+        "id": pkg.id,
+        "name": pkg.name,
+        "slug": pkg.slug,
+        "description": pkg.description,
+        "price_tier_id": pkg.price_tier_id,
+        "price_gbp_minor": pkg.price_tier.gbp_minor,
         "courses_cash_total_minor": sum(snap for *_, snap in courses),
-        "is_active": pkg.is_active, "course_count": len(courses),
+        "is_active": pkg.is_active,
+        "course_count": len(courses),
         "courses": [{"id": c, "title": t, "slug": s} for c, t, s, _ in courses],
     }
 
@@ -159,8 +167,13 @@ def create_package(request, body: ConsolePackageIn):
         created_by=request.user,
     )
     _set_courses(pkg, ids, snapshots)
-    audit_request(request, "cash_package.create", "cash_package", pkg.id,
-                  {"name": pkg.name, "price_tier_id": str(tier.id), "course_ids": len(ids)})
+    audit_request(
+        request,
+        "cash_package.create",
+        "cash_package",
+        pkg.id,
+        {"name": pkg.name, "price_tier_id": str(tier.id), "course_ids": len(ids)},
+    )
     return {"id": pkg.id}
 
 
@@ -172,7 +185,11 @@ def update_package(request, package_id: UUID, body: ConsolePackagePatch):
     sent = body.dict(exclude_unset=True)
 
     # Work out the resulting tier + course set, then guard the price BEFORE saving anything.
-    tier = get_object_or_404(PriceTier, pk=sent["price_tier_id"]) if sent.get("price_tier_id") else pkg.price_tier
+    tier = (
+        get_object_or_404(PriceTier, pk=sent["price_tier_id"])
+        if sent.get("price_tier_id")
+        else pkg.price_tier
+    )
     if sent.get("course_ids") is not None:
         ids, snapshots = _validate_courses(sent["course_ids"])
     else:
@@ -189,8 +206,13 @@ def update_package(request, package_id: UUID, body: ConsolePackagePatch):
         pkg.is_active = sent["is_active"]
     pkg.save()
     _set_courses(pkg, ids, snapshots)  # also refreshes snapshots to today's prices
-    audit_request(request, "cash_package.update", "cash_package", pkg.id,
-                  {k: (len(v) if isinstance(v, list) else str(v)) for k, v in sent.items()})
+    audit_request(
+        request,
+        "cash_package.update",
+        "cash_package",
+        pkg.id,
+        {k: (len(v) if isinstance(v, list) else str(v)) for k, v in sent.items()},
+    )
     return {"ok": True}
 
 

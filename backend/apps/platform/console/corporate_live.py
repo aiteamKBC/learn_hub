@@ -6,22 +6,21 @@ from uuid import UUID
 from django.shortcuts import get_object_or_404
 from ninja import Field, Schema
 
+from apps.corporate import live as live_svc
+from apps.corporate import scheduling as sched_svc
 from apps.corporate.models import (
     CohortCompany,
     LiveCohort,
     Session,
     TrainingRequest,
     Tutor,
-    TutorAssignment,
 )
-from apps.corporate import live as live_svc
-from apps.corporate import scheduling as sched_svc
 
 from ..services import audit_request
 from .common import ConsoleIdOut, ConsoleOkOut, clamp, router, staff
 
-
 # ---- Schemas ----
+
 
 class ConsoleTrainingRequestOut(Schema):
     id: UUID
@@ -159,9 +158,16 @@ class ConsoleAssignTutorIn(Schema):
 
 # ---- Training Requests ----
 
+
 @router.get("/corporate/requests", response=list[ConsoleTrainingRequestOut])
-def list_requests(request, org_id: UUID | None = None, status: str | None = None,
-                  course_id: UUID | None = None, limit: int = 50, offset: int = 0):
+def list_requests(
+    request,
+    org_id: UUID | None = None,
+    status: str | None = None,
+    course_id: UUID | None = None,
+    limit: int = 50,
+    offset: int = 0,
+):
     staff(request)
     qs = TrainingRequest.objects.select_related("org", "course", "requester").order_by("-created_at")
     if org_id:
@@ -173,14 +179,19 @@ def list_requests(request, org_id: UUID | None = None, status: str | None = None
     items = qs[offset : offset + clamp(limit)]
     return [
         {
-            "id": r.id, "org_id": r.org_id, "org_name": r.org.name,
-            "course_id": r.course_id, "course_title": r.course.title,
+            "id": r.id,
+            "org_id": r.org_id,
+            "org_name": r.org.name,
+            "course_id": r.course_id,
+            "course_title": r.course.title,
             "requester_email": r.requester.email,
             "requested_seats": r.requested_seats,
             "preferred_intake": r.preferred_intake,
             "preferred_delivery_mode": r.preferred_delivery_mode,
-            "status": r.status, "admin_notes": r.admin_notes,
-            "status_label": r.status_label, "created_at": r.created_at,
+            "status": r.status,
+            "admin_notes": r.admin_notes,
+            "status_label": r.status_label,
+            "created_at": r.created_at,
         }
         for r in items
     ]
@@ -209,9 +220,11 @@ def update_request(request, request_id: UUID, body: ConsoleRequestPatch):
 
 # ---- Cohorts ----
 
+
 @router.get("/corporate/cohorts", response=list[ConsoleCohortOut])
-def list_cohorts(request, status: str | None = None, course_id: UUID | None = None,
-                 limit: int = 50, offset: int = 0):
+def list_cohorts(
+    request, status: str | None = None, course_id: UUID | None = None, limit: int = 50, offset: int = 0
+):
     staff(request)
     qs = LiveCohort.objects.select_related("course").order_by("-created_at")
     if status:
@@ -221,13 +234,20 @@ def list_cohorts(request, status: str | None = None, course_id: UUID | None = No
     items = qs[offset : offset + clamp(limit)]
     return [
         {
-            "id": c.id, "course_id": c.course_id, "course_title": c.course.title,
-            "title": c.title, "intake": c.intake, "status": c.status,
-            "delivery_mode": c.delivery_mode, "min_learners": c.min_learners,
-            "max_learners": c.max_learners, "current_seats": c.current_seats,
+            "id": c.id,
+            "course_id": c.course_id,
+            "course_title": c.course.title,
+            "title": c.title,
+            "intake": c.intake,
+            "status": c.status,
+            "delivery_mode": c.delivery_mode,
+            "min_learners": c.min_learners,
+            "max_learners": c.max_learners,
+            "current_seats": c.current_seats,
             "scheduled_start": str(c.scheduled_start) if c.scheduled_start else None,
             "scheduled_end": str(c.scheduled_end) if c.scheduled_end else None,
-            "notes": c.notes, "created_at": c.created_at,
+            "notes": c.notes,
+            "created_at": c.created_at,
         }
         for c in items
     ]
@@ -237,9 +257,14 @@ def list_cohorts(request, status: str | None = None, course_id: UUID | None = No
 def create_cohort(request, body: ConsoleCohortIn):
     staff(request)
     cohort = live_svc.create_cohort(
-        request, course_id=body.course_id, delivery_mode=body.delivery_mode,
-        max_learners=body.max_learners, min_learners=body.min_learners,
-        intake=body.intake, title=body.title, notes=body.notes,
+        request,
+        course_id=body.course_id,
+        delivery_mode=body.delivery_mode,
+        max_learners=body.max_learners,
+        min_learners=body.min_learners,
+        intake=body.intake,
+        title=body.title,
+        notes=body.notes,
     )
     return {"id": cohort.id}
 
@@ -249,8 +274,17 @@ def update_cohort(request, cohort_id: UUID, body: ConsoleCohortPatch):
     staff(request)
     cohort = get_object_or_404(LiveCohort, pk=cohort_id)
     fields = []
-    for k in ("title", "intake", "delivery_mode", "min_learners", "max_learners",
-              "scheduled_start", "scheduled_end", "notes", "status"):
+    for k in (
+        "title",
+        "intake",
+        "delivery_mode",
+        "min_learners",
+        "max_learners",
+        "scheduled_start",
+        "scheduled_end",
+        "notes",
+        "status",
+    ):
         v = getattr(body, k, None)
         if v is not None:
             setattr(cohort, k, v)
@@ -273,7 +307,11 @@ def confirm_cohort(request, cohort_id: UUID):
 def add_company(request, cohort_id: UUID, body: ConsoleAddCompanyIn):
     staff(request)
     cc = live_svc.add_company_to_cohort(
-        request, cohort_id, body.org_id, body.seats, body.training_request_id,
+        request,
+        cohort_id,
+        body.org_id,
+        body.seats,
+        body.training_request_id,
     )
     return {"id": cc.id}
 
@@ -291,9 +329,13 @@ def list_cohort_companies(request, cohort_id: UUID):
     qs = CohortCompany.objects.filter(cohort_id=cohort_id).select_related("org")
     return [
         {
-            "id": cc.id, "org_id": cc.org_id, "org_name": cc.org.name,
-            "cohort_id": cc.cohort_id, "approved_seats": cc.approved_seats,
-            "status": cc.status, "payment_deadline": cc.payment_deadline,
+            "id": cc.id,
+            "org_id": cc.org_id,
+            "org_name": cc.org.name,
+            "cohort_id": cc.cohort_id,
+            "approved_seats": cc.approved_seats,
+            "status": cc.status,
+            "payment_deadline": cc.payment_deadline,
         }
         for cc in qs
     ]
@@ -301,17 +343,24 @@ def list_cohort_companies(request, cohort_id: UUID):
 
 # ---- Sessions ----
 
+
 @router.get("/corporate/cohorts/{cohort_id}/sessions", response=list[ConsoleSessionOut])
 def list_sessions(request, cohort_id: UUID):
     staff(request)
     qs = Session.objects.filter(cohort_id=cohort_id).order_by("sequence")
     return [
         {
-            "id": s.id, "cohort_id": s.cohort_id, "sequence": s.sequence,
-            "title": s.title, "scheduled_at": s.scheduled_at,
-            "duration_min": s.duration_min, "delivery_mode": s.delivery_mode,
-            "location": s.location, "status": s.status,
-            "actual_start": s.actual_start, "actual_end": s.actual_end,
+            "id": s.id,
+            "cohort_id": s.cohort_id,
+            "sequence": s.sequence,
+            "title": s.title,
+            "scheduled_at": s.scheduled_at,
+            "duration_min": s.duration_min,
+            "delivery_mode": s.delivery_mode,
+            "location": s.location,
+            "status": s.status,
+            "actual_start": s.actual_start,
+            "actual_end": s.actual_end,
         }
         for s in qs
     ]
@@ -321,9 +370,14 @@ def list_sessions(request, cohort_id: UUID):
 def add_session(request, cohort_id: UUID, body: ConsoleSessionIn):
     staff(request)
     session = sched_svc.add_session(
-        request, cohort_id, sequence=body.sequence, scheduled_at=body.scheduled_at,
-        duration_min=body.duration_min, delivery_mode=body.delivery_mode,
-        title=body.title, location=body.location,
+        request,
+        cohort_id,
+        sequence=body.sequence,
+        scheduled_at=body.scheduled_at,
+        duration_min=body.duration_min,
+        delivery_mode=body.delivery_mode,
+        title=body.title,
+        location=body.location,
     )
     return {"id": session.id}
 
@@ -344,6 +398,7 @@ def cancel_session(request, session_id: UUID):
 
 # ---- Tutors ----
 
+
 @router.get("/corporate/tutors", response=list[ConsoleTutorOut])
 def list_tutors(request, status: str | None = None, limit: int = 50, offset: int = 0):
     staff(request)
@@ -353,12 +408,16 @@ def list_tutors(request, status: str | None = None, limit: int = 50, offset: int
     items = qs[offset : offset + clamp(limit)]
     return [
         {
-            "id": t.id, "user_id": t.user_id,
+            "id": t.id,
+            "user_id": t.user_id,
             "user_email": t.user.email,
             "user_name": getattr(t.user, "full_name", t.user.email),
-            "type": t.type, "status": t.status, "bio": t.bio,
+            "type": t.type,
+            "status": t.status,
+            "bio": t.bio,
             "specializations": t.specializations,
-            "approved_at": t.approved_at, "created_at": t.created_at,
+            "approved_at": t.approved_at,
+            "created_at": t.created_at,
         }
         for t in items
     ]
@@ -368,7 +427,11 @@ def list_tutors(request, status: str | None = None, limit: int = 50, offset: int
 def create_tutor(request, body: ConsoleTutorIn):
     staff(request)
     tutor = sched_svc.register_tutor(
-        request, body.user_id, body.type, bio=body.bio, specializations=body.specializations,
+        request,
+        body.user_id,
+        body.type,
+        bio=body.bio,
+        specializations=body.specializations,
     )
     return {"id": tutor.id}
 

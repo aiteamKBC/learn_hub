@@ -93,10 +93,12 @@ function SwitchRow({ def, value, onChange }: { def: SettingDef; value: boolean; 
 }
 
 function Editor({ def, value, onChange }: { def: SettingDef; value: SettingValue; onChange: (v: SettingValue) => void }) {
+  // Keep this hook above every return: the editor can switch between a boolean
+  // and a currency setting while the component instance stays mounted.
+  const currencies = useCurrencies().data ?? []
   if (def.kind === 'bool') return <SwitchRow def={def} value={!!value} onChange={onChange} />
   const hint = HELP[def.key] ?? (def.kind === 'int' && def.min != null && def.max != null ? `Between ${def.min} and ${def.max}.` : undefined)
   const labels = choiceLabels(def.key)
-  const currencies = useCurrencies().data ?? []
   const currencyList = currencies.some((c) => c.code === value) ? currencies : [{ code: String(value), name: String(value) }, ...currencies]
   return (
     <Field label={def.label} hint={hint}>

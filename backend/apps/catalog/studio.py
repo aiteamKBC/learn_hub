@@ -623,7 +623,9 @@ def create_teams_meeting(request, lecture_id: str):
     if lecture.kind != Lecture.Kind.LIVE_SESSION:
         raise ServiceError("not_live_session", "Teams meetings can only be added to a live session.")
     if not lecture.live_starts_at or not lecture.live_duration_min:
-        raise ServiceError("schedule_required", "Save a start time and duration before creating Teams meeting.")
+        raise ServiceError(
+            "schedule_required", "Save a start time and duration before creating Teams meeting."
+        )
     meeting = teams.create_meeting(lecture=lecture)
     services.update_lecture(
         lecture=lecture,

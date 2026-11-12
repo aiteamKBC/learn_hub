@@ -225,7 +225,9 @@ def publish_checklist(version: CourseVersion) -> list[str]:
         elif not cash_price.is_free and not course.full_course_token_price:
             for lec in lectures:
                 if not lec.is_preview and not lec.token_price:
-                    problems.append(f"Set a token price for lesson '{lec.title}', or mark it as a free preview.")
+                    problems.append(
+                        f"Set a token price for lesson '{lec.title}', or mark it as a free preview."
+                    )
     return problems
 
 
@@ -388,7 +390,9 @@ def _in_review(version: CourseVersion, verb: str) -> CourseVersion:
 def approve(*, version: CourseVersion, reviewer, notes: str = "") -> CourseVersion:
     version = _in_review(version, "approved")
     if problems := publish_checklist(version):
-        raise ServiceError("not_ready", "The course still has issues that must be fixed before approval.", details=problems)
+        raise ServiceError(
+            "not_ready", "The course still has issues that must be fixed before approval.", details=problems
+        )
     version.reviewed_by, version.reviewed_at, version.review_notes = reviewer, timezone.now(), notes
     version.save()
     version = _publish(version)
@@ -598,7 +602,8 @@ def update_lecture(*, lecture: Lecture, **changes) -> Lecture:
     # other URLs remain explicitly manual providers.
     if "live_join_url" in changes and "live_provider" not in changes:
         changes["live_provider"] = (
-            Lecture.LiveProvider.TEAMS if "teams.microsoft.com/" in (changes["live_join_url"] or "").lower()
+            Lecture.LiveProvider.TEAMS
+            if "teams.microsoft.com/" in (changes["live_join_url"] or "").lower()
             else Lecture.LiveProvider.MANUAL
         )
     if "video_id" in changes and changes["video_id"]:

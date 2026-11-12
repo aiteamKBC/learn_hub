@@ -12,7 +12,6 @@ from apps.commerce import wallet
 from apps.commerce.wallet import InsufficientTokens
 from core.errors import ServiceError
 
-from ..services import audit_request
 from .common import ConsoleOkOut, router, staff
 
 User = get_user_model()
@@ -65,9 +64,7 @@ def wallet_detail(request, user_id: UUID):
 
     from apps.commerce.models import TokenGrant
 
-    grants = list(
-        TokenGrant.objects.filter(user=user).order_by("-granted_at")[:50]
-    )
+    grants = list(TokenGrant.objects.filter(user=user).order_by("-granted_at")[:50])
     return {
         "balance": {
             "user_id": user.id,

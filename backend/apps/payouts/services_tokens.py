@@ -15,18 +15,18 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from django.utils import timezone
 
-from apps.catalog.models import Course, CourseInstructor
+from apps.catalog.models import Course
 from core.tenancy import tenant_context
 
-from .models import CommissionRule, Earning, RevenueShare
+from .models import Earning, RevenueShare
 from .services import (
     _rates,
     _weights,
     active_rules,
     hold_days,
     instructor_fees,
-    match_rule,
     marketplace_rate,
+    match_rule,
 )
 
 C = RevenueShare.Channel
@@ -49,9 +49,7 @@ def record_token_spend_earning(spend_id) -> int:
 
         unit_cost = spend.weighted_unit_cost_gbp or Decimal("0")
         gross_gbp = int(
-            (Decimal(str(spend.tokens_total)) * unit_cost).quantize(
-                Decimal("1"), rounding=ROUND_HALF_UP
-            )
+            (Decimal(str(spend.tokens_total)) * unit_cost).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
         )
         if gross_gbp <= 0:
             return 0
