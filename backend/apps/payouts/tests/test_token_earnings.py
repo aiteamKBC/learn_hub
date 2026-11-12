@@ -4,6 +4,7 @@ import uuid
 from decimal import Decimal
 
 from apps.catalog.models import Category, Course, CourseInstructor, CourseVersion
+from apps.commerce import wallet
 from apps.commerce.models import TokenSpend
 from apps.identity.models import User
 from apps.payouts.models import Earning, RevenueShare
@@ -96,13 +97,37 @@ class TokenSpendEarningTest(SchemaTransactionTestCase):
             record_token_spend_earning(self.spend.id)
             e = Earning.objects.get(token_spend=self.spend)
         self.assertEqual(e.share_bps, 7000)
-        self.assertEqual(e.amount_gbp_minor, 2)  # 4 * 7000 / 10000 = 2.8 → truncated to 2
+        self.assertEqual(e.amount_gbp_minor, 2)  # 4 * 7000 / 10000 = 2.8 â†’ truncated to 2
 
     def test_idempotent(self):
         with tenant_context(staff=True):
             record_token_spend_earning(self.spend.id)
             count = record_token_spend_earning(self.spend.id)
         self.assertEqual(count, 0)
+
+    def test_wallet_spend_records_earning_automatically(self):
+        with tenant_context(user_id=str(self.staff.id), staff=True):
+            wallet.grant_tokens(
+                user=self.learner,
+                source="pack",
+                amount=50,
+                unit_cost_gbp=Decimal("0.0800"),
+                actor=self.staff,
+            )
+        with tenant_context(user_id=str(self.learner.id), staff=True):
+            spend = wallet.spend_tokens(
+                user=self.learner,
+                scope="lecture",
+                target_id=uuid.uuid4(),
+                tokens=50,
+                course_id=self.course.id,
+                instructor_id=self.instructor.id,
+                actor=self.learner,
+            )
+        with tenant_context(staff=True):
+            earning = Earning.objects.get(token_spend=spend)
+        self.assertEqual(earning.user_id, self.instructor.id)
+        self.assertEqual(earning.share_bps, 7000)
 
     def test_no_earn_for_platform_course(self):
         with tenant_context(staff=True):
@@ -117,3 +142,4 @@ class TokenSpendEarningTest(SchemaTransactionTestCase):
             self.spend.save(update_fields=["weighted_unit_cost_gbp"])
             count = record_token_spend_earning(self.spend.id)
         self.assertEqual(count, 0)
+
