@@ -140,6 +140,7 @@ def create_coupon(*, percent_off: int, name: str, idempotency_key: str) -> str:
 
 # ---------------------------------------------------------------- Stripe Invoicing (B2B quotes)
 
+
 def create_customer(*, email: str, name: str, metadata: dict, idempotency_key: str) -> str:
     c = _client().v1.customers.create(
         params={"email": email, "name": name[:250], "metadata": metadata},
@@ -148,9 +149,16 @@ def create_customer(*, email: str, name: str, metadata: dict, idempotency_key: s
     return c.id
 
 
-def create_invoice(*, customer: str, metadata: dict, collection_method: str = "send_invoice",
-                   days_until_due: int = 30, currency: str | None = None,
-                   description: str | None = None, idempotency_key: str) -> dict:
+def create_invoice(
+    *,
+    customer: str,
+    metadata: dict,
+    collection_method: str = "send_invoice",
+    days_until_due: int = 30,
+    currency: str | None = None,
+    description: str | None = None,
+    idempotency_key: str,
+) -> dict:
     params: dict = {
         "customer": customer,
         "collection_method": collection_method,
@@ -163,20 +171,24 @@ def create_invoice(*, customer: str, metadata: dict, collection_method: str = "s
     if description:
         params["description"] = description[:500]
     inv = _client().v1.invoices.create(
-        params=params, options={"idempotency_key": idempotency_key},
+        params=params,
+        options={"idempotency_key": idempotency_key},
     )
     return {"id": inv.id, "status": inv.status, "hosted_invoice_url": inv.hosted_invoice_url or ""}
 
 
-def add_invoice_item(*, invoice_id: str, description: str, amount: int,
-                     currency: str, quantity: int = 1) -> str:
-    item = _client().v1.invoice_items.create(params={
-        "invoice": invoice_id,
-        "description": description[:500],
-        "unit_amount": amount,
-        "currency": currency.lower(),
-        "quantity": quantity,
-    })
+def add_invoice_item(
+    *, invoice_id: str, description: str, amount: int, currency: str, quantity: int = 1
+) -> str:
+    item = _client().v1.invoice_items.create(
+        params={
+            "invoice": invoice_id,
+            "description": description[:500],
+            "unit_amount": amount,
+            "currency": currency.lower(),
+            "quantity": quantity,
+        }
+    )
     return item.id
 
 

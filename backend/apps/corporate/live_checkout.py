@@ -24,12 +24,15 @@ def create_live_checkout(request, cohort_company_id) -> dict:
     # buyer sees, so it happens outside the atomic block that raises.
     org_id = getattr(request, "org_id", None)
     expired = CohortCompany.objects.filter(
-        pk=cohort_company_id, org_id=org_id,
+        pk=cohort_company_id,
+        org_id=org_id,
         status__in=[CohortCompany.Status.OFFERED, CohortCompany.Status.PENDING_PAY],
         payment_deadline__lte=timezone.now(),
     ).update(status=CohortCompany.Status.CANCELLED, updated_at=timezone.now())
     if expired:
-        raise ServiceError("deadline_passed", "The payment deadline has passed. Contact us to rebook.", status=410)
+        raise ServiceError(
+            "deadline_passed", "The payment deadline has passed. Contact us to rebook.", status=410
+        )
     return _create_live_checkout(request, cohort_company_id)
 
 
@@ -39,17 +42,12 @@ def _create_live_checkout(request, cohort_company_id) -> dict:
     if org_id is None:
         raise ServiceError("no_org", "Organization context required.", status=400)
 
-    member = (
-        OrgMember.objects
-        .filter(org_id=org_id, user_id=request.user.id, removed_at__isnull=True)
-        .first()
-    )
+    member = OrgMember.objects.filter(org_id=org_id, user_id=request.user.id, removed_at__isnull=True).first()
     if member is None or ROLE_RANK.get(OrgRole(member.role), -1) < ROLE_RANK[OrgRole.ADMIN]:
         raise ServiceError("forbidden", "Only company admins or owners may pay.", status=403)
 
     cc = (
-        CohortCompany.objects
-        .select_for_update()  # no join: it would lock and RLS-filter the joined table
+        CohortCompany.objects.select_for_update()  # no join: it would lock and RLS-filter the joined table
         .filter(pk=cohort_company_id, org_id=org_id)
         .first()
     )
@@ -58,14 +56,16 @@ def _create_live_checkout(request, cohort_company_id) -> dict:
     if cc.status not in (CohortCompany.Status.OFFERED, CohortCompany.Status.PENDING_PAY):
         raise ServiceError("not_payable", "This placement is not awaiting payment.", status=400)
 
-
     cohort = cc.cohort
     if cohort.status not in (LiveCohort.Status.CONFIRMED, LiveCohort.Status.PENDING_PAY):
         raise ServiceError("cohort_not_confirmed", "Cohort schedule is not confirmed yet.", status=400)
 
     from .models import CorporateOffering
+
     offering = CorporateOffering.objects.filter(
-        course=cohort.course, delivery_type="live", is_active=True,
+        course=cohort.course,
+        delivery_type="live",
+        is_active=True,
     ).first()
     if offering is None:
         raise ServiceError("no_offering", "No active live offering for this course.", status=404)
@@ -105,16 +105,18 @@ def _create_live_checkout(request, cohort_company_id) -> dict:
 
     session = gateway.create_checkout_session(
         mode="payment",
-        line_items=[{
-            "price_data": {
-                "currency": currency.lower(),
-                "unit_amount": unit_price,
-                "product_data": {
-                    "name": f"{cohort.course.title} — Live Training ({quantity} seats)",
+        line_items=[
+            {
+                "price_data": {
+                    "currency": currency.lower(),
+                    "unit_amount": unit_price,
+                    "product_data": {
+                        "name": f"{cohort.course.title} — Live Training ({quantity} seats)",
+                    },
                 },
-            },
-            "quantity": quantity,
-        }],
+                "quantity": quantity,
+            }
+        ],
         metadata={
             "kind": "corporate_live",
             "id": str(purchase.id),
@@ -133,7 +135,10 @@ def _create_live_checkout(request, cohort_company_id) -> dict:
     purchase.save(update_fields=["stripe_session_id", "updated_at"])
 
     audit_request(
-        request, "live_checkout_started", "seat_purchase", purchase.id,
+        request,
+        "live_checkout_started",
+        "seat_purchase",
+        purchase.id,
         data={"cohort_id": str(cohort.id), "seats": quantity, "total": total},
     )
 
@@ -143,6 +148,7 @@ def _create_live_checkout(request, cohort_company_id) -> dict:
 def fulfil_live_purchase(session: dict, meta: dict) -> None:
     """Called from webhook when corporate_live checkout completes."""
     from .fulfillment import fulfil_recorded_purchase
+
     fulfil_recorded_purchase(session, meta)
 
     cc_id = meta.get("cohort_company_id")
@@ -150,5 +156,6 @@ def fulfil_live_purchase(session: dict, meta: dict) -> None:
         # only the booking's current attempt confirms it (an older, replaced attempt
         # that still gets paid stays visible to staff as a paid purchase to refund)
         CohortCompany.objects.filter(pk=cc_id, status="pending_pay", seat_purchase_id=meta.get("id")).update(
-            status="paid", updated_at=timezone.now(),
+            status="paid",
+            updated_at=timezone.now(),
         )

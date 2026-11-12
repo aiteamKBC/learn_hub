@@ -2810,6 +2810,29 @@ export interface paths {
         patch: operations["apps_catalog_studio_update_lecture"];
         trace?: never;
     };
+    "/api/v1/studio/lectures/{lecture_id}/teams-meeting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Teams Meeting
+         * @description Create a Teams meeting for a saved live-session draft.
+         *
+         *     Course-edit permission is checked by ``_lecture``; the Graph organiser is always
+         *     the configured service account, never request input.
+         */
+        post: operations["apps_catalog_studio_create_teams_meeting"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/studio/quizzes/{quiz_id}": {
         parameters: {
             query?: never;
@@ -5674,6 +5697,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Packages */
+        get: operations["apps_platform_console_packages_list_packages"];
+        put?: never;
+        /** Create Package */
+        post: operations["apps_platform_console_packages_create_package"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/packages/{package_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Package
+         * @description Soft delete: deactivate so existing buyers keep their entitlements.
+         */
+        delete: operations["apps_platform_console_packages_delete_package"];
+        options?: never;
+        head?: never;
+        /** Update Package */
+        patch: operations["apps_platform_console_packages_update_package"];
+        trace?: never;
+    };
     "/api/v1/console/payouts/overview": {
         parameters: {
             query?: never;
@@ -7678,6 +7740,10 @@ export interface components {
             is_staff: boolean;
             /** Preferred Currency */
             preferred_currency: string;
+            /** Phone */
+            phone: string;
+            /** Country */
+            country: string;
             /** Is Instructor */
             is_instructor: boolean;
             /** Instructor Status */
@@ -7717,6 +7783,10 @@ export interface components {
             timezone?: string | null;
             /** Preferred Currency */
             preferred_currency?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Country */
+            country?: string | null;
         };
         /**
          * TotpQrOut
@@ -8244,6 +8314,15 @@ export interface components {
             /** Sections */
             sections: components["schemas"]["SectionOut"][];
             viewer: components["schemas"]["ViewerOut"];
+            /** Full Course Token Price */
+            full_course_token_price?: number | null;
+            /** Token Pricing Mode */
+            token_pricing_mode?: string | null;
+            /**
+             * In Subscription
+             * @default true
+             */
+            in_subscription: boolean;
         };
         /** InstructorBrief */
         InstructorBrief: {
@@ -8270,6 +8349,11 @@ export interface components {
         /** LectureOut */
         LectureOut: {
             /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
              * Key
              * Format: uuid
              */
@@ -8282,6 +8366,18 @@ export interface components {
             duration_sec: number;
             /** Is Preview */
             is_preview: boolean;
+            /** Token Price */
+            token_price?: number | null;
+            /**
+             * Is Free Preview
+             * @default false
+             */
+            is_free_preview: boolean;
+            /**
+             * Excluded From Subscription
+             * @default false
+             */
+            excluded_from_subscription: boolean;
         };
         /** SectionOut */
         SectionOut: {
@@ -8561,6 +8657,11 @@ export interface components {
             duration_min: number | null;
             /** Join Url */
             join_url: string | null;
+            /**
+             * Provider
+             * @default manual
+             */
+            provider: string;
         };
         /** ResourceOut */
         ResourceOut: {
@@ -9874,6 +9975,8 @@ export interface components {
             success_url: string;
             /** Cancel Url */
             cancel_url: string;
+            /** Customer Email */
+            customer_email?: string | null;
         };
         /** UnlockOut */
         UnlockOut: {
@@ -9944,6 +10047,8 @@ export interface components {
             success_url: string;
             /** Cancel Url */
             cancel_url: string;
+            /** Customer Email */
+            customer_email?: string | null;
         };
         /** CashPackageOut */
         CashPackageOut: {
@@ -9962,6 +10067,11 @@ export interface components {
             amount_minor: number;
             /** Currency */
             currency: string;
+            /**
+             * Owned Count
+             * @default 0
+             */
+            owned_count: number;
             /** Courses */
             courses: components["schemas"]["PackageCourseOut"][];
         };
@@ -10030,6 +10140,8 @@ export interface components {
             success_url: string;
             /** Cancel Url */
             cancel_url: string;
+            /** Customer Email */
+            customer_email?: string | null;
         };
         /** PackageCheckoutIn */
         PackageCheckoutIn: {
@@ -10037,6 +10149,8 @@ export interface components {
             success_url: string;
             /** Cancel Url */
             cancel_url: string;
+            /** Customer Email */
+            customer_email?: string | null;
         };
         /** PayoutsBalanceOut */
         PayoutsBalanceOut: {
@@ -11362,6 +11476,8 @@ export interface components {
             position: number;
             /** Is Preview */
             is_preview: boolean;
+            /** Token Price */
+            token_price?: number | null;
             /** Is Required */
             is_required: boolean;
             /** Duration Sec */
@@ -11376,6 +11492,21 @@ export interface components {
             live_duration_min?: number | null;
             /** Live Join Url */
             live_join_url: string;
+            /**
+             * Live Provider
+             * @default manual
+             */
+            live_provider: string;
+            /**
+             * Teams Meeting Id
+             * @default
+             */
+            teams_meeting_id: string;
+            /**
+             * Teams Organizer
+             * @default
+             */
+            teams_organizer: string;
             /** Min Watch Pct */
             min_watch_pct: number;
             /** Prerequisite Key */
@@ -11664,6 +11795,8 @@ export interface components {
             body?: string | null;
             /** Is Preview */
             is_preview?: boolean | null;
+            /** Token Price */
+            token_price?: number | null;
             /** Is Required */
             is_required?: boolean | null;
             /** Duration Sec */
@@ -11684,6 +11817,15 @@ export interface components {
             section_id?: string | null;
             /** Prerequisite Key */
             prerequisite_key?: string | null;
+        };
+        /** TeamsMeetingOut */
+        TeamsMeetingOut: {
+            /** Meeting Id */
+            meeting_id: string;
+            /** Join Url */
+            join_url: string;
+            /** Organizer */
+            organizer: string;
         };
         /** QuizPatch */
         QuizPatch: {
@@ -12575,6 +12717,18 @@ export interface components {
              * @default false
              */
             is_free: boolean;
+            /** Full Course Token Price */
+            full_course_token_price?: number | null;
+            /**
+             * Token Pricing Mode
+             * @default manual
+             */
+            token_pricing_mode: string;
+            /**
+             * In Subscription
+             * @default true
+             */
+            in_subscription: boolean;
             /**
              * Status
              * @default
@@ -15732,6 +15886,77 @@ export interface components {
              */
             note: string;
         };
+        /** ConsolePackageCourseOut */
+        ConsolePackageCourseOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Slug */
+            slug: string;
+        };
+        /** ConsolePackageOut */
+        ConsolePackageOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Description */
+            description: string;
+            /**
+             * Price Tier Id
+             * Format: uuid
+             */
+            price_tier_id: string;
+            /** Price Gbp Minor */
+            price_gbp_minor: number;
+            /** Courses Cash Total Minor */
+            courses_cash_total_minor: number;
+            /** Is Active */
+            is_active: boolean;
+            /** Course Count */
+            course_count: number;
+            /** Courses */
+            courses: components["schemas"]["ConsolePackageCourseOut"][];
+        };
+        /** ConsolePackageIn */
+        ConsolePackageIn: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Price Tier Id
+             * Format: uuid
+             */
+            price_tier_id: string;
+            /** Course Ids */
+            course_ids?: string[];
+        };
+        /** ConsolePackagePatch */
+        ConsolePackagePatch: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Price Tier Id */
+            price_tier_id?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Course Ids */
+            course_ids?: string[] | null;
+        };
         /** ConsolePayoutOverviewOut */
         ConsolePayoutOverviewOut: {
             /** Pending Requests */
@@ -15751,6 +15976,12 @@ export interface components {
             total_balance_gbp_minor: number;
             /** Unverified Accounts */
             unverified_accounts: number;
+            /** Tutor Earned Gbp Minor */
+            tutor_earned_gbp_minor: number;
+            /** Platform Retained Gbp Minor */
+            platform_retained_gbp_minor: number;
+            /** Tutor Keeps Pct */
+            tutor_keeps_pct: number | null;
             settings: components["schemas"]["ConsolePayoutSettingsOut"];
         };
         /** ConsolePayoutSettingsOut */
@@ -22642,6 +22873,28 @@ export interface operations {
             };
         };
     };
+    apps_catalog_studio_create_teams_meeting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lecture_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamsMeetingOut"];
+                };
+            };
+        };
+    };
     apps_catalog_studio_update_quiz: {
         parameters: {
             query?: never;
@@ -26968,6 +27221,98 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ConsoleDismissIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_packages_list_packages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsolePackageOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_packages_create_package: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsolePackageIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleIdOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_packages_delete_package: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                package_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_packages_update_package: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                package_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsolePackagePatch"];
             };
         };
         responses: {

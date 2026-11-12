@@ -205,12 +205,57 @@
 
 @layer base {
   html {
+    min-height: 100%;
+    background: var(--background);
+    color: var(--text);
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
   }
   body {
     @apply bg-background text-text font-sans antialiased;
+    min-height: 100dvh;
     font-feature-settings: 'cv11', 'ss01';
+  }
+  #root {
+    min-height: 100dvh;
+  }
+
+  /* Native form popups are painted by the browser/OS, outside Tailwind's normal box.
+     Give the controls and their popup rows explicit theme colours so Windows Chrome
+     does not combine a light option sheet with dark-mode text. */
+  button,
+  input,
+  select,
+  textarea {
+    color-scheme: inherit;
+  }
+  select option,
+  select optgroup {
+    background-color: var(--surface);
+    color: var(--text);
+  }
+  select option:disabled {
+    color: var(--text-subtle);
+  }
+
+  /* Chrome keeps its own light autofill paint unless it is overridden explicitly. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  textarea:-webkit-autofill:hover,
+  textarea:-webkit-autofill:focus,
+  select:-webkit-autofill,
+  select:-webkit-autofill:hover,
+  select:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--text);
+    caret-color: var(--text);
+    box-shadow: 0 0 0 1000px var(--surface) inset;
+  }
+
+  /* Scrollable sheets, menus and form popups should not flash a white scrollbar. */
+  * {
+    scrollbar-color: var(--border-strong) var(--surface-2);
   }
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-ring;

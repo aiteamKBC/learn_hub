@@ -39,6 +39,12 @@ const AccountPage = named(() => import('@/pages/learner/AccountPage'), 'AccountP
 const SupportPage = named(() => import('@/pages/learner/SupportPages'), 'SupportPage')
 const TicketPage = named(() => import('@/pages/learner/SupportPages'), 'TicketPage')
 const VerifyPage = named(() => import('@/pages/VerifyPage'), 'VerifyPage')
+const WalletPage = named(() => import('@/pages/b2c/WalletPage'), 'WalletPage')
+const TokenBuyPage = named(() => import('@/pages/b2c/TokenBuyPage'), 'TokenBuyPage')
+const TokenResultPage = named(() => import('@/pages/b2c/TokenResultPage'), 'TokenResultPage')
+const SubscriptionPage = named(() => import('@/pages/b2c/SubscriptionPage'), 'SubscriptionPage')
+const PackagesPage = named(() => import('@/pages/b2c/PackagesPage'), 'PackagesPage')
+const CheckoutReviewPage = named(() => import('@/pages/b2c/CheckoutReviewPage'), 'CheckoutReviewPage')
 const ComplianceDashboard = named(() => import('@/pages/business/ComplianceDashboard'), 'ComplianceDashboard')
 const MatrixPage = named(() => import('@/pages/business/MatrixPage'), 'MatrixPage')
 const RequirementsPage = named(() => import('@/pages/business/RequirementsPage'), 'RequirementsPage')
@@ -81,6 +87,9 @@ const ConsoleCertificatesPage = named(() => import('@/pages/console/Certificates
 const ConsoleCompaniesPage = named(() => import('@/pages/console/CompaniesPage'), 'ConsoleCompaniesPage')
 const ConsoleSettingsPage = named(() => import('@/pages/console/SettingsPage'), 'ConsoleSettingsPage')
 const ConsoleAuditPage = named(() => import('@/pages/console/AuditPage'), 'ConsoleAuditPage')
+const ConsoleTokenPricingPage = named(() => import('@/pages/console/b2c/TokenPricingPage'), 'TokenPricingPage')
+const ConsoleWalletsPage = named(() => import('@/pages/console/b2c/AdminWalletPage'), 'AdminWalletPage')
+const ConsolePackagesPage = named(() => import('@/pages/console/b2c/AdminPackagesPage'), 'AdminPackagesPage')
 
 const page = (el: ReactNode) => <Suspense fallback={<PageSpinner />}>{el}</Suspense>
 
@@ -154,6 +163,12 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
           { path: '/notifications', element: page(<NotificationsPage />), handle: { art: 'signal' } },
           { path: '/wishlist', element: page(<WishlistPage />) },
           { path: '/account/orders', element: page(<OrdersPage />), handle: { art: 'ribbons' } },
+          { path: '/wallet', element: page(<WalletPage />), handle: { art: 'coins' } },
+          { path: '/wallet/buy', element: page(<TokenBuyPage />), handle: { art: 'coins' } },
+          { path: '/wallet/result', element: page(<TokenResultPage />), handle: { art: 'coins' } },
+          { path: '/subscription', element: page(<SubscriptionPage />), handle: { art: 'ribbons' } },
+          { path: '/packages', element: page(<PackagesPage />), handle: { art: 'ribbons' } },
+          { path: '/checkout/review', element: page(<CheckoutReviewPage />), handle: { art: 'ribbons' } },
           { path: '/account', element: page(<AccountPage />), handle: { art: 'dials' } },
           { path: '/teach', element: page(<TeachPage />), handle: { art: 'blueprint' } },
           { path: '/teach/invite/:token', element: page(<InstructorInvitePage />), handle: { art: 'blueprint' } },
@@ -250,6 +265,9 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
       { path: 'settings', element: page(<ConsoleSettingsPage />), handle: { art: 'dials' } },
       { path: 'audit', element: page(<ConsoleAuditPage />) },
       ...corporateConsoleRoutes,
+      { path: 'token-pricing', element: page(<ConsoleTokenPricingPage />), handle: { art: 'coins' } },
+      { path: 'wallets', element: page(<ConsoleWalletsPage />), handle: { art: 'coins' } },
+      { path: 'packages', element: page(<ConsolePackagesPage />), handle: { art: 'ribbons' } },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

@@ -22,12 +22,7 @@ def fulfil_recorded_purchase(session: dict, meta: dict) -> None:
         log.warning("corporate_recorded: no purchase id in session %s", session.get("id"))
         return
 
-    purchase = (
-        SeatPurchase.objects
-        .select_for_update()
-        .filter(pk=purchase_id)
-        .first()
-    )
+    purchase = SeatPurchase.objects.select_for_update().filter(pk=purchase_id).first()
     if purchase is None:
         log.warning("corporate_recorded: purchase %s not found", purchase_id)
         return
@@ -46,7 +41,8 @@ def expire_purchase(session: dict, meta: dict) -> None:
         return
 
     SeatPurchase.objects.filter(
-        pk=purchase_id, status=SeatPurchase.Status.PENDING,
+        pk=purchase_id,
+        status=SeatPurchase.Status.PENDING,
     ).update(status=SeatPurchase.Status.EXPIRED, updated_at=timezone.now())
 
 
@@ -56,5 +52,6 @@ def fail_purchase(session: dict, meta: dict) -> None:
         return
 
     SeatPurchase.objects.filter(
-        pk=purchase_id, status=SeatPurchase.Status.PENDING,
+        pk=purchase_id,
+        status=SeatPurchase.Status.PENDING,
     ).update(status=SeatPurchase.Status.VOIDED, updated_at=timezone.now())

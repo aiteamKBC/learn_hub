@@ -1,9 +1,6 @@
 """B2C-05 tests: token unlock — spend tokens to gain content access."""
 
 import uuid
-from decimal import Decimal
-
-from django.utils import timezone
 
 from apps.commerce import wallet
 from apps.commerce.unlock import AlreadyUnlocked, NoPriceSet, unlock_course, unlock_lecture
@@ -15,15 +12,18 @@ from core.tests.base import SchemaTransactionTestCase
 
 
 class UnlockTestCase(SchemaTransactionTestCase):
-
     def setUp(self):
         tag = uuid.uuid4().hex[:8]
         with tenant_context(user_id=None, staff=True):
             self.user = User.objects.create_user(
-                f"unlock-{tag}@learnhub-demo.com", "test123", is_staff=False,
+                f"unlock-{tag}@learnhub-demo.com",
+                "test123",
+                is_staff=False,
             )
             self.staff = User.objects.create_user(
-                f"unlock-staff-{tag}@learnhub-demo.com", "test123", is_staff=True,
+                f"unlock-staff-{tag}@learnhub-demo.com",
+                "test123",
+                is_staff=True,
             )
             self._setup_catalog(tag)
 
@@ -38,7 +38,9 @@ class UnlockTestCase(SchemaTransactionTestCase):
         )
 
         self.category = Category.objects.create(
-            slug=f"test-cat-{tag}", name=f"Test {tag}", sort_order=0,
+            slug=f"test-cat-{tag}",
+            name=f"Test {tag}",
+            sort_order=0,
         )
         self.course = Course.objects.create(
             ownership="platform",
@@ -50,13 +52,17 @@ class UnlockTestCase(SchemaTransactionTestCase):
             full_course_token_price=100,
         )
         self.version = CourseVersion.objects.create(
-            course=self.course, number=1, status="published",
+            course=self.course,
+            number=1,
+            status="published",
         )
         self.course.live_version = self.version
         self.course.save(update_fields=["live_version"])
 
         self.section = Section.objects.create(
-            version=self.version, title="Section 1", position=0,
+            version=self.version,
+            title="Section 1",
+            position=0,
         )
         self.lecture = Lecture.objects.create(
             version=self.version,
@@ -77,13 +83,18 @@ class UnlockTestCase(SchemaTransactionTestCase):
             token_price=None,
         )
         CourseInstructor.objects.create(
-            course=self.course, user=self.staff, position=0,
+            course=self.course,
+            user=self.staff,
+            position=0,
         )
 
     def _grant(self, amount):
         with tenant_context(user_id=str(self.staff.id), staff=True):
             return wallet.grant_tokens(
-                user=self.user, source="admin", amount=amount, actor=self.staff,
+                user=self.user,
+                source="admin",
+                amount=amount,
+                actor=self.staff,
             )
 
     # ---------------------------------------------------------------- lecture unlock
@@ -100,9 +111,10 @@ class UnlockTestCase(SchemaTransactionTestCase):
     def test_unlock_lecture_creates_entitlement(self):
         self._grant(50)
         with tenant_context(user_id=str(self.user.id), staff=True):
-            ent = unlock_lecture(user=self.user, lecture_id=self.lecture.id)
+            unlock_lecture(user=self.user, lecture_id=self.lecture.id)
         with tenant_context(user_id=str(self.user.id), staff=True):
             from apps.platform.access import resolve
+
             decision = resolve(self.user, "lecture", self.lecture.id)
         self.assertTrue(decision.allowed)
         self.assertEqual(decision.reason_code, "token_unlock")
@@ -143,6 +155,7 @@ class UnlockTestCase(SchemaTransactionTestCase):
             unlock_course(user=self.user, course_id=self.course.id)
         with tenant_context(user_id=str(self.user.id), staff=True):
             from apps.platform.access import resolve
+
             decision = resolve(self.user, "lecture", self.lecture.id)
         self.assertTrue(decision.allowed)
         self.assertEqual(decision.reason_code, "full_course_token_unlock")

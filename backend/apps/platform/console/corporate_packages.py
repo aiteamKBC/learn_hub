@@ -104,8 +104,6 @@ class ConsoleReleaseIn(Schema):
     reason: str = Field("", max_length=500)
 
 
-
-
 class ConsoleQuoteItemIn(Schema):
     offering_id: UUID
     quantity: int = Field(..., ge=1)
@@ -186,11 +184,17 @@ def _check_price(tier):
 
 def _check_single_active(course_id, delivery_type):
     """One live and one recorded option per course at a time."""
-    if CorporateOffering.objects.filter(course_id=course_id, delivery_type=delivery_type, is_active=True).exists():
+    if CorporateOffering.objects.filter(
+        course_id=course_id, delivery_type=delivery_type, is_active=True
+    ).exists():
         from core.errors import ServiceError
 
         kind = "live" if delivery_type == "live" else "recorded"
-        raise ServiceError("offering_exists", f"This course already has an active {kind} option. Edit that one instead.", status=400)
+        raise ServiceError(
+            "offering_exists",
+            f"This course already has an active {kind} option. Edit that one instead.",
+            status=400,
+        )
 
 
 @router.post("/corporate/offerings", response=ConsoleIdOut)

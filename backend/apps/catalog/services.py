@@ -210,6 +210,24 @@ def publish_checklist(version: CourseVersion) -> list[str]:
                     o.is_correct for o in opts
                 ):
                     problems.append(f"Quiz {where}: question {q.position} has no accepted answer.")
+
+    # Public marketplace/platform courses need a deliberate cash/free choice. A paid
+    # course must also have either a whole-course token price or a token price on every
+    # protected lesson. This keeps incomplete monetisation out of both direct publishing
+    # and the instructor review queue.
+    course = version.course
+    if course.ownership in (Course.Ownership.PLATFORM, Course.Ownership.INSTRUCTOR):
+        from apps.commerce.models import CoursePrice
+
+        cash_price = CoursePrice.objects.filter(course=course).only("is_free").first()
+        if cash_price is None:
+            problems.append("Set a course price, or make the course free.")
+        elif not cash_price.is_free and not course.full_course_token_price:
+            for lec in lectures:
+                if not lec.is_preview and not lec.token_price:
+                    problems.append(
+                        f"Set a token price for lesson '{lec.title}', or mark it as a free preview."
+                    )
     return problems
 
 
@@ -371,6 +389,10 @@ def _in_review(version: CourseVersion, verb: str) -> CourseVersion:
 @authored
 def approve(*, version: CourseVersion, reviewer, notes: str = "") -> CourseVersion:
     version = _in_review(version, "approved")
+    if problems := publish_checklist(version):
+        raise ServiceError(
+            "not_ready", "The course still has issues that must be fixed before approval.", details=problems
+        )
     version.reviewed_by, version.reviewed_at, version.review_notes = reviewer, timezone.now(), notes
     version.save()
     version = _publish(version)
@@ -558,8 +580,8 @@ def _check_prerequisite(lecture: Lecture, key) -> None:
         raise ServiceError("bad_prerequisite", "The prerequisite must come before this lesson.")
 
 
-LECTURE_FIELDS = {"title", "body", "is_preview", "is_required", "duration_sec", "external_url", "live_starts_at",
-                  "live_duration_min", "live_join_url", "min_watch_pct", "video_id", "section_id",
+LECTURE_FIELDS = {"title", "body", "is_preview", "is_required", "token_price", "duration_sec", "external_url", "live_starts_at",
+                  "live_duration_min", "live_join_url", "live_provider", "teams_meeting_id", "teams_organizer", "min_watch_pct", "video_id", "section_id",
                   "prerequisite_key"}  # fmt: skip
 
 
@@ -576,6 +598,14 @@ def update_lecture(*, lecture: Lecture, **changes) -> Lecture:
     for url_field in ("external_url", "live_join_url"):
         if changes.get(url_field) and not changes[url_field].startswith("https://"):
             raise ServiceError("bad_url", "Links must use https://")
+    # A pasted Teams URL should get the same learner language as a Graph-created one;
+    # other URLs remain explicitly manual providers.
+    if "live_join_url" in changes and "live_provider" not in changes:
+        changes["live_provider"] = (
+            Lecture.LiveProvider.TEAMS
+            if "teams.microsoft.com/" in (changes["live_join_url"] or "").lower()
+            else Lecture.LiveProvider.MANUAL
+        )
     if "video_id" in changes and changes["video_id"]:
         asset = MediaAsset.objects.filter(pk=changes["video_id"], kind="video").first()
         if asset is None:

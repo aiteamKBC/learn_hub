@@ -2,6 +2,92 @@
 
 Maintained by Claude Code (`/status`) and read by the planner session. Newest milestone first.
 
+## Site-wide dark-mode native-control fix (2026-11-12)
+
+- Native form controls now inherit the active browser `color-scheme`; `select` option
+  sheets have explicit surface/text colours, fixing white Windows/Chrome dropdowns with
+  unreadable dark-mode text across every shared `NativeSelect` usage.
+- Browser autofill, native popup scrollbars, the document/root canvas and the browser
+  theme colour now follow light/dark mode without white flashes.
+- Intentional white document surfaces (certificate previews and QR codes) are unchanged.
+- Verification: TypeScript and the production build pass; focused lint is clean. A
+  headless Chrome dark-mode capture confirmed the page canvas, loading state, header and
+  footer remain dark. The live logged-in Chrome inspection was unavailable because its
+  window was minimised; the compiled CSS contains the native option/autofill rules.
+
+## B2C-FE PR1 — Learner wallet & monetization UI (2026-11-11, built, not yet router-wired)
+
+Developer A (B2C), branch `feat/frontend-b2c-v2`. The learner-facing half of the B2C v2 frontend.
+Owner decision (2026-11-11): build the learner surface first, admin console after.
+
+**Shared baseline (integrator step, done first):** regenerated `frontend/src/api/schema.d.ts` from the
+audited backend (`tools/dump_openapi.py` → `openapi-typescript`). The committed schema predated the
+whole token backend; it now carries all 15 `/commerce/tokens/*` learner endpoints and the
+`/console/pricing/token/*` + `/console/wallet/*` admin surface.
+
+**New files**
+- `frontend/src/features/b2c/api.ts` — typed query/mutation hooks for wallet, packs, rate, top-up
+  limits, access resolver, unlock, cash packages, subscriptions. Every money/wallet call sends
+  `X-Org-Id: ''` (personal). No amount is computed in the browser.
+- `frontend/src/features/b2c/UnlockButton.tsx` — the single content gate. The server access resolver
+  decides whether to show a purchase prompt at all, so a person with existing access (subscription,
+  package, legacy, prior unlock) is never asked to pay again. Confirm-to-spend dialog; 409 treated as
+  already-unlocked; insufficient balance routes to buy tokens. No optimistic unlock.
+- `frontend/src/pages/b2c/WalletPage.tsx` — balance, expiring-soon (FEFO) warning, grants + ledger tabs.
+- `frontend/src/pages/b2c/TokenBuyPage.tsx` — token packs + custom top-up (truthful "no rate configured"
+  state when `/rate` is null; min/max from `/topup-limits`; token estimate is preview-only).
+- `frontend/src/pages/b2c/TokenResultPage.tsx` — Stripe return for packs/top-ups. Polls the wallet
+  balance against a pre-checkout baseline (sessionStorage); never grants from the URL; graceful timeout.
+- `frontend/src/pages/b2c/SubscriptionPage.tsx` — unlimited personal plan: plans, checkout, active
+  status (active/trialing/past_due), renewal/cancel state; manage/cancel via the Stripe billing portal.
+- `frontend/src/pages/b2c/PackagesPage.tsx` — cash course bundles; success lands on My Learning (real
+  server-granted enrolments).
+- `docs/features/b2c-monetization-v2/frontend-b2c-route-manifest.md` — route/nav manifest for the integrator.
+
+**Workaround (contained):** `frontend/src/features/commerce/api.ts` `useCheckout` now asserts the true
+commerce checkout shape, because the B2B `apps/corporate/api.py` reuses the Ninja class names
+`CheckoutIn`/`CheckoutOut` and corrupts the generated types. Runtime is unaffected. See NEEDS-USER item 0.
+
+**Checks:** `tsc -b` clean, `oxlint` clean on the new files, `vite build` passes (main entry unchanged at
+339 kB — the B2C pages aren't bundled until the integrator wires the router). No automated UI tests added
+yet; no E2E yet; no browser screenshots yet.
+
+## B2C-FE PR2 — CoursePage, catalogue exposure, admin console (2026-11-11, built, not router-wired)
+
+Continues PR1 on the same branch.
+
+**Backend (additive, typed):** `apps/catalog` now exposes the B2C token fields the learner UI needs.
+`CourseDetail` gains `full_course_token_price`, `token_pricing_mode`, `in_subscription`; `LectureOut`
+gains `id` (the unlock/access `target_id`), `token_price`, `is_free_preview`, `excluded_from_subscription`.
+Populated in `apps/catalog/api.py::course_detail` (the curriculum selector already loads the rows; no
+`.only()` to extend). Test added: `core/tests/test_m1_marketplace.py::…::test_course_detail_exposes_b2c_token_fields`.
+`manage.py check` clean, `makemigrations --check` clean (no model/migration change). **The focused test
+could not be run to green** — the shared Neon dev DB killed the connection mid-run ("terminating connection
+due to administrator command" / deadlock), the documented shared-branch hazard; the change is verified by
+`check`, the OpenAPI rebuild and `tsc`.
+
+**Frontend added:**
+- `pages/CoursePage.tsx` — resolver-gated: an already-entitled person (subscription/package/legacy/token)
+  sees "Unlocked via …" and Start learning instead of any purchase prompt; a token full-course unlock path
+  (`UnlockButton`) when `full_course_token_price` is set; per-lecture token badges in the curriculum; an
+  "included in the Unlimited plan" cross-link.
+- `features/b2c/console.ts` — admin hooks: price tiers, packs CRUD, rates, top-up policies, bonus campaigns,
+  token audit, wallet detail/ledger/adjust, student search. Bodies typed straight from the schema.
+- `pages/console/b2c/TokenPricingPage.tsx` — tabs: packs, exchange rate (handles `RATE_EFFECTIVE_FROM_PAST`),
+  top-up limits, bonus campaigns (activation shown as blocked by F02), audit (paged).
+- `pages/console/b2c/AdminWalletPage.tsx` — learner search → balance, grants, ledger, mandatory-reason adjust.
+
+**Checks:** `tsc -b` clean, `oxlint` clean on all B2C files, `vite build` passes.
+
+**Deferred (documented in NEEDS-USER 0b/0c):** player in-token-unlock (deliverable 7 — needs player-outline
+exposure of lecture pk/token_price/lock-reason + the entitlement-vs-enrolment question); admin
+per-course/-lecture price + distribution-preview UI (`__UNSET__` sentinels); per-material unlock (materials
+not in the curriculum/player outline). **Deferred by boundary:** PlansPage team-subscription removal
+(deliverable 10) — it is B2B company billing; left to B2B coordination per the owner's "don't touch B2B".
+
+**Git writes (branch/commit) still not performed — awaiting owner authorization.**
+
+
 ## B2C-01 — Unified Content Access Engine (2026-11-10, landed)
 
 Milestone brief: `docs/milestones/M9-b2c-token-unlock.md` (done section at the end).

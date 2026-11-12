@@ -1,4 +1,4 @@
-import { Award, BadgePercent, ShieldCheck, BarChart3, BookOpen, Building2, CreditCard, GraduationCap, History, LayoutDashboard, MessageSquare, Percent, Receipt, Settings, Stamp, Star, Tags, Users, Wallet } from 'lucide-react'
+import { Award, BadgePercent, ShieldCheck, BarChart3, BookOpen, Building2, Coins, CreditCard, GraduationCap, History, LayoutDashboard, MessageSquare, Package as PackageIcon, Percent, Receipt, Settings, Stamp, Star, Tags, Users, Wallet, WalletCards } from 'lucide-react'
 
 import { ApiError } from '@/api/client'
 import { Backdrop } from '@/components/art/backdrops'
@@ -45,6 +45,14 @@ const consoleNav: NavSection[] = [
       { to: '/console/commissions', label: 'Commissions', Icon: Percent },
       { to: '/console/payouts', label: 'Payouts', Icon: Wallet, badge: <NavCount k="payout_requests" label="payout requests waiting" /> },
       { to: '/console/reports', label: 'Reports', Icon: BarChart3 },
+    ],
+  },
+  {
+    title: 'Monetization',
+    items: [
+      { to: '/console/token-pricing', label: 'Token pricing', Icon: Coins },
+      { to: '/console/wallets', label: 'Token wallets', Icon: WalletCards },
+      { to: '/console/packages', label: 'Packages', Icon: PackageIcon },
     ],
   },
   {

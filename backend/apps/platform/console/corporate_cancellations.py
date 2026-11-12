@@ -11,6 +11,7 @@ from .common import ConsoleOkOut, clamp, router, staff
 
 # ---- Schemas ----
 
+
 class ConsoleCancellationOut(Schema):
     id: UUID
     org_id: UUID
@@ -61,9 +62,16 @@ class ConsoleDepartureApplyIn(Schema):
 
 # ---- Cancellation Endpoints ----
 
+
 @router.get("/corporate/cancellations", response=list[ConsoleCancellationOut])
-def list_cancellations(request, org_id: UUID | None = None, status: str | None = None,
-                       type: str | None = None, limit: int = 50, offset: int = 0):
+def list_cancellations(
+    request,
+    org_id: UUID | None = None,
+    status: str | None = None,
+    type: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+):
     staff(request)
     qs = CancellationRequest.objects.select_related("org", "requester", "reviewed_by").order_by("-created_at")
     if org_id:
@@ -75,10 +83,14 @@ def list_cancellations(request, org_id: UUID | None = None, status: str | None =
     items = qs[offset : offset + clamp(limit)]
     return [
         {
-            "id": c.id, "org_id": c.org_id, "org_name": c.org.name,
-            "type": c.type, "status": c.status,
+            "id": c.id,
+            "org_id": c.org_id,
+            "org_name": c.org.name,
+            "type": c.type,
+            "status": c.status,
             "requester_email": c.requester.email,
-            "reason": c.reason, "admin_notes": c.admin_notes,
+            "reason": c.reason,
+            "admin_notes": c.admin_notes,
             "reviewed_by_email": c.reviewed_by.email if c.reviewed_by else None,
             "reviewed_at": c.reviewed_at,
             "refund_amount_minor": c.refund_amount_minor,
@@ -95,6 +107,7 @@ def list_cancellations(request, org_id: UUID | None = None, status: str | None =
 def review_cancellation(request, cancellation_id: UUID, body: ConsoleCancellationReview):
     staff(request)
     from apps.corporate.cancellations import review_cancellation as _review
+
     _review(request, str(cancellation_id), approve=body.approve, admin_notes=body.admin_notes)
     return {"ok": True}
 
@@ -103,11 +116,13 @@ def review_cancellation(request, cancellation_id: UUID, body: ConsoleCancellatio
 def process_refund(request, cancellation_id: UUID, body: ConsoleRefundIn):
     staff(request)
     from apps.corporate.cancellations import process_refund as _refund
+
     _refund(request, str(cancellation_id), amount_minor=body.amount_minor, currency=body.currency)
     return {"ok": True}
 
 
 # ---- Departure Policy Endpoints ----
+
 
 @router.get("/corporate/departure-policies", response=list[ConsoleDeparturePolicyOut])
 def list_departure_policies(request, org_id: UUID | None = None, limit: int = 50, offset: int = 0):
@@ -118,10 +133,14 @@ def list_departure_policies(request, org_id: UUID | None = None, limit: int = 50
     items = qs[offset : offset + clamp(limit)]
     return [
         {
-            "id": p.id, "org_id": p.org_id, "org_name": p.org.name,
-            "action": p.action, "notes": p.notes,
+            "id": p.id,
+            "org_id": p.org_id,
+            "org_name": p.org.name,
+            "action": p.action,
+            "notes": p.notes,
             "set_by_email": p.set_by.email if p.set_by else None,
-            "created_at": p.created_at, "updated_at": p.updated_at,
+            "created_at": p.created_at,
+            "updated_at": p.updated_at,
         }
         for p in items
     ]
@@ -131,6 +150,7 @@ def list_departure_policies(request, org_id: UUID | None = None, limit: int = 50
 def set_departure_policy(request, org_id: UUID, body: ConsoleDeparturePolicyIn):
     staff(request)
     from apps.corporate.departure import set_policy
+
     set_policy(request, str(org_id), body.action, body.notes)
     return {"ok": True}
 

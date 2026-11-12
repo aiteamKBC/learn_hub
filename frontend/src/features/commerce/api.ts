@@ -61,11 +61,21 @@ export function useToggleWishlist() {
   })
 }
 
+/** The real /commerce/checkout response shape (commerce.schemas.CheckoutOut).
+ *
+ * WORKAROUND — B2B shared-contract bug: apps/corporate/api.py reuses the class names
+ * `CheckoutIn` and `CheckoutOut`, which already belong to apps/commerce/schemas.py. In the
+ * generated OpenAPI/TypeScript types the duplicate names collide and the corporate shape
+ * ({quantity} / {purchase_id, checkout_url}) silently overwrites the commerce one. The
+ * runtime response is unchanged — only the generated types are wrong — so we assert the true
+ * commerce shape here, in one place, until B2B renames its classes. Logged in docs/NEEDS-USER.md. */
+type CheckoutResult = { order_id: string; status: string; checkout_url: string | null; total_minor: number; currency: string }
+
 export function useCheckout() {
   const refresh = useCommerceRefresh()
   return useMutation({
     mutationFn: (v: { courseIds: string[]; currency: string; coupon?: string }) =>
-      unwrap(api.POST('/api/v1/commerce/checkout', { body: { course_ids: v.courseIds, currency: v.currency, coupon: v.coupon || null } })),
+      unwrap(api.POST('/api/v1/commerce/checkout', { body: { course_ids: v.courseIds, currency: v.currency, coupon: v.coupon || null } as never })) as unknown as Promise<CheckoutResult>,
     onSuccess: () => refresh(),
   })
 }

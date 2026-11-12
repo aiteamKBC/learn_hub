@@ -17,7 +17,6 @@ from apps.platform.models import ContentEntitlement
 from apps.platform.services import audit_request
 
 from . import wallet
-from .wallet import InsufficientTokens
 
 
 class AlreadyUnlocked(Exception):
@@ -39,14 +38,16 @@ def unlock_lecture(*, user, lecture_id: UUID, actor=None, request=None) -> Conte
     if lec.token_price is None or lec.token_price <= 0:
         raise NoPriceSet("This lecture does not have a token price.")
 
-    existing = ContentEntitlement.objects.filter(
-        user=user,
-        scope=ContentEntitlement.Scope.LECTURE,
-        target_id=lecture_id,
-        revoked_at__isnull=True,
-    ).filter(
-        Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
-    ).first()
+    existing = (
+        ContentEntitlement.objects.filter(
+            user=user,
+            scope=ContentEntitlement.Scope.LECTURE,
+            target_id=lecture_id,
+            revoked_at__isnull=True,
+        )
+        .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()))
+        .first()
+    )
     if existing:
         raise AlreadyUnlocked("You already have access to this lecture.")
 
@@ -79,9 +80,16 @@ def unlock_lecture(*, user, lecture_id: UUID, actor=None, request=None) -> Conte
     spend.save(update_fields=["entitlement", "updated_at"])
 
     if request:
-        audit_request(request, "content.unlock", "lecture", str(lecture_id), {
-            "tokens": lec.token_price, "spend_id": str(spend.id),
-        })
+        audit_request(
+            request,
+            "content.unlock",
+            "lecture",
+            str(lecture_id),
+            {
+                "tokens": lec.token_price,
+                "spend_id": str(spend.id),
+            },
+        )
 
     return ent
 
@@ -90,21 +98,27 @@ def unlock_lecture(*, user, lecture_id: UUID, actor=None, request=None) -> Conte
 def unlock_material(*, user, material_id: UUID, actor=None, request=None) -> ContentEntitlement:
     from apps.catalog.models import LectureResource
 
-    res = LectureResource.objects.select_related("lecture__section__version__course").filter(pk=material_id).first()
+    res = (
+        LectureResource.objects.select_related("lecture__section__version__course")
+        .filter(pk=material_id)
+        .first()
+    )
     if res is None:
         raise ValueError("Material not found.")
 
     if res.token_price is None or res.token_price <= 0:
         raise NoPriceSet("This material does not have a token price.")
 
-    existing = ContentEntitlement.objects.filter(
-        user=user,
-        scope=ContentEntitlement.Scope.MATERIAL,
-        target_id=material_id,
-        revoked_at__isnull=True,
-    ).filter(
-        Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
-    ).first()
+    existing = (
+        ContentEntitlement.objects.filter(
+            user=user,
+            scope=ContentEntitlement.Scope.MATERIAL,
+            target_id=material_id,
+            revoked_at__isnull=True,
+        )
+        .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()))
+        .first()
+    )
     if existing:
         raise AlreadyUnlocked("You already have access to this material.")
 
@@ -137,9 +151,16 @@ def unlock_material(*, user, material_id: UUID, actor=None, request=None) -> Con
     spend.save(update_fields=["entitlement", "updated_at"])
 
     if request:
-        audit_request(request, "content.unlock", "material", str(material_id), {
-            "tokens": res.token_price, "spend_id": str(spend.id),
-        })
+        audit_request(
+            request,
+            "content.unlock",
+            "material",
+            str(material_id),
+            {
+                "tokens": res.token_price,
+                "spend_id": str(spend.id),
+            },
+        )
 
     return ent
 
@@ -155,15 +176,17 @@ def unlock_course(*, user, course_id: UUID, actor=None, request=None) -> Content
     if course.full_course_token_price is None or course.full_course_token_price <= 0:
         raise NoPriceSet("This course does not have a full-course token price.")
 
-    existing = ContentEntitlement.objects.filter(
-        user=user,
-        scope=ContentEntitlement.Scope.COURSE,
-        target_id=course_id,
-        source=ContentEntitlement.Source.FULL_COURSE_TOKEN_UNLOCK,
-        revoked_at__isnull=True,
-    ).filter(
-        Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
-    ).first()
+    existing = (
+        ContentEntitlement.objects.filter(
+            user=user,
+            scope=ContentEntitlement.Scope.COURSE,
+            target_id=course_id,
+            source=ContentEntitlement.Source.FULL_COURSE_TOKEN_UNLOCK,
+            revoked_at__isnull=True,
+        )
+        .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()))
+        .first()
+    )
     if existing:
         raise AlreadyUnlocked("You already have full access to this course.")
 
@@ -194,9 +217,16 @@ def unlock_course(*, user, course_id: UUID, actor=None, request=None) -> Content
     spend.save(update_fields=["entitlement", "updated_at"])
 
     if request:
-        audit_request(request, "content.unlock", "course", str(course_id), {
-            "tokens": course.full_course_token_price, "spend_id": str(spend.id),
-        })
+        audit_request(
+            request,
+            "content.unlock",
+            "course",
+            str(course_id),
+            {
+                "tokens": course.full_course_token_price,
+                "spend_id": str(spend.id),
+            },
+        )
 
     return ent
 

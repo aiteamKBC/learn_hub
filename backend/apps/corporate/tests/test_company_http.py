@@ -435,7 +435,9 @@ class CompanyHttpTest(SchemaTransactionTestCase):
 
     def test_recorded_and_live_have_their_own_prices(self):
         with tenant_context(staff=True):
-            live_tier = PriceTier.objects.create(name=f"LiveP-{uuid.uuid4().hex[:6]}", gbp_minor=45000, sort_order=0)
+            live_tier = PriceTier.objects.create(
+                name=f"LiveP-{uuid.uuid4().hex[:6]}", gbp_minor=45000, sort_order=0
+            )
             CorporateOffering.objects.filter(pk=self.live.pk).update(price_tier=live_tier)
         mine = [p for p in self._get("/packages").json() if p["course_id"] == str(self.course.id)]
         prices = {p["delivery_type"]: p["price_gbp_minor"] for p in mine}
@@ -463,17 +465,31 @@ class CompanyHttpTest(SchemaTransactionTestCase):
     def test_console_needs_a_price_and_one_active_option_per_type(self):
         self.client.force_login(self.staff)
         url = "/api/v1/console/corporate/offerings"
-        body = {"course_id": str(self.course.id), "delivery_type": "live", "price_tier_id": str(self._free_tier().id)}
+        body = {
+            "course_id": str(self.course.id),
+            "delivery_type": "live",
+            "price_tier_id": str(self._free_tier().id),
+        }
         r = self.client.post(url, body, content_type="application/json")
         self.assertEqual(r.json()["error"]["code"], "price_required", r.content)
         with tenant_context(staff=True):
-            tier = PriceTier.objects.create(name=f"LiveQ-{uuid.uuid4().hex[:6]}", gbp_minor=30000, sort_order=0)
+            tier = PriceTier.objects.create(
+                name=f"LiveQ-{uuid.uuid4().hex[:6]}", gbp_minor=30000, sort_order=0
+            )
         r = self.client.post(url, {**body, "price_tier_id": str(tier.id)}, content_type="application/json")
         self.assertEqual(r.status_code, 400, r.content)
-        self.assertEqual(r.json()["error"]["code"], "offering_exists", "a second active live option is refused")
-        r = self.client.patch(f"{url}/{self.live.id}", {"price_tier_id": str(tier.id)}, content_type="application/json")
+        self.assertEqual(
+            r.json()["error"]["code"], "offering_exists", "a second active live option is refused"
+        )
+        r = self.client.patch(
+            f"{url}/{self.live.id}", {"price_tier_id": str(tier.id)}, content_type="application/json"
+        )
         self.assertEqual(r.status_code, 200, r.content)
         with tenant_context(staff=True):
             self.recorded.refresh_from_db()
             self.live.refresh_from_db()
-        self.assertEqual((self.recorded.price_tier.gbp_minor, self.live.price_tier.gbp_minor), (10000, 30000), "changing live never touches recorded")
+        self.assertEqual(
+            (self.recorded.price_tier.gbp_minor, self.live.price_tier.gbp_minor),
+            (10000, 30000),
+            "changing live never touches recorded",
+        )

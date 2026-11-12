@@ -42,6 +42,7 @@ def _me(user) -> dict:
     return {
         "id": user.id, "email": user.email, "full_name": user.full_name, "avatar_url": user.avatar_url,
         "timezone": user.timezone, "is_staff": user.is_staff, "preferred_currency": user.preferred_currency,
+        "phone": user.phone, "country": user.country,
         # only approved instructors may use the studio; the rest see "apply" or "pending"
         "is_instructor": _instructor_status(user) == "approved",
         "instructor_status": _instructor_status(user),
@@ -78,7 +79,14 @@ def update_me(request, body: MePatchIn):
         if code and not Currency.objects.filter(code=code, is_active=True).exists():
             raise ServiceError("bad_currency", "That currency is not available.")
         user.preferred_currency = code
-    user.save(update_fields=["full_name", "timezone", "preferred_currency"])
+    if body.phone is not None:
+        user.phone = html.plain(body.phone, 20).strip()
+    if body.country is not None:
+        cc = body.country.upper().strip()
+        if cc and len(cc) != 2:
+            raise ServiceError("bad_country", "Use a two-letter country code (e.g. GB, US, EG).")
+        user.country = cc
+    user.save(update_fields=["full_name", "timezone", "preferred_currency", "phone", "country"])
     return _me(user)
 
 

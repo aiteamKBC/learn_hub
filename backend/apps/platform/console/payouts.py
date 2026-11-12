@@ -4,7 +4,8 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, F, IntegerField, Q, Sum
+from django.db.models.expressions import ExpressionWrapper
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja import Field, Schema
@@ -53,6 +54,11 @@ class ConsolePayoutOverviewOut(Schema):
     instructors_with_balance: int
     total_balance_gbp_minor: int
     unverified_accounts: int
+    # Marketplace sales only: values come from immutable earning lines, so the
+    # displayed split is the one that was actually locked in at checkout.
+    tutor_earned_gbp_minor: int
+    platform_retained_gbp_minor: int
+    tutor_keeps_pct: float | None
     settings: ConsolePayoutSettingsOut
 
 
@@ -84,6 +90,15 @@ def payouts_overview(request):
         month=Sum("amount_gbp_minor", filter=Q(paid_at__gte=month), default=0),
     )
     unpaid = Earning.objects.filter(payout__isnull=True)
+    split = Earning.objects.filter(kind__in=[Earning.Kind.SALE, Earning.Kind.REFUND]).aggregate(
+        tutor=Sum("amount_gbp_minor", default=0),
+        platform=Sum(
+            ExpressionWrapper(F("gross_gbp_minor") - F("amount_gbp_minor"), output_field=IntegerField()),
+            default=0,
+        ),
+        gross=Sum("gross_gbp_minor", default=0),
+    )
+    tutor_keeps_pct = round(split["tutor"] * 100 / split["gross"], 1) if split["gross"] > 0 else None
     with_balance = (
         unpaid.filter(available_at__lte=now)
         .values("user_id")
@@ -98,6 +113,9 @@ def payouts_overview(request):
         "instructors_with_balance": with_balance,
         "total_balance_gbp_minor": unpaid.aggregate(t=Sum("amount_gbp_minor", default=0))["t"],
         "unverified_accounts": PayoutAccount.objects.filter(verified_at__isnull=True).count(),
+        "tutor_earned_gbp_minor": split["tutor"],
+        "platform_retained_gbp_minor": split["platform"],
+        "tutor_keeps_pct": tutor_keeps_pct,
         "settings": _settings(),
     }  # fmt: skip
 

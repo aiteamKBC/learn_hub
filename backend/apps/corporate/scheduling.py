@@ -12,8 +12,9 @@ from .models import LiveCohort, Session, Tutor, TutorAssignment
 
 
 @transaction.atomic
-def add_session(request, cohort_id, *, sequence, scheduled_at, duration_min,
-                delivery_mode=None, title="", location="") -> Session:
+def add_session(
+    request, cohort_id, *, sequence, scheduled_at, duration_min, delivery_mode=None, title="", location=""
+) -> Session:
     cohort = LiveCohort.objects.filter(pk=cohort_id).first()
     if cohort is None:
         raise ServiceError("cohort_not_found", "Cohort not found.", status=404)
@@ -34,7 +35,10 @@ def add_session(request, cohort_id, *, sequence, scheduled_at, duration_min,
     )
 
     audit_request(
-        request, "session_added", "session", session.id,
+        request,
+        "session_added",
+        "session",
+        session.id,
         data={"cohort_id": str(cohort_id), "sequence": sequence},
     )
     return session
@@ -45,8 +49,17 @@ def update_session(request, session_id, **fields) -> Session:
     if session is None:
         raise ServiceError("not_found", "Session not found.", status=404)
 
-    allowed = {"title", "scheduled_at", "duration_min", "delivery_mode", "location",
-               "status", "reschedule_note", "actual_start", "actual_end"}
+    allowed = {
+        "title",
+        "scheduled_at",
+        "duration_min",
+        "delivery_mode",
+        "location",
+        "status",
+        "reschedule_note",
+        "actual_start",
+        "actual_end",
+    }
     updates = []
     for k, v in fields.items():
         if k in allowed and v is not None:
@@ -87,7 +100,10 @@ def register_tutor(request, user_id, tutor_type, bio="", specializations=None) -
     )
 
     audit_request(
-        request, "tutor_registered", "tutor", tutor.id,
+        request,
+        "tutor_registered",
+        "tutor",
+        tutor.id,
         data={"user_id": str(user_id), "type": tutor_type},
     )
     return tutor
@@ -141,7 +157,10 @@ def assign_tutor(request, tutor_id, cohort_id) -> TutorAssignment:
     )
 
     audit_request(
-        request, "tutor_assigned", "tutor_assignment", assignment.id,
+        request,
+        "tutor_assigned",
+        "tutor_assignment",
+        assignment.id,
         data={"tutor_id": str(tutor_id), "cohort_id": str(cohort_id)},
     )
     return assignment

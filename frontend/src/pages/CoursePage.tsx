@@ -1,4 +1,4 @@
-import { Award, BarChart3, Check, ChevronDown, Clock, FileText, Globe, Heart, HelpCircle, Infinity as InfinityIcon, ListChecks, PlayCircle, Radio, RefreshCw, ShoppingCart, Smartphone, Users, type LucideIcon } from 'lucide-react'
+import { Award, BarChart3, Check, ChevronDown, Clock, Coins, Crown, FileText, Globe, Heart, HelpCircle, Infinity as InfinityIcon, ListChecks, PlayCircle, Radio, RefreshCw, ShoppingCart, Smartphone, Users, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -15,6 +15,8 @@ import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCategories, useCourse, usePreview, useReviews } from '@/features/catalog/api'
 import { useAddToCart, useCheckout, usePlanEnroll, useToggleWishlist } from '@/features/commerce/api'
+import { useAccess } from '@/features/b2c/api'
+import { UnlockButton } from '@/features/b2c/UnlockButton'
 import { Price } from '@/features/catalog/CourseCard'
 import { TeamBuy } from '@/features/corporate/TeamBuy'
 import { ReportButton } from '@/features/engagement/ReportButton'
@@ -25,6 +27,14 @@ import { count, duration, relativeDate, shortDate } from '@/lib/format'
 import { Link, useNavigate } from '@/lib/router'
 
 const kindIcon: Record<string, LucideIcon> = { video: PlayCircle, article: FileText, quiz: HelpCircle, assignment: ListChecks, live_session: Radio, external_link: Globe }
+
+const ACCESS_SOURCE_LABEL: Record<string, string> = {
+  legacy: 'You already own this',
+  package: 'Included in a package you bought',
+  token: 'Unlocked with tokens',
+  subscription: 'Included in your subscription',
+  admin: 'Granted by LearnHub',
+}
 
 type Detail = NonNullable<ReturnType<typeof useCourse>['data']>
 
@@ -85,6 +95,11 @@ function Curriculum({ sections, onPreview }: { sections: Detail['sections']; onP
                           <span className="flex-1">{l.title}</span>
                         )}
                         {l.is_preview ? <Badge tone="primary">Preview</Badge> : null}
+                        {!l.is_preview && l.token_price ? (
+                          <Badge tone="neutral" title="Unlock this lecture with tokens">
+                            <Coins /> {count(l.token_price)}
+                          </Badge>
+                        ) : null}
                         {l.duration_sec ? <span className="w-12 text-right text-xs text-muted tabular">{duration(l.duration_sec)}</span> : <span className="w-12" />}
                       </li>
                     )
@@ -217,6 +232,13 @@ function BuyBox({ course, onPreview }: { course: Detail; onPreview?: () => void 
   const checkout = useCheckout()
   const planEnroll = usePlanEnroll()
   const free = !!course.price?.free
+  // Resolver is the authority: if the person already has access (token unlock, package,
+  // subscription, legacy purchase) we must not show a purchase prompt. Only ask the server
+  // when they aren't already known to own it through an enrolment or by teaching it.
+  const b2cEligible = !!me && !v.enrollment_id && !v.is_instructor && !v.plan_access
+  const access = useAccess('course', course.id, b2cEligible)
+  const alreadyHasAccess = b2cEligible && access.data?.allowed === true
+  const tokenCoursePrice = course.full_course_token_price ?? null
 
   const fail = (e: unknown) => toast.error((e as Error).message)
   const add = () => addToCart.mutate(course.id, { onSuccess: () => toast.success('Added to your cart', { action: { label: 'View cart', onClick: () => navigate('/cart') } }), onError: fail })
@@ -270,6 +292,17 @@ function BuyBox({ course, onPreview }: { course: Detail; onPreview?: () => void 
               <PlayCircle /> Start learning
             </Button>
           </>
+        ) : alreadyHasAccess ? (
+          <>
+            <Badge tone="success">
+              <Check /> {ACCESS_SOURCE_LABEL[access.data!.source] ?? 'You have access'}
+            </Badge>
+            <Button size="lg" className="mt-4 w-full" asChild>
+              <Link to={`/learn/${course.slug}`}>
+                <PlayCircle /> Start learning
+              </Link>
+            </Button>
+          </>
         ) : free ? (
           <>
             <p className="text-3xl font-bold tracking-tight">Free</p>
@@ -292,6 +325,28 @@ function BuyBox({ course, onPreview }: { course: Detail; onPreview?: () => void 
               Buy now
             </Button>
             <p className="mt-3 text-center text-xs text-muted">30-day refund policy · secure checkout by Stripe</p>
+            {tokenCoursePrice ? (
+              <div className="mt-4 border-t border-border pt-4">
+                <p className="mb-2 text-xs font-medium text-muted">Or unlock the whole course with tokens</p>
+                <UnlockButton scope="course" targetId={course.id} tokenPrice={tokenCoursePrice} title={course.title} size="lg" className="w-full" onUnlocked={() => navigate(`/learn/${course.slug}`)} />
+              </div>
+            ) : null}
+            {course.in_subscription ? (
+              <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted">
+                <Crown className="size-3.5 text-primary" />
+                Also included in the{' '}
+                <Link to="/subscription" className="font-medium text-primary hover:underline">
+                  Unlimited plan
+                </Link>
+              </p>
+            ) : null}
+          </>
+        ) : tokenCoursePrice ? (
+          <>
+            <p className="text-sm text-muted">Unlock this course with tokens.</p>
+            <div className="mt-3">
+              <UnlockButton scope="course" targetId={course.id} tokenPrice={tokenCoursePrice} title={course.title} size="lg" className="w-full" onUnlocked={() => navigate(`/learn/${course.slug}`)} />
+            </div>
           </>
         ) : (
           <p className="text-sm text-muted">This course is not sold on its own.</p>

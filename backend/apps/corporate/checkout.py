@@ -22,17 +22,12 @@ def create_recorded_checkout(request, offering_id, quantity: int) -> dict:
     if org_id is None:
         raise ServiceError("no_org", "Organization context required.", status=400)
 
-    member = (
-        OrgMember.objects
-        .filter(org_id=org_id, user_id=request.user.id, removed_at__isnull=True)
-        .first()
-    )
+    member = OrgMember.objects.filter(org_id=org_id, user_id=request.user.id, removed_at__isnull=True).first()
     if member is None or ROLE_RANK.get(OrgRole(member.role), -1) < ROLE_RANK[OrgRole.ADMIN]:
         raise ServiceError("forbidden", "Only company admins or owners may purchase.", status=403)
 
     offering = (
-        CorporateOffering.objects
-        .select_related("price_tier", "course")
+        CorporateOffering.objects.select_related("price_tier", "course")
         .filter(pk=offering_id, is_active=True, delivery_type="recorded")
         .first()
     )
@@ -61,20 +56,23 @@ def create_recorded_checkout(request, offering_id, quantity: int) -> dict:
     )
 
     from apps.org.models import Organization
+
     org = Organization.objects.filter(pk=org_id).first()
     customer_id = org.stripe_customer_id if org else ""
 
     idempotency_key = f"corp_checkout_{purchase.id}"
     session = gateway.create_checkout_session(
         mode="payment",
-        line_items=[{
-            "price_data": {
-                "currency": currency.lower(),
-                "unit_amount": unit_price,
-                "product_data": {"name": f"{offering.course.title} — Corporate Seats"},
-            },
-            "quantity": quantity,
-        }],
+        line_items=[
+            {
+                "price_data": {
+                    "currency": currency.lower(),
+                    "unit_amount": unit_price,
+                    "product_data": {"name": f"{offering.course.title} — Corporate Seats"},
+                },
+                "quantity": quantity,
+            }
+        ],
         metadata={
             "kind": "corporate_recorded",
             "id": str(purchase.id),
@@ -92,7 +90,10 @@ def create_recorded_checkout(request, offering_id, quantity: int) -> dict:
     purchase.save(update_fields=["stripe_session_id", "updated_at"])
 
     audit_request(
-        request, "corporate_checkout_started", "seat_purchase", purchase.id,
+        request,
+        "corporate_checkout_started",
+        "seat_purchase",
+        purchase.id,
         data={"offering_id": str(offering.id), "quantity": quantity, "total": total},
     )
 
