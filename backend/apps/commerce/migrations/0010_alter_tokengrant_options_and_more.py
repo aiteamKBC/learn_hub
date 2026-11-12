@@ -5,39 +5,55 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('commerce', '0009_plan_kind'),
+        ("commerce", "0009_plan_kind"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='tokengrant',
+            name="tokengrant",
             options={},
         ),
         migrations.AlterModelOptions(
-            name='tokenledgerentry',
+            name="tokenledgerentry",
             options={},
         ),
         migrations.AlterModelOptions(
-            name='tokenspend',
+            name="tokenspend",
             options={},
         ),
-        migrations.RemoveIndex(
-            model_name='tokengrant',
-            name='ix_tgrant_fefo',
-        ),
-        migrations.RemoveIndex(
-            model_name='tokengrant',
-            name='ix_tgrant_expires',
-        ),
-        migrations.AddIndex(
-            model_name='tokengrant',
-            index=models.Index(condition=models.Q(('expired_at__isnull', True), ('remaining__gt', 0)), fields=['user', 'expires_at', 'granted_at', 'id'], name='ix_tgrant_fefo'),
-        ),
-        migrations.AddIndex(
-            model_name='tokengrant',
-            index=models.Index(condition=models.Q(('expired_at__isnull', True), ('expires_at__isnull', False)), fields=['expires_at'], name='ix_tgrant_expires'),
+        # The predicates only change the order of equivalent conditions.
+        # Keep the existing indexes: Django's DROP INDEX is unqualified here,
+        # while these indexes live in the `commerce` schema.
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[
+                migrations.RemoveIndex(
+                    model_name="tokengrant",
+                    name="ix_tgrant_fefo",
+                ),
+                migrations.RemoveIndex(
+                    model_name="tokengrant",
+                    name="ix_tgrant_expires",
+                ),
+                migrations.AddIndex(
+                    model_name="tokengrant",
+                    index=models.Index(
+                        condition=models.Q(("expired_at__isnull", True), ("remaining__gt", 0)),
+                        fields=["user", "expires_at", "granted_at", "id"],
+                        name="ix_tgrant_fefo",
+                    ),
+                ),
+                migrations.AddIndex(
+                    model_name="tokengrant",
+                    index=models.Index(
+                        condition=models.Q(("expired_at__isnull", True), ("expires_at__isnull", False)),
+                        fields=["expires_at"],
+                        name="ix_tgrant_expires",
+                    ),
+                ),
+            ],
         ),
     ]
+

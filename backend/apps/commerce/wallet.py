@@ -1,10 +1,10 @@
-"""B2C-02 — Token wallet: grant, FEFO spend, admin adjust, expiry.
+"""B2C-02 â€” Token wallet: grant, FEFO spend, admin adjust, expiry.
 
 Invariants
 ----------
 - Tokens are integers. Money is Decimal(12,2). Rate is Decimal(12,4).
 - FEFO ordering: expires_at ASC NULLS LAST, granted_at ASC, id ASC.
-- Atomic spend: SELECT … FOR UPDATE prevents double-debit.
+- Atomic spend: SELECT â€¦ FOR UPDATE prevents double-debit.
 - Idempotent grant on stripe_session_id (webhook replay safety).
 - No default expiry invented (T03 BLOCKED).
 """
@@ -221,6 +221,12 @@ def spend_tokens(
         },
         request=request,
     )
+
+    # Record the instructor's share in the same transaction as the token debit.
+    # The payout service ignores platform-owned courses and spends without a cost.
+    from apps.payouts.services_tokens import record_token_spend_earning
+
+    record_token_spend_earning(spend.id)
     return spend
 
 
