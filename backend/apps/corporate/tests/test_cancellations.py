@@ -259,20 +259,52 @@ class DeparturePolicyTest(SchemaTransactionTestCase):
             policy = set_policy(self._request(), self.org.id, "revoke_all")
         self.assertEqual(policy.action, "revoke_all")
 
-    def test_revoke_all_departure(self):
-        with tenant_context(staff=True):
-            allocate_seat(self._request(), self.purchase.id, self.employee.id)
-            set_policy(self._request(), self.org.id, "revoke_all")
-            result = apply_departure(self._request(), self.org.id, self.employee.id)
-        self.assertEqual(result["action"], "revoke_all")
-        self.assertEqual(result["revoked"], 1)
+    def _leave(self):
+        OrgMember.objects.filter(org=self.org, user=self.employee).update(removed_at=timezone.now())
 
-    def test_admin_decides_preserves_all(self):
+    def test_departure_keeps_paid_access_until_it_expires(self):
+        """Leaves on day 0, paid until day 20: access stays, then ends by itself."""
+        from datetime import timedelta
+
+        from apps.learning.models import Enrollment
+        from apps.learning.services import _check_access
+
+        with tenant_context(staff=True):
+            alloc = allocate_seat(self._request(), self.purchase.id, self.employee.id)
+            Enrollment.objects.filter(pk=alloc.enrollment_id).update(
+                access_expires_at=timezone.now() + timedelta(days=20)
+            )
+            set_policy(self._request(), self.org.id, "revoke_all")  # even the strictest policy
+            self._leave()
+            result = apply_departure(self._request(), self.org.id, self.employee.id)
+            alloc.refresh_from_db()
+            enrolment = Enrollment.objects.get(pk=alloc.enrollment_id)
+            _check_access(enrolment)  # still allowed: no error
+
+            Enrollment.objects.filter(pk=enrolment.pk).update(
+                access_expires_at=timezone.now() - timedelta(seconds=1)
+            )
+            enrolment.refresh_from_db()
+            with self.assertRaises(ServiceError) as cm:
+                _check_access(enrolment)
+        self.assertEqual(result["revoked"], 0)
+        self.assertEqual(result["preserved"], 1)
+        self.assertEqual(alloc.status, "active", "the paid seat is not freed or reused")
+        self.assertEqual(enrolment.status, "active", "the enrolment and its progress are kept")
+        self.assertEqual(cm.exception.code, "access_expired")
+
+    def test_departure_needs_the_person_to_have_left(self):
+        with tenant_context(staff=True):
+            with self.assertRaises(ServiceError) as cm:
+                apply_departure(self._request(), self.org.id, self.employee.id)
+        self.assertEqual(cm.exception.code, "still_member")
+
+    def test_departure_with_lifetime_seat_keeps_access(self):
         with tenant_context(staff=True):
             allocate_seat(self._request(), self.purchase.id, self.employee.id)
+            self._leave()
             result = apply_departure(self._request(), self.org.id, self.employee.id)
-        self.assertEqual(result["action"], "admin_decides")
-        self.assertEqual(result["preserved"], 1)
+        self.assertEqual(result["courses"][0]["access_expires_at"], None)
         self.assertEqual(result["revoked"], 0)
 
 

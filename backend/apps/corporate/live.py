@@ -19,6 +19,13 @@ def submit_request(
     org_id = getattr(request, "org_id", None)
     if org_id is None:
         raise ServiceError("no_org", "Organization context required.", status=400)
+    from .models import CorporateOffering
+
+    offered = CorporateOffering.objects.filter(
+        course_id=course_id, delivery_type="live", is_active=True, price_tier__gbp_minor__gt=0
+    ).exists()
+    if not offered:
+        raise ServiceError("live_not_offered", "Live training is not offered for this course.", status=400)
 
     tr = TrainingRequest.objects.create(
         org_id=org_id,
@@ -161,7 +168,7 @@ def remove_company_from_cohort(request, cohort_id, org_id) -> None:
 
 
 @transaction.atomic
-def confirm_cohort(request, cohort_id) -> LiveCohort:
+def confirm_cohort(request, cohort_id, payment_deadline=None) -> LiveCohort:
     cohort = LiveCohort.objects.select_for_update().filter(pk=cohort_id).first()
     if cohort is None:
         raise ServiceError("not_found", "Cohort not found.", status=404)
@@ -179,10 +186,18 @@ def confirm_cohort(request, cohort_id) -> LiveCohort:
     cohort.status = LiveCohort.Status.CONFIRMED
     cohort.save(update_fields=["status", "updated_at"])
 
-    CohortCompany.objects.filter(
-        cohort=cohort,
-        status=CohortCompany.Status.INTERESTED,
-    ).update(status=CohortCompany.Status.OFFERED, updated_at=timezone.now())
+    if payment_deadline is not None and payment_deadline <= timezone.now():
+        raise ServiceError("deadline_in_past", "The payment deadline must be in the future.", status=400)
+    offered = CohortCompany.objects.filter(cohort=cohort, status=CohortCompany.Status.INTERESTED)
+    request_ids = [r for r in offered.values_list("training_request_id", flat=True) if r]
+    changes = {"status": CohortCompany.Status.OFFERED, "updated_at": timezone.now()}
+    if payment_deadline is not None:  # staff set it per cohort (Q07); none means no deadline
+        changes["payment_deadline"] = payment_deadline
+    offered.update(**changes)
+    # the companies' requests now have an offer to pay for
+    TrainingRequest.objects.filter(pk__in=request_ids).update(
+        status=TrainingRequest.Status.OFFERED, status_label="Offer ready", updated_at=timezone.now()
+    )
 
     audit_request(request, "cohort_confirmed", "live_cohort", cohort.id)
     return cohort

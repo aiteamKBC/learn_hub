@@ -38,6 +38,8 @@ def create_recorded_checkout(request, offering_id, quantity: int) -> dict:
         raise ServiceError("bad_quantity", "Quantity must be between 1 and 500.", status=400)
 
     unit_price = offering.price_tier.gbp_minor
+    if unit_price <= 0:  # the admin has not set a price for this option
+        raise ServiceError("no_price", "This option has no price yet. Please contact us.", status=400)
     currency = "GBP"
     total = unit_price * quantity
 

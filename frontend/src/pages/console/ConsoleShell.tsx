@@ -3,6 +3,7 @@ import { Award, BadgePercent, ShieldCheck, BarChart3, BookOpen, Building2, Coins
 import { ApiError } from '@/api/client'
 import { Backdrop } from '@/components/art/backdrops'
 import { type NavSection, WorkspaceLayout } from '@/components/layout/WorkspaceLayout'
+import { corporateConsoleNav } from '@/features/corporate/routes'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Link } from '@/lib/router'
@@ -71,6 +72,7 @@ const consoleNav: NavSection[] = [
       { to: '/console/audit', label: 'Audit log', Icon: History },
     ],
   },
+  ...corporateConsoleNav,
 ]
 
 /** The admin console frame: navy sidebar (drawer on phones), circuit artwork by default,

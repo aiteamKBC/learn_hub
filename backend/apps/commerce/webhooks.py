@@ -286,6 +286,11 @@ def _charge_succeeded(charge: dict) -> None:
 
 
 def _invoice_failed(inv: dict) -> None:
+    if (inv.get("metadata") or {}).get("kind") == "corporate_instalment":
+        from apps.corporate.instalments import instalment_failed
+
+        instalment_failed(inv)
+        return
     sub = _subscription_of(inv)
     if sub is None:
         return
@@ -301,6 +306,11 @@ def _invoice_paid(inv: dict) -> None:
         from apps.corporate.quotes import fulfil_quote
 
         fulfil_quote(inv)
+        return
+    if meta.get("kind") == "corporate_instalment":
+        from apps.corporate.instalments import instalment_paid
+
+        instalment_paid(inv)
         return
     sub = _subscription_of(inv)
     if sub is None:

@@ -19,7 +19,11 @@ from .models import CorporateQuote, QuoteItem, SeatPurchase
 
 @transaction.atomic
 def send_quote(request, quote_id) -> CorporateQuote:
-    quote = CorporateQuote.objects.select_for_update().select_related("org").filter(pk=quote_id).first()
+    quote = (
+        CorporateQuote.objects.select_for_update()  # no join: it would lock and RLS-filter the joined table
+        .filter(pk=quote_id)
+        .first()
+    )
     if quote is None:
         raise ServiceError("quote_not_found", "Quote not found.", status=404)
     if quote.status != CorporateQuote.Status.DRAFT:

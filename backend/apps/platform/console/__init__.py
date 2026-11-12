@@ -13,6 +13,7 @@ from . import (  # noqa: F401 - each module adds its routes to the shared router
     commissions,
     communications,
     companies,
+    corporate_agreements,
     corporate_cancellations,
     corporate_live,
     corporate_packages,

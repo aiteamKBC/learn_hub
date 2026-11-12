@@ -20,8 +20,7 @@ ACTIVE_ALLOC = Q(status__in=[SeatAllocation.Status.ALLOCATED, SeatAllocation.Sta
 @transaction.atomic
 def allocate_seat(request, seat_purchase_id, user_id) -> SeatAllocation:
     sp = (
-        SeatPurchase.objects.select_for_update()
-        .select_related("offering")
+        SeatPurchase.objects.select_for_update()  # no join: it would lock and RLS-filter the joined table
         .filter(pk=seat_purchase_id)
         .first()
     )
@@ -68,6 +67,9 @@ def allocate_seat(request, seat_purchase_id, user_id) -> SeatAllocation:
     allocation.activated_at = now
     allocation.enrollment = enrollment
     allocation.save(update_fields=["status", "activated_at", "enrollment", "updated_at"])
+    from .programme import apply_paid_access
+
+    apply_paid_access(allocation, sp)  # instalments: only what staff chose to cover
 
     AllocationEvent.objects.create(
         org_id=sp.org_id,
@@ -133,8 +135,7 @@ def release_seat(request, allocation_id, reason="") -> SeatAllocation:
 @transaction.atomic
 def reassign_seat(request, allocation_id, new_user_id, reason="") -> SeatAllocation:
     old_alloc = (
-        SeatAllocation.objects.select_for_update()
-        .select_related("seat_purchase__offering")
+        SeatAllocation.objects.select_for_update()  # no join: it would lock and RLS-filter the joined table
         .filter(pk=allocation_id)
         .first()
     )
@@ -193,6 +194,9 @@ def reassign_seat(request, allocation_id, new_user_id, reason="") -> SeatAllocat
     new_alloc.activated_at = now
     new_alloc.enrollment = enrollment
     new_alloc.save(update_fields=["status", "activated_at", "enrollment", "updated_at"])
+    from .programme import apply_paid_access
+
+    apply_paid_access(new_alloc, sp)
 
     AllocationEvent.objects.create(
         org_id=sp.org_id,
@@ -245,3 +249,52 @@ def seat_inventory(org_id, offering_id=None) -> dict:
         }
 
     return result
+
+
+def allocate_for_company(request, scope, offering_id, user_id) -> SeatAllocation:
+    """A company gives an employee a recorded-course seat from its paid stock.
+
+    Takes the oldest paid purchase of that offering with a free seat. Managers may only
+    give seats to people in the units they manage. Live places are named per booking
+    (attendees.py), never here.
+    """
+    from apps.org.models import OrgMember as Member
+
+    from .models import CorporateOffering
+
+    offering = CorporateOffering.objects.filter(pk=offering_id).first()
+    if offering is None:
+        raise ServiceError("offering_not_found", "Course package not found.", status=404)
+    if offering.delivery_type != CorporateOffering.DeliveryType.RECORDED:
+        raise ServiceError("live_offering", "Name live attendees from the live booking instead.", status=400)
+    members = Member.objects.filter(user_id=user_id, removed_at__isnull=True)
+    if not scope.members(members).exists():
+        raise ServiceError("not_in_scope", "This person is not in your company or your teams.", status=400)
+    if (
+        SeatAllocation.objects.filter(
+            org_id=scope.org_id, user_id=user_id, seat_purchase__offering_id=offering_id
+        )
+        .filter(ACTIVE_ALLOC)
+        .exists()
+    ):
+        raise ServiceError("already_allocated", "This person already has a seat on this course.", status=409)
+
+    # Already has this course in the company (e.g. assigned free from the library):
+    # a seat would be used up for nothing (user decision, 2026-11-11).
+    from apps.learning.models import Enrollment
+
+    if Enrollment.objects.filter(
+        org_id=scope.org_id, user_id=user_id, course_id=offering.course_id,
+        status__in=[Enrollment.Status.ACTIVE, Enrollment.Status.COMPLETED],
+    ).exists():  # fmt: skip
+        raise ServiceError(
+            "already_has_course", "This person already has this course. No seat was used.", status=409
+        )
+
+    candidates = SeatPurchase.objects.filter(
+        org_id=scope.org_id, offering_id=offering_id, status=SeatPurchase.Status.PAID
+    ).order_by("paid_at", "id")
+    for sp in candidates:
+        if sp.allocations.filter(ACTIVE_ALLOC).count() < sp.quantity:
+            return allocate_seat(request, sp.id, user_id)
+    raise ServiceError("no_seats_available", "No free seats left. Buy more seats to add people.", status=409)

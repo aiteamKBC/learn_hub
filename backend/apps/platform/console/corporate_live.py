@@ -296,11 +296,40 @@ def update_cohort(request, cohort_id: UUID, body: ConsoleCohortPatch):
     return {"ok": True}
 
 
+class ConsoleConfirmCohortIn(Schema):
+    payment_deadline: datetime | None = None
+
+
 @router.post("/corporate/cohorts/{cohort_id}/confirm", response=ConsoleOkOut)
-def confirm_cohort(request, cohort_id: UUID):
+def confirm_cohort(request, cohort_id: UUID, body: ConsoleConfirmCohortIn | None = None):
     staff(request)
-    live_svc.confirm_cohort(request, cohort_id)
+    live_svc.confirm_cohort(request, cohort_id, payment_deadline=body.payment_deadline if body else None)
     return {"ok": True}
+
+
+class ConsoleLiveAttendeeOut(Schema):
+    id: UUID
+    org_name: str
+    user_name: str
+    user_email: str
+    added_at: datetime
+
+
+@router.get("/corporate/cohorts/{cohort_id}/attendees", response=list[ConsoleLiveAttendeeOut])
+def list_cohort_attendees(request, cohort_id: UUID):
+    staff(request)
+    from apps.corporate.models import LiveAttendee
+
+    qs = (
+        LiveAttendee.objects.filter(cohort_id=cohort_id, status="active")
+        .select_related("user", "org")
+        .order_by("org__name", "created_at")
+    )
+    return [
+        {"id": a.id, "org_name": a.org.name, "user_name": a.user.full_name or a.user.email,
+         "user_email": a.user.email, "added_at": a.created_at}
+        for a in qs
+    ]  # fmt: skip
 
 
 @router.post("/corporate/cohorts/{cohort_id}/companies", response=ConsoleIdOut)

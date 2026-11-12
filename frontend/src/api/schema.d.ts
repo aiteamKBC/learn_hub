@@ -2408,6 +2408,180 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/corporate/allocations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Allocations
+         * @description Who holds this company's recorded seats. Managers see people in their units only.
+         */
+        get: operations["apps_corporate_api_list_allocations"];
+        put?: never;
+        /**
+         * Allocate
+         * @description Give one employee a seat on a recorded course this company has paid for.
+         */
+        post: operations["apps_corporate_api_allocate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/live-bookings/{cc_id}/attendees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Attendees */
+        get: operations["apps_corporate_api_list_attendees"];
+        put?: never;
+        /** Add Attendee */
+        post: operations["apps_corporate_api_add_attendee"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/live-bookings/{cc_id}/attendees/{attendee_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Attendee */
+        delete: operations["apps_corporate_api_remove_attendee"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/my/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Live
+         * @description The signed-in employee's live training, in any workspace. First session only until
+         *     it ends; the join link shows from 15 minutes before a session until it ends.
+         */
+        get: operations["apps_corporate_api_my_live"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/my/programmes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Programmes
+         * @description The signed-in person's company-paid recorded courses: programme dates and access.
+         *
+         *     The programme end never closes lessons; access follows payment only.
+         */
+        get: operations["apps_corporate_api_my_programmes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/purchases/{purchase_id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Attachments
+         * @description Files kept with a purchase. Owners and admins only (commercial documents).
+         */
+        get: operations["apps_corporate_api_list_attachments"];
+        put?: never;
+        /** Start Attachment */
+        post: operations["apps_corporate_api_start_attachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/attachments/{attachment_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Attachment */
+        post: operations["apps_corporate_api_confirm_attachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/attachments/{attachment_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Attachment */
+        get: operations["apps_corporate_api_download_attachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/attachments/{attachment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Attachment */
+        delete: operations["apps_corporate_api_delete_attachment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/studio/instructor-profile": {
         parameters: {
             query?: never;
@@ -4332,6 +4506,197 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/corporate/inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Inventory
+         * @description Seats bought, used and free per programme; with a company chosen, every seat holder.
+         */
+        get: operations["apps_platform_console_corporate_agreements_inventory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/purchases/{purchase_id}/programme": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Set Programme */
+        patch: operations["apps_platform_console_corporate_agreements_set_programme"];
+        trace?: never;
+    };
+    "/api/v1/console/corporate/instalment-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Plan */
+        post: operations["apps_platform_console_corporate_agreements_create_plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/purchases/{purchase_id}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plan */
+        get: operations["apps_platform_console_corporate_agreements_get_plan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/instalments/{instalment_id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send Instalment */
+        post: operations["apps_platform_console_corporate_agreements_send_instalment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/instalments/{instalment_id}/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cover */
+        post: operations["apps_platform_console_corporate_agreements_cover"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/instalments/{instalment_id}/cover/{allocation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Uncover */
+        delete: operations["apps_platform_console_corporate_agreements_uncover"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/purchases/{purchase_id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Attachments */
+        get: operations["apps_platform_console_corporate_agreements_list_attachments"];
+        put?: never;
+        /** Start Attachment */
+        post: operations["apps_platform_console_corporate_agreements_start_attachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/attachments/{attachment_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Attachment */
+        post: operations["apps_platform_console_corporate_agreements_confirm_attachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/attachments/{attachment_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Attachment */
+        get: operations["apps_platform_console_corporate_agreements_download_attachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/attachments/{attachment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Attachment */
+        delete: operations["apps_platform_console_corporate_agreements_delete_attachment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/corporate/cancellations": {
         parameters: {
             query?: never;
@@ -4426,7 +4791,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Apply Departure */
+        /**
+         * Apply Departure
+         * @description Record that someone left. Paid access is never ended early (see corporate/departure.py).
+         */
         post: operations["apps_platform_console_corporate_cancellations_apply_departure"];
         delete?: never;
         options?: never;
@@ -4514,6 +4882,23 @@ export interface paths {
         put?: never;
         /** Confirm Cohort */
         post: operations["apps_platform_console_corporate_live_confirm_cohort"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/cohorts/{cohort_id}/attendees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Cohort Attendees */
+        get: operations["apps_platform_console_corporate_live_list_cohort_attendees"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4758,23 +5143,6 @@ export interface paths {
         put?: never;
         /** Reassign Allocation */
         post: operations["apps_platform_console_corporate_packages_reassign_allocation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/console/corporate/inventory": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Inventory Summary */
-        get: operations["apps_platform_console_corporate_packages_inventory_summary"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -9312,15 +9680,28 @@ export interface components {
         };
         /** CheckoutOut */
         CheckoutOut: {
-            /** Purchase Id */
-            purchase_id: string;
+            /**
+             * Order Id
+             * Format: uuid
+             */
+            order_id: string;
+            /** Status */
+            status: string;
             /** Checkout Url */
-            checkout_url: string;
+            checkout_url: string | null;
+            /** Total Minor */
+            total_minor: number;
+            /** Currency */
+            currency: string;
         };
         /** CheckoutIn */
         CheckoutIn: {
-            /** Quantity */
-            quantity: number;
+            /** Course Ids */
+            course_ids: string[];
+            /** Currency */
+            currency: string;
+            /** Coupon */
+            coupon?: string | null;
         };
         /** OrderItemOut */
         OrderItemOut: {
@@ -10425,6 +10806,23 @@ export interface components {
             custom_quote_enabled: boolean;
             /** Description */
             description: string;
+            /**
+             * Currency
+             * @default GBP
+             */
+            currency: string;
+        };
+        /** CorporateCheckoutOut */
+        CorporateCheckoutOut: {
+            /** Purchase Id */
+            purchase_id: string;
+            /** Checkout Url */
+            checkout_url: string;
+        };
+        /** CorporateCheckoutIn */
+        CorporateCheckoutIn: {
+            /** Quantity */
+            quantity: number;
         };
         /** PurchaseOut */
         PurchaseOut: {
@@ -10432,6 +10830,16 @@ export interface components {
             id: string;
             /** Offering Id */
             offering_id: string;
+            /**
+             * Course Title
+             * @default
+             */
+            course_title: string;
+            /**
+             * Delivery Type
+             * @default
+             */
+            delivery_type: string;
             /** Quantity */
             quantity: number;
             /** Unit Price Minor */
@@ -10447,10 +10855,28 @@ export interface components {
             /** Created At */
             created_at: string;
         };
+        /** CorporateQuoteItemOut */
+        CorporateQuoteItemOut: {
+            /** Course Title */
+            course_title: string;
+            /** Delivery Type */
+            delivery_type: string;
+            /** Quantity */
+            quantity: number;
+            /** Unit Price Minor */
+            unit_price_minor: number;
+            /** Line Total Minor */
+            line_total_minor: number;
+        };
         /** QuoteOut */
         QuoteOut: {
             /** Id */
             id: string;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["CorporateQuoteItemOut"][];
             /** Status */
             status: string;
             /** Currency */
@@ -10470,6 +10896,16 @@ export interface components {
         InventoryOut: {
             /** Offering Id */
             offering_id: string;
+            /**
+             * Course Title
+             * @default
+             */
+            course_title: string;
+            /**
+             * Delivery Type
+             * @default
+             */
+            delivery_type: string;
             /** Purchased */
             purchased: number;
             /** Allocated */
@@ -10483,6 +10919,11 @@ export interface components {
             id: string;
             /** Course Id */
             course_id: string;
+            /**
+             * Course Title
+             * @default
+             */
+            course_title: string;
             /** Requested Seats */
             requested_seats: number;
             /** Preferred Intake */
@@ -10513,6 +10954,11 @@ export interface components {
              */
             preferred_delivery_mode: string;
         };
+        /** CorporateOkOut */
+        CorporateOkOut: {
+            /** Ok */
+            ok: boolean;
+        };
         /** LiveBookingOut */
         LiveBookingOut: {
             /** Id */
@@ -10527,6 +10973,44 @@ export interface components {
             status: string;
             /** Payment Deadline */
             payment_deadline?: string | null;
+            /**
+             * Cohort Title
+             * @default
+             */
+            cohort_title: string;
+            /**
+             * Cohort Status
+             * @default
+             */
+            cohort_status: string;
+            /**
+             * Delivery Mode
+             * @default
+             */
+            delivery_mode: string;
+            /**
+             * Intake
+             * @default
+             */
+            intake: string;
+            /** Scheduled Start */
+            scheduled_start?: string | null;
+            /** Scheduled End */
+            scheduled_end?: string | null;
+            /**
+             * Currency
+             * @default GBP
+             */
+            currency: string;
+            /** Unit Price Minor */
+            unit_price_minor?: number | null;
+            /** Total Minor */
+            total_minor?: number | null;
+            /**
+             * Attendee Count
+             * @default 0
+             */
+            attendee_count: number;
         };
         /** CompanyDashboardOut */
         CompanyDashboardOut: {
@@ -10593,6 +11077,17 @@ export interface components {
             reason: string;
             /** Created At */
             created_at: string;
+            /** Seat Purchase Id */
+            seat_purchase_id?: string | null;
+            /** Cohort Company Id */
+            cohort_company_id?: string | null;
+            /** Refund Amount Minor */
+            refund_amount_minor?: number | null;
+            /**
+             * Refund Currency
+             * @default
+             */
+            refund_currency: string;
         };
         /** CancellationIn */
         CancellationIn: {
@@ -10621,6 +11116,196 @@ export interface components {
             location: string;
             /** Status */
             status: string;
+        };
+        /** CorporateAllocationOut */
+        CorporateAllocationOut: {
+            /** Id */
+            id: string;
+            /** Offering Id */
+            offering_id: string;
+            /** Course Title */
+            course_title: string;
+            /** User Id */
+            user_id: string;
+            /** User Name */
+            user_name: string;
+            /** User Email */
+            user_email: string;
+            /** Status */
+            status: string;
+            /** Allocated At */
+            allocated_at: string;
+            /** Left At */
+            left_at?: string | null;
+            /** Programme Months */
+            programme_months?: number | null;
+            /** Programme Start */
+            programme_start?: string | null;
+            /** Programme End */
+            programme_end?: string | null;
+            /**
+             * Programme Status
+             * @default not_started
+             */
+            programme_status: string;
+            /**
+             * Entitlement Status
+             * @default paid_in_full
+             */
+            entitlement_status: string;
+            /** Paid Through */
+            paid_through?: string | null;
+        };
+        /** CorporateAllocateIn */
+        CorporateAllocateIn: {
+            /** Offering Id */
+            offering_id: string;
+            /** User Id */
+            user_id: string;
+        };
+        /** LiveAttendeeOut */
+        LiveAttendeeOut: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id: string;
+            /** User Name */
+            user_name: string;
+            /** User Email */
+            user_email: string;
+            /** Added At */
+            added_at: string;
+        };
+        /** LiveAttendeeIn */
+        LiveAttendeeIn: {
+            /** User Id */
+            user_id: string;
+        };
+        /** MyLiveCohortOut */
+        MyLiveCohortOut: {
+            /** Cohort Id */
+            cohort_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Course Slug */
+            course_slug: string;
+            /** Company Name */
+            company_name: string;
+            /** Delivery Mode */
+            delivery_mode: string;
+            /** Cohort Status */
+            cohort_status: string;
+            /** Programme Months */
+            programme_months?: number | null;
+            /** Programme Start */
+            programme_start?: string | null;
+            /** Programme End */
+            programme_end?: string | null;
+            /** Programme Status */
+            programme_status: string;
+            /** Sessions */
+            sessions: components["schemas"]["MyLiveSessionOut"][];
+            /** More Sessions Hidden */
+            more_sessions_hidden: boolean;
+        };
+        /** MyLiveSessionOut */
+        MyLiveSessionOut: {
+            /** Sequence */
+            sequence: number;
+            /** Title */
+            title: string;
+            /** Scheduled At */
+            scheduled_at: string;
+            /** Duration Min */
+            duration_min: number;
+            /** Delivery Mode */
+            delivery_mode: string;
+            /** Location */
+            location: string;
+            /** Status */
+            status: string;
+            /** Join Url */
+            join_url?: string | null;
+        };
+        /** MyProgrammeOut */
+        MyProgrammeOut: {
+            /** Enrollment Id */
+            enrollment_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Course Slug */
+            course_slug: string;
+            /** Company Name */
+            company_name: string;
+            /** Seat Status */
+            seat_status: string;
+            /** Enrollment Status */
+            enrollment_status: string;
+            /** Access Expires At */
+            access_expires_at?: string | null;
+            /** Access Open */
+            access_open: boolean;
+            /** Entitlement Status */
+            entitlement_status: string;
+            /** Programme Months */
+            programme_months?: number | null;
+            /** Programme Start */
+            programme_start?: string | null;
+            /** Programme End */
+            programme_end?: string | null;
+            /** Programme Status */
+            programme_status: string;
+        };
+        /** CorporateAttachmentOut */
+        CorporateAttachmentOut: {
+            /** Id */
+            id: string;
+            /** Filename */
+            filename: string;
+            /** Mime Type */
+            mime_type: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Uploaded By Name */
+            uploaded_by_name: string;
+            /** Uploaded By Staff */
+            uploaded_by_staff: boolean;
+            /**
+             * Uploaded At
+             * Format: date-time
+             */
+            uploaded_at: string;
+            /** Can Delete */
+            can_delete: boolean;
+        };
+        /** CorporateUploadOut */
+        CorporateUploadOut: {
+            /** Attachment Id */
+            attachment_id: string;
+            /** Upload Url */
+            upload_url: string;
+            /** Method */
+            method: string;
+            /** Headers */
+            headers: {
+                [key: string]: string;
+            };
+            /** Expires In */
+            expires_in: number;
+            /** Max Bytes */
+            max_bytes: number;
+        };
+        /** CorporateUploadIn */
+        CorporateUploadIn: {
+            /** Filename */
+            filename: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /** CorporateDownloadOut */
+        CorporateDownloadOut: {
+            /** Url */
+            url: string;
         };
         /** StudioStatusOut */
         StudioStatusOut: {
@@ -13397,6 +14082,289 @@ export interface components {
              */
             role: string;
         };
+        /** ConsoleInventoryGroupOut */
+        ConsoleInventoryGroupOut: {
+            /**
+             * Offering Id
+             * Format: uuid
+             */
+            offering_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Delivery Type */
+            delivery_type: string;
+            /** Purchases */
+            purchases: number;
+            /** Purchased */
+            purchased: number;
+            /** Allocated */
+            allocated: number;
+            /** Available */
+            available: number;
+        };
+        /** ConsoleInventoryOut */
+        ConsoleInventoryOut: {
+            /** Groups */
+            groups: components["schemas"]["ConsoleInventoryGroupOut"][];
+            /** Seats */
+            seats: components["schemas"]["ConsoleInventorySeatOut"][];
+            /** Seats Shown */
+            seats_shown: boolean;
+        };
+        /** ConsoleInventorySeatOut */
+        ConsoleInventorySeatOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Purchase Id */
+            purchase_id?: string | null;
+            /**
+             * Offering Id
+             * Format: uuid
+             */
+            offering_id: string;
+            /** Course Title */
+            course_title: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** User Name */
+            user_name: string;
+            /** User Email */
+            user_email: string;
+            /** Seat Status */
+            seat_status: string;
+            /**
+             * Allocated At
+             * Format: date-time
+             */
+            allocated_at: string;
+            /** Left At */
+            left_at?: string | null;
+            /** Programme Months */
+            programme_months?: number | null;
+            /** Programme Start */
+            programme_start?: string | null;
+            /** Programme End */
+            programme_end?: string | null;
+            /** Programme Status */
+            programme_status: string;
+            /** Payment Plan */
+            payment_plan: string;
+            /** Entitlement Status */
+            entitlement_status: string;
+            /** Paid Through */
+            paid_through?: string | null;
+        };
+        /** ConsoleProgrammeIn */
+        ConsoleProgrammeIn: {
+            /** Programme Months */
+            programme_months?: number | null;
+        };
+        /** ConsoleInstalmentPlanCreatedOut */
+        ConsoleInstalmentPlanCreatedOut: {
+            /**
+             * Purchase Id
+             * Format: uuid
+             */
+            purchase_id: string;
+        };
+        /** ConsoleInstalmentIn */
+        ConsoleInstalmentIn: {
+            /** Amount Minor */
+            amount_minor: number;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Covers Months */
+            covers_months: number;
+        };
+        /** ConsoleInstalmentPlanIn */
+        ConsoleInstalmentPlanIn: {
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /**
+             * Offering Id
+             * Format: uuid
+             */
+            offering_id: string;
+            /**
+             * Buyer Id
+             * Format: uuid
+             */
+            buyer_id: string;
+            /** Quantity */
+            quantity: number;
+            /** Unit Price Minor */
+            unit_price_minor: number;
+            /**
+             * Currency
+             * @default GBP
+             */
+            currency: string;
+            /** Programme Months */
+            programme_months?: number | null;
+            /** Schedule */
+            schedule: components["schemas"]["ConsoleInstalmentIn"][];
+        };
+        /** ConsoleInstalmentOut */
+        ConsoleInstalmentOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Sequence */
+            sequence: number;
+            /** Amount Minor */
+            amount_minor: number;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Covers Months */
+            covers_months: number;
+            /** Status */
+            status: string;
+            /** Paid At */
+            paid_at?: string | null;
+            /** Paid Through */
+            paid_through?: string | null;
+            /** Stripe Invoice Id */
+            stripe_invoice_id: string;
+            /** Covered Allocation Ids */
+            covered_allocation_ids: string[];
+        };
+        /** ConsoleInstalmentPlanOut */
+        ConsoleInstalmentPlanOut: {
+            /**
+             * Purchase Id
+             * Format: uuid
+             */
+            purchase_id: string;
+            /** Payment Plan */
+            payment_plan: string;
+            /** Currency */
+            currency: string;
+            /** Total Minor */
+            total_minor: number;
+            /** Paid Minor */
+            paid_minor: number;
+            /** Outstanding Minor */
+            outstanding_minor: number;
+            /** Programme Months */
+            programme_months?: number | null;
+            /** Agreement Months */
+            agreement_months?: number | null;
+            /** Instalments */
+            instalments: components["schemas"]["ConsoleInstalmentOut"][];
+            /** Seats */
+            seats: components["schemas"]["ConsoleInstalmentSeatOut"][];
+        };
+        /** ConsoleInstalmentSeatOut */
+        ConsoleInstalmentSeatOut: {
+            /**
+             * Allocation Id
+             * Format: uuid
+             */
+            allocation_id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** User Name */
+            user_name: string;
+            /** User Email */
+            user_email: string;
+            /** Left At */
+            left_at?: string | null;
+            /** Entitlement Status */
+            entitlement_status: string;
+            /** Entitlement Paid Through */
+            entitlement_paid_through?: string | null;
+        };
+        /** ConsoleCoverOut */
+        ConsoleCoverOut: {
+            /** Added */
+            added: number;
+            /** Already Covered */
+            already_covered: number;
+        };
+        /** ConsoleCoverIn */
+        ConsoleCoverIn: {
+            /** Allocation Ids */
+            allocation_ids: string[];
+        };
+        /** ConsoleAttachmentOut */
+        ConsoleAttachmentOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Filename */
+            filename: string;
+            /** Mime Type */
+            mime_type: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Uploaded By Name */
+            uploaded_by_name: string;
+            /** Uploaded By Staff */
+            uploaded_by_staff: boolean;
+            /**
+             * Uploaded At
+             * Format: date-time
+             */
+            uploaded_at: string;
+            /** Can Delete */
+            can_delete: boolean;
+        };
+        /** ConsoleAttachmentUploadOut */
+        ConsoleAttachmentUploadOut: {
+            /**
+             * Attachment Id
+             * Format: uuid
+             */
+            attachment_id: string;
+            /** Upload Url */
+            upload_url: string;
+            /** Method */
+            method: string;
+            /** Headers */
+            headers: {
+                [key: string]: string;
+            };
+            /** Expires In */
+            expires_in: number;
+            /** Max Bytes */
+            max_bytes: number;
+        };
+        /** ConsoleAttachmentUploadIn */
+        ConsoleAttachmentUploadIn: {
+            /** Filename */
+            filename: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /** ConsoleDownloadOut */
+        ConsoleDownloadOut: {
+            /** Url */
+            url: string;
+        };
         /** ConsoleCancellationOut */
         ConsoleCancellationOut: {
             /**
@@ -13499,6 +14467,31 @@ export interface components {
              * @default
              */
             notes: string;
+        };
+        /** ConsoleDepartureCourseOut */
+        ConsoleDepartureCourseOut: {
+            /** Course Title */
+            course_title: string;
+            /** Enrollment Status */
+            enrollment_status: string;
+            /** Access Expires At */
+            access_expires_at?: string | null;
+        };
+        /** ConsoleDepartureResultOut */
+        ConsoleDepartureResultOut: {
+            /** Action */
+            action: string;
+            /**
+             * Left At
+             * Format: date-time
+             */
+            left_at: string;
+            /** Revoked */
+            revoked: number;
+            /** Preserved */
+            preserved: number;
+            /** Courses */
+            courses: components["schemas"]["ConsoleDepartureCourseOut"][];
         };
         /** ConsoleDepartureApplyIn */
         ConsoleDepartureApplyIn: {
@@ -13650,6 +14643,30 @@ export interface components {
             notes?: string | null;
             /** Status */
             status?: string | null;
+        };
+        /** ConsoleConfirmCohortIn */
+        ConsoleConfirmCohortIn: {
+            /** Payment Deadline */
+            payment_deadline?: string | null;
+        };
+        /** ConsoleLiveAttendeeOut */
+        ConsoleLiveAttendeeOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Org Name */
+            org_name: string;
+            /** User Name */
+            user_name: string;
+            /** User Email */
+            user_email: string;
+            /**
+             * Added At
+             * Format: date-time
+             */
+            added_at: string;
         };
         /** ConsoleAddCompanyIn */
         ConsoleAddCompanyIn: {
@@ -13855,6 +14872,8 @@ export interface components {
             custom_quote_enabled: boolean;
             /** Description */
             description: string;
+            /** Access Months */
+            access_months?: number | null;
             /**
              * Created At
              * Format: date-time
@@ -13890,6 +14909,8 @@ export interface components {
              * @default
              */
             description: string;
+            /** Access Months */
+            access_months?: number | null;
         };
         /** ConsoleOfferingPatch */
         ConsoleOfferingPatch: {
@@ -13901,6 +14922,8 @@ export interface components {
             custom_quote_enabled?: boolean | null;
             /** Description */
             description?: string | null;
+            /** Access Months */
+            access_months?: number | null;
         };
         /** ConsoleSeatPurchaseOut */
         ConsoleSeatPurchaseOut: {
@@ -13948,6 +14971,12 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Payment Plan */
+            payment_plan: string;
+            /** Agreement Months */
+            agreement_months?: number | null;
+            /** Programme Months */
+            programme_months?: number | null;
         };
         /** ConsoleSeatAllocationOut */
         ConsoleSeatAllocationOut: {
@@ -14017,24 +15046,6 @@ export interface components {
              * @default
              */
             reason: string;
-        };
-        /** ConsoleInventorySummary */
-        ConsoleInventorySummary: {
-            /**
-             * Offering Id
-             * Format: uuid
-             */
-            offering_id: string;
-            /** Course Title */
-            course_title: string;
-            /** Delivery Type */
-            delivery_type: string;
-            /** Total Purchased */
-            total_purchased: number;
-            /** Total Allocated */
-            total_allocated: number;
-            /** Total Available */
-            total_available: number;
         };
         /** ConsoleQuoteItemOut */
         ConsoleQuoteItemOut: {
@@ -20868,7 +21879,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CheckoutIn"];
+                "application/json": components["schemas"]["CorporateCheckoutIn"];
             };
         };
         responses: {
@@ -20878,7 +21889,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CheckoutOut"];
+                    "application/json": components["schemas"]["CorporateCheckoutOut"];
                 };
             };
         };
@@ -21003,7 +22014,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CorporateOkOut"];
+                };
             };
         };
     };
@@ -21044,7 +22057,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CheckoutOut"];
+                    "application/json": components["schemas"]["CorporateCheckoutOut"];
                 };
             };
         };
@@ -21175,6 +22188,277 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_list_allocations: {
+        parameters: {
+            query?: {
+                offering_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorporateAllocationOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_allocate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CorporateAllocateIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorporateAllocationOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_list_attendees: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveAttendeeOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_add_attendee: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LiveAttendeeIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveAttendeeOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_remove_attendee: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cc_id: string;
+                attendee_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorporateOkOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_my_live: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyLiveCohortOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_my_programmes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyProgrammeOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_list_attachments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                purchase_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorporateAttachmentOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_start_attachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                purchase_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CorporateUploadIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorporateUploadOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_confirm_attachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorporateAttachmentOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_download_attachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorporateDownloadOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_delete_attachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorporateOkOut"];
                 };
             };
         };
@@ -24065,6 +25349,287 @@ export interface operations {
             };
         };
     };
+    apps_platform_console_corporate_agreements_inventory: {
+        parameters: {
+            query?: {
+                org_id?: string | null;
+                q?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleInventoryOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_agreements_set_programme: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                purchase_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleProgrammeIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_agreements_create_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleInstalmentPlanIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleInstalmentPlanCreatedOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_agreements_get_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                purchase_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleInstalmentPlanOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_agreements_send_instalment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instalment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_agreements_cover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instalment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleCoverIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleCoverOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_agreements_uncover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instalment_id: string;
+                allocation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_agreements_list_attachments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                purchase_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleAttachmentOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_agreements_start_attachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                purchase_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleAttachmentUploadIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleAttachmentUploadOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_agreements_confirm_attachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleAttachmentOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_agreements_download_attachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleDownloadOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_agreements_delete_attachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
     apps_platform_console_corporate_cancellations_list_cancellations: {
         parameters: {
             query?: {
@@ -24214,9 +25779,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ConsoleDepartureResultOut"];
                 };
             };
         };
@@ -24357,7 +25920,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ConsoleConfirmCohortIn"] | null;
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -24366,6 +25933,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_list_cohort_attendees: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleLiveAttendeeOut"][];
                 };
             };
         };
@@ -24856,28 +26445,6 @@ export interface operations {
             };
         };
     };
-    apps_platform_console_corporate_packages_inventory_summary: {
-        parameters: {
-            query?: {
-                org_id?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConsoleInventorySummary"][];
-                };
-            };
-        };
-    };
     apps_platform_console_corporate_packages_list_quotes: {
         parameters: {
             query?: {
@@ -25083,7 +26650,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
             };
         };
     };
@@ -25103,7 +26672,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
             };
         };
     };

@@ -155,10 +155,24 @@ def set_departure_policy(request, org_id: UUID, body: ConsoleDeparturePolicyIn):
     return {"ok": True}
 
 
-@router.post("/corporate/departure-policies/{org_id}/apply", response={200: dict})
+class ConsoleDepartureCourseOut(Schema):
+    course_title: str
+    enrollment_status: str
+    access_expires_at: datetime | None = None  # None: no end date
+
+
+class ConsoleDepartureResultOut(Schema):
+    action: str
+    left_at: datetime
+    revoked: int
+    preserved: int
+    courses: list[ConsoleDepartureCourseOut]
+
+
+@router.post("/corporate/departure-policies/{org_id}/apply", response=ConsoleDepartureResultOut)
 def apply_departure(request, org_id: UUID, body: ConsoleDepartureApplyIn):
+    """Record that someone left. Paid access is never ended early (see corporate/departure.py)."""
     staff(request)
     from apps.corporate.departure import apply_departure as _apply
 
-    result = _apply(request, str(org_id), str(body.user_id))
-    return result
+    return _apply(request, str(org_id), str(body.user_id))

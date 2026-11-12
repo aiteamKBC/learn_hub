@@ -7,6 +7,7 @@ import { LearnerLayout } from '@/components/layout/LearnerLayout'
 import { PublicLayout } from '@/components/layout/PublicLayout'
 import { SiteRoot } from '@/components/layout/SiteRoot'
 import { type NavSection, WorkspaceLayout } from '@/components/layout/WorkspaceLayout'
+import { corporateBusinessNav, corporateBusinessRoutes, corporateConsoleRoutes, corporateLearnerRoutes } from '@/features/corporate/routes'
 import { NotFoundPage } from '@/pages/StatusPages'
 
 import { PageSpinner, RequireAuth, RequireManager, RequireRole } from './guards'
@@ -117,6 +118,7 @@ const businessNav: NavSection[] = [
       { to: '/business/assign', label: 'Assign training', Icon: GraduationCap },
     ],
   },
+  ...corporateBusinessNav,
   {
     title: 'Company',
     items: [
@@ -172,6 +174,7 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
           { path: '/teach/invite/:token', element: page(<InstructorInvitePage />), handle: { art: 'blueprint' } },
           { path: '/support', element: page(<SupportPage />), handle: { art: 'bubbles' } },
           { path: '/support/:id', element: page(<TicketPage />), handle: { art: 'bubbles' } },
+          ...corporateLearnerRoutes,
         ],
       },
       { path: '*', element: <NotFoundPage /> },
@@ -207,6 +210,7 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
       { path: 'assign', element: page(<AssignPage />), handle: { art: 'mosaic' } },
       { path: 'billing', element: page(<BillingPage />), handle: { art: 'ribbons' } },
       { path: 'settings', element: page(<CompanySettingsPage />), handle: { art: 'dials' } },
+      ...corporateBusinessRoutes,
       { path: '*', element: <NotFoundPage /> },
     ],
   },
@@ -260,6 +264,7 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
       { path: 'companies', element: page(<ConsoleCompaniesPage />), handle: { art: 'contours' } },
       { path: 'settings', element: page(<ConsoleSettingsPage />), handle: { art: 'dials' } },
       { path: 'audit', element: page(<ConsoleAuditPage />) },
+      ...corporateConsoleRoutes,
       { path: 'token-pricing', element: page(<ConsoleTokenPricingPage />), handle: { art: 'coins' } },
       { path: 'wallets', element: page(<ConsoleWalletsPage />), handle: { art: 'coins' } },
       { path: 'packages', element: page(<ConsolePackagesPage />), handle: { art: 'ribbons' } },

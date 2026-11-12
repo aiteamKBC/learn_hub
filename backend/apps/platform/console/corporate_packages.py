@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from ninja import Field, Schema
 
@@ -29,6 +29,7 @@ class ConsoleOfferingIn(Schema):
     is_active: bool = True
     custom_quote_enabled: bool = False
     description: str = ""
+    access_months: int | None = Field(None, ge=1, le=120)  # programme length; empty = no end date
 
 
 class ConsoleOfferingPatch(Schema):
@@ -36,6 +37,7 @@ class ConsoleOfferingPatch(Schema):
     is_active: bool | None = None
     custom_quote_enabled: bool | None = None
     description: str | None = None
+    access_months: int | None = Field(None, ge=0, le=120)  # 0 = no end date
 
 
 class ConsoleOfferingOut(Schema):
@@ -49,6 +51,7 @@ class ConsoleOfferingOut(Schema):
     is_active: bool
     custom_quote_enabled: bool
     description: str
+    access_months: int | None = None
     created_at: datetime
 
 
@@ -69,6 +72,9 @@ class ConsoleSeatPurchaseOut(Schema):
     status: str
     paid_at: datetime | None
     created_at: datetime
+    payment_plan: str
+    agreement_months: int | None = None  # this company's agreed programme length
+    programme_months: int | None = None  # in force: the agreement, else the package default
 
 
 class ConsoleSeatAllocationOut(Schema):
@@ -96,15 +102,6 @@ class ConsoleReassignIn(Schema):
 
 class ConsoleReleaseIn(Schema):
     reason: str = Field("", max_length=500)
-
-
-class ConsoleInventorySummary(Schema):
-    offering_id: UUID
-    course_title: str
-    delivery_type: str
-    total_purchased: int
-    total_allocated: int
-    total_available: int
 
 
 class ConsoleQuoteItemIn(Schema):
@@ -170,10 +167,34 @@ def list_offerings(request, active_only: bool = False, limit: int = 50, offset: 
             "is_active": o.is_active,
             "custom_quote_enabled": o.custom_quote_enabled,
             "description": o.description,
+            "access_months": o.access_months,
             "created_at": o.created_at,
         }
         for o in items
     ]
+
+
+def _check_price(tier):
+    """Recorded and live are priced separately by the admin; a free tier is not a price."""
+    if tier.gbp_minor <= 0:
+        from core.errors import ServiceError
+
+        raise ServiceError("price_required", "Choose a price above zero for this option.", status=400)
+
+
+def _check_single_active(course_id, delivery_type):
+    """One live and one recorded option per course at a time."""
+    if CorporateOffering.objects.filter(
+        course_id=course_id, delivery_type=delivery_type, is_active=True
+    ).exists():
+        from core.errors import ServiceError
+
+        kind = "live" if delivery_type == "live" else "recorded"
+        raise ServiceError(
+            "offering_exists",
+            f"This course already has an active {kind} option. Edit that one instead.",
+            status=400,
+        )
 
 
 @router.post("/corporate/offerings", response=ConsoleIdOut)
@@ -184,6 +205,9 @@ def create_offering(request, body: ConsoleOfferingIn):
 
     course = get_object_or_404(Course, pk=body.course_id)
     tier = get_object_or_404(PriceTier, pk=body.price_tier_id)
+    _check_price(tier)
+    if body.is_active:
+        _check_single_active(course.id, body.delivery_type)
     offering = CorporateOffering.objects.create(
         course=course,
         delivery_type=body.delivery_type,
@@ -191,6 +215,7 @@ def create_offering(request, body: ConsoleOfferingIn):
         is_active=body.is_active,
         custom_quote_enabled=body.custom_quote_enabled,
         description=body.description,
+        access_months=body.access_months,
     )
     audit_request(
         request,
@@ -214,9 +239,12 @@ def update_offering(request, offering_id: UUID, body: ConsoleOfferingPatch):
         from apps.commerce.models import PriceTier
 
         tier = get_object_or_404(PriceTier, pk=body.price_tier_id)
+        _check_price(tier)
         offering.price_tier = tier
         changes["price_tier_id"] = str(tier.id)
     if body.is_active is not None:
+        if body.is_active and not offering.is_active:
+            _check_single_active(offering.course_id, offering.delivery_type)
         offering.is_active = body.is_active
         changes["is_active"] = body.is_active
     if body.custom_quote_enabled is not None:
@@ -224,6 +252,9 @@ def update_offering(request, offering_id: UUID, body: ConsoleOfferingPatch):
         changes["custom_quote_enabled"] = body.custom_quote_enabled
     if body.description is not None:
         offering.description = body.description
+    if body.access_months is not None:  # used the next time an end date is worked out; stored dates stay
+        offering.access_months = body.access_months or None
+        changes["access_months"] = offering.access_months
     offering.save()
     audit_request(request, "offering_updated", "corporate_offering", offering.id, changes)
     return {"ok": True}
@@ -270,6 +301,9 @@ def list_purchases(
             "status": p.status,
             "paid_at": p.paid_at,
             "created_at": p.created_at,
+            "payment_plan": p.payment_plan,
+            "agreement_months": p.programme_months,
+            "programme_months": p.programme_months or p.offering.access_months,
         }
         for p in items
     ]
@@ -334,33 +368,7 @@ def reassign_allocation(request, allocation_id: UUID, body: ConsoleReassignIn):
     return {"id": new_alloc.id}
 
 
-# ---- Inventory Summary ----
-
-
-@router.get("/corporate/inventory", response=list[ConsoleInventorySummary])
-def inventory_summary(request, org_id: UUID | None = None):
-    staff(request)
-    qs = SeatPurchase.objects.filter(status="paid").select_related("offering__course")
-    if org_id:
-        qs = qs.filter(org_id=org_id)
-    qs = qs.values("offering_id", "offering__course__title", "offering__delivery_type").annotate(
-        total_purchased=Sum("quantity"),
-        total_allocated=Count(
-            "allocations",
-            filter=Q(allocations__status__in=["allocated", "active"]),
-        ),
-    )
-    return [
-        {
-            "offering_id": row["offering_id"],
-            "course_title": row["offering__course__title"],
-            "delivery_type": row["offering__delivery_type"],
-            "total_purchased": row["total_purchased"] or 0,
-            "total_allocated": row["total_allocated"] or 0,
-            "total_available": max(0, (row["total_purchased"] or 0) - (row["total_allocated"] or 0)),
-        }
-        for row in qs
-    ]
+# Inventory: see corporate_agreements.py (GET /corporate/inventory).
 
 
 # ---- Quotes ----

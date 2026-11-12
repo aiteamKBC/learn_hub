@@ -1,0 +1,64 @@
+diff --git a/frontend/src/app/router.tsx b/frontend/src/app/router.tsx
+index e9fcdbc..2684ccd 100644
+--- a/frontend/src/app/router.tsx
++++ b/frontend/src/app/router.tsx
+@@ -7,6 +7,7 @@ import { LearnerLayout } from '@/components/layout/LearnerLayout'
+ import { PublicLayout } from '@/components/layout/PublicLayout'
+ import { SiteRoot } from '@/components/layout/SiteRoot'
+ import { type NavSection, WorkspaceLayout } from '@/components/layout/WorkspaceLayout'
++import { corporateBusinessNav, corporateBusinessRoutes, corporateConsoleRoutes, corporateLearnerRoutes } from '@/features/corporate/routes'
+ import { NotFoundPage } from '@/pages/StatusPages'
+ 
+ import { PageSpinner, RequireAuth, RequireManager, RequireRole } from './guards'
+@@ -108,6 +109,7 @@ const businessNav: NavSection[] = [
+       { to: '/business/assign', label: 'Assign training', Icon: GraduationCap },
+     ],
+   },
++  ...corporateBusinessNav,
+   {
+     title: 'Company',
+     items: [
+@@ -157,6 +159,7 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
+           { path: '/teach/invite/:token', element: page(<InstructorInvitePage />), handle: { art: 'blueprint' } },
+           { path: '/support', element: page(<SupportPage />), handle: { art: 'bubbles' } },
+           { path: '/support/:id', element: page(<TicketPage />), handle: { art: 'bubbles' } },
++          ...corporateLearnerRoutes,
+         ],
+       },
+       { path: '*', element: <NotFoundPage /> },
+@@ -192,6 +195,7 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
+       { path: 'assign', element: page(<AssignPage />), handle: { art: 'mosaic' } },
+       { path: 'billing', element: page(<BillingPage />), handle: { art: 'ribbons' } },
+       { path: 'settings', element: page(<CompanySettingsPage />), handle: { art: 'dials' } },
++      ...corporateBusinessRoutes,
+       { path: '*', element: <NotFoundPage /> },
+     ],
+   },
+@@ -245,6 +249,7 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
+       { path: 'companies', element: page(<ConsoleCompaniesPage />), handle: { art: 'contours' } },
+       { path: 'settings', element: page(<ConsoleSettingsPage />), handle: { art: 'dials' } },
+       { path: 'audit', element: page(<ConsoleAuditPage />) },
++      ...corporateConsoleRoutes,
+       { path: '*', element: <NotFoundPage /> },
+     ],
+   },
+diff --git a/frontend/src/pages/console/ConsoleShell.tsx b/frontend/src/pages/console/ConsoleShell.tsx
+index fc47c54..3ad6c30 100644
+--- a/frontend/src/pages/console/ConsoleShell.tsx
++++ b/frontend/src/pages/console/ConsoleShell.tsx
+@@ -3,6 +3,7 @@ import { Award, BadgePercent, ShieldCheck, BarChart3, BookOpen, Building2, Credi
+ import { ApiError } from '@/api/client'
+ import { Backdrop } from '@/components/art/backdrops'
+ import { type NavSection, WorkspaceLayout } from '@/components/layout/WorkspaceLayout'
++import { corporateConsoleNav } from '@/features/corporate/routes'
+ import { Button } from '@/components/ui/button'
+ import { Card } from '@/components/ui/card'
+ import { Link } from '@/lib/router'
+@@ -63,6 +64,7 @@ const consoleNav: NavSection[] = [
+       { to: '/console/audit', label: 'Audit log', Icon: History },
+     ],
+   },
++  ...corporateConsoleNav,
+ ]
+ 
+ /** The admin console frame: navy sidebar (drawer on phones), circuit artwork by default,

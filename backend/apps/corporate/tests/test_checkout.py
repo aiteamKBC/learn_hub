@@ -286,10 +286,10 @@ class QuoteFulfillmentTest(SchemaTransactionTestCase):
             fulfil_quote(invoice)
             self.quote.refresh_from_db()
         self.assertEqual(self.quote.status, "accepted")
-        with tenant_context(staff=True):
-            purchases = SeatPurchase.objects.filter(quote=self.quote)
-        self.assertEqual(purchases.count(), 1)
-        p = purchases.first()
+        with tenant_context(staff=True):  # evaluate inside the context: RLS hides rows outside it
+            purchases = list(SeatPurchase.objects.filter(quote=self.quote))
+        self.assertEqual(len(purchases), 1)
+        p = purchases[0]
         self.assertEqual(p.status, "paid")
         self.assertEqual(p.quantity, 4)
 
@@ -301,12 +301,13 @@ class QuoteFulfillmentTest(SchemaTransactionTestCase):
         with tenant_context(staff=True):
             fulfil_quote(invoice)
             fulfil_quote(invoice)
-            purchases = SeatPurchase.objects.filter(quote=self.quote)
-        self.assertEqual(purchases.count(), 1)
+            count = SeatPurchase.objects.filter(quote=self.quote).count()
+        self.assertEqual(count, 1)
 
     def _request(self):
         req = MagicMock()
-        req.auth = self.staff_user
+        req.auth = req.user = self.staff_user
+        req.org_id = None
         req.META = {"REMOTE_ADDR": "127.0.0.1"}
         return req
 
