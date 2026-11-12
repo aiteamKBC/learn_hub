@@ -12034,9 +12034,15 @@ export interface components {
             is_free: boolean;
             /** Full Course Token Price */
             full_course_token_price?: number | null;
-            /** Token Pricing Mode */
+            /**
+             * Token Pricing Mode
+             * @default manual
+             */
             token_pricing_mode: string;
-            /** In Subscription */
+            /**
+             * In Subscription
+             * @default true
+             */
             in_subscription: boolean;
             /**
              * Status
@@ -14959,6 +14965,12 @@ export interface components {
             total_balance_gbp_minor: number;
             /** Unverified Accounts */
             unverified_accounts: number;
+            /** Tutor Earned Gbp Minor */
+            tutor_earned_gbp_minor: number;
+            /** Platform Retained Gbp Minor */
+            platform_retained_gbp_minor: number;
+            /** Tutor Keeps Pct */
+            tutor_keeps_pct: number | null;
             settings: components["schemas"]["ConsolePayoutSettingsOut"];
         };
         /** ConsolePayoutSettingsOut */
