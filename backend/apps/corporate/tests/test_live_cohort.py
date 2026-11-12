@@ -18,50 +18,59 @@ from apps.corporate.live import (
 from apps.corporate.models import (
     CohortCompany,
     CorporateOffering,
-    LiveCohort,
-    Session,
-    TrainingRequest,
 )
 from apps.corporate.scheduling import add_session
 from apps.identity.models import User
-from apps.org.models import OrgMember, Organization
+from apps.org.models import Organization, OrgMember
 from core.errors import ServiceError
 from core.tenancy import tenant_context
 from core.tests.base import SchemaTransactionTestCase
 
 
 class LiveCohortTest(SchemaTransactionTestCase):
-
     def setUp(self):
         tag = uuid.uuid4().hex[:8]
         now = timezone.now()
         with tenant_context(user_id=None, staff=True):
             self.staff = User.objects.create_user(
-                f"staff-live-{tag}@test.com", "test123", is_staff=True,
+                f"staff-live-{tag}@test.com",
+                "test123",
+                is_staff=True,
             )
             self.org = Organization.objects.create(
-                name=f"LiveCorp {tag}", slug=f"livecorp-{tag}", status="active",
+                name=f"LiveCorp {tag}",
+                slug=f"livecorp-{tag}",
+                status="active",
             )
             self.admin_user = User.objects.create_user(
-                f"live-admin-{tag}@test.com", "test123",
+                f"live-admin-{tag}@test.com",
+                "test123",
             )
             OrgMember.objects.create(org=self.org, user=self.admin_user, role="admin", joined_at=now)
 
             self.org2 = Organization.objects.create(
-                name=f"OtherLive {tag}", slug=f"otherlive-{tag}", status="active",
+                name=f"OtherLive {tag}",
+                slug=f"otherlive-{tag}",
+                status="active",
             )
             self.admin2 = User.objects.create_user(
-                f"live-admin2-{tag}@test.com", "test123",
+                f"live-admin2-{tag}@test.com",
+                "test123",
             )
             OrgMember.objects.create(org=self.org2, user=self.admin2, role="admin", joined_at=now)
 
             self.category = Category.objects.create(
-                slug=f"live-cat-{tag}", name=f"LiveCat {tag}", sort_order=0,
+                slug=f"live-cat-{tag}",
+                name=f"LiveCat {tag}",
+                sort_order=0,
             )
             self.course = Course.objects.create(
-                ownership="platform", status="published",
-                created_by=self.staff, category=self.category,
-                slug=f"live-c-{tag}", title=f"Live Course {tag}",
+                ownership="platform",
+                status="published",
+                created_by=self.staff,
+                category=self.category,
+                slug=f"live-c-{tag}",
+                title=f"Live Course {tag}",
             )
             v = CourseVersion.objects.create(course=self.course, number=1, status="published")
             self.course.live_version = v
@@ -69,8 +78,10 @@ class LiveCohortTest(SchemaTransactionTestCase):
 
             self.tier = PriceTier.objects.create(name=f"LiveTier-{tag}", gbp_minor=10000, sort_order=0)
             self.offering = CorporateOffering.objects.create(
-                course=self.course, delivery_type="live",
-                price_tier=self.tier, is_active=True,
+                course=self.course,
+                delivery_type="live",
+                price_tier=self.tier,
+                is_active=True,
             )
 
     def _request(self, user=None, org=None):
@@ -86,6 +97,7 @@ class LiveCohortTest(SchemaTransactionTestCase):
         """Warm up Neon pooler schema cache."""
         with tenant_context(staff=True):
             from apps.corporate.models import TrainingRequest
+
             count = TrainingRequest.objects.count()
         self.assertGreaterEqual(count, 0)
 
@@ -93,7 +105,8 @@ class LiveCohortTest(SchemaTransactionTestCase):
         with tenant_context(staff=True):
             tr = submit_request(
                 self._request(self.admin_user),
-                self.course.id, 10,
+                self.course.id,
+                10,
                 preferred_intake="Q1 2027",
             )
         self.assertEqual(tr.status, "submitted")
@@ -117,8 +130,10 @@ class LiveCohortTest(SchemaTransactionTestCase):
     def test_create_cohort(self):
         with tenant_context(staff=True):
             cohort = create_cohort(
-                self._request(), course_id=self.course.id,
-                delivery_mode="online", max_learners=20,
+                self._request(),
+                course_id=self.course.id,
+                delivery_mode="online",
+                max_learners=20,
             )
         self.assertEqual(cohort.status, "forming")
         self.assertEqual(cohort.max_learners, 20)
@@ -126,11 +141,16 @@ class LiveCohortTest(SchemaTransactionTestCase):
     def test_add_company_to_cohort(self):
         with tenant_context(staff=True):
             cohort = create_cohort(
-                self._request(), course_id=self.course.id,
-                delivery_mode="online", max_learners=30,
+                self._request(),
+                course_id=self.course.id,
+                delivery_mode="online",
+                max_learners=30,
             )
             cc = add_company_to_cohort(
-                self._request(), cohort.id, self.org.id, 10,
+                self._request(),
+                cohort.id,
+                self.org.id,
+                10,
             )
         self.assertEqual(cc.approved_seats, 10)
         self.assertEqual(cc.status, "interested")
@@ -141,8 +161,10 @@ class LiveCohortTest(SchemaTransactionTestCase):
     def test_add_company_exceeds_capacity(self):
         with tenant_context(staff=True):
             cohort = create_cohort(
-                self._request(), course_id=self.course.id,
-                delivery_mode="online", max_learners=10,
+                self._request(),
+                course_id=self.course.id,
+                delivery_mode="online",
+                max_learners=10,
             )
             add_company_to_cohort(self._request(), cohort.id, self.org.id, 8)
             with self.assertRaises(ServiceError) as cm:
@@ -152,8 +174,10 @@ class LiveCohortTest(SchemaTransactionTestCase):
     def test_add_duplicate_company_rejected(self):
         with tenant_context(staff=True):
             cohort = create_cohort(
-                self._request(), course_id=self.course.id,
-                delivery_mode="online", max_learners=30,
+                self._request(),
+                course_id=self.course.id,
+                delivery_mode="online",
+                max_learners=30,
             )
             add_company_to_cohort(self._request(), cohort.id, self.org.id, 5)
             with self.assertRaises(ServiceError) as cm:
@@ -163,8 +187,10 @@ class LiveCohortTest(SchemaTransactionTestCase):
     def test_remove_company_updates_seat_count(self):
         with tenant_context(staff=True):
             cohort = create_cohort(
-                self._request(), course_id=self.course.id,
-                delivery_mode="online", max_learners=30,
+                self._request(),
+                course_id=self.course.id,
+                delivery_mode="online",
+                max_learners=30,
             )
             add_company_to_cohort(self._request(), cohort.id, self.org.id, 10)
             remove_company_from_cohort(self._request(), cohort.id, self.org.id)
@@ -174,8 +200,11 @@ class LiveCohortTest(SchemaTransactionTestCase):
     def test_confirm_cohort_requires_session(self):
         with tenant_context(staff=True):
             cohort = create_cohort(
-                self._request(), course_id=self.course.id,
-                delivery_mode="online", max_learners=5, min_learners=1,
+                self._request(),
+                course_id=self.course.id,
+                delivery_mode="online",
+                max_learners=5,
+                min_learners=1,
             )
             add_company_to_cohort(self._request(), cohort.id, self.org.id, 3)
             with self.assertRaises(ServiceError) as cm:
@@ -185,13 +214,19 @@ class LiveCohortTest(SchemaTransactionTestCase):
     def test_confirm_cohort_updates_companies(self):
         with tenant_context(staff=True):
             cohort = create_cohort(
-                self._request(), course_id=self.course.id,
-                delivery_mode="online", max_learners=20, min_learners=1,
+                self._request(),
+                course_id=self.course.id,
+                delivery_mode="online",
+                max_learners=20,
+                min_learners=1,
             )
             add_company_to_cohort(self._request(), cohort.id, self.org.id, 5)
             add_session(
-                self._request(), cohort.id, sequence=1,
-                scheduled_at=timezone.now(), duration_min=60,
+                self._request(),
+                cohort.id,
+                sequence=1,
+                scheduled_at=timezone.now(),
+                duration_min=60,
             )
             confirmed = confirm_cohort(self._request(), cohort.id)
         self.assertEqual(confirmed.status, "confirmed")

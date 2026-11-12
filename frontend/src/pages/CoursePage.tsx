@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useCategories, useCourse, usePreview, useReviews } from '@/features/catalog/api'
 import { useAddToCart, useCheckout, usePlanEnroll, useToggleWishlist } from '@/features/commerce/api'
 import { Price } from '@/features/catalog/CourseCard'
+import { TeamBuy } from '@/features/corporate/TeamBuy'
 import { ReportButton } from '@/features/engagement/ReportButton'
 import { useMe } from '@/features/identity/auth'
 import { cn } from '@/lib/cn'
@@ -422,6 +423,7 @@ export function CoursePage() {
         <aside className="order-1 lg:order-2 lg:-mt-64">
           <div className="lg:sticky lg:top-24">
             <BuyBox course={c} onPreview={firstPreview ? () => setPreview({ key: firstPreview.key, title: firstPreview.title }) : undefined} />
+            <TeamBuy courseId={c.id} title={c.title} />
           </div>
         </aside>
       </div>

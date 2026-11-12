@@ -8,9 +8,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Sum
 from django.db.models.functions import TruncDate
-from django.utils import timezone
 
 from .models import (
     AllocationEvent,
@@ -67,7 +66,7 @@ def company_employee_progress(org_id, offering_id=None) -> list[dict]:
             "user_name": getattr(alloc.user, "full_name", alloc.user.email),
             "course_title": alloc.seat_purchase.offering.course.title,
             "enrollment_status": enrollment.status if enrollment else "pending",
-            "progress_pct": getattr(enrollment, "progress_pct", 0) if enrollment else 0,
+            "progress_pct": int(round(enrollment.progress_pct or 0)) if enrollment else 0,
             "allocated_at": alloc.allocated_at.isoformat() if alloc.allocated_at else None,
             "activated_at": alloc.activated_at.isoformat() if alloc.activated_at else None,
         })

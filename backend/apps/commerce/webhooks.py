@@ -69,11 +69,16 @@ def dispatch(event: dict) -> None:
         services.expire_order(order_id=meta["id"])
     elif kind == "checkout.session.expired" and meta.get("kind") in ("corporate_recorded", "corporate_live"):
         from apps.corporate.fulfillment import expire_purchase
+
         expire_purchase(obj, meta)
     elif kind == "checkout.session.async_payment_failed" and meta.get("kind") == "order":
         services.fail_order(order_id=meta["id"])
-    elif kind == "checkout.session.async_payment_failed" and meta.get("kind") in ("corporate_recorded", "corporate_live"):
+    elif kind == "checkout.session.async_payment_failed" and meta.get("kind") in (
+        "corporate_recorded",
+        "corporate_live",
+    ):
         from apps.corporate.fulfillment import fail_purchase
+
         fail_purchase(obj, meta)
     elif kind.startswith("customer.subscription."):
         # created / updated / deleted / paused / resumed / pending_update_* / trial_will_end:
@@ -112,11 +117,13 @@ def _session_completed(session: dict, meta: dict) -> None:
         if session.get("payment_status") != "paid":
             return
         from apps.corporate.fulfillment import fulfil_recorded_purchase
+
         fulfil_recorded_purchase(session, meta)
     elif meta.get("kind") == "corporate_live":
         if session.get("payment_status") != "paid":
             return
         from apps.corporate.live_checkout import fulfil_live_purchase
+
         fulfil_live_purchase(session, meta)
     elif meta.get("kind") in ("subscription", "addon"):
         model = Subscription if meta["kind"] == "subscription" else AddonSubscription
@@ -279,6 +286,11 @@ def _charge_succeeded(charge: dict) -> None:
 
 
 def _invoice_failed(inv: dict) -> None:
+    if (inv.get("metadata") or {}).get("kind") == "corporate_instalment":
+        from apps.corporate.instalments import instalment_failed
+
+        instalment_failed(inv)
+        return
     sub = _subscription_of(inv)
     if sub is None:
         return
@@ -292,7 +304,13 @@ def _invoice_paid(inv: dict) -> None:
     meta = inv.get("metadata") or {}
     if meta.get("kind") == "corporate_quote":
         from apps.corporate.quotes import fulfil_quote
+
         fulfil_quote(inv)
+        return
+    if meta.get("kind") == "corporate_instalment":
+        from apps.corporate.instalments import instalment_paid
+
+        instalment_paid(inv)
         return
     sub = _subscription_of(inv)
     if sub is None:

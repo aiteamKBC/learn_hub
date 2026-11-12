@@ -14,15 +14,14 @@ from apps.org.models import Organization
 from apps.platform.services import audit_request
 from core.errors import ServiceError
 
-from .models import CorporateOffering, CorporateQuote, QuoteItem, SeatPurchase
+from .models import CorporateQuote, QuoteItem, SeatPurchase
 
 
 @transaction.atomic
 def send_quote(request, quote_id) -> CorporateQuote:
     quote = (
         CorporateQuote.objects
-        .select_for_update()
-        .select_related("org")
+        .select_for_update()  # no join: it would lock and RLS-filter the joined table
         .filter(pk=quote_id)
         .first()
     )
@@ -74,7 +73,7 @@ def send_quote(request, quote_id) -> CorporateQuote:
             quantity=item.quantity,
         )
 
-    finalized = gateway.finalize_invoice(inv["id"])
+    gateway.finalize_invoice(inv["id"])
     sent = gateway.send_invoice(inv["id"])
 
     quote.status = CorporateQuote.Status.SENT

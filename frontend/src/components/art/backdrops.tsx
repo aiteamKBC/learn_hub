@@ -28,12 +28,14 @@
  *   storyboard     course builder curriculum: film-strip frames with sketched scenes
  *   coins          studio money pages: coin stacks beside rising bars
  *   stamp          console approvals: an approval seal over a stack of reviewed pages
+ *   seats          corporate packages: a classroom plan, some seats taken, some free
+ *   timetable      live training: a week grid with sessions joined along a timeline
  */
 import { memo, useId, type ReactNode } from 'react'
 
 import { cn } from '@/lib/cn'
 
-export type BackdropVariant = 'constellation' | 'mosaic' | 'waves' | 'path' | 'contours' | 'blueprint' | 'circuit' | 'aurora' | 'orbit' | 'ribbons' | 'confetti' | 'notebook' | 'guilloche' | 'honeycomb' | 'checklist' | 'signal' | 'dials' | 'bubbles' | 'chartgrid' | 'orgchart' | 'floorplan' | 'storyboard' | 'coins' | 'stamp'
+export type BackdropVariant = 'constellation' | 'mosaic' | 'waves' | 'path' | 'contours' | 'blueprint' | 'circuit' | 'aurora' | 'orbit' | 'ribbons' | 'confetti' | 'notebook' | 'guilloche' | 'honeycomb' | 'checklist' | 'signal' | 'dials' | 'bubbles' | 'chartgrid' | 'orgchart' | 'floorplan' | 'storyboard' | 'coins' | 'stamp' | 'seats' | 'timetable'
 
 // small seeded PRNG (mulberry32): same seed, same art
 function rng(seed: number) {
@@ -903,6 +905,82 @@ const Stamp = memo(function Stamp() {
   )
 })
 
+/** seats (corporate packages): rows of classroom seats, some taken (filled), some free. */
+const Seats = memo(function Seats() {
+  const id = useId()
+  const r = rng(83)
+  const rows = Array.from({ length: 6 }, (_, row) =>
+    Array.from({ length: 9 - (row % 2) }, (_, col) => ({
+      x: 900 + col * 72 + (row % 2) * 36,
+      y: 150 + row * 70,
+      taken: r() < 0.55 - row * 0.04,
+      tone: r() < 0.5 ? 'var(--primary)' : 'var(--chart-2)',
+    })),
+  ).flat()
+  const seat = (x: number, y: number, taken: boolean, tone: string, key: number) => (
+    <g key={key}>
+      <rect x={x} y={y} width="46" height="30" rx="9" fill={tone} fillOpacity={taken ? 0.2 : 0.04} stroke={tone} strokeOpacity={taken ? 0.4 : 0.22} strokeWidth="1.4" />
+      <rect x={x + 6} y={y + 34} width="34" height="8" rx="4" fill={tone} fillOpacity={taken ? 0.16 : 0.05} />
+    </g>
+  )
+  return (
+    <Svg>
+      <Glow id={`${id}g`} cx={1250} cy={200} r={560} color="var(--primary)" opacity={0.13} />
+      <Glow id={`${id}g2`} cx={1500} cy={520} r={360} color="var(--chart-2)" opacity={0.1} />
+      <rect x="960" y="70" width="520" height="34" rx="8" fill="var(--primary)" fillOpacity="0.07" stroke="var(--primary)" strokeOpacity="0.2" />
+      <line x1="1000" x2="1440" y1="87" y2="87" stroke="var(--primary)" strokeOpacity="0.18" strokeDasharray="4 8" />
+      {rows.map((s, i) => seat(s.x, s.y, s.taken, s.tone, i))}
+      <g fill="none" stroke="var(--chart-3)" strokeOpacity="0.45" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M1494 600 l8 8 l16 -18" />
+        <circle cx="1504" cy="600" r="22" />
+      </g>
+    </Svg>
+  )
+})
+
+/** timetable (live training): a week grid, session blocks joined along one timeline. */
+const Timetable = memo(function Timetable() {
+  const id = useId()
+  const r = rng(91)
+  const cols = 6
+  const x0 = 880
+  const cw = 112
+  const y0 = 120
+  const rh = 64
+  const blocks = Array.from({ length: cols }, (_, c) => ({ c, row: Math.floor(r() * 5), h: 1 + (r() < 0.3 ? 1 : 0) }))
+  const centre = (b: (typeof blocks)[number]) => [x0 + b.c * cw + cw / 2, y0 + b.row * rh + (b.h * rh) / 2] as const
+  const line = blocks.map((b, i) => `${i ? 'L' : 'M'}${centre(b)[0].toFixed(1)} ${centre(b)[1].toFixed(1)}`).join(' ')
+  return (
+    <Svg>
+      <Glow id={`${id}g`} cx={1220} cy={220} r={560} color="var(--chart-2)" opacity={0.13} />
+      <Glow id={`${id}g2`} cx={1460} cy={80} r={340} color="var(--primary)" opacity={0.12} />
+      <g stroke="var(--primary)" strokeOpacity="0.08">
+        {Array.from({ length: cols + 1 }, (_, i) => (
+          <line key={`v${i}`} x1={x0 + i * cw} x2={x0 + i * cw} y1={y0 - 40} y2={y0 + rh * 6} />
+        ))}
+        {Array.from({ length: 7 }, (_, i) => (
+          <line key={`h${i}`} x1={x0} x2={x0 + cols * cw} y1={y0 + i * rh} y2={y0 + i * rh} />
+        ))}
+      </g>
+      {Array.from({ length: cols }, (_, i) => (
+        <rect key={`d${i}`} x={x0 + i * cw + 30} y={y0 - 30} width={cw - 60} height="10" rx="5" fill="var(--primary)" fillOpacity="0.1" />
+      ))}
+      {blocks.map((b, i) => (
+        <rect key={i} x={x0 + b.c * cw + 10} y={y0 + b.row * rh + 8} width={cw - 20} height={b.h * rh - 16} rx="10" fill={i === 0 ? 'var(--chart-2)' : 'var(--primary)'} fillOpacity={i === 0 ? 0.24 : 0.1} stroke={i === 0 ? 'var(--chart-2)' : 'var(--primary)'} strokeOpacity={i === 0 ? 0.5 : 0.2} />
+      ))}
+      <path d={line} fill="none" stroke="var(--chart-2)" strokeOpacity="0.4" strokeWidth="2" strokeDasharray="6 7" strokeLinecap="round" />
+      {blocks.map((b, i) => {
+        const [cx, cy] = centre(b)
+        return <circle key={`p${i}`} cx={cx} cy={cy} r={i === 0 ? 7 : 4.5} fill={i === 0 ? 'var(--chart-2)' : 'var(--primary)'} fillOpacity={i === 0 ? 0.7 : 0.35} />
+      })}
+      <g fill="none" stroke="var(--chart-3)" strokeOpacity="0.45" strokeWidth="2.2" strokeLinejoin="round">
+        <rect x="1452" y="560" width="64" height="44" rx="9" />
+        <path d="M1516 574 l26 -12 v40 l-26 -12" />
+      </g>
+    </Svg>
+  )
+})
+
 /**
  * The artwork for one page, placed behind its top area and faded into the page
  * background so content always reads clearly. Purely decorative (aria-hidden).
@@ -933,6 +1011,8 @@ export function Backdrop({ variant, height = 560, className, from, to, fade = tr
     storyboard: <Storyboard />,
     coins: <Coins />,
     stamp: <Stamp />,
+    seats: <Seats />,
+    timetable: <Timetable />,
   }[variant]
   return (
     <div

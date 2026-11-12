@@ -205,6 +205,9 @@ def player(request, enrollment_id: str):
 def lecture(request, enrollment_id: str, lecture_key: str):
     e = _mine(request, enrollment_id)
     lec = _lecture(e, lecture_key)
+    from apps.corporate.programme import on_lesson_opened
+
+    on_lesson_opened(e)  # company seats: the programme clock starts at the first lesson
     keys = list(
         Lecture.objects.filter(version_id=e.course.live_version_id)
         .order_by("section__position", "position")

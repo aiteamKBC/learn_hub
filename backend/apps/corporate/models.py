@@ -19,6 +19,9 @@ class CorporateOffering(BaseModel):
     price_tier = models.ForeignKey("commerce.PriceTier", on_delete=models.PROTECT, related_name="+")
     is_active = models.BooleanField(default=True)
     custom_quote_enabled = models.BooleanField(default=False)
+    # Programme length, from each employee's first session (recorded: first lesson
+    # opened). Gives the completion date only; it never locks lessons. NULL = not set.
+    access_months = models.PositiveIntegerField(null=True, blank=True)
     description = models.TextField(blank=True)
 
     class Meta:
@@ -86,7 +89,15 @@ class SeatPurchase(TenantModel):
     total_minor = models.IntegerField()
     gbp_total_minor = models.IntegerField()
     fx_rate = models.DecimalField(max_digits=12, decimal_places=6, default=1)
+    class PaymentPlan(models.TextChoices):
+        FULL = "full", "Paid in full"
+        INSTALMENTS = "instalments", "Paid in instalments"
+
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING)
+    payment_plan = models.CharField(max_length=12, choices=PaymentPlan.choices, default=PaymentPlan.FULL)
+    # Agreed programme length for this company's agreement; overrides the package's
+    # default (offering.access_months). NULL = use the package default.
+    programme_months = models.PositiveIntegerField(null=True, blank=True)
     stripe_session_id = models.CharField(max_length=255, blank=True)
     stripe_invoice_id = models.CharField(max_length=255, blank=True)
     payment_intent = models.CharField(max_length=255, blank=True)
@@ -106,6 +117,40 @@ class SeatPurchase(TenantModel):
         ]
 
 
+class SeatInstalment(TenantModel):
+    """One scheduled payment of an instalment purchase (schedule set by platform staff).
+
+    covers_months is this instalment's own paid period. It starts when the company's
+    payment succeeds (paid_at, never backdated): each seat staff chose for it
+    (InstalmentCover) has access until paid_at + covers_months. When every instalment
+    is paid for a seat there is no end date, as with full payment.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Not sent yet"
+        SENT = "sent", "Invoice sent"
+        PAID = "paid", "Paid"
+        FAILED = "failed", "Payment failed"
+        VOID = "void", "Cancelled"
+
+    seat_purchase = models.ForeignKey(SeatPurchase, on_delete=models.PROTECT, related_name="instalments")
+    sequence = models.PositiveIntegerField()
+    amount_minor = models.IntegerField()
+    currency = models.CharField(max_length=3)
+    due_at = models.DateTimeField()
+    covers_months = models.PositiveIntegerField()
+    status = models.CharField(max_length=8, choices=Status.choices, default=Status.PENDING)
+    stripe_invoice_id = models.CharField(max_length=255, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "seat_instalments")
+        constraints = [
+            models.UniqueConstraint(fields=["seat_purchase", "sequence"], name="uq_instalment_sequence"),
+        ]
+        indexes = [models.Index(fields=["org", "seat_purchase", "status"], name="ix_instalment_purchase")]
+
+
 class SeatAllocation(TenantModel):
     class Status(models.TextChoices):
         ALLOCATED = "allocated", "Seat assigned, enrollment pending"
@@ -121,6 +166,7 @@ class SeatAllocation(TenantModel):
     released_at = models.DateTimeField(null=True, blank=True)
     released_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     release_reason = models.TextField(blank=True)
+    programme_started_at = models.DateTimeField(null=True, blank=True)  # first session; set once
     enrollment = models.ForeignKey(
         "learning.Enrollment", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
     )
@@ -137,6 +183,50 @@ class SeatAllocation(TenantModel):
         indexes = [
             models.Index(fields=["org", "seat_purchase", "status"], name="ix_alloc_purchase_status"),
         ]
+
+
+class InstalmentCover(TenantModel):
+    """Platform staff choose which seats an instalment pays for (one row per seat).
+
+    Only covered seats get that instalment's paid period. Unique per instalment and
+    seat, so the same payment can never credit the same person twice.
+    """
+
+    instalment = models.ForeignKey(SeatInstalment, on_delete=models.PROTECT, related_name="covers")
+    allocation = models.ForeignKey(SeatAllocation, on_delete=models.PROTECT, related_name="instalment_covers")
+    added_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        db_table = table(SCHEMA, "instalment_covers")
+        constraints = [
+            models.UniqueConstraint(fields=["instalment", "allocation"], name="uq_instalment_cover"),
+        ]
+        indexes = [models.Index(fields=["org", "allocation"], name="ix_cover_allocation")]
+
+
+class PurchaseAttachment(TenantModel):
+    """A file kept with a company purchase (contract, PO, invoice copy...).
+
+    Stored in the private Azure container under corporate/<org>/<purchase>/; only
+    signed, short-lived links ever leave the server.
+    """
+
+    class Status(models.TextChoices):
+        UPLOADING = "uploading", "Uploading"
+        READY = "ready", "Ready"
+
+    seat_purchase = models.ForeignKey(SeatPurchase, on_delete=models.PROTECT, related_name="attachments")
+    storage_key = models.CharField(max_length=500)
+    filename = models.CharField(max_length=255)
+    mime_type = models.CharField(max_length=127)
+    size_bytes = models.BigIntegerField()
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.UPLOADING)
+    uploaded_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+")
+    uploaded_by_staff = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = table(SCHEMA, "purchase_attachments")
+        indexes = [models.Index(fields=["org", "seat_purchase", "status"], name="ix_attachment_purchase")]
 
 
 class AllocationEvent(TenantModel):
@@ -431,4 +521,39 @@ class SessionAttendance(BaseModel):
         indexes = [
             models.Index(fields=["session", "user"], name="ix_att_session_user"),
             models.Index(fields=["org", "user", "session"], name="ix_att_org_user"),
+        ]
+
+
+# ================================================================ Live attendees (company picks who attends)
+
+
+class LiveAttendee(TenantModel):
+    """One employee a company has named for its paid places in a live cohort.
+
+    The company admin adds people after paying, up to CohortCompany.approved_seats.
+    RLS (core.rls.membership): the company sees its own rows, the employee sees their
+    own row (so their schedule works in any workspace), staff see all.
+    """
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Attending"
+        REMOVED = "removed", "Removed"
+
+    cohort_company = models.ForeignKey(CohortCompany, on_delete=models.PROTECT, related_name="attendees")
+    cohort = models.ForeignKey(LiveCohort, on_delete=models.PROTECT, related_name="+")
+    user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    added_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="+")
+    removed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "live_attendees")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["cohort", "user"], condition=models.Q(status="active"), name="uq_live_attendee_active"
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["org", "cohort_company"], name="ix_attendee_org_cc"),
+            models.Index(fields=["user", "status"], name="ix_attendee_user"),
         ]

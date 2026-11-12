@@ -7,8 +7,7 @@ from ninja import Schema
 
 from apps.corporate import reports as corp_reports
 
-from .common import ConsoleKpiOut, ConsolePointOut, clamp, kpi, parse_range, router, staff
-
+from .common import ConsoleKpiOut, ConsoleOkOut, clamp, kpi, parse_range, router, staff
 
 # ---- Schemas ----
 
@@ -136,7 +135,7 @@ def attendance_report(request, cohort_id: UUID | None = None,
     ]
 
 
-@router.post("/corporate/reports/attendance/{attendance_id}/verify")
+@router.post("/corporate/reports/attendance/{attendance_id}/verify", response=ConsoleOkOut)
 def verify_attendance(request, attendance_id: UUID):
     staff(request)
     from apps.corporate.attendance import verify_attendance as _verify
@@ -144,7 +143,7 @@ def verify_attendance(request, attendance_id: UUID):
     return {"ok": True}
 
 
-@router.post("/corporate/reports/attendance/{attendance_id}/reject")
+@router.post("/corporate/reports/attendance/{attendance_id}/reject", response=ConsoleOkOut)
 def reject_attendance(request, attendance_id: UUID):
     staff(request)
     from apps.corporate.attendance import reject_attendance as _reject

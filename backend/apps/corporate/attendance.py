@@ -7,7 +7,7 @@ SessionAttendance records. Unresolved identities queued for admin review.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, UTC
+from datetime import datetime
 
 from django.utils import timezone
 

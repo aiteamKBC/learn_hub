@@ -6,15 +6,13 @@ then redirect to Stripe. Only the `checkout.session.completed` webhook marks it 
 
 from __future__ import annotations
 
-import uuid
-
 from django.conf import settings
 
 from apps.commerce import gateway
 from apps.org.models import OrgMember
 from apps.platform.services import audit_request
 from core.errors import ServiceError
-from core.permissions import OrgRole, ROLE_RANK
+from core.permissions import ROLE_RANK, OrgRole
 
 from .models import CorporateOffering, SeatPurchase
 
@@ -45,6 +43,8 @@ def create_recorded_checkout(request, offering_id, quantity: int) -> dict:
         raise ServiceError("bad_quantity", "Quantity must be between 1 and 500.", status=400)
 
     unit_price = offering.price_tier.gbp_minor
+    if unit_price <= 0:  # the admin has not set a price for this option
+        raise ServiceError("no_price", "This option has no price yet. Please contact us.", status=400)
     currency = "GBP"
     total = unit_price * quantity
 

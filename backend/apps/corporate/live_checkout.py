@@ -11,16 +11,30 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.commerce import gateway
-from apps.org.models import OrgMember, Organization
+from apps.org.models import Organization, OrgMember
 from apps.platform.services import audit_request
 from core.errors import ServiceError
-from core.permissions import OrgRole, ROLE_RANK
+from core.permissions import ROLE_RANK, OrgRole
 
 from .models import CohortCompany, LiveCohort, SeatPurchase
 
 
-@transaction.atomic
 def create_live_checkout(request, cohort_company_id) -> dict:
+    # A passed deadline closes the placement. That write must survive the error the
+    # buyer sees, so it happens outside the atomic block that raises.
+    org_id = getattr(request, "org_id", None)
+    expired = CohortCompany.objects.filter(
+        pk=cohort_company_id, org_id=org_id,
+        status__in=[CohortCompany.Status.OFFERED, CohortCompany.Status.PENDING_PAY],
+        payment_deadline__lte=timezone.now(),
+    ).update(status=CohortCompany.Status.CANCELLED, updated_at=timezone.now())
+    if expired:
+        raise ServiceError("deadline_passed", "The payment deadline has passed. Contact us to rebook.", status=410)
+    return _create_live_checkout(request, cohort_company_id)
+
+
+@transaction.atomic
+def _create_live_checkout(request, cohort_company_id) -> dict:
     org_id = getattr(request, "org_id", None)
     if org_id is None:
         raise ServiceError("no_org", "Organization context required.", status=400)
@@ -35,8 +49,7 @@ def create_live_checkout(request, cohort_company_id) -> dict:
 
     cc = (
         CohortCompany.objects
-        .select_for_update()
-        .select_related("cohort__course")
+        .select_for_update()  # no join: it would lock and RLS-filter the joined table
         .filter(pk=cohort_company_id, org_id=org_id)
         .first()
     )
@@ -45,10 +58,6 @@ def create_live_checkout(request, cohort_company_id) -> dict:
     if cc.status not in (CohortCompany.Status.OFFERED, CohortCompany.Status.PENDING_PAY):
         raise ServiceError("not_payable", "This placement is not awaiting payment.", status=400)
 
-    if cc.payment_deadline and cc.payment_deadline <= timezone.now():
-        cc.status = CohortCompany.Status.CANCELLED
-        cc.save(update_fields=["status", "updated_at"])
-        raise ServiceError("deadline_passed", "Payment deadline has passed.", status=410)
 
     cohort = cc.cohort
     if cohort.status not in (LiveCohort.Status.CONFIRMED, LiveCohort.Status.PENDING_PAY):
@@ -61,7 +70,16 @@ def create_live_checkout(request, cohort_company_id) -> dict:
     if offering is None:
         raise ServiceError("no_offering", "No active live offering for this course.", status=404)
 
+    # A retry (the buyer closed Stripe and pressed Pay again) replaces the earlier
+    # unpaid attempt instead of leaving two pending purchases for one booking.
+    if cc.seat_purchase_id is not None:
+        SeatPurchase.objects.filter(pk=cc.seat_purchase_id, status=SeatPurchase.Status.PENDING).update(
+            status=SeatPurchase.Status.VOIDED, updated_at=timezone.now()
+        )
+
     unit_price = offering.price_tier.gbp_minor
+    if unit_price <= 0:  # the admin has not set a live price for this course
+        raise ServiceError("no_price", "Live training for this course has no price yet.", status=400)
     quantity = cc.approved_seats
     total = unit_price * quantity
     currency = "GBP"
@@ -108,7 +126,7 @@ def create_live_checkout(request, cohort_company_id) -> dict:
         customer=customer_id or "",
         success_url=f"{settings.FRONTEND_URL}/business/live-bookings?success=1",
         cancel_url=f"{settings.FRONTEND_URL}/business/live-bookings",
-        idempotency_key=f"corp_live_checkout_{cc.id}",
+        idempotency_key=f"corp_live_checkout_{purchase.id}",  # one Stripe session per attempt
     )
 
     purchase.stripe_session_id = session["id"]
@@ -129,6 +147,8 @@ def fulfil_live_purchase(session: dict, meta: dict) -> None:
 
     cc_id = meta.get("cohort_company_id")
     if cc_id:
-        CohortCompany.objects.filter(pk=cc_id, status="pending_pay").update(
+        # only the booking's current attempt confirms it (an older, replaced attempt
+        # that still gets paid stays visible to staff as a paid purchase to refund)
+        CohortCompany.objects.filter(pk=cc_id, status="pending_pay", seat_purchase_id=meta.get("id")).update(
             status="paid", updated_at=timezone.now(),
         )
