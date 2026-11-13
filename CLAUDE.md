@@ -157,11 +157,13 @@ Sub-agents: `reviewer`, `e2e-tester`, `api-contract` (in `.claude/agents/`).
    - `frontend/README.md`, if the artwork or a convention changed;
    - `docs/client-questions.md`, if a business decision came up.
 8. Final message to the user: what was built, what was verified, and anything they must do (migrations, keys, settings). Keep it short.
+
+
 <!-- cloude-code-toolbox:mcp-skills-awareness-begin -->
 
 ### MCP & Skills awareness (Claude Code ToolBox)
 
-_Last synced: 2026-11-11T15:58:29.036Z._
+_Last synced: 2026-11-12T14:11:16.035Z._
 
 - **Full report:** `.claude/cloude-code-toolbox-mcp-skills-awareness.md` in this workspace (auto-overwritten on each scan). Use it as ground truth for configured servers and skill folders.
 - **MCP:** For **live tools** in Claude Code, enable the matching server via `/mcp`. Servers are configured in `~/.claude.json` (user) and `.mcp.json` (project).
