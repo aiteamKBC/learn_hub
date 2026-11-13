@@ -397,24 +397,32 @@ def assign(request, body: AssignIn):
         user_ids |= set(scoped_members(scope, unit=unit).values_list("user_id", flat=True))
     if not user_ids:
         raise ServiceError("nobody", "Choose at least one person or unit.")
-    if body.dry_run:  # the confirm step: exact counts, nothing written
-        had = (
-            Enrollment.objects.filter(org_id=scope.org_id, course=course, user_id__in=user_ids)
-            .exclude(status="superseded")
-            .values("user_id")
-            .distinct()
-            .count()
-        )
-        return {"enrolled": len(user_ids) - had, "already_had_it": had}
-    new = learning.assign_to_members(
-        org_id=scope.org_id, course=course, user_ids=list(user_ids), assigned_by=request.user
+    had = set(
+        Enrollment.objects.filter(org_id=scope.org_id, course=course, user_id__in=user_ids)
+        .exclude(status="superseded")
+        .values_list("user_id", flat=True)
     )
+    fresh = [u for u in user_ids if u not in had]
+    from apps.corporate.assign import assign_with_seats, seat_check  # late: corporate sits above org
+
+    seats = seat_check(scope.org_id, course.id, len(fresh))  # None: not sold per seat, stays free
+    if body.dry_run:  # the confirm step: exact counts, nothing written
+        return {"enrolled": len(fresh), "already_had_it": len(had), "seats": seats}
+    if seats is not None:
+        new = assign_with_seats(request, scope, seats, fresh)
+    else:
+        new = learning.assign_to_members(
+            org_id=scope.org_id, course=course, user_ids=list(user_ids), assigned_by=request.user
+        )
     if new:
         org_name = Organization.objects.filter(pk=scope.org_id).values_list("name", flat=True).first()
         notify.notify(new, "course_assigned", {"course": course.title, "company": org_name},
                       url=f"/learn/{course.slug}", dedupe=f"assign:{course.id}:{scope.org_id}")  # fmt: skip
-    audit_request(request, "training.assign", "course", course.id, {"people": len(user_ids), "new": len(new)})
-    return {"enrolled": len(new), "already_had_it": len(user_ids) - len(new)}
+    audit_request(
+        request, "training.assign", "course", course.id,
+        {"people": len(user_ids), "new": len(new), "seats_used": len(new) if seats else 0},
+    )  # fmt: skip
+    return {"enrolled": len(new), "already_had_it": len(user_ids) - len(new), "seats": seats}
 
 
 @router.get("/assignments", response=list[AssignmentRow])
