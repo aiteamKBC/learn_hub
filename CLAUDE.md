@@ -157,3 +157,37 @@ Sub-agents: `reviewer`, `e2e-tester`, `api-contract` (in `.claude/agents/`).
    - `frontend/README.md`, if the artwork or a convention changed;
    - `docs/client-questions.md`, if a business decision came up.
 8. Final message to the user: what was built, what was verified, and anything they must do (migrations, keys, settings). Keep it short.
+<!-- cloude-code-toolbox:mcp-skills-awareness-begin -->
+
+### MCP & Skills awareness (Claude Code ToolBox)
+
+_Last synced: 2026-11-11T15:58:29.036Z._
+
+- **Full report:** `.claude/cloude-code-toolbox-mcp-skills-awareness.md` in this workspace (auto-overwritten on each scan). Use it as ground truth for configured servers and skill folders.
+- **MCP:** For **live tools** in Claude Code, enable the matching server via `/mcp`. Servers are configured in `~/.claude.json` (user) and `.mcp.json` (project).
+- **When the user’s task matches a server** (e.g. Confluence work and a **Confluence** / **Atlassian** MCP is listed), **prefer that server id** and plan on tool use—not only file search.
+- **Skills:** Folders below contain `SKILL.md`; attach or cite paths in chat when relevant.
+
+#### Workspace MCP
+
+- `c:\Users\hp\Downloads\learn_hub\.mcp.json` _(workspace: learn_hub)_ — _file missing_
+
+_No active workspace servers in mcp.json._
+
+#### User MCP
+
+- `C:\Users\hp\.claude.json` — _servers defined_
+
+| Server id | Kind | Detail |
+|-----------|------|--------|
+| Neon | http | https://mcp.neon.tech/mcp |
+
+#### Project skills
+
+_None found (or no workspace open)._
+
+#### User skills
+
+- **skill-creator** — `C:\Users\hp\.claude\skills\skill-creator` — Create new skills, modify and improve existing skills. Use when users want to create a skill from scratch, edit, or optimize an existing skill.
+
+<!-- cloude-code-toolbox:mcp-skills-awareness-end -->
