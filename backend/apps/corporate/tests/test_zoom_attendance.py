@@ -103,8 +103,12 @@ class AttendanceProcessingTest(SchemaTransactionTestCase):
                 status="active",
             )
             LiveAttendee.objects.create(
-                org=self.org, cohort_company=self.placement, cohort=self.cohort,
-                user=self.learner, status="active", added_by=self.staff,
+                org=self.org,
+                cohort_company=self.placement,
+                cohort=self.cohort,
+                user=self.learner,
+                status="active",
+                added_by=self.staff,
             )
             self.session = Session.objects.create(
                 cohort=self.cohort,

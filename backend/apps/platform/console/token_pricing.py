@@ -467,8 +467,7 @@ def distribute_tokens(request, course_id: UUID, payload: ConsoleDistributeIn):
     except Exception as e:  # noqa: BLE001 - centralized mapper converts service-layer errors
         _map_service_exc(e)
     lectures = {
-        lecture.id: lecture
-        for lecture in Lecture.objects.filter(id__in=[r["lecture_id"] for r in rows])
+        lecture.id: lecture for lecture in Lecture.objects.filter(id__in=[r["lecture_id"] for r in rows])
     }
     return {
         "allocation": [
@@ -476,7 +475,9 @@ def distribute_tokens(request, course_id: UUID, payload: ConsoleDistributeIn):
                 "lecture_id": r["lecture_id"],
                 "title": lectures.get(r["lecture_id"]).title if r["lecture_id"] in lectures else "",
                 "kind": lectures.get(r["lecture_id"]).kind if r["lecture_id"] in lectures else "",
-                "duration_min": (lectures.get(r["lecture_id"]).duration_sec or 0) // 60 if r["lecture_id"] in lectures else 0,
+                "duration_min": (lectures.get(r["lecture_id"]).duration_sec or 0) // 60
+                if r["lecture_id"] in lectures
+                else 0,
                 "current_price": r["current_price"],
                 "allocated_price": r["allocated_price"],
             }
@@ -587,7 +588,9 @@ def bulk_patch_courses(request, payload: ConsoleBulkCourseIn):
 # ============================================================================
 def _token_pack_price_tier(gbp_minor: int) -> PriceTier:
     """Resolve an admin-entered GBP price to a reusable tier and its FX amounts."""
-    tier = PriceTier.objects.filter(gbp_minor=gbp_minor, is_active=True).order_by("sort_order", "name").first()
+    tier = (
+        PriceTier.objects.filter(gbp_minor=gbp_minor, is_active=True).order_by("sort_order", "name").first()
+    )
     if tier:
         return tier
 
@@ -923,11 +926,19 @@ def token_audit(
             names[("course", str(obj.id))] = obj.title
     lecture_ids = ids_by_type.get("lecture", set())
     if lecture_ids:
-        for obj in Lecture.objects.filter(id__in=lecture_ids).select_related("version__course").only("id", "title", "version__course__title"):
+        for obj in (
+            Lecture.objects.filter(id__in=lecture_ids)
+            .select_related("version__course")
+            .only("id", "title", "version__course__title")
+        ):
             names[("lecture", str(obj.id))] = f"{obj.version.course.title} · {obj.title}"
     material_ids = ids_by_type.get("material", set())
     if material_ids:
-        for obj in LectureResource.objects.filter(id__in=material_ids).select_related("lecture__version__course").only("id", "title", "lecture__title", "lecture__version__course__title"):
+        for obj in (
+            LectureResource.objects.filter(id__in=material_ids)
+            .select_related("lecture__version__course")
+            .only("id", "title", "lecture__title", "lecture__version__course__title")
+        ):
             names[("material", str(obj.id))] = f"{obj.lecture.version.course.title} · {obj.title}"
     pack_ids = ids_by_type.get("token_pack", set())
     if pack_ids:
@@ -935,11 +946,14 @@ def token_audit(
             names[("token_pack", str(obj.id))] = obj.name
     for row in rows:
         entity_type, entity_id = row[4], str(row[5])
-        names.setdefault((entity_type, entity_id), {
-            "token_rate": "Token value",
-            "topup_policy": "Top-up policy",
-            "bonus_campaign": "Bonus campaign",
-        }.get(entity_type, "Pricing setting"))
+        names.setdefault(
+            (entity_type, entity_id),
+            {
+                "token_rate": "Token value",
+                "topup_policy": "Top-up policy",
+                "bonus_campaign": "Bonus campaign",
+            }.get(entity_type, "Pricing setting"),
+        )
 
     return {
         "items": [

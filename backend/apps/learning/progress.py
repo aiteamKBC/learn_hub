@@ -38,7 +38,12 @@ def _redis():
 
 
 def record_heartbeat(
-    *, enrollment: Enrollment, lecture_key, position_sec: int, watched_delta_sec: int, ended: bool = False,
+    *,
+    enrollment: Enrollment,
+    lecture_key,
+    position_sec: int,
+    watched_delta_sec: int,
+    ended: bool = False,
     flush_now: bool = False,
 ) -> None:
     """Called by the player endpoint. Validation of ownership happens in the API layer.

@@ -188,7 +188,12 @@ class CancellationTest(SchemaTransactionTestCase):
     def test_full_refund_revokes_allocated_access(self, _mock_refund):
         with tenant_context(staff=True):
             alloc = allocate_seat(self._request(), self.purchase.id, self.employee.id)
-            cr = submit_cancellation(self._request(self.admin_user), type="recorded_refund", reason="Course no longer required", seat_purchase_id=self.purchase.id)
+            cr = submit_cancellation(
+                self._request(self.admin_user),
+                type="recorded_refund",
+                reason="Course no longer required",
+                seat_purchase_id=self.purchase.id,
+            )
             review_cancellation(self._request(), str(cr.id), approve=True)
             process_refund(self._request(), str(cr.id), amount_minor=self.purchase.total_minor)
             alloc.refresh_from_db()
@@ -200,27 +205,52 @@ class CancellationTest(SchemaTransactionTestCase):
                 course=self.course, delivery_type="live", price_tier=self.tier, is_active=True
             )
             live_purchase = SeatPurchase.objects.create(
-                org=self.org, offering=live_offering, buyer=self.admin_user, quantity=3,
-                unit_price_minor=5000, currency="GBP", total_minor=15000, gbp_total_minor=15000,
-                status="paid", paid_at=timezone.now(),
+                org=self.org,
+                offering=live_offering,
+                buyer=self.admin_user,
+                quantity=3,
+                unit_price_minor=5000,
+                currency="GBP",
+                total_minor=15000,
+                gbp_total_minor=15000,
+                status="paid",
+                paid_at=timezone.now(),
             )
             source_cohort = LiveCohort.objects.create(
-                course=self.course, title="Current", status="confirmed", delivery_mode="online",
-                min_learners=1, max_learners=10, current_seats=3,
+                course=self.course,
+                title="Current",
+                status="confirmed",
+                delivery_mode="online",
+                min_learners=1,
+                max_learners=10,
+                current_seats=3,
             )
             target_cohort = LiveCohort.objects.create(
-                course=self.course, title="Next", status="forming", delivery_mode="online",
-                min_learners=1, max_learners=10,
+                course=self.course,
+                title="Next",
+                status="forming",
+                delivery_mode="online",
+                min_learners=1,
+                max_learners=10,
             )
             source = CohortCompany.objects.create(
-                org=self.org, cohort=source_cohort, seat_purchase=live_purchase,
-                approved_seats=3, status="paid",
+                org=self.org,
+                cohort=source_cohort,
+                seat_purchase=live_purchase,
+                approved_seats=3,
+                status="paid",
             )
             request = submit_cancellation(
-                self._request(self.admin_user), type="postponement", reason="Move an unused place", cohort_company_id=source.id
+                self._request(self.admin_user),
+                type="postponement",
+                reason="Move an unused place",
+                cohort_company_id=source.id,
             )
             processed = process_postponement(
-                self._request(), str(request.id), target_cohort_id=target_cohort.id, seats=1,
+                self._request(),
+                str(request.id),
+                target_cohort_id=target_cohort.id,
+                seats=1,
                 admin_notes="Moved to next intake",
             )
             source.refresh_from_db()

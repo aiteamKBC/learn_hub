@@ -75,7 +75,9 @@ def review_cancellation(request, cancellation_id, *, approve: bool, admin_notes=
 
 
 @transaction.atomic
-def process_postponement(request, cancellation_id, *, target_cohort_id, seats: int, admin_notes="") -> CancellationRequest:
+def process_postponement(
+    request, cancellation_id, *, target_cohort_id, seats: int, admin_notes=""
+) -> CancellationRequest:
     """Move unused, paid live places to a compatible future cohort.
 
     A move is not a refund: the original paid purchase remains the entitlement.  We
@@ -88,11 +90,18 @@ def process_postponement(request, cancellation_id, *, target_cohort_id, seats: i
     if cr is None:
         raise ServiceError("not_found", "Cancellation request not found.", status=404)
     if cr.type != CancellationRequest.Type.POSTPONEMENT or cr.cohort_company_id is None:
-        raise ServiceError("not_postponement", "This request is not a live-training postponement.", status=400)
+        raise ServiceError(
+            "not_postponement", "This request is not a live-training postponement.", status=400
+        )
     if cr.status not in (CancellationRequest.Status.SUBMITTED, CancellationRequest.Status.UNDER_REVIEW):
         raise ServiceError("not_reviewable", "Request is not in reviewable state.", status=400)
 
-    source = CohortCompany.objects.select_for_update().select_related("cohort").filter(pk=cr.cohort_company_id).first()
+    source = (
+        CohortCompany.objects.select_for_update()
+        .select_related("cohort")
+        .filter(pk=cr.cohort_company_id)
+        .first()
+    )
     target = LiveCohort.objects.select_for_update().filter(pk=target_cohort_id).first()
     if source is None or target is None:
         raise ServiceError("not_found", "The source booking or target cohort was not found.", status=404)
@@ -105,14 +114,18 @@ def process_postponement(request, cancellation_id, *, target_cohort_id, seats: i
     if target.id == source.cohort_id:
         raise ServiceError("same_cohort", "Choose a different cohort for the postponement.", status=400)
 
-    named = LiveAttendee.objects.filter(cohort_company_id=source.id, status=LiveAttendee.Status.ACTIVE).count()
+    named = LiveAttendee.objects.filter(
+        cohort_company_id=source.id, status=LiveAttendee.Status.ACTIVE
+    ).count()
     unused = source.approved_seats - named
     if seats > unused:
         raise ServiceError("seats_already_named", f"Only {unused} unused seats can be moved.", status=409)
 
     target_cc = CohortCompany.objects.select_for_update().filter(cohort=target, org_id=source.org_id).first()
     if target_cc and target_cc.seat_purchase_id not in (None, source.seat_purchase_id):
-        raise ServiceError("different_purchase", "The company already has a different purchase in that cohort.", status=409)
+        raise ServiceError(
+            "different_purchase", "The company already has a different purchase in that cohort.", status=409
+        )
     occupied = target.current_seats
     if occupied + seats > target.max_learners:
         raise ServiceError("cohort_full", "The replacement cohort does not have enough capacity.", status=409)
@@ -231,10 +244,12 @@ def process_refund(
                 seat_purchase_id=cr.seat_purchase_id,
                 status__in=[SeatAllocation.Status.ALLOCATED, SeatAllocation.Status.ACTIVE],
             )
-            Enrollment.objects.filter(pk__in=allocations.exclude(enrollment_id=None).values("enrollment_id")).update(
-                status="revoked"
+            Enrollment.objects.filter(
+                pk__in=allocations.exclude(enrollment_id=None).values("enrollment_id")
+            ).update(status="revoked")
+            allocations.update(
+                status=SeatAllocation.Status.REVOKED, released_at=timezone.now(), updated_at=timezone.now()
             )
-            allocations.update(status=SeatAllocation.Status.REVOKED, released_at=timezone.now(), updated_at=timezone.now())
 
     audit_request(
         request,

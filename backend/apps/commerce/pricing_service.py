@@ -492,9 +492,7 @@ def upsert_topup_policy(
     from apps.commerce.models import TopUpPolicy
 
     # Replace the prior state for this currency whether the new policy is active or off.
-    TopUpPolicy.objects.filter(currency=currency, is_active=True).update(
-        is_active=False, updated_by=actor
-    )
+    TopUpPolicy.objects.filter(currency=currency, is_active=True).update(is_active=False, updated_by=actor)
     policy = TopUpPolicy.objects.create(
         currency=currency,
         min_minor=min_minor,
