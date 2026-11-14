@@ -197,7 +197,7 @@ function RecordDeparture() {
   return (
     <Card className="self-start p-5">
       <h2 className="mb-1 text-[15px] font-semibold">Record a departure</h2>
-      <p className="mb-4 text-[13px] text-muted">Remove the person from the company first. Their paid courses stay open until each one ends, and no new seats renew.</p>
+      <p className="mb-4 text-[13px] text-muted">This removes the employee from the company, ends company-paid access and releases recorded-course seats for reassignment. Learning history is retained in the audit trail.</p>
       <div className="grid gap-4">
         <Field label="Find company">{(p) => <Input {...p} value={cq} onChange={(e) => setCq(e.target.value)} />}</Field>
         <Field label="Company">
@@ -238,7 +238,7 @@ function RecordDeparture() {
             )
           }
         >
-          Record departure
+          Remove employee and release seats
         </Button>
         {record.data ? <DepartureResult r={record.data} /> : null}
       </div>
@@ -247,6 +247,8 @@ function RecordDeparture() {
 }
 
 function Departures() {
+  return <div className="max-w-xl"><RecordDeparture /></div>
+
   const q = useCnPolicies()
   const set = useCnSetPolicy()
   const [cq, setCq] = useState('')

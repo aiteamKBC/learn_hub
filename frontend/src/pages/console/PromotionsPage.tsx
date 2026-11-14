@@ -41,6 +41,7 @@ import { SettingRows } from './PricingPage'
 const TABS = ['codes', 'campaigns', 'rules', 'first', 'eligibility', 'settings'] as const
 type Tab = (typeof TABS)[number]
 const fail = (e: unknown) => toast.error((e as Error).message)
+const createLabelForKind = (kind: string) => kind === 'campaign' ? 'Create campaign' : kind === 'subscription' ? 'Create subscription' : kind === 'first_purchase' ? 'Create first-purchase offer' : 'Create promo code'
 const period = (p: ConsolePromotion) => `${day(p.starts_at)} – ${day(p.ends_at)}`
 const usage = (p: ConsolePromotion) => `${p.redeemed_count.toLocaleString('en-GB')} / ${p.max_redemptions === null ? '∞' : p.max_redemptions.toLocaleString('en-GB')}`
 
@@ -154,13 +155,13 @@ function PickList({ legend, options, value, onChange, search }: { legend: string
   )
 }
 
-function PromotionForm({ promo, onDone }: { promo: ConsolePromotion | null; onDone: (id: string) => void }) {
+function PromotionForm({ promo, initialKind, onDone }: { promo: ConsolePromotion | null; initialKind: string; onDone: (id: string) => void }) {
   const create = useCreatePromotion()
   const update = useUpdatePromotion()
   const now = new Date()
   const [v, setV] = useState(() => ({
     name: promo?.name ?? '',
-    kind: promo?.kind ?? 'promo_code',
+    kind: promo?.kind ?? initialKind,
     code: promo?.code ?? '',
     description: promo?.description ?? '',
     percent: String(promo?.percent_off ?? 20),
@@ -277,7 +278,7 @@ function PromotionForm({ promo, onDone }: { promo: ConsolePromotion | null; onDo
         <Checkbox checked={v.draft} onCheckedChange={(on) => setV({ ...v, draft: !!on })} /> Save as a draft (not live yet)
       </label>
       <div className="flex justify-end">
-        <Button type="submit" loading={create.isPending || update.isPending} disabled={!ok}>{promo ? 'Save promotion' : 'Create promotion'}</Button>
+        <Button type="submit" loading={create.isPending || update.isPending} disabled={!ok}>{promo ? 'Save changes' : createLabelForKind(v.kind)}</Button>
       </div>
     </form>
   )
@@ -445,7 +446,9 @@ function EligibilityCard({ onOpen }: { onOpen: (id: string) => void }) {
 export function ConsolePromotionsPage() {
   const [tab, setTab] = useTabParam(TABS, 'codes')
   const [, setPromo] = useParam('promo')
-  const [form, setForm] = useState<{ promo: ConsolePromotion | null } | null>(null)
+  const [form, setForm] = useState<{ promo: ConsolePromotion | null; kind: string } | null>(null)
+  const tabKind = tab === 'campaigns' ? 'campaign' : tab === 'rules' ? 'subscription' : tab === 'first' ? 'first_purchase' : 'promo_code'
+  const createLabel = tab === 'eligibility' || tab === 'settings' ? 'Create promotion' : createLabelForKind(tabKind)
   return (
     <>
       <PageHeader
@@ -453,7 +456,7 @@ export function ConsolePromotionsPage() {
         description="Create and manage discounts, promo codes and marketing campaigns."
         actions={
           <>
-            <Button onClick={() => setForm({ promo: null })}><Plus /> Create promotion</Button>
+            <Button onClick={() => setForm({ promo: null, kind: tabKind })}><Plus /> {createLabel}</Button>
             <ExportButton path={promotionsCsvPath({})} filename="promotions.csv" />
           </>
         }
@@ -483,9 +486,9 @@ export function ConsolePromotionsPage() {
           </TabsContent>
         </div>
       </Tabs>
-      <PromotionSheet onEdit={(p) => (setPromo(''), setForm({ promo: p }))} />
-      <DetailSheet open={!!form} onOpenChange={(o) => !o && setForm(null)} title={form?.promo ? `Edit ${form.promo.code || form.promo.name}` : 'Create promotion'}>
-        {form ? <PromotionForm key={form.promo?.id ?? 'new'} promo={form.promo} onDone={(id) => (setForm(null), setPromo(id))} /> : null}
+      <PromotionSheet onEdit={(p) => (setPromo(''), setForm({ promo: p, kind: p.kind }))} />
+      <DetailSheet open={!!form} onOpenChange={(o) => !o && setForm(null)} title={form?.promo ? `Edit ${form.promo.code || form.promo.name}` : createLabel}>
+        {form ? <PromotionForm key={form.promo?.id ?? `new-${form.kind}`} promo={form.promo} initialKind={form.kind} onDone={(id) => (setForm(null), setPromo(id))} /> : null}
       </DetailSheet>
     </>
   )

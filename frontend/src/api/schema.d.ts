@@ -8174,6 +8174,8 @@ export interface components {
             target_type: string;
             /** Target Id */
             target_id: string;
+            /** Target Name */
+            target_name: string;
             /** Data */
             data: {
                 [key: string]: unknown;
@@ -8815,6 +8817,7 @@ export interface components {
              * @default false
              */
             ended: boolean;
+            flush_now?: boolean;
         };
         /** ProgressOut */
         ProgressOut: {
@@ -10044,6 +10047,8 @@ export interface components {
         TokenRateOut: {
             /** Tokens Per Gbp Minor */
             tokens_per_gbp_minor: string;
+            /** GBP price of one token */
+            token_price_gbp: string;
             /** Effective From */
             effective_from: string;
         };
@@ -18291,6 +18296,10 @@ export interface components {
             lecture_id: string;
             /** Title */
             title: string;
+            /** Component Type */
+            kind: string;
+            /** Duration in Minutes */
+            duration_min: number;
             /** Current Price */
             current_price: number | null;
             /** Allocated Price */
@@ -18415,11 +18424,8 @@ export interface components {
             name: string;
             /** Token Amount */
             token_amount: number;
-            /**
-             * Price Tier Id
-             * Format: uuid
-             */
-            price_tier_id: string;
+            /** Price in GBP minor units (pence) */
+            price_gbp_minor: number;
             /** Is Active */
             is_active: boolean;
             /** Sort Order */
@@ -18431,11 +18437,8 @@ export interface components {
             name: string;
             /** Token Amount */
             token_amount: number;
-            /**
-             * Price Tier Id
-             * Format: uuid
-             */
-            price_tier_id: string;
+            /** Price in GBP minor units (pence) */
+            price_gbp_minor: number;
             /**
              * Is Active
              * @default true
@@ -18478,7 +18481,9 @@ export interface components {
              * Effective From
              * Format: date-time
              */
-            effective_from: string;
+            effective_from?: string;
+            /** Apply this admin rate immediately */
+            apply_immediately?: boolean;
             /**
              * Notes
              * @default
@@ -18616,6 +18621,8 @@ export interface components {
             target_type: string;
             /** Target Id */
             target_id: string;
+            /** Target Name */
+            target_name: string;
             /** Data */
             data: {
                 [key: string]: unknown;

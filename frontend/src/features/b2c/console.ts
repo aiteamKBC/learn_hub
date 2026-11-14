@@ -28,8 +28,11 @@ export function usePriceTiers() {
 // ------------------------------------------------------------------ token packs
 export type PackBody = Body<'/api/v1/console/pricing/token/packs', 'post'>
 
-export function useAdminPacks() {
-  return useQuery({ queryKey: ['b2c-admin-packs'], queryFn: () => unwrap(api.GET('/api/v1/console/pricing/token/packs')) })
+export function useAdminPacks(includeInactive = true) {
+  return useQuery({
+    queryKey: ['b2c-admin-packs', includeInactive],
+    queryFn: () => unwrap(api.GET('/api/v1/console/pricing/token/packs', { params: { query: { include_inactive: includeInactive } } })),
+  })
 }
 
 export function useCreatePack() {

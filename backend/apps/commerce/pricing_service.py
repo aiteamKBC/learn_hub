@@ -296,12 +296,17 @@ def distribute_course_token_price(
 
     type_weights = weights_config.get("lecture_types") or {}
     use_duration = bool(weights_config.get("use_duration", False))
-    missing_types = sorted({lec.kind for lec in lectures if lec.kind not in type_weights})
-    if missing_types:
-        raise ValidationError(f"Missing weight for lecture types: {missing_types}")
+    # Types absent from the map are intentionally excluded.  This lets an admin
+    # sell videos but leave quizzes/readings/resources out of an auto-pricing run.
+    selected_lectures = [lec for lec in lectures if lec.kind in type_weights]
+    if not selected_lectures:
+        raise ValidationError("Choose at least one component type to include in the distribution.")
+    invalid_weights = [kind for kind, weight in type_weights.items() if float(weight) < 0]
+    if invalid_weights:
+        raise ValidationError(f"Weights must be non-negative: {sorted(invalid_weights)}")
 
     raw = []
-    for lec in lectures:
+    for lec in selected_lectures:
         tw = float(type_weights[lec.kind])
         if use_duration:
             dur_min = max(1, int(round((lec.duration_sec or 0) / 60)))
@@ -317,12 +322,12 @@ def distribute_course_token_price(
             "current_price": lec.token_price,
             "allocated_price": alloc,
         }
-        for lec, alloc in zip(lectures, allocated, strict=True)
+        for lec, alloc in zip(selected_lectures, allocated, strict=True)
     ]
     if dry_run:
         return result
 
-    for lec, alloc in zip(lectures, allocated, strict=True):
+    for lec, alloc in zip(selected_lectures, allocated, strict=True):
         if lec.token_price != alloc:
             set_lecture_token_price(
                 lec, alloc, actor=actor, reason=f"{reason} [auto-distribute]", request=request
@@ -333,7 +338,13 @@ def distribute_course_token_price(
         course.id,
         actor=actor,
         reason=reason,
-        data={"total_tokens": total_tokens, "lectures": len(lectures), "use_duration": use_duration},
+        data={
+            "total_tokens": total_tokens,
+            "lectures": len(selected_lectures),
+            "included_types": sorted(type_weights),
+            "excluded_types": sorted({lec.kind for lec in lectures if lec.kind not in type_weights}),
+            "use_duration": use_duration,
+        },
         request=request,
     )
     return result
@@ -365,6 +376,7 @@ def upsert_token_pack(
             "name": pack.name,
             "token_amount": pack.token_amount,
             "price_tier_id": pack.price_tier_id,
+            "price_gbp_minor": pack.price_tier.gbp_minor,
             "is_active": pack.is_active,
             "sort_order": pack.sort_order,
         }
@@ -398,6 +410,7 @@ def upsert_token_pack(
                 "name": name,
                 "token_amount": token_amount,
                 "price_tier_id": getattr(price_tier, "id", None),
+                "price_gbp_minor": price_tier.gbp_minor,
                 "is_active": is_active,
                 "sort_order": sort_order,
             },
@@ -413,6 +426,7 @@ def upsert_token_rate(
     *,
     tokens_per_gbp_minor,
     effective_from,
+    apply_immediately: bool = False,
     actor,
     reason: str,
     notes: str = "",
@@ -420,15 +434,17 @@ def upsert_token_rate(
 ):
     """Create a new TokenRate; closes the prior open rate at `effective_from`.
 
-    `effective_from` MUST be strictly in the future (so a learner mid-transaction cannot have
-    the rate change under them).
+    Scheduled changes must be in the future. An administrator may also confirm an immediate
+    change; in-flight checkouts keep their rate and token amount in checkout metadata.
     """
     _require_staff(actor)
     rate = Decimal(tokens_per_gbp_minor)
     if rate <= 0:
         raise ValidationError("tokens_per_gbp_minor must be > 0")
     now = timezone.now()
-    if effective_from <= now:
+    if apply_immediately:
+        effective_from = now
+    elif effective_from is None or effective_from <= now:
         raise ValidationError("effective_from must be strictly in the future")
 
     from apps.commerce.models import TokenRate
@@ -475,10 +491,10 @@ def upsert_topup_policy(
 
     from apps.commerce.models import TopUpPolicy
 
-    if is_active:
-        TopUpPolicy.objects.filter(currency=currency, is_active=True).update(
-            is_active=False, updated_by=actor
-        )
+    # Replace the prior state for this currency whether the new policy is active or off.
+    TopUpPolicy.objects.filter(currency=currency, is_active=True).update(
+        is_active=False, updated_by=actor
+    )
     policy = TopUpPolicy.objects.create(
         currency=currency,
         min_minor=min_minor,

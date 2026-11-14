@@ -106,7 +106,9 @@ def release_seat(request, allocation_id, reason="") -> SeatAllocation:
 
         Enrollment.objects.filter(pk=alloc.enrollment_id).update(status="revoked")
 
-    alloc.status = SeatAllocation.Status.REVOKED
+    # A release returns a paid place to the employer's inventory.  It is not an
+    # administrative revocation, which is a materially different audit outcome.
+    alloc.status = SeatAllocation.Status.RELEASED
     alloc.released_at = now
     alloc.released_by = request.auth
     alloc.release_reason = reason
@@ -115,7 +117,7 @@ def release_seat(request, allocation_id, reason="") -> SeatAllocation:
     AllocationEvent.objects.create(
         org_id=alloc.org_id,
         allocation=alloc,
-        action=AllocationEvent.Action.REVOKED,
+        action=AllocationEvent.Action.RELEASED,
         actor=request.auth,
         target_user_id=alloc.user_id,
         note=reason,

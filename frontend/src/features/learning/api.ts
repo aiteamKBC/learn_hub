@@ -73,7 +73,7 @@ export function useCompleteLecture(enrollmentId?: string) {
   })
 }
 
-export function sendHeartbeat(enrollmentId: string, body: { lecture_key: string; position_sec: number; watched_sec: number; ended?: boolean }, keepalive = false) {
+export function sendHeartbeat(enrollmentId: string, body: { lecture_key: string; position_sec: number; watched_sec: number; ended?: boolean; flush_now?: boolean }, keepalive = false) {
   // keepalive lets the last beat leave while the tab closes
   return api.POST('/api/v1/learning/enrollments/{enrollment_id}/heartbeat', { params: { path: { enrollment_id: enrollmentId } }, body: { ...body, ended: body.ended ?? false }, keepalive })
 }

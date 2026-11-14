@@ -26,7 +26,14 @@ export function VideoStage({ lecture, enrollmentId, onEnded, startAt }: StagePro
   const frame = useRef<HTMLIFrameElement>(null)
   const refresh = useRefreshProgress(enrollmentId)
   // a note's timestamp wins; otherwise resume (finished videos start again from the top)
-  const [src] = useState(() => (video?.url ? embedUrl(video.url, startAt ?? (lecture.completed ? 0 : lecture.position_sec), startAt != null) : null))
+  const [src] = useState(() => {
+    // If an older save reached the end but fell just short of the watch threshold,
+    // replay the final 30 seconds so the learner can finish it instead of landing at EOF.
+    const savedAt = !lecture.completed && lecture.duration_sec > 0 && lecture.position_sec >= lecture.duration_sec - 5
+      ? Math.max(0, lecture.duration_sec - 30)
+      : lecture.completed ? 0 : lecture.position_sec
+    return video?.url ? embedUrl(video.url, startAt ?? savedAt, startAt != null) : null
+  })
   const onEndedRef = useRef(onEnded)
   onEndedRef.current = onEnded
 
@@ -36,15 +43,17 @@ export function VideoStage({ lecture, enrollmentId, onEnded, startAt }: StagePro
     let alive = true
     let unregister = () => {}
     const state = { pos: lecture.position_sec, last: -1, watched: 0, sentPos: lecture.position_sec }
-    const flush = (keepalive = false) => {
+    const flush = (keepalive = false, flushNow = false) => {
       const watched = Math.min(MAX_BEAT, Math.round(state.watched))
-      if (!watched && Math.abs(state.pos - state.sentPos) < 1) return
+      if (!flushNow && !watched && Math.abs(state.pos - state.sentPos) < 1) return
       state.watched -= watched
       state.sentPos = state.pos
-      void sendHeartbeat(enrollmentId, { lecture_key: lecture.key, position_sec: Math.floor(state.pos), watched_sec: watched }, keepalive).catch(() => undefined)
+      void sendHeartbeat(enrollmentId, { lecture_key: lecture.key, position_sec: Math.floor(state.pos), watched_sec: watched, flush_now: flushNow }, keepalive).catch(() => undefined)
     }
     const timer = window.setInterval(() => flush(), BEAT_MS)
-    const onHide = () => flush(true)
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') flush(true, true)
+    }
     window.addEventListener('pagehide', onHide)
     document.addEventListener('visibilitychange', onHide)
 
@@ -58,18 +67,20 @@ export function VideoStage({ lecture, enrollmentId, onEnded, startAt }: StagePro
         p.on('timeupdate', (d) => {
           const s = d?.seconds ?? 0
           const step = s - state.last
-          if (state.last >= 0 && step > 0 && step <= 3) state.watched += step // real playback only
+          // Bunny's bridge can deliver timeupdates several seconds apart on a busy tab.
+          // Count those forward-play intervals while still discarding seek-sized jumps.
+          if (state.last >= 0 && step > 0 && step <= 8) state.watched += step
           state.last = s
           state.pos = s
           emitPlayhead(lecture.key, s)
         })
-        p.on('pause', () => flush())
+        p.on('pause', () => flush(false, true))
         p.on('ended', () => {
           // the end beat is written at once and says whether the lecture is now complete
           const watched = Math.min(MAX_BEAT, Math.round(state.watched))
           state.watched -= watched
           state.sentPos = state.pos
-          sendHeartbeat(enrollmentId, { lecture_key: lecture.key, position_sec: Math.floor(state.pos), watched_sec: watched, ended: true })
+          sendHeartbeat(enrollmentId, { lecture_key: lecture.key, position_sec: Math.floor(state.pos), watched_sec: watched, ended: true, flush_now: true })
             .then((r) => {
               onEndedRef.current(!!r.data?.completed)
               return refresh()
@@ -85,7 +96,7 @@ export function VideoStage({ lecture, enrollmentId, onEnded, startAt }: StagePro
       window.clearInterval(timer)
       window.removeEventListener('pagehide', onHide)
       document.removeEventListener('visibilitychange', onHide)
-      flush(true)
+      flush(true, true)
     }
     // one player per lecture; src is fixed for its lifetime
     // eslint-disable-next-line react-hooks/exhaustive-deps

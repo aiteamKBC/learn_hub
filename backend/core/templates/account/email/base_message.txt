@@ -1,0 +1,7 @@
+{% autoescape off %}Hello,
+
+{% block content %}{% endblock content %}
+
+Thanks,
+LearnHub
+{% endautoescape %}

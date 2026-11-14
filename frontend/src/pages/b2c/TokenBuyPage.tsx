@@ -145,6 +145,7 @@ function CustomTopUp({ onReview }: { onReview: (item: ReviewItem) => void }) {
   return (
     <section className="mt-10">
       <h2 className="text-sm font-semibold text-muted">Custom amount</h2>
+      {rate.data ? <p className="mt-1 text-xs text-muted">Current value: 1 token ≈ £{Number(rate.data.token_price_gbp).toFixed(4)}. Choose a payment currency above; conversion uses the configured rates.</p> : null}
       <Card className="mt-3 max-w-xl">
         <CardBody className="space-y-4">
           {rate.isLoading ? (

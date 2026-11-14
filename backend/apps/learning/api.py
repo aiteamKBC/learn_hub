@@ -289,6 +289,7 @@ def heartbeat(request, enrollment_id: str, body: HeartbeatIn):
         position_sec=body.position_sec,
         watched_delta_sec=body.watched_sec,
         ended=body.ended,
+        flush_now=body.flush_now,
     )
     return {"ok": True, "completed": body.ended and progress.is_complete(e, body.lecture_key)}
 

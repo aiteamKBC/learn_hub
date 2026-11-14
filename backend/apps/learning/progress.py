@@ -38,7 +38,8 @@ def _redis():
 
 
 def record_heartbeat(
-    *, enrollment: Enrollment, lecture_key, position_sec: int, watched_delta_sec: int, ended: bool = False
+    *, enrollment: Enrollment, lecture_key, position_sec: int, watched_delta_sec: int, ended: bool = False,
+    flush_now: bool = False,
 ) -> None:
     """Called by the player endpoint. Validation of ownership happens in the API layer.
     `ended` (the video reached its end): this lecture's buffer is written now, so the
@@ -53,7 +54,7 @@ def record_heartbeat(
         return
     key = f"hb:{member}"
     pipe = r.pipeline()
-    if ended:  # take what is buffered for this lecture, add this beat, write it now
+    if ended or flush_now:  # persist pauses/exits and video ends before Redis can be restarted
         pipe.hgetall(key)
         pipe.delete(key)
         pipe.srem(DIRTY_SET, member)

@@ -1,16 +1,10 @@
-"""B2B-07: Employee departure: recorded, never an early end to paid access.
+"""Operational B2B employee departures.
 
-Business rule (2026-11-11): access a company has already paid for runs until it
-expires on its own (Enrollment.access_expires_at, the same mechanism subscriptions
-use; NULL = no end date). Leaving the company does not cut it short, does not free
-the seat for someone else, and does not refund or move the credit. What stops is
-renewal: automatic renewals (compliance.open_renewals) already skip members with
-removed_at set, and the company simply gives no new seats.
-
-So apply_departure only records that the person left and reports when each paid
-course ends. The stored policy (revoke_all / preserve_completed / admin_decides) is
-kept for reference but no longer revokes anything. Progress, results and
-certificates are always kept.
+A corporate package belongs to the company, not permanently to the individual who
+was first named on it.  Recording a departure is therefore one atomic operation:
+the membership is closed, recorded-course seats are released for reassignment and
+the person is removed from upcoming live training.  Learning history is retained,
+but company-paid access is revoked so the company never pays for the same seat twice.
 """
 
 from __future__ import annotations
@@ -18,11 +12,12 @@ from __future__ import annotations
 import logging
 
 from django.db import transaction
+from django.utils import timezone
 
 from apps.platform.services import audit_request
 from core.errors import ServiceError
 
-from .models import DeparturePolicy, SeatAllocation
+from .models import DeparturePolicy, LiveAttendee, SeatAllocation
 
 log = logging.getLogger(__name__)
 
@@ -64,11 +59,8 @@ def apply_departure(request, org_id, user_id) -> dict:
     if member is None:
         raise ServiceError("not_a_member", "This person never belonged to this company.", status=404)
     if member.removed_at is None:
-        raise ServiceError(
-            "still_member",
-            "Remove this person from the company first, then record the departure.",
-            status=400,
-        )
+        member.removed_at = timezone.now()
+        member.save(update_fields=["removed_at", "updated_at"])
 
     allocations = list(
         SeatAllocation.objects.filter(org_id=org_id, user_id=user_id, status__in=["allocated", "active"])
@@ -83,17 +75,30 @@ def apply_departure(request, org_id, user_id) -> dict:
         }
         for a in allocations
     ]
-    policy_action = get_or_default_policy(org_id)
+    # Reuse the single release path so enrolment revocation, the allocation ledger
+    # and the audit trail cannot drift apart from a normal seat reassignment.
+    from .services import release_seat
+
+    for allocation in allocations:
+        release_seat(request, allocation.id, reason="Employee left the company")
+
+    removed_live = LiveAttendee.objects.filter(
+        org_id=org_id,
+        user_id=user_id,
+        status=LiveAttendee.Status.ACTIVE,
+    ).update(status=LiveAttendee.Status.REMOVED, removed_at=timezone.now(), updated_at=timezone.now())
+
     audit_request(
         request, "departure_recorded", "org_member", member.id,
         data={"org_id": str(org_id), "user_id": str(user_id), "left_at": member.removed_at,
-              "paid_courses_kept": len(courses)},
+              "released_seats": len(allocations), "removed_live_attendees": removed_live},
     )  # fmt: skip
-    log.info("departure recorded for member %s: %s paid courses kept", member.id, len(courses))
+    log.info("departure recorded for member %s: %s seats released", member.id, len(allocations))
     return {
-        "action": policy_action,
+        "action": "release_and_replace",
         "left_at": member.removed_at,
-        "revoked": 0,
-        "preserved": len(courses),
+        "revoked": len(allocations),
+        "preserved": 0,
+        "removed_live_attendees": removed_live,
         "courses": courses,
     }

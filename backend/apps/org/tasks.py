@@ -11,7 +11,10 @@ def send_invite_task(email: str, org_name: str, inviter: str, token: str) -> Non
     send_mail(
         f"{inviter} invited you to {org_name} on LearnHub",
         f"Hello,\n\n{inviter} has invited you to join {org_name} on LearnHub.\n\n"
-        f"Accept the invitation (valid for 7 days):\n{link}\n\nIf you were not expecting this, ignore this email.",
+        "Open the invitation to continue. New to LearnHub? Create your account and confirm your email; "
+        "we will finish joining you to the company when you return. Already have an account? Sign in "
+        "with your existing password. You do not need to reset it just to accept an invitation.\n\n"
+        f"This invitation is valid for 7 days:\n{link}\n\nIf you were not expecting this, ignore this email.",
         None,
         [email],
     )

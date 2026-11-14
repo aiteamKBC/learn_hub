@@ -11,6 +11,7 @@ from apps.catalog.models import Category, Course, CourseVersion
 from apps.corporate.attendance import process_participant_event, reject_attendance, verify_attendance
 from apps.corporate.models import (
     CohortCompany,
+    LiveAttendee,
     LiveCohort,
     Session,
     SessionAttendance,
@@ -95,11 +96,15 @@ class AttendanceProcessingTest(SchemaTransactionTestCase):
                 max_learners=20,
                 status="in_progress",
             )
-            CohortCompany.objects.create(
+            self.placement = CohortCompany.objects.create(
                 org=self.org,
                 cohort=self.cohort,
                 approved_seats=5,
                 status="active",
+            )
+            LiveAttendee.objects.create(
+                org=self.org, cohort_company=self.placement, cohort=self.cohort,
+                user=self.learner, status="active", added_by=self.staff,
             )
             self.session = Session.objects.create(
                 cohort=self.cohort,

@@ -62,6 +62,7 @@ class TokenPackOut(Schema):
 
 class TokenRateOut(Schema):
     tokens_per_gbp_minor: str
+    token_price_gbp: str
     effective_from: str
 
 
@@ -286,6 +287,7 @@ def current_rate(request):
         return None
     return {
         "tokens_per_gbp_minor": str(r.tokens_per_gbp_minor),
+        "token_price_gbp": str((Decimal("0.01") / r.tokens_per_gbp_minor).quantize(Decimal("0.000001"))),
         "effective_from": r.effective_from.isoformat(),
     }
 

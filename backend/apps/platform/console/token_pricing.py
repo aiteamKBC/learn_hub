@@ -9,11 +9,11 @@ ServiceError shape.
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError as DjValidationError
-from django.db import connection
+from django.db import connection, transaction
 from django.shortcuts import get_object_or_404
 from ninja import Field, Schema
 
@@ -164,6 +164,8 @@ class ConsoleDistributeIn(Schema):
 class ConsoleDistributeRow(Schema):
     lecture_id: UUID
     title: str
+    kind: str
+    duration_min: int
     current_price: int | None
     allocated_price: int
 
@@ -201,7 +203,7 @@ class ConsoleTokenPackOut(Schema):
     id: UUID
     name: str
     token_amount: int
-    price_tier_id: UUID
+    price_gbp_minor: int
     is_active: bool
     sort_order: int
 
@@ -209,7 +211,7 @@ class ConsoleTokenPackOut(Schema):
 class ConsoleTokenPackIn(Schema):
     name: str = Field(..., min_length=1, max_length=120)
     token_amount: int = Field(..., gt=0)
-    price_tier_id: UUID
+    price_gbp_minor: int = Field(..., gt=0)
     is_active: bool = True
     sort_order: int = 0
     reason: str = Field(..., min_length=3, max_length=500)
@@ -227,7 +229,8 @@ class ConsoleTokenRateOut(Schema):
 
 class ConsoleTokenRateIn(Schema):
     tokens_per_gbp_minor: Decimal = Field(..., gt=0)
-    effective_from: datetime
+    effective_from: datetime | None = None
+    apply_immediately: bool = False
     notes: str = ""
     reason: str = Field(..., min_length=3, max_length=500)
 
@@ -283,6 +286,7 @@ class ConsoleTokenAuditRow(Schema):
     action: str
     target_type: str
     target_id: str
+    target_name: str
     data: dict
 
 
@@ -462,13 +466,17 @@ def distribute_tokens(request, course_id: UUID, payload: ConsoleDistributeIn):
         )
     except Exception as e:  # noqa: BLE001 - centralized mapper converts service-layer errors
         _map_service_exc(e)
-    titles = {lecture.id: lecture.title for lecture in Lecture.objects.filter(
-        id__in=[r["lecture_id"] for r in rows])}  # fmt: skip
+    lectures = {
+        lecture.id: lecture
+        for lecture in Lecture.objects.filter(id__in=[r["lecture_id"] for r in rows])
+    }
     return {
         "allocation": [
             {
                 "lecture_id": r["lecture_id"],
-                "title": titles.get(r["lecture_id"], ""),
+                "title": lectures.get(r["lecture_id"]).title if r["lecture_id"] in lectures else "",
+                "kind": lectures.get(r["lecture_id"]).kind if r["lecture_id"] in lectures else "",
+                "duration_min": (lectures.get(r["lecture_id"]).duration_sec or 0) // 60 if r["lecture_id"] in lectures else 0,
                 "current_price": r["current_price"],
                 "allocated_price": r["allocated_price"],
             }
@@ -577,12 +585,36 @@ def bulk_patch_courses(request, payload: ConsoleBulkCourseIn):
 # ============================================================================
 # TOKEN PACKS
 # ============================================================================
+def _token_pack_price_tier(gbp_minor: int) -> PriceTier:
+    """Resolve an admin-entered GBP price to a reusable tier and its FX amounts."""
+    tier = PriceTier.objects.filter(gbp_minor=gbp_minor, is_active=True).order_by("sort_order", "name").first()
+    if tier:
+        return tier
+
+    pounds, pence = divmod(gbp_minor, 100)
+    name = f"Tokens £{pounds}.{pence:02d}"
+    named_tier = PriceTier.objects.filter(name=name).first()
+    if named_tier:
+        # Never rewrite a shared tier: courses or other packages may already use it.
+        name = f"Tokens £{pounds}.{pence:02d} {uuid4().hex[:6]}"
+    tier, _ = PriceTier.objects.get_or_create(
+        name=name,
+        defaults={"gbp_minor": gbp_minor, "is_active": True},
+    )
+
+    # Currency amounts are derived from this GBP base using the existing FX catalogue.
+    from apps.commerce.pricing import reprice_tier
+
+    reprice_tier(tier)
+    return tier
+
+
 def _pack_out(p: TokenPack) -> dict:
     return {
         "id": p.id,
         "name": p.name,
         "token_amount": p.token_amount,
-        "price_tier_id": p.price_tier_id,
+        "price_gbp_minor": p.price_tier.gbp_minor,
         "is_active": p.is_active,
         "sort_order": p.sort_order,
     }
@@ -591,7 +623,7 @@ def _pack_out(p: TokenPack) -> dict:
 @router.get("/pricing/token/packs", response=list[ConsoleTokenPackOut])
 def list_token_packs(request, include_inactive: bool = False):
     staff(request)
-    qs = TokenPack.objects.all()
+    qs = TokenPack.objects.select_related("price_tier").all()
     if not include_inactive:
         qs = qs.filter(is_active=True)
     return [_pack_out(p) for p in qs.order_by("sort_order", "name")]
@@ -600,18 +632,19 @@ def list_token_packs(request, include_inactive: bool = False):
 @router.post("/pricing/token/packs", response=ConsoleTokenPackOut)
 def create_token_pack(request, payload: ConsoleTokenPackIn):
     staff(request)
-    tier = get_object_or_404(PriceTier, pk=payload.price_tier_id)
     try:
-        pack = pricing_service.upsert_token_pack(
-            name=payload.name,
-            token_amount=payload.token_amount,
-            price_tier=tier,
-            is_active=payload.is_active,
-            sort_order=payload.sort_order,
-            actor=request.user,
-            reason=payload.reason,
-            request=request,
-        )
+        with transaction.atomic():
+            tier = _token_pack_price_tier(payload.price_gbp_minor)
+            pack = pricing_service.upsert_token_pack(
+                name=payload.name,
+                token_amount=payload.token_amount,
+                price_tier=tier,
+                is_active=payload.is_active,
+                sort_order=payload.sort_order,
+                actor=request.user,
+                reason=payload.reason,
+                request=request,
+            )
     except Exception as e:  # noqa: BLE001 - centralized mapper converts service-layer errors
         _map_service_exc(e)
     return _pack_out(pack)
@@ -620,19 +653,20 @@ def create_token_pack(request, payload: ConsoleTokenPackIn):
 @router.patch("/pricing/token/packs/{pack_id}", response=ConsoleTokenPackOut)
 def update_token_pack(request, pack_id: UUID, payload: ConsoleTokenPackIn):
     staff(request)
-    tier = get_object_or_404(PriceTier, pk=payload.price_tier_id)
     try:
-        pack = pricing_service.upsert_token_pack(
-            pack_id=pack_id,
-            name=payload.name,
-            token_amount=payload.token_amount,
-            price_tier=tier,
-            is_active=payload.is_active,
-            sort_order=payload.sort_order,
-            actor=request.user,
-            reason=payload.reason,
-            request=request,
-        )
+        with transaction.atomic():
+            tier = _token_pack_price_tier(payload.price_gbp_minor)
+            pack = pricing_service.upsert_token_pack(
+                pack_id=pack_id,
+                name=payload.name,
+                token_amount=payload.token_amount,
+                price_tier=tier,
+                is_active=payload.is_active,
+                sort_order=payload.sort_order,
+                actor=request.user,
+                reason=payload.reason,
+                request=request,
+            )
     except Exception as e:  # noqa: BLE001 - centralized mapper converts service-layer errors
         _map_service_exc(e)
     return _pack_out(pack)
@@ -691,6 +725,7 @@ def create_token_rate(request, payload: ConsoleTokenRateIn):
         r = pricing_service.upsert_token_rate(
             tokens_per_gbp_minor=payload.tokens_per_gbp_minor,
             effective_from=payload.effective_from,
+            apply_immediately=payload.apply_immediately,
             notes=payload.notes,
             actor=request.user,
             reason=payload.reason,
@@ -724,7 +759,10 @@ def _policy_out(p: TopUpPolicy) -> dict:
 @router.get("/pricing/token/topup-policies", response=list[ConsoleTopUpPolicyOut])
 def list_topup_policies(request):
     staff(request)
-    return [_policy_out(p) for p in TopUpPolicy.objects.filter(is_active=True).order_by("currency")]
+    latest_by_currency = {}
+    for policy in TopUpPolicy.objects.order_by("currency", "-created_at"):
+        latest_by_currency.setdefault(policy.currency, policy)
+    return [_policy_out(p) for p in latest_by_currency.values()]
 
 
 @router.put("/pricing/token/topup-policies/{currency}", response=ConsoleTopUpPolicyOut)
@@ -873,6 +911,36 @@ def token_audit(
         rows = cur.fetchall()
     import json
 
+    # Resolve internal IDs to names before returning the audit page. Keep this batched
+    # (one query per entity type) so the richer display does not add an N+1 query.
+    ids_by_type: dict[str, set[str]] = {}
+    for row in rows:
+        ids_by_type.setdefault(row[4], set()).add(str(row[5]))
+    names: dict[tuple[str, str], str] = {}
+    course_ids = ids_by_type.get("course", set())
+    if course_ids:
+        for obj in Course.objects.filter(id__in=course_ids).only("id", "title"):
+            names[("course", str(obj.id))] = obj.title
+    lecture_ids = ids_by_type.get("lecture", set())
+    if lecture_ids:
+        for obj in Lecture.objects.filter(id__in=lecture_ids).select_related("version__course").only("id", "title", "version__course__title"):
+            names[("lecture", str(obj.id))] = f"{obj.version.course.title} · {obj.title}"
+    material_ids = ids_by_type.get("material", set())
+    if material_ids:
+        for obj in LectureResource.objects.filter(id__in=material_ids).select_related("lecture__version__course").only("id", "title", "lecture__title", "lecture__version__course__title"):
+            names[("material", str(obj.id))] = f"{obj.lecture.version.course.title} · {obj.title}"
+    pack_ids = ids_by_type.get("token_pack", set())
+    if pack_ids:
+        for obj in TokenPack.objects.filter(id__in=pack_ids).only("id", "name"):
+            names[("token_pack", str(obj.id))] = obj.name
+    for row in rows:
+        entity_type, entity_id = row[4], str(row[5])
+        names.setdefault((entity_type, entity_id), {
+            "token_rate": "Token value",
+            "topup_policy": "Top-up policy",
+            "bonus_campaign": "Bonus campaign",
+        }.get(entity_type, "Pricing setting"))
+
     return {
         "items": [
             {
@@ -882,6 +950,7 @@ def token_audit(
                 "action": r[3],
                 "target_type": r[4],
                 "target_id": r[5],
+                "target_name": names[(r[4], str(r[5]))],
                 "data": r[6] if isinstance(r[6], dict) else json.loads(r[6] or "{}"),
             }
             for r in rows

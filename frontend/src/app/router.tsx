@@ -1,4 +1,4 @@
-import { BookOpen, Building2, ClipboardCheck, CreditCard, DollarSign, FileBarChart, GraduationCap, LayoutDashboard, MessageSquare, Network, ShieldCheck, UserPlus, Users, Wallet } from 'lucide-react'
+import { BookOpen, Building2, ClipboardCheck, CreditCard, DollarSign, FileBarChart, GraduationCap, LayoutDashboard, LifeBuoy, MessageSquare, Network, ShieldCheck, UserPlus, Users, Wallet } from 'lucide-react'
 import { lazy, Suspense, type ReactNode } from 'react'
 import { createBrowserRouter, Outlet } from 'react-router-dom'
 
@@ -124,6 +124,7 @@ const businessNav: NavSection[] = [
     items: [
       { to: '/business/billing', label: 'Billing', Icon: CreditCard },
       { to: '/business/settings', label: 'Settings', Icon: Building2 },
+      { to: '/support', label: 'B2B support', Icon: LifeBuoy },
     ],
   },
 ]

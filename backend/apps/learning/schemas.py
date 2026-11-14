@@ -160,6 +160,7 @@ class HeartbeatIn(Schema):
     position_sec: int = Field(..., ge=0, le=86400)
     watched_sec: int = Field(..., ge=0, le=600)
     ended: bool = False  # the video reached its end: write now and say if it completed
+    flush_now: bool = False  # pause/exit: save the exact playhead and buffered watch time now
 
 
 class HeartbeatOut(Schema):
