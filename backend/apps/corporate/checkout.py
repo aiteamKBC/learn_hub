@@ -33,9 +33,7 @@ def create_recorded_checkout(request, offering_id, quantity: int) -> dict:
     # New package cards carry the course ID. Accept a legacy offering ID too, but
     # always charge the platform-wide CoursePrice used for individual learners.
     legacy = (
-        CorporateOffering.objects.filter(pk=offering_id, delivery_type="recorded")
-        .only("course_id")
-        .first()
+        CorporateOffering.objects.filter(pk=offering_id, delivery_type="recorded").only("course_id").first()
     )
     course_id = legacy.course_id if legacy else offering_id
     offering, course_price = ensure_recorded_offering(course_id)

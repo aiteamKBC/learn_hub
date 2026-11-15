@@ -125,8 +125,13 @@ def items(request, kind: str = "review", status: str | None = None, q: str | Non
             qs = qs.filter(rating__lte=max_rating)
     elif kind == "question":
         visible_answers = Coalesce(
-            Subquery(Answer.objects.filter(question_id=OuterRef("pk"), hidden_at__isnull=True)
-                     .values("question_id").annotate(n=Count("id")).values("n")[:1]), 0
+            Subquery(
+                Answer.objects.filter(question_id=OuterRef("pk"), hidden_at__isnull=True)
+                .values("question_id")
+                .annotate(n=Count("id"))
+                .values("n")[:1]
+            ),
+            0,
         )
         qs = Question.objects.select_related("user", "course").annotate(visible_answers=visible_answers)
         hidden = Q(hidden_at__isnull=False)
@@ -215,7 +220,9 @@ def staff_answer(request, question_id: UUID, body: ConsoleAnswerIn):
     answer_text = body.body.strip()
     if not answer_text:
         raise ServiceError("body_required", "Write an answer first.")
-    answer = Answer.objects.create(user=request.user, question=question, body=answer_text, is_instructor=False)
+    answer = Answer.objects.create(
+        user=request.user, question=question, body=answer_text, is_instructor=False
+    )
     if question.user_id != request.user.id:
         notify.notify([question.user_id], "answer_posted", {"course": question.course.title, "title": question.title},
                       url=f"/learn/{question.course.slug}/qa/{question.id}", dedupe=f"answer:{answer.id}")  # fmt: skip

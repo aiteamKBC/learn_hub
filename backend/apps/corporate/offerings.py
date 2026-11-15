@@ -55,5 +55,3 @@ def ensure_recorded_offering(course_id):
             offering.price_tier_id = price.tier_id
             offering.save(update_fields=["price_tier", "updated_at"])
     return offering, price
-
-

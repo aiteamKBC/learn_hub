@@ -124,6 +124,10 @@ def dismiss(*, report: ContentReport, by, note: str = "") -> None:
     reporters = _close_reports(report.target_type, report.target_id, status="dismissed", by=by,
                                note=html.plain(note, 300))  # fmt: skip
     course = course_of(report.target_type, row) if row else None
-    outcome = "dismissed the reports" if row is None or is_hidden(report.target_type, row) else "decided it can stay"
+    outcome = (
+        "dismissed the reports"
+        if row is None or is_hidden(report.target_type, row)
+        else "decided it can stay"
+    )
     notify.notify(reporters, "report_handled", {"kind": NOUN[report.target_type], "outcome": outcome},
                   url=f"/courses/{course.slug}" if course else "", dedupe=f"report-dismissed:{report.id}")  # fmt: skip

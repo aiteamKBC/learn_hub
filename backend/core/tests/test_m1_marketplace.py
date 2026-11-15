@@ -95,7 +95,9 @@ class MarketplaceApiTest(SchemaTransactionTestCase):
                 [row["id"] for row in self.client.get("/api/v1/commerce/wishlist").json()["items"]],
                 [str(course.id)],
             )
-            self.assertTrue(self.client.get(f"/api/v1/catalog/courses/{course.slug}").json()["viewer"]["in_wishlist"])
+            self.assertTrue(
+                self.client.get(f"/api/v1/catalog/courses/{course.slug}").json()["viewer"]["in_wishlist"]
+            )
 
         self.client.force_login(self.omar)
         self.assertEqual(self.client.get("/api/v1/commerce/wishlist").json()["items"], [])
@@ -113,8 +115,12 @@ class MarketplaceApiTest(SchemaTransactionTestCase):
     def test_company_owner_can_save_visible_private_course(self):
         org = org_services.create_organization(name="Acme", slug="acme-wishlist", owner=self.omar)
         private = f.course(
-            staff=self.staff, owner=self.omar, slug="acme-safety", title="Acme Safety",
-            ownership="organization", org_id=org.id,
+            staff=self.staff,
+            owner=self.omar,
+            slug="acme-safety",
+            title="Acme Safety",
+            ownership="organization",
+            org_id=org.id,
         )
         self.client.force_login(self.omar)
         company = {"HTTP_X_ORG_ID": str(org.id)}
@@ -126,7 +132,11 @@ class MarketplaceApiTest(SchemaTransactionTestCase):
             [str(private.id)],
         )
         self.assertEqual(self.client.get("/api/v1/commerce/wishlist").json()["items"], [])
-        self.assertFalse(self.client.post(f"/api/v1/commerce/wishlist/{private.id}/toggle", **company).json()["in_wishlist"])
+        self.assertFalse(
+            self.client.post(f"/api/v1/commerce/wishlist/{private.id}/toggle", **company).json()[
+                "in_wishlist"
+            ]
+        )
         self.assertEqual(self.client.get("/api/v1/commerce/wishlist", **company).json()["items"], [])
 
     def test_course_detail_exposes_b2c_token_fields(self):

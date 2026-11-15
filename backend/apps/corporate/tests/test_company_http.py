@@ -99,10 +99,16 @@ class CompanyHttpTest(SchemaTransactionTestCase):
         with tenant_context(staff=True):
             for offering, quantity in ((self.recorded, 2), (self.live, 3)):
                 SeatPurchase.objects.create(
-                    org=self.org, offering=offering, buyer=self.admin,
-                    quantity=quantity, unit_price_minor=10000, currency="GBP",
-                    total_minor=quantity * 10000, gbp_total_minor=quantity * 10000,
-                    status="paid", paid_at=timezone.now(),
+                    org=self.org,
+                    offering=offering,
+                    buyer=self.admin,
+                    quantity=quantity,
+                    unit_price_minor=10000,
+                    currency="GBP",
+                    total_minor=quantity * 10000,
+                    gbp_total_minor=quantity * 10000,
+                    status="paid",
+                    paid_at=timezone.now(),
                 )
         response = self._get("/dashboard")
         self.assertEqual(response.status_code, 200, response.content)
@@ -489,10 +495,18 @@ class CompanyHttpTest(SchemaTransactionTestCase):
         self.client.force_login(self.staff)
         response = self.client.get("/api/v1/console/corporate/offerings")
         self.assertEqual(response.status_code, 200, response.content)
-        recorded = next(item for item in response.json() if item["course_id"] == str(self.course.id) and item["delivery_type"] == "recorded")
+        recorded = next(
+            item
+            for item in response.json()
+            if item["course_id"] == str(self.course.id) and item["delivery_type"] == "recorded"
+        )
         self.assertEqual((recorded["id"], recorded["gbp_minor"]), (str(self.course.id), 10000))
         with tenant_context(staff=True):
-            self.assertFalse(CorporateOffering.objects.filter(course=self.course, delivery_type="recorded", is_active=True).exists())
+            self.assertFalse(
+                CorporateOffering.objects.filter(
+                    course=self.course, delivery_type="recorded", is_active=True
+                ).exists()
+            )
 
     @patch("apps.corporate.checkout.gateway.create_checkout_session")
     def test_recorded_company_checkout_uses_the_shared_course_price(self, mock_checkout):
@@ -506,7 +520,9 @@ class CompanyHttpTest(SchemaTransactionTestCase):
         self.assertEqual(response.status_code, 200, response.content)
         with tenant_context(staff=True):
             purchase = SeatPurchase.objects.get(pk=response.json()["purchase_id"])
-            synced = CorporateOffering.objects.get(course=self.course, delivery_type="recorded", is_active=True)
+            synced = CorporateOffering.objects.get(
+                course=self.course, delivery_type="recorded", is_active=True
+            )
         self.assertEqual((purchase.unit_price_minor, purchase.total_minor), (12500, 62500))
         self.assertEqual(synced.price_tier_id, shared_tier.id)
 
@@ -527,7 +543,10 @@ class CompanyHttpTest(SchemaTransactionTestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 200, response.content)
-        self.assertEqual((response.json()["total_minor"], response.json()["items"][0]["course_title"]), (45000, self.course.title))
+        self.assertEqual(
+            (response.json()["total_minor"], response.json()["items"][0]["course_title"]),
+            (45000, self.course.title),
+        )
 
     def test_instalment_plan_can_select_a_shared_recorded_course(self):
         with tenant_context(staff=True):
@@ -584,7 +603,9 @@ class CompanyHttpTest(SchemaTransactionTestCase):
         self.client.force_login(self.staff)
         reply = self.client.patch(
             f"/api/v1/console/corporate/requests/{request_id}",
-            {"admin_reply": "We can schedule the private cohort in March. We will send dates and pricing shortly."},
+            {
+                "admin_reply": "We can schedule the private cohort in March. We will send dates and pricing shortly."
+            },
             content_type="application/json",
         )
         self.assertEqual(reply.status_code, 200, reply.content)

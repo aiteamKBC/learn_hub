@@ -178,9 +178,15 @@ def list_offerings(request, active_only: bool = False, limit: int = 50, offset: 
             "tier_name": price.tier.name,
             "gbp_minor": price.tier.gbp_minor,
             "is_active": True,
-            "custom_quote_enabled": old_recorded.get(price.course_id).custom_quote_enabled if price.course_id in old_recorded else False,
-            "description": old_recorded.get(price.course_id).description if price.course_id in old_recorded else "",
-            "access_months": old_recorded.get(price.course_id).access_months if price.course_id in old_recorded else None,
+            "custom_quote_enabled": old_recorded.get(price.course_id).custom_quote_enabled
+            if price.course_id in old_recorded
+            else False,
+            "description": old_recorded.get(price.course_id).description
+            if price.course_id in old_recorded
+            else "",
+            "access_months": old_recorded.get(price.course_id).access_months
+            if price.course_id in old_recorded
+            else None,
             "created_at": price.created_at,
         }
         for price in prices

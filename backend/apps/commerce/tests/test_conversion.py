@@ -235,9 +235,7 @@ class CheckoutSnapshotTest(SchemaTransactionTestCase):
                 full_course_token_price=999,  # legacy wrong value — must be ignored
             )
             CourseInstructor.objects.create(course=self.course, user=self.staff, position=0)
-            self.version = CourseVersion.objects.create(
-                course=self.course, number=1, status="published"
-            )
+            self.version = CourseVersion.objects.create(course=self.course, number=1, status="published")
             self.course.live_version = self.version
             self.course.save(update_fields=["live_version"])
             wallet.grant_tokens(user=self.user, source="admin", amount=100, actor=self.staff)

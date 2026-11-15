@@ -221,8 +221,7 @@ def unlock_content(request, body: UnlockIn):
         from apps.commerce.models import TokenSpend
 
         price = (
-            TokenSpend.objects.filter(pk=ent.source_ref).values_list("tokens_total", flat=True).first()
-            or 0
+            TokenSpend.objects.filter(pk=ent.source_ref).values_list("tokens_total", flat=True).first() or 0
         )
     except AlreadyUnlocked as e:
         raise ServiceError("already_unlocked", str(e), status=409) from e
