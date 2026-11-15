@@ -1347,6 +1347,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/commerce/wishlist/{course_id}": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put: operations["apps_commerce_api_save_wishlist"];
+        post?: never;
+        delete: operations["apps_commerce_api_remove_wishlist"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/commerce/wishlist/{course_id}/toggle": {
         parameters: {
             query?: never;
@@ -4131,6 +4142,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/commissions/course-instructors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Course Instructors */
+        get: operations["apps_platform_console_commissions_course_instructors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/commissions/rules": {
         parameters: {
             query?: never;
@@ -5790,6 +5818,17 @@ export interface paths {
          * @description Hide (reason required, the author is notified) or show again.
          */
         post: operations["apps_platform_console_moderation_hide_or_show"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/moderation/questions/{question_id}/answer": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put?: never;
+        post: operations["apps_platform_console_moderation_staff_answer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10723,6 +10762,8 @@ export interface components {
             author: components["schemas"]["Author"];
             /** Is Instructor */
             is_instructor: boolean;
+            /** Is Staff */
+            is_staff: boolean;
             /**
              * Created At
              * Format: date-time
@@ -11193,6 +11234,10 @@ export interface components {
             preferred_intake: string;
             /** Preferred Delivery Mode */
             preferred_delivery_mode: string;
+            /** Company Message */
+            company_message: string;
+            /** Admin Reply */
+            admin_reply: string;
             /** Status */
             status: string;
             /** Status Label */
@@ -11216,6 +11261,8 @@ export interface components {
              * @default
              */
             preferred_delivery_mode: string;
+            /** Company Message */
+            company_message: string;
         };
         /** CorporateOkOut */
         CorporateOkOut: {
@@ -13264,6 +13311,8 @@ export interface components {
             show_cpd: boolean;
             /** Show Instructor */
             show_instructor: boolean;
+            /** Artwork Image Url */
+            artwork_image_url: string;
         };
         /** ConsoleCertTemplateOut */
         ConsoleCertTemplateOut: {
@@ -13298,6 +13347,8 @@ export interface components {
             signature_image_url: string;
             /** Signature Preview Url */
             signature_preview_url: string;
+            /** Artwork Preview Url */
+            artwork_preview_url: string;
             /** Show Qr Code */
             show_qr_code: boolean;
             /** Decision Reason */
@@ -13356,6 +13407,8 @@ export interface components {
              * @default true
              */
             show_instructor: boolean;
+            /** Artwork Image Url */
+            artwork_image_url: string;
         };
         /** ConsoleCertTemplateIn */
         ConsoleCertTemplateIn: {
@@ -13612,6 +13665,18 @@ export interface components {
             /** Keeps Pct */
             keeps_pct?: number | null;
         };
+        /** ConsoleCourseInstructorOut */
+        ConsoleCourseInstructorOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Revenue Share Bps */
+            revenue_share_bps: number;
+        };
         /** ConsoleCommissionRuleOut */
         ConsoleCommissionRuleOut: {
             /**
@@ -13625,6 +13690,10 @@ export interface components {
             scope: string;
             /** Target Id */
             target_id: string | null;
+            /** Instructor Id */
+            instructor_id: string | null;
+            /** Instructor Name */
+            instructor_name: string | null;
             /** Target Label */
             target_label: string;
             /** Band Min Gbp Minor */
@@ -13670,6 +13739,8 @@ export interface components {
             scope: "course" | "instructor" | "category" | "price_band";
             /** Target Id */
             target_id?: string | null;
+            /** Instructor Id */
+            instructor_id?: string | null;
             /** Band Min Gbp Minor */
             band_min_gbp_minor?: number | null;
             /** Band Max Gbp Minor */
@@ -14808,6 +14879,10 @@ export interface components {
             preferred_intake: string;
             /** Preferred Delivery Mode */
             preferred_delivery_mode: string;
+            /** Company Message */
+            company_message: string;
+            /** Admin Reply */
+            admin_reply: string;
             /** Status */
             status: string;
             /** Admin Notes */
@@ -14828,6 +14903,7 @@ export interface components {
             admin_notes?: string | null;
             /** Status Label */
             status_label?: string | null;
+            admin_reply?: string | null;
         };
         /** ConsoleCohortOut */
         ConsoleCohortOut: {
@@ -16078,6 +16154,18 @@ export interface components {
             title: string;
             /** Body */
             body: string;
+            /** Question Id */
+            question_id: string | null;
+            /** Question Author */
+            question_author: string | null;
+            /** Question Hidden */
+            question_hidden: boolean;
+            /** Answer Count */
+            answer_count: number | null;
+            /** Instructor Reply */
+            instructor_reply: string | null;
+            /** Is Staff Answer */
+            is_staff_answer: boolean;
             /** Hidden */
             hidden: boolean;
             /** Open Reports */
@@ -18443,6 +18531,8 @@ export interface components {
             cash_price_tier_id: string | null;
             /** Full Course Token Price */
             full_course_token_price: number | null;
+            /** Derived Token Price */
+            derived_token_price: number | null;
             /** Token Pricing Mode */
             token_pricing_mode: string;
             /** Live Version Id */
@@ -18511,6 +18601,10 @@ export interface components {
          *     A field left out of the request body stays at its current value (UNSET sentinel).
          *     A field sent explicitly as JSON `null` clears the column. A field sent with a
          *     value sets the column.
+         *
+         *     `full_course_token_price` is normally derived from cash_price_tier x TokenRate.
+         *     Set `price_override=True` to store a value that diverges from the derived rate; the
+         *     reason is recorded in audit.
          */
         ConsoleCourseTokenPatch: {
             /**
@@ -18528,6 +18622,11 @@ export interface components {
              * @default __UNSET__
              */
             token_pricing_mode: unknown;
+            /**
+             * Price Override
+             * @default false
+             */
+            price_override: boolean;
             /** Reason */
             reason: string;
         };
@@ -18643,6 +18742,11 @@ export interface components {
             /** Course Ids */
             course_ids: string[];
             patch: components["schemas"]["ConsoleBulkCourseTokenPatch"];
+            /**
+             * Price Override
+             * @default false
+             */
+            price_override: boolean;
             /** Reason */
             reason: string;
         };
@@ -20895,6 +20999,36 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["WishlistOut"];
                 };
+            };
+        };
+    };
+    apps_commerce_api_save_wishlist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: { course_id: string };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: { [name: string]: unknown };
+                content: { "application/json": components["schemas"]["WishlistToggleOut"] };
+            };
+        };
+    };
+    apps_commerce_api_remove_wishlist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: { course_id: string };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: { [name: string]: unknown };
+                content: { "application/json": components["schemas"]["WishlistToggleOut"] };
             };
         };
     };
@@ -24993,6 +25127,28 @@ export interface operations {
             };
         };
     };
+    apps_platform_console_commissions_course_instructors: {
+        parameters: {
+            query: {
+                course_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleCourseInstructorOut"][];
+                };
+            };
+        };
+    };
     apps_platform_console_commissions_commission_rules: {
         parameters: {
             query?: {
@@ -25070,6 +25226,7 @@ export interface operations {
         parameters: {
             query: {
                 course_id: string;
+                instructor_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -27562,6 +27719,7 @@ export interface operations {
                 q?: string | null;
                 max_rating?: number | null;
                 reported?: boolean;
+                unanswered?: boolean;
                 cursor?: string | null;
                 limit?: number;
             };
@@ -27606,6 +27764,21 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ConsoleOkOut"];
                 };
+            };
+        };
+    };
+    apps_platform_console_moderation_staff_answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: { question_id: string };
+            cookie?: never;
+        };
+        requestBody: { content: { "application/json": { body: string } } };
+        responses: {
+            200: {
+                headers: { [name: string]: unknown };
+                content: { "application/json": { id: string } };
             };
         };
     };

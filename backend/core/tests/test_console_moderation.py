@@ -2,7 +2,7 @@
 reporters thanked) or dismiss; hidden content leaves the course page."""
 
 from apps.engagement import services as social
-from apps.engagement.models import ContentReport, Notification
+from apps.engagement.models import ContentReport, Notification, Review
 from apps.learning import services as learning
 from core.tenancy import tenant_context
 from core.tests import factories as f
@@ -87,6 +87,10 @@ class ModerationTest(SchemaTransactionTestCase):
         self.assertIn("report_handled", kinds(self.omar))
         twice = self.post(f"/console/moderation/reports/{rep['id']}/dismiss", {})
         self.assertEqual(twice.json()["error"]["code"], "already_handled")
+        late_hide = self.post(
+            f"/console/moderation/reports/{rep['id']}/hide", {"hide": True, "reason": "Later action"}
+        )
+        self.assertEqual(late_hide.json()["error"]["code"], "already_handled")
         self.post(f"/console/moderation/question/{self.question.id}", {"hide": True, "reason": "Off topic"})
         hidden = self.client.get(f"{API}/console/moderation/items?kind=question&status=hidden").json()[
             "items"
@@ -94,3 +98,99 @@ class ModerationTest(SchemaTransactionTestCase):
         self.assertEqual(len(hidden), 1)
         summary = self.client.get(f"{API}/console/moderation/summary").json()
         self.assertEqual((summary["hidden_questions"], summary["open_reports"]), (1, 0))
+
+    def test_two_reports_on_one_review_close_together(self):
+        for reporter in (self.omar, self.teacher):
+            self.client.force_login(reporter)
+            response = self.post(
+                "/engagement/reports",
+                {"target_type": "review", "target_id": str(self.review.id), "reason": "Spam link"},
+            )
+            self.assertEqual(response.status_code, 200, response.content)
+
+        self.client.force_login(self.staff)
+        queue = self.client.get(f"{API}/console/moderation/reports").json()["items"]
+        self.assertEqual(len(queue), 2)
+        self.assertTrue(all(r["reports_on_target"] == 2 for r in queue))
+        self.assertEqual(self.client.get(f"{API}/console/moderation/summary").json()["open_reports"], 2)
+        response = self.post(
+            f"/console/moderation/reports/{queue[0]['id']}/hide", {"hide": True, "reason": "Advertising"}
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        with tenant_context(staff=True):
+            self.assertEqual(set(ContentReport.objects.values_list("status", flat=True)), {"actioned"})
+            self.assertEqual(Review.objects.get(pk=self.review.id).status, "hidden")
+        self.assertEqual(self.client.get(f"{API}/console/moderation/summary").json()["open_reports"], 0)
+        self.assertIn("report_handled", kinds(self.omar))
+        self.assertIn("report_handled", kinds(self.teacher))
+
+    def test_filters_and_hidden_report_dismissal(self):
+        self.client.force_login(self.staff)
+        low = self.client.get(
+            f"{API}/console/moderation/items?kind=review&status=visible&max_rating=2"
+        ).json()
+        self.assertEqual([r["id"] for r in low["items"]], [str(self.review.id)])
+        no_match = self.client.get(f"{API}/console/moderation/items?kind=review&q=not-present").json()
+        self.assertEqual(no_match["items"], [])
+        by_author = self.client.get(f"{API}/console/moderation/items?kind=review&q=Sara%20Ahmed").json()
+        self.assertEqual([r["id"] for r in by_author["items"]], [str(self.review.id)])
+        question = self.client.get(f"{API}/console/moderation/items?kind=question&q=Buy%20cheap").json()
+        self.assertEqual([r["id"] for r in question["items"]], [str(self.question.id)])
+
+        # Old imported data can contain an open report on content already hidden.
+        self.post(f"/console/moderation/review/{self.review.id}", {"hide": True, "reason": "Advertising"})
+        with tenant_context(staff=True):
+            report = ContentReport.objects.create(
+                reporter=self.omar, target_type="review", target_id=self.review.id, reason="Old report"
+            )
+        queue = self.client.get(f"{API}/console/moderation/reports").json()["items"]
+        self.assertEqual(queue[0]["id"], str(report.id))
+        self.assertTrue(queue[0]["content_hidden"])
+        self.assertEqual(
+            self.post(
+                f"/console/moderation/reports/{report.id}/dismiss", {"note": "Already handled"}
+            ).status_code,
+            200,
+        )
+        with tenant_context(staff=True):
+            self.assertEqual(ContentReport.objects.get(pk=report.id).status, "dismissed")
+            self.assertEqual(Review.objects.get(pk=self.review.id).status, "hidden")
+            notification = Notification.objects.filter(user=self.omar, kind="report_handled").latest(
+                "created_at"
+            )
+            self.assertNotIn("stay", notification.body.lower())
+
+    def test_staff_answers_question_and_unanswered_filter(self):
+        self.client.force_login(self.staff)
+        path = f"{API}/console/moderation/items?kind=question&unanswered=true"
+        before = self.client.get(path).json()["items"]
+        self.assertEqual([row["id"] for row in before], [str(self.question.id)])
+        self.assertEqual(before[0]["answer_count"], 0)
+        self.assertEqual(before[0]["question_id"], str(self.question.id))
+        response = self.post(
+            f"/console/moderation/questions/{self.question.id}/answer",
+            {"body": "The course resources explain this in the first lesson."},
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(self.client.get(path).json()["items"], [])
+        answer_rows = self.client.get(f"{API}/console/moderation/items?kind=answer").json()["items"]
+        self.assertEqual([row["id"] for row in answer_rows], [response.json()["id"]])
+        self.assertTrue(answer_rows[0]["is_staff_answer"])
+        self.assertEqual(answer_rows[0]["question_author"], self.sara.full_name)
+        self.assertFalse(answer_rows[0]["question_hidden"])
+        self.assertIn("answer_posted", kinds(self.sara))
+
+        self.client.force_login(self.omar)
+        thread = self.client.get(f"{API}/engagement/questions/{self.question.id}").json()
+        self.assertEqual(len(thread["answers"]), 1)
+        self.assertEqual(
+            thread["answers"][0]["body"], "The course resources explain this in the first lesson."
+        )
+        self.assertTrue(thread["answers"][0]["is_staff"])
+
+        self.client.force_login(self.staff)
+        self.post(f"/console/moderation/question/{self.question.id}", {"hide": True, "reason": "Off topic"})
+        hidden_answer = self.client.get(f"{API}/console/moderation/items?kind=answer").json()["items"][0]
+        self.assertTrue(hidden_answer["question_hidden"])
+        blocked = self.post(f"/console/moderation/questions/{self.question.id}/answer", {"body": "No"})
+        self.assertEqual(blocked.json()["error"]["code"], "question_hidden")

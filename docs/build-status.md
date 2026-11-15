@@ -525,3 +525,35 @@ BLOCKED items (still open — PR 2 cannot close):
 - **T03** default grant expiry duration.
 - **F02** bonus-campaign activation funding model.
 - Default TopUp bounds per currency.
+
+## Delivery-day fixes — token pricing source of truth + suite repair (2026-11-14)
+
+**Token pricing (B2C): one source of truth.** Programme token prices are now derived,
+not stored: `apps/commerce/conversion.py` (new) computes
+`tokens = round_half_up(cash_price_tier.gbp_minor x TokenRate.current().tokens_per_gbp_minor)`.
+- `unlock_course` charges the derived price; `TokenSpend.tokens_total` is the snapshot;
+  historical rows untouched; FEFO unchanged.
+- Catalog detail + console return the derived price; console also shows the stored value.
+- `pricing_service.set_course_price` refuses a stored `full_course_token_price` unless
+  `allow_override=True` (console: `price_override: true`) with a reason. Clearing is free.
+- The stored column remains as a legacy override used only when no cash tier is set.
+- Tests: `apps/commerce/tests/test_conversion.py` (18, all green). No migrations.
+
+**Suite repair (no business-logic changes):**
+- Console auth 401→403 bug: `StaffSessionAuth.authenticate` now raises Django's
+  `PermissionDenied` (mapped to 403 by core.errors) instead of `ServiceError`, which the
+  auth phase surfaced as 401. Verified: learner GET/PUT (any body) → 403, anon → 401,
+  staff → 200. `test_console_access` fully green (~600 subtests).
+- Test factory bug behind the mass setUp ERRORs: `core/tests/factories.py` submitted the
+  course before creating its price; the B2C-03 publish checklist rejects that. The factory
+  now creates `CoursePrice` (and, for paid courses, a token price) before submit.
+- `test_api_business` expectation updated for the `seats` key added to the assign preview.
+- Ruff I001 autofix in `seed_corporate_demo.py`. Ruff + `makemigrations --check` clean.
+
+**Frontend:** `npm run gen:api` regenerated `schema.d.ts` (picks up `price_override`,
+`derived_token_price`, and the `flush_now` heartbeat field). `sendHeartbeat` now always
+sends `flush_now`. `tsc -b` clean.
+
+Full suite re-run was in progress at the time of writing; earlier targeted runs:
+conversion 18/18, unlock+wallet 24/24, console token pricing 22/22,
+console access + business API all green.

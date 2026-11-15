@@ -1,6 +1,6 @@
-"""Assign training, recorded: courses the platform sells to companies use paid seats.
+"""Assign training, recorded: globally priced platform courses use paid seats.
 
-A course with an active, priced recorded offering is sold per seat. Giving it to people
+A course with an active global course price is sold per seat to companies. Giving it to people
 from "Assign training" takes one paid seat per person who does not have it yet. Without
 enough free seats nothing is assigned and the company is told how many to buy. Courses
 without a company price (the company's own, or included in its plan) stay free, as before.
@@ -13,17 +13,13 @@ from django.db import transaction
 from core.errors import ServiceError
 
 from .models import CorporateOffering
+from .offerings import ensure_recorded_offering
 from .services import allocate_for_company, seat_inventory
 
 
 def recorded_offer(course_id) -> CorporateOffering | None:
-    return (
-        CorporateOffering.objects.filter(
-            course_id=course_id, delivery_type="recorded", is_active=True, price_tier__gbp_minor__gt=0
-        )
-        .select_related("price_tier")
-        .first()
-    )
+    offering, _ = ensure_recorded_offering(course_id)
+    return offering
 
 
 def seat_check(org_id, course_id, needed: int) -> dict | None:

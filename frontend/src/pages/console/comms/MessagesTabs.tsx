@@ -292,13 +292,21 @@ function TemplateEditor({ t }: { t: ConsoleTemplate }) {
   const { save, reset } = useSaveTemplate(t.code)
   const preview = usePreviewTemplate(t.code)
   const [v, setV] = useState({ title: t.title, body: t.body, email_enabled: t.email_enabled, is_active: t.is_active })
-  useEffect(() => setV({ title: t.title, body: t.body, email_enabled: t.email_enabled, is_active: t.is_active }), [t])
+  const [previewed, setPreviewed] = useState(false)
+  useEffect(() => {
+    setV({ title: t.title, body: t.body, email_enabled: t.email_enabled, is_active: t.is_active })
+    setPreviewed(false)
+  }, [t])
   const dirty = v.title !== t.title || v.body !== t.body || v.email_enabled !== t.email_enabled || v.is_active !== t.is_active
-  const debounced = useDebounced(v, 400)
-  const { mutate: runPreview } = preview
-  useEffect(() => runPreview({ title: debounced.title, body: debounced.body }), [debounced.title, debounced.body, runPreview])
   const error = save.error?.message ?? preview.error?.message
   const isDefault = t.title === t.default_title && t.body === t.default_body
+  const change = (next: typeof v) => {
+    setV(next)
+    setPreviewed(false)
+  }
+  const showPreview = () => {
+    preview.mutate({ title: v.title, body: v.body }, { onSuccess: () => setPreviewed(true) })
+  }
 
   return (
     <div className="grid animate-reveal gap-4">
@@ -309,34 +317,37 @@ function TemplateEditor({ t }: { t: ConsoleTemplate }) {
       </div>
       <div className="flex flex-wrap gap-1.5" aria-label="Placeholders you can use">
         {t.placeholders.map((p) => (
-          <button key={p} type="button" className="rounded-md bg-primary-soft px-2 py-0.5 font-mono text-xs text-primary-soft-text hover:bg-primary-soft/70" onClick={() => setV({ ...v, body: `${v.body}{${p}}` })} title="Add to the message">
+          <button key={p} type="button" className="rounded-md bg-primary-soft px-2 py-0.5 font-mono text-xs text-primary-soft-text hover:bg-primary-soft/70" onClick={() => change({ ...v, body: `${v.body}{${p}}` })} title="Add to the message">
             {`{${p}}`}
           </button>
         ))}
       </div>
-      <Field label="Title (and email subject)">{(p) => <Input {...p} maxLength={200} value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} />}</Field>
-      <Field label="Message">{(p) => <Textarea {...p} maxLength={5000} value={v.body} onChange={(e) => setV({ ...v, body: e.target.value })} className="min-h-24" />}</Field>
+      <Field label="Title (and email subject)">{(p) => <Input {...p} maxLength={200} value={v.title} onChange={(e) => change({ ...v, title: e.target.value })} />}</Field>
+      <Field label="Message">{(p) => <Textarea {...p} maxLength={5000} value={v.body} onChange={(e) => change({ ...v, body: e.target.value })} className="min-h-24" />}</Field>
       <div className="flex flex-wrap gap-5 text-sm">
-        <label className="flex items-center gap-2"><Switch checked={v.is_active} onCheckedChange={(c) => setV({ ...v, is_active: c })} aria-label="Active" /> Active</label>
-        <label className="flex items-center gap-2"><Switch checked={v.email_enabled} onCheckedChange={(c) => setV({ ...v, email_enabled: c })} aria-label="Also send by email" /> Also send by email</label>
+        <label className="flex items-center gap-2"><Switch checked={v.is_active} onCheckedChange={(c) => change({ ...v, is_active: c })} aria-label="Active" /> Active</label>
+        <label className="flex items-center gap-2"><Switch checked={v.email_enabled} onCheckedChange={(c) => change({ ...v, email_enabled: c })} aria-label="Also send by email" /> Also send by email</label>
       </div>
       {error ? <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p> : null}
       <div className="rounded-lg border border-dashed border-border-strong bg-surface-2/50 p-3">
-        <p className="text-[11px] font-medium tracking-wider text-subtle uppercase">Preview with sample values</p>
-        {preview.data ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="mr-auto text-[11px] font-medium tracking-wider text-subtle uppercase">Preview with sample values</p>
+          <Button type="button" size="sm" variant="secondary" loading={preview.isPending} onClick={showPreview}>
+            <Eye /> Preview
+          </Button>
+        </div>
+        {previewed && preview.data ? (
           <div className="mt-2 text-sm">
             <p className="font-medium">{preview.data.title}</p>
             <p className="text-muted">{preview.data.body}</p>
           </div>
-        ) : (
-          <Skeleton className="mt-2 h-10" />
-        )}
+        ) : <p className="mt-2 text-sm text-muted">Preview uses sample data only. It does not save or send this template.</p>}
       </div>
       <div className="flex flex-wrap justify-end gap-2">
         <Button variant="ghost" disabled={isDefault} loading={reset.isPending} onClick={() => reset.mutate(undefined, { onSuccess: () => toast.success('Back to the default wording') })}>
           <RotateCcw /> Use default
         </Button>
-        <Button variant="secondary" disabled={!dirty} onClick={() => setV({ title: t.title, body: t.body, email_enabled: t.email_enabled, is_active: t.is_active })}>
+        <Button variant="secondary" disabled={!dirty} onClick={() => change({ title: t.title, body: t.body, email_enabled: t.email_enabled, is_active: t.is_active })}>
           Discard
         </Button>
         <Button disabled={!dirty} loading={save.isPending} onClick={() => save.mutate(v, { onSuccess: () => toast.success('Template saved') })}>

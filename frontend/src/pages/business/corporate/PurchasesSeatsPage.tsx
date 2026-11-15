@@ -24,6 +24,7 @@ export function PurchasesSeatsPage() {
   const raw = params.get('tab') as Tab | null
   const tab: Tab = raw && TABS.includes(raw) && (admin || raw === 'seats' || raw === 'history') ? raw : 'seats'
   const back = params.get('success') === '1'
+  const purchaseId = params.get('purchase')
   const [refund, setRefund] = useState<RequestTarget | null>(null)
   useEffect(() => {
     document.title = 'Purchases & seats · LearnHub'
@@ -34,7 +35,11 @@ export function PurchasesSeatsPage() {
       (prev) => {
         const p = new URLSearchParams()
         if (next !== 'seats') p.set('tab', next)
-        if (prev.get('success') === '1' && !extra.drop) p.set('success', '1')
+        if (prev.get('success') === '1' && !extra.drop) {
+          p.set('success', '1')
+          const returningPurchase = prev.get('purchase')
+          if (returningPurchase) p.set('purchase', returningPurchase)
+        }
         for (const [k, v] of Object.entries(extra)) if (k !== 'drop') p.set(k, v)
         return p
       },
@@ -54,7 +59,7 @@ export function PurchasesSeatsPage() {
           </Button>
         }
       />
-      {back ? <PaymentNotice onAssign={(offeringId) => go('seats', { offering: offeringId, give: '1', drop: '1' })} onSeats={() => go('seats', { drop: '1' })} /> : null}
+      {back ? <PaymentNotice purchaseId={purchaseId} onAssign={(offeringId) => go('seats', { offering: offeringId, give: '1', drop: '1' })} onSeats={() => go('seats', { drop: '1' })} /> : null}
       <Tabs value={tab} onValueChange={(v) => go(v as Tab)}>
         <TabsList>
           <TabsTrigger value="seats">
@@ -78,7 +83,7 @@ export function PurchasesSeatsPage() {
           <SeatsPanel key={`${params.get('offering') ?? ''}:${params.get('give') ?? ''}`} offering={params.get('offering')} give={params.get('give') === '1'} />
         </TabsContent>
         <TabsContent value="history">
-          <Purchases back={back} onRefund={admin ? (t) => setRefund({ type: 'recorded_refund', ...t }) : undefined} onShowRequests={() => go('requests')} />
+          <Purchases back={back} purchaseId={purchaseId} onRefund={admin ? (t) => setRefund({ type: 'recorded_refund', ...t }) : undefined} onShowRequests={() => go('requests')} />
         </TabsContent>
         {admin ? (
           <>

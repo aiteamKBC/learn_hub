@@ -151,11 +151,49 @@ class ConsoleQuoteOut(Schema):
 @router.get("/corporate/offerings", response=list[ConsoleOfferingOut])
 def list_offerings(request, active_only: bool = False, limit: int = 50, offset: int = 0):
     staff(request)
-    qs = CorporateOffering.objects.select_related("course", "price_tier").order_by("-created_at")
+    from apps.corporate.offerings import recorded_course_prices
+
+    qs = CorporateOffering.objects.filter(delivery_type=CorporateOffering.DeliveryType.LIVE)
     if active_only:
         qs = qs.filter(is_active=True)
-    items = qs[offset : offset + clamp(limit)]
-    return [
+    live = list(qs.select_related("course", "price_tier").order_by("-created_at"))
+    prices = list(recorded_course_prices())
+    old_recorded = {
+        o.course_id: o
+        for o in CorporateOffering.objects.filter(
+            course_id__in=[price.course_id for price in prices],
+            delivery_type=CorporateOffering.DeliveryType.RECORDED,
+            is_active=True,
+        )
+    }
+    recorded = [
+        {
+            # The course ID is a virtual selector. Purchase/quote creation resolves
+            # it to the internal seat-ledger row only when an agreement is created.
+            "id": price.course_id,
+            "course_id": price.course_id,
+            "course_title": price.course.title,
+            "delivery_type": CorporateOffering.DeliveryType.RECORDED,
+            "price_tier_id": price.tier_id,
+            "tier_name": price.tier.name,
+            "gbp_minor": price.tier.gbp_minor,
+            "is_active": True,
+            "custom_quote_enabled": old_recorded.get(price.course_id).custom_quote_enabled
+            if price.course_id in old_recorded
+            else False,
+            "description": old_recorded.get(price.course_id).description
+            if price.course_id in old_recorded
+            else "",
+            "access_months": old_recorded.get(price.course_id).access_months
+            if price.course_id in old_recorded
+            else None,
+            "created_at": price.created_at,
+        }
+        for price in prices
+    ]
+    # Keep company-only live courses first so the Live Training group picker can
+    # always see them even when the public catalogue has many recorded courses.
+    offerings = [
         {
             "id": o.id,
             "course_id": o.course_id,
@@ -170,12 +208,13 @@ def list_offerings(request, active_only: bool = False, limit: int = 50, offset: 
             "access_months": o.access_months,
             "created_at": o.created_at,
         }
-        for o in items
-    ]
+        for o in live
+    ] + sorted(recorded, key=lambda o: o["course_title"].casefold())
+    return offerings[offset : offset + clamp(limit)]
 
 
 def _check_price(tier):
-    """Recorded and live are priced separately by the admin; a free tier is not a price."""
+    """A company-only live offer must have a positive agreed per-person price."""
     if tier.gbp_minor <= 0:
         from core.errors import ServiceError
 
@@ -200,6 +239,14 @@ def _check_single_active(course_id, delivery_type):
 @router.post("/corporate/offerings", response=ConsoleIdOut)
 def create_offering(request, body: ConsoleOfferingIn):
     staff(request)
+    if body.delivery_type == CorporateOffering.DeliveryType.RECORDED:
+        from core.errors import ServiceError
+
+        raise ServiceError(
+            "recorded_price_managed_globally",
+            "Recorded courses use the same price for learners and company seats. Set the course price in Pricing.",
+            status=400,
+        )
     from apps.catalog.models import Course
     from apps.commerce.models import PriceTier
 
@@ -234,6 +281,14 @@ def create_offering(request, body: ConsoleOfferingIn):
 def update_offering(request, offering_id: UUID, body: ConsoleOfferingPatch):
     staff(request)
     offering = get_object_or_404(CorporateOffering, pk=offering_id)
+    if offering.delivery_type == CorporateOffering.DeliveryType.RECORDED:
+        from core.errors import ServiceError
+
+        raise ServiceError(
+            "recorded_price_managed_globally",
+            "Recorded courses use the same price for learners and company seats. Set the course price in Pricing.",
+            status=400,
+        )
     changes = {}
     if body.price_tier_id is not None:
         from apps.commerce.models import PriceTier
@@ -446,7 +501,11 @@ def create_quote(request, body: ConsoleQuoteIn):
         )
         items = []
         for item_in in body.items:
-            offering = get_object_or_404(CorporateOffering, pk=item_in.offering_id)
+            from apps.corporate.offerings import ensure_recorded_offering
+
+            offering, _ = ensure_recorded_offering(item_in.offering_id)
+            if offering is None:
+                offering = get_object_or_404(CorporateOffering, pk=item_in.offering_id)
             qi = QuoteItem.objects.create(
                 org=org,
                 quote=quote,

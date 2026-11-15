@@ -21,8 +21,12 @@ function useInvalidate(keys: string[]) {
 }
 
 // ------------------------------------------------------------------ price tiers (for pack pricing)
-export function usePriceTiers() {
-  return useQuery({ queryKey: ['b2c-admin-tiers'], queryFn: () => unwrap(api.GET('/api/v1/console/price-tiers')), staleTime: 5 * 60_000 })
+export function usePriceTiers(currency = 'USD') {
+  return useQuery({
+    queryKey: ['b2c-admin-tiers', currency],
+    queryFn: () => unwrap(api.GET('/api/v1/console/price-tiers', { params: { query: { currency } } })),
+    staleTime: 5 * 60_000,
+  })
 }
 
 // ------------------------------------------------------------------ token packs
@@ -134,7 +138,14 @@ export function useTokenCourse(courseId: string | null) {
 }
 
 export type TokenPricingMode = 'manual' | 'auto_weighted'
-export type CourseTokenPatch = { price_tier_id?: string | null; full_course_token_price?: number | null; token_pricing_mode?: TokenPricingMode; reason: string }
+export type CourseTokenPatch = {
+  price_tier_id?: string | null
+  full_course_token_price?: number | null
+  token_pricing_mode?: TokenPricingMode
+  /** Required when deliberately storing a price that differs from cash price × live token rate. */
+  price_override?: boolean
+  reason: string
+}
 export type LectureTokenPatch = { token_price?: number | null; is_free_preview?: boolean; confirm?: boolean; reason: string }
 
 export function usePatchTokenCourse() {
@@ -214,13 +225,13 @@ export function useAdminTokenAudit(page = 1) {
 }
 
 // ------------------------------------------------------------------ wallet management
-export function useAdminStudentSearch(q: string) {
+export function useAdminStudentSearch(q: string, enabled = true) {
   return useInfiniteQuery({
     queryKey: ['b2c-admin-students', q],
     queryFn: ({ pageParam }) => unwrap(api.GET('/api/v1/console/people/students', { params: { query: { q: q || undefined, cursor: pageParam, limit: 20 } } })),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.next_cursor ?? undefined,
-    enabled: q.trim().length > 0,
+    enabled,
   })
 }
 

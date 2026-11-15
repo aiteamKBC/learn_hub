@@ -122,7 +122,7 @@ def active_rules(at) -> list[CommissionRule]:
 
 def _rule_matches(rule: CommissionRule, *, course_id, category_id, user_id, price_gbp_minor: int) -> bool:
     if rule.scope == CommissionRule.Scope.COURSE:
-        return rule.target_id == course_id
+        return rule.target_id == course_id and (rule.instructor_id is None or rule.instructor_id == user_id)
     if rule.scope == CommissionRule.Scope.INSTRUCTOR:
         return rule.target_id == user_id
     if rule.scope == CommissionRule.Scope.CATEGORY:
@@ -141,7 +141,14 @@ def match_rule(rules, *, course_id, category_id, user_id, price_gbp_minor: int) 
             r, course_id=course_id, category_id=category_id, user_id=user_id, price_gbp_minor=price_gbp_minor
         )
     ]
-    hits.sort(key=lambda r: (SCOPE_ORDER[r.scope], -r.priority, -r.created_at.timestamp()))
+    hits.sort(
+        key=lambda r: (
+            SCOPE_ORDER[r.scope],
+            -(r.scope == CommissionRule.Scope.COURSE and r.instructor_id is not None),
+            -r.priority,
+            -r.created_at.timestamp(),
+        )
+    )
     return hits[0] if hits else None
 
 
@@ -155,8 +162,8 @@ def marketplace_rate(*, rule: CommissionRule | None, user_id, fees: dict, rates:
     return rates.get(C.MARKETPLACE, 10000), "default"
 
 
-def preview_rate(*, course_id, at=None) -> dict:
-    """What a sale of this course at its list price would earn its first instructor now."""
+def preview_rate(*, course_id, instructor_id=None, at=None) -> dict:
+    """The effective rate for one linked instructor at the course's list price."""
     from apps.commerce.models import CoursePrice
 
     at = at or timezone.now()
@@ -164,7 +171,7 @@ def preview_rate(*, course_id, at=None) -> dict:
     cp = CoursePrice.objects.select_related("tier").filter(course=course).first()
     price = cp.tier.gbp_minor if cp and cp.tier else 0
     weights = _weights([course.id]).get(course.id, [])
-    user_id = weights[0][0] if weights else None
+    user_id = instructor_id if instructor_id is not None else (weights[0][0] if weights else None)
     fees = instructor_fees([user_id]) if user_id else {}
     rule = match_rule(active_rules(at), course_id=course.id, category_id=course.category_id, user_id=user_id,
                       price_gbp_minor=price)  # fmt: skip

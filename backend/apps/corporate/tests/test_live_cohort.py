@@ -108,9 +108,11 @@ class LiveCohortTest(SchemaTransactionTestCase):
                 self.course.id,
                 10,
                 preferred_intake="Q1 2027",
+                company_message="We need a private group for our staff in March.",
             )
         self.assertEqual(tr.status, "submitted")
         self.assertEqual(tr.requested_seats, 10)
+        self.assertEqual(tr.company_message, "We need a private group for our staff in March.")
 
     def test_cancel_training_request(self):
         with tenant_context(staff=True):

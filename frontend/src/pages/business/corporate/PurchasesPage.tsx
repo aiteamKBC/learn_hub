@@ -1,4 +1,4 @@
-import { Armchair, CheckCircle2, ExternalLink, FileText, Loader2, Package, Paperclip, ShoppingBag, Undo2, UserPlus } from 'lucide-react'
+import { Armchair, CheckCircle2, ExternalLink, FileText, Loader2, Package, Paperclip, Receipt, ShoppingBag, Undo2, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 
@@ -33,27 +33,26 @@ function PurchaseFiles({ id, title, onClose }: { id: string; title: string; onCl
 /** Back from Stripe: the webhook confirms payment a moment later, so we wait for it
  * instead of claiming success. Seats only exist once the server has the paid purchase;
  * "Assign seats now" then opens the seat workflow on that course. */
-export function PaymentNotice({ onAssign, onSeats }: { onAssign: (offeringId: string) => void; onSeats: () => void }) {
-  const q = usePurchases(true)
-  const pending = q.data?.some((p) => p.status === 'pending') ?? true
-  // the newest paid recorded purchase: the seats just bought
-  const latest = q.data?.filter((p) => p.status === 'paid' && p.delivery_type === 'recorded').sort((a, b) => (b.paid_at ?? '').localeCompare(a.paid_at ?? ''))[0]
+export function PaymentNotice({ purchaseId, onAssign, onSeats }: { purchaseId: string | null; onAssign: (offeringId: string) => void; onSeats: () => void }) {
+  const q = usePurchases(true, purchaseId)
+  const purchase = q.data?.find((p) => p.id === purchaseId)
+  const status = q.isLoading ? 'pending' : purchase?.status === 'pending' ? 'pending' : purchase?.status === 'paid' || purchase?.status === 'partial' ? 'confirmed' : 'unknown'
   return (
     <Card className="mb-6 flex items-start gap-3 p-4 animate-reveal" role="status" aria-live="polite">
-      {pending ? <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-info motion-reduce:animate-none" /> : <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" />}
+      {status === 'pending' ? <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-info motion-reduce:animate-none" /> : status === 'confirmed' ? <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" /> : <Receipt className="mt-0.5 size-5 shrink-0 text-muted" />}
       <div className="text-sm">
-        <p className="font-medium">{pending ? 'Confirming your payment…' : 'Payment confirmed'}</p>
+        <p className="font-medium">{status === 'pending' ? 'Confirming your payment…' : status === 'confirmed' ? 'Payment confirmed' : 'Check payment status'}</p>
         <p className="text-muted">
-          {pending ? (
+          {status === 'pending' ? (
             'This usually takes a few seconds. You can leave this page; we will finish in the background.'
-          ) : (
+          ) : status === 'confirmed' ? (
             'Your seats are ready to give to your people.'
-          )}
+          ) : 'Check the purchase status below. If it is not paid, contact support.'}
         </p>
-        {!pending ? (
+        {status === 'confirmed' ? (
           <div className="mt-3 flex flex-wrap gap-2">
-            {latest ? (
-              <Button size="sm" onClick={() => onAssign(latest.offering_id)}>
+            {purchase?.delivery_type === 'recorded' ? (
+              <Button size="sm" onClick={() => onAssign(purchase.offering_id)}>
                 <UserPlus /> Assign seats now
               </Button>
             ) : null}
@@ -76,8 +75,8 @@ export type RefundTarget = { id: string; label: string }
 
 /** Purchase history. Admins can ask for a refund on a paid recorded purchase, right on
  * its row; a purchase with a request already open shows that request instead. */
-export function Purchases({ back = false, onRefund, onShowRequests }: { back?: boolean; onRefund?: (t: RefundTarget) => void; onShowRequests?: () => void }) {
-  const q = usePurchases(back)
+export function Purchases({ back = false, purchaseId, onRefund, onShowRequests }: { back?: boolean; purchaseId?: string | null; onRefund?: (t: RefundTarget) => void; onShowRequests?: () => void }) {
+  const q = usePurchases(back, purchaseId)
   const isAdmin = useIsOrgAdmin()
   const requests = useCancellations(isAdmin)
   const openFor = new Map((requests.data ?? []).filter((r) => r.type === 'recorded_refund' && r.seat_purchase_id).map((r) => [r.seat_purchase_id!, r]))
@@ -201,5 +200,11 @@ export function Quotes() {
 export function PurchasesPage() {
   const [params] = useSearchParams()
   const back = params.get('success') === '1'
-  return <Navigate to={`/business/purchases-and-seats?tab=history${back ? '&success=1' : ''}`} replace />
+  const next = new URLSearchParams({ tab: 'history' })
+  if (back) {
+    next.set('success', '1')
+    const purchaseId = params.get('purchase')
+    if (purchaseId) next.set('purchase', purchaseId)
+  }
+  return <Navigate to={`/business/purchases-and-seats?${next}`} replace />
 }

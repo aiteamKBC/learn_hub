@@ -93,7 +93,7 @@ export function AssignWizard({ preset, picked = [], onSeeProgress }: { preset: s
   const sendLive = () => {
     if (!courseId) return
     requestLive.mutate(
-      { course_id: courseId, seats: everyone, preferred_intake: '', preferred_delivery_mode: '' },
+      { course_id: courseId, seats: everyone, preferred_intake: '', preferred_delivery_mode: '', company_message: '' },
       {
         onSuccess: () => {
           setLiveSent(everyone)

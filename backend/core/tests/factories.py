@@ -55,17 +55,20 @@ def course(*, staff, owner, slug, title, category=None, tier="Tier 5", ownership
                          options=[{"body": "True"}, {"body": "False", "is_correct": True}])  # fmt: skip
         a = cat.add_lecture(section=s1, kind="assignment", title="Do it").assignment
         cat.update_assignment(assignment=a, instructions="<p>Write something</p>")
-        if org_id is None:  # publishing now needs a price choice; the real price is set below
+        # The publish checklist (B2C-03) requires a cash price before submit, and a paid
+        # course also needs a token price (stored legacy value here, so tests don't need
+        # a live TokenRate row).
+        if org_id is None:
             with tenant_context(user_id=staff.id, staff=True):
-                CoursePrice.objects.create(course=c, is_free=True)
+                CoursePrice.objects.create(
+                    course=c, is_free=free, tier=None if free else PriceTier.objects.get(name=tier)
+                )
+                if not free:
+                    c.full_course_token_price = 500
+                    c.save(update_fields=["full_course_token_price"])
         cat.submit(version=v, by=owner)
     if ownership == "instructor":
         with tenant_context(user_id=staff.id, staff=True):
             cat.approve(version=v, reviewer=staff)
-    if org_id is None:
-        with tenant_context(user_id=staff.id, staff=True):
-            CoursePrice.objects.filter(course=c).update(
-                is_free=free, tier=None if free else PriceTier.objects.get(name=tier)
-            )
     with tenant_context(**ctx):
         return Course.objects.get(pk=c.pk)

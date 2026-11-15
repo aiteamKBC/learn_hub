@@ -30,6 +30,7 @@ LAYOUT_DEFAULTS: dict = {
     "show_seal": True,
     "show_cpd": True,
     "show_instructor": True,
+    "artwork_image_url": "",  # optional full-page PNG/JPEG artwork uploaded by staff
 }
 TEXT_LIMITS = {"heading": 60, "intro": 80, "completion": 80}
 _HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
@@ -52,7 +53,19 @@ def clean_layout(layout: dict | None) -> dict:
         out[key] = html.plain(str(out[key]), limit).strip() or LAYOUT_DEFAULTS[key]
     for key in ("show_platform", "show_seal", "show_cpd", "show_instructor"):
         out[key] = bool(out[key])
+    out["artwork_image_url"] = _artwork(str(out["artwork_image_url"] or ""))
     return out
+
+
+def _artwork(url: str) -> str:
+    """Certificate artwork must be an image uploaded through our own console."""
+    if not url:
+        return ""
+    from core import storage
+
+    if not storage.configured() or not url.startswith(f"{storage.account_url()}/"):
+        raise ServiceError("bad_artwork", "Upload the certificate artwork here instead of linking to it.")
+    return url
 
 
 def is_platform(template: CertificateTemplate) -> bool:

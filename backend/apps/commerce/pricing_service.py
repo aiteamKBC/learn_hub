@@ -73,6 +73,7 @@ def set_course_price(
     price_tier=UNSET,
     full_course_token_price=UNSET,
     mode=UNSET,
+    allow_override: bool = False,
     actor,
     reason: str,
     request=None,
@@ -81,6 +82,12 @@ def set_course_price(
 
     `UNSET` means "leave as-is"; `None` means "clear" (SQL NULL). This lets callers
     distinguish between the two, matching the brief.
+
+    Token-price source of truth: `apps/commerce/conversion.course_token_price(course)`
+    derives the token price from `cash_price_tier.gbp_minor` x the live `TokenRate`. The
+    stored `full_course_token_price` column is kept as a legacy override only and MUST
+    NOT be set by callers unless `allow_override=True` is passed with a non-empty reason.
+    Clearing the field (`None`) is always allowed.
     """
     _require_staff(actor)
     before = {
@@ -95,6 +102,11 @@ def set_course_price(
     if full_course_token_price is not UNSET:
         if full_course_token_price is not None and full_course_token_price < 0:
             raise ValidationError("full_course_token_price must be >= 0")
+        if full_course_token_price is not None and not allow_override:
+            raise ValidationError(
+                "full_course_token_price is derived from cash_price_tier x TokenRate. "
+                "To store an override, pass allow_override=True with a reason."
+            )
         # Manual-mode floor: must not undercut sum of per-lecture token prices (if any).
         if (
             full_course_token_price is not None
@@ -296,9 +308,11 @@ def distribute_course_token_price(
 
     type_weights = weights_config.get("lecture_types") or {}
     use_duration = bool(weights_config.get("use_duration", False))
-    # Types absent from the map are intentionally excluded.  This lets an admin
-    # sell videos but leave quizzes/readings/resources out of an auto-pricing run.
+    # Types absent from the map are intentionally excluded. Applying the allocation
+    # clears their old token prices so a "video only" run cannot leave previously
+    # priced readings/quizzes purchasable by accident.
     selected_lectures = [lec for lec in lectures if lec.kind in type_weights]
+    excluded_lectures = [lec for lec in lectures if lec.kind not in type_weights]
     if not selected_lectures:
         raise ValidationError("Choose at least one component type to include in the distribution.")
     invalid_weights = [kind for kind, weight in type_weights.items() if float(weight) < 0]
@@ -308,7 +322,7 @@ def distribute_course_token_price(
     raw = []
     for lec in selected_lectures:
         tw = float(type_weights[lec.kind])
-        if use_duration:
+        if use_duration and lec.kind in {"video", "live_session"}:
             dur_min = max(1, int(round((lec.duration_sec or 0) / 60)))
             raw.append(tw * dur_min)
         else:
@@ -332,6 +346,13 @@ def distribute_course_token_price(
             set_lecture_token_price(
                 lec, alloc, actor=actor, reason=f"{reason} [auto-distribute]", request=request
             )
+    cleared_prices = 0
+    for lec in excluded_lectures:
+        if lec.token_price is not None:
+            set_lecture_token_price(
+                lec, None, actor=actor, reason=f"{reason} [excluded from auto-distribution]", request=request
+            )
+            cleared_prices += 1
     _audit(
         "course.token_distribution.apply",
         "course",
@@ -342,7 +363,8 @@ def distribute_course_token_price(
             "total_tokens": total_tokens,
             "lectures": len(selected_lectures),
             "included_types": sorted(type_weights),
-            "excluded_types": sorted({lec.kind for lec in lectures if lec.kind not in type_weights}),
+            "excluded_types": sorted({lec.kind for lec in excluded_lectures}),
+            "excluded_prices_cleared": cleared_prices,
             "use_duration": use_duration,
         },
         request=request,

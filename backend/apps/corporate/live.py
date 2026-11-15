@@ -14,7 +14,7 @@ from .models import CohortCompany, LiveCohort, TrainingRequest
 
 @transaction.atomic
 def submit_request(
-    request, course_id, seats: int, preferred_intake="", preferred_delivery=""
+    request, course_id, seats: int, preferred_intake="", preferred_delivery="", company_message=""
 ) -> TrainingRequest:
     org_id = getattr(request, "org_id", None)
     if org_id is None:
@@ -34,6 +34,7 @@ def submit_request(
         requested_seats=seats,
         preferred_intake=preferred_intake,
         preferred_delivery_mode=preferred_delivery,
+        company_message=company_message.strip()[:2000],
         status=TrainingRequest.Status.SUBMITTED,
         status_label="Under Review",
     )
