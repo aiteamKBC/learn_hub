@@ -49,7 +49,7 @@ const ENROL_TONE: Record<string, 'success' | 'primary' | 'neutral' | 'danger'> =
 function ProgressTab() {
   const q = useEmployeeProgress()
   return (
-    <QueryBlock query={q} empty={{ icon: <GraduationCap />, title: 'Nobody has a seat yet', body: 'Progress shows here once you give seats to your people.', action: <Button asChild variant="secondary"><Link to="/business/seats">Give seats</Link></Button> }}>
+    <QueryBlock query={q} empty={{ icon: <GraduationCap />, title: 'Nobody has a seat yet', body: 'Progress shows here once you give seats to your people.', action: <Button asChild variant="secondary"><Link to="/business/purchases-and-seats">Give seats</Link></Button> }}>
       {(rows) => (
         <Table>
           <thead>

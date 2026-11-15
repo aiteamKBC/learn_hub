@@ -143,6 +143,7 @@ class CancellationTest(SchemaTransactionTestCase):
                 self._request(self.admin_user),
                 type="recorded_refund",
                 reason="Want refund",
+                seat_purchase_id=self.purchase.id,
             )
             reviewed = review_cancellation(
                 self._request(),
@@ -198,6 +199,38 @@ class CancellationTest(SchemaTransactionTestCase):
             process_refund(self._request(), str(cr.id), amount_minor=self.purchase.total_minor)
             alloc.refresh_from_db()
         self.assertEqual(alloc.status, "revoked")
+
+    def test_request_must_be_for_this_company_and_not_twice(self):
+        other = None
+        with tenant_context(staff=True):
+            other = Organization.objects.create(
+                name="Other", slug=f"other-{uuid.uuid4().hex[:6]}", status="active"
+            )
+
+            def submit(**kw):
+                return submit_cancellation(self._request(self.admin_user), reason="Please refund", **kw)  # noqa: E731
+
+            with self.assertRaises(ServiceError) as cm:  # no purchase chosen
+                submit(type="recorded_refund")
+            self.assertEqual(cm.exception.code, "bad_target")
+            with self.assertRaises(ServiceError) as cm:  # unknown type
+                submit(type="anything", seat_purchase_id=self.purchase.id)
+            self.assertEqual(cm.exception.code, "bad_type")
+            submit(type="recorded_refund", seat_purchase_id=self.purchase.id)
+            with self.assertRaises(ServiceError) as cm:  # a second open request
+                submit(type="recorded_refund", seat_purchase_id=self.purchase.id)
+            self.assertEqual(cm.exception.code, "already_requested")
+            # another company cannot ask about this purchase
+            with self.assertRaises(ServiceError) as cm:
+                submit_cancellation(self._request(self.admin_user, org=other), type="recorded_refund",
+                                    reason="Please refund", seat_purchase_id=self.purchase.id)  # fmt: skip
+            self.assertEqual(cm.exception.code, "not_found")
+            # a pending (unpaid) purchase cannot be refunded
+            SeatPurchase.objects.filter(pk=self.purchase.pk).update(status="pending")
+            CancellationRequest.objects.filter(seat_purchase=self.purchase).update(status="rejected")
+            with self.assertRaises(ServiceError) as cm:
+                submit(type="recorded_refund", seat_purchase_id=self.purchase.id)
+            self.assertEqual(cm.exception.code, "not_found")
 
     def test_postponement_moves_only_unused_live_places_to_next_cohort(self):
         with tenant_context(staff=True):

@@ -31,6 +31,7 @@ import {
 import { unitLabel, useIsOrgAdmin, useUnits } from '@/features/org/api'
 import { cn } from '@/lib/cn'
 import { useFill, useInView } from '@/lib/motion'
+import { Link } from '@/lib/router'
 
 // ---------------------------------------------------------------- shared pieces
 function UnitSelect({ value, onChange, label, allLabel = 'Whole company' }: { value: string; onChange: (v: string) => void; label: string; allLabel?: string }) {
@@ -47,27 +48,46 @@ function UnitSelect({ value, onChange, label, allLabel = 'Whole company' }: { va
   )
 }
 
-/** One requirement as a stacked status bar that grows in when it scrolls into view. */
-function StackedRow({ r }: { r: RequirementSummary }) {
+/** The matrix, filtered to one requirement and one exact status (and the location shown). */
+function matrixLink(requirementId: string, status?: string, unitId?: string) {
+  const p = new URLSearchParams({ req: requirementId })
+  if (status) p.set('status', status)
+  if (unitId) p.set('unit', unitId)
+  return `/business/matrix?${p.toString()}`
+}
+
+/** One requirement as a stacked status bar that grows in when it scrolls into view. Each
+ * segment opens the matrix filtered to that requirement and that exact status. */
+function StackedRow({ r, unitId }: { r: RequirementSummary; unitId: string }) {
   const [ref, seen] = useInView<HTMLLIElement>()
   const k = useFill(1, seen)
   const tone = complianceTone(r.compliance_pct)
   return (
     <li ref={ref}>
       <div className="mb-2 flex items-baseline justify-between gap-3 text-sm">
-        <span className="min-w-0 truncate font-medium">{r.requirement__name}</span>
+        <Link to={matrixLink(r.requirement_id, undefined, unitId)} className="min-w-0 truncate font-medium hover:text-primary hover:underline">
+          {r.requirement__name}
+        </Link>
         <span className="shrink-0 text-muted">
           <CountUp value={r.compliance_pct} format={(n) => `${n.toFixed(0)}%`} className={cn('font-semibold tabular', TONE_TEXT[tone])} /> · {r.total} people
         </span>
       </div>
-      <div className="flex h-3 overflow-hidden rounded-full bg-surface-2" role="img" aria-label={`${r.requirement__name}: ${r.compliance_pct.toFixed(0)}% compliant, ${r.overdue + r.expired} overdue or expired`}>
+      <div className="flex h-3 overflow-hidden rounded-full bg-surface-2" role="group" aria-label={`${r.requirement__name}: ${r.compliance_pct.toFixed(0)}% compliant, ${r.overdue + r.expired} overdue or expired. Select a part to see those people.`}>
         {STATUS_ORDER.map((key) => {
           const n = r[key]
-          return n ? (
-            <Tooltip key={key} content={`${STATUS[key].label}: ${n}`}>
-              <span className="h-full transition-[width] duration-700 ease-out" style={{ width: `${(n / r.total) * 100 * k}%`, background: STATUS[key].color }} />
+          if (!n) return null // empty statuses get no segment, so nothing to click
+          const pct = Math.round((n / r.total) * 100)
+          const tip = `${r.requirement__name} · ${STATUS[key].label}: ${n} ${n === 1 ? 'person' : 'people'} (${pct}%)`
+          return (
+            <Tooltip key={key} content={tip}>
+              <Link
+                to={matrixLink(r.requirement_id, key, unitId)}
+                aria-label={`${tip}. Open in the training matrix`}
+                className="h-full transition-[width,filter] duration-700 ease-out hover:brightness-125 focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-text"
+                style={{ width: `${(n / r.total) * 100 * k}%`, background: STATUS[key].color }}
+              />
             </Tooltip>
-          ) : null
+          )
         })}
       </div>
       <p className="mt-1.5 text-xs text-muted">
@@ -108,7 +128,7 @@ function RequirementBars({ unitId }: { unitId: string }) {
     <div className={cn('animate-reveal grid gap-6 transition-opacity duration-200', isPlaceholderData && isFetching && 'opacity-60')}>
       <ul className="stagger grid gap-5">
         {data.map((r) => (
-          <StackedRow key={r.requirement_id} r={r} />
+          <StackedRow key={r.requirement_id} r={r} unitId={unitId} />
         ))}
       </ul>
       <Legend totals={totals} />
@@ -136,15 +156,21 @@ function ByRequirement({ unitId, setUnitId }: { unitId: string; setUnitId: (v: s
             <dl className="stagger grid w-full grid-cols-3 gap-3 border-t border-border pt-5">
               {(
                 [
-                  ['Overdue', d.overdue, 'text-danger'],
-                  ['Expired', d.expired, 'text-danger'],
-                  ['Exempt', d.exempt, 'text-muted'],
+                  ['Overdue', 'overdue', d.overdue, 'text-danger'],
+                  ['Expired', 'expired', d.expired, 'text-danger'],
+                  ['Exempt', 'exempt', d.exempt, 'text-muted'],
                 ] as const
-              ).map(([label, n, cls]) => (
+              ).map(([label, key, n, cls]) => (
                 <div key={label} className="flex flex-col-reverse">
                   <dt className="text-[11px] text-muted">{label}</dt>
                   <dd className={cn('text-xl font-semibold tabular', n ? cls : '')}>
-                    <CountUp value={n} />
+                    {n ? (
+                      <Link to={`/business/matrix?status=${key}`} className="rounded-sm hover:underline" aria-label={`${n} ${label.toLowerCase()}: see who in the training matrix`}>
+                        <CountUp value={n} />
+                      </Link>
+                    ) : (
+                      <CountUp value={n} />
+                    )}
                   </dd>
                 </div>
               ))}
@@ -358,7 +384,7 @@ export function ReportsPage() {
     <>
       <PageHeader
         title="Reports"
-        description="Compliance across your company, by requirement and by location, plus a record of every change."
+        description="Analyse compliance by requirement and by location. Select any part of a bar to see those people in the training matrix."
         actions={
           <>
             <UnitSelect value={unitId} onChange={setUnitId} label="Export for" allLabel="Export: whole company" />

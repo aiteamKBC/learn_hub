@@ -1,4 +1,4 @@
-import { CalendarDays, CheckCircle2, CreditCard, Loader2, MapPin, Send, Trash2, UserPlus, Users, Video, X } from 'lucide-react'
+import { CalendarClock, CalendarDays, CheckCircle2, CreditCard, Loader2, MapPin, Send, Trash2, UserPlus, Users, Video, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -28,12 +28,58 @@ import {
 import { fullDate, gbp } from '@/features/corporate/format'
 import { PersonPicker, QueryBlock, StatusBadge } from '@/features/corporate/ui'
 import { useIsOrgAdmin } from '@/features/org/api'
+import { CANCEL_STATUS, CANCEL_TYPE, useCancellations } from '@/features/corporate/api'
+import { RequestDialog, type RequestTarget } from './CancellationsPage'
 import { relativeDate, shortDate } from '@/lib/format'
 import { Link } from '@/lib/router'
 
 const PAYABLE = ['offered', 'pending_pay']
 const NAMEABLE = ['paid', 'active']
 const LOCKED_COHORT = ['in_progress', 'completed', 'cancelled']
+const CHANGEABLE = ['offered', 'pending_pay', 'paid', 'active'] // what the server accepts requests for
+
+/** Ask to move or cancel this booking (admins). Requests already sent for it are shown
+ * with their status and a link to all requests; the same kind cannot be sent twice. */
+function BookingChanges({ b }: { b: LiveBooking }) {
+  const q = useCancellations()
+  const [target, setTarget] = useState<RequestTarget | null>(null)
+  const mine = (q.data ?? []).filter((c) => c.cohort_company_id === b.id)
+  const open = (type: string) => mine.some((c) => c.type === type && (c.status === 'submitted' || c.status === 'under_review'))
+  const label = `${b.course_title}${b.cohort_title ? ` · ${b.cohort_title}` : ''} · ${b.approved_seats} ${b.approved_seats === 1 ? 'place' : 'places'}`
+  return (
+    <section className="grid gap-3 border-t border-border pt-4" aria-labelledby={`changes-${b.id}`}>
+      <h3 id={`changes-${b.id}`} className="text-sm font-semibold">
+        Changes
+      </h3>
+      {mine.length ? (
+        <ul className="grid gap-1.5 text-sm">
+          {mine.map((c) => (
+            <li key={c.id} className="flex flex-wrap items-center justify-between gap-2">
+              <span>
+                {CANCEL_TYPE[c.type] ?? c.type} <span className="text-xs text-muted">· sent {relativeDate(c.created_at)}</span>
+              </span>
+              <StatusBadge map={CANCEL_STATUS} status={c.status} />
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {CHANGEABLE.includes(b.status) ? (
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="secondary" disabled={open('postponement')} onClick={() => setTarget({ type: 'postponement', id: b.id, label })}>
+            <CalendarClock /> Request reschedule
+          </Button>
+          <Button size="sm" variant="secondary" className="text-danger hover:text-danger" disabled={open('cohort_cancel')} onClick={() => setTarget({ type: 'cohort_cancel', id: b.id, label })}>
+            <X /> Request cancellation
+          </Button>
+        </div>
+      ) : null}
+      <Link to="/business/purchases-and-seats?tab=requests" className="text-xs font-medium text-primary hover:underline">
+        See all requests
+      </Link>
+      <RequestDialog target={target} onClose={() => setTarget(null)} />
+    </section>
+  )
+}
 
 // ---------------------------------------------------------------- requests
 
@@ -251,6 +297,7 @@ function BookingDetail({ b, admin, onClose }: { b: LiveBooking; admin: boolean; 
           ) : null}
           <Schedule b={b} />
           <Attendees b={b} admin={admin} />
+          {admin ? <BookingChanges b={b} /> : null}
         </div>
       </DialogContent>
     </Dialog>

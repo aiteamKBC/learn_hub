@@ -16,6 +16,40 @@ from core.errors import ServiceError
 
 from .models import CancellationRequest, CohortCompany, LiveAttendee, LiveCohort, SeatPurchase
 
+OPEN = (CancellationRequest.Status.SUBMITTED, CancellationRequest.Status.UNDER_REVIEW)
+REFUNDABLE_BOOKINGS = ("offered", "pending_pay", "paid", "active")
+
+
+def _check_target(org_id, type, seat_purchase_id, cohort_company_id) -> None:
+    """A request is about one thing of THIS company: a paid recorded purchase (refund) or
+    an open live booking (cancel or postpone). Another company's id, a mismatched type,
+    or a second open request for the same thing is refused."""
+    T = CancellationRequest.Type
+    if type not in T.values:
+        raise ServiceError("bad_type", "Choose what you need.")
+    if type == T.RECORDED_REFUND:
+        if not seat_purchase_id or cohort_company_id:
+            raise ServiceError("bad_target", "Choose the purchase to refund.")
+        ok = SeatPurchase.objects.filter(
+            pk=seat_purchase_id, org_id=org_id, status="paid", offering__delivery_type="recorded"
+        ).exists()
+        open_ = CancellationRequest.objects.filter(
+            org_id=org_id, seat_purchase_id=seat_purchase_id, type=type
+        )
+    else:
+        if not cohort_company_id or seat_purchase_id:
+            raise ServiceError("bad_target", "Choose the live booking.")
+        ok = CohortCompany.objects.filter(
+            pk=cohort_company_id, org_id=org_id, status__in=REFUNDABLE_BOOKINGS
+        ).exists()
+        open_ = CancellationRequest.objects.filter(
+            org_id=org_id, cohort_company_id=cohort_company_id, type=type
+        )
+    if not ok:
+        raise ServiceError("not_found", "We could not find that in your company.", status=404)
+    if open_.filter(status__in=OPEN).exists():
+        raise ServiceError("already_requested", "You already asked for this. We will reply soon.", status=409)
+
 
 @transaction.atomic
 def submit_cancellation(
@@ -24,6 +58,7 @@ def submit_cancellation(
     org_id = getattr(request, "org_id", None)
     if org_id is None:
         raise ServiceError("no_org", "Organization context required.", status=400)
+    _check_target(org_id, type, seat_purchase_id, cohort_company_id)
 
     cr = CancellationRequest.objects.create(
         org_id=org_id,
