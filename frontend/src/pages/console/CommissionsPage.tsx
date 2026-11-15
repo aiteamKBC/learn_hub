@@ -1,4 +1,4 @@
-import { BookOpen, Crown, Info, ListFilter, MoreHorizontal, Pencil, Percent, PieChart, Plus, Power, Search, Settings, SlidersHorizontal, Users } from 'lucide-react'
+import { ArrowLeft, BookOpen, Crown, Info, ListFilter, MoreHorizontal, Pencil, Percent, PieChart, Plus, Power, Search, Settings, SlidersHorizontal, Users } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
@@ -13,15 +13,15 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { Table, Td, Th, Tr } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useConsoleSearch } from '@/features/console/api'
+import { useConsoleCourses } from '@/features/console/courses'
 import {
   type CommissionRule,
   type CommissionRuleIn,
   type InstructorCommission,
   SCOPE_LABEL,
-  useCategoryOptions,
   useCommissionOverview,
   useCommissionPreview,
+  useCourseCommissionInstructors,
   useCommissionRules,
   useInstructorCommissions,
   useSaveCommissionSettings,
@@ -34,63 +34,42 @@ import { ConfirmDialog, gbp, KpiCard, LoadMore, StatusPill, useTabParam } from '
 import { useDebounced } from '@/features/org/ui'
 import { Link } from '@/lib/router'
 
-const TABS = ['overview', 'instructors', 'courses', 'rules', 'pool', 'settings'] as const
+const TABS = ['overview', 'instructors', 'courses', 'pool', 'settings'] as const
 type Tab = (typeof TABS)[number]
 
-// ---------------------------------------------------------------- target picker (course / instructor search)
-function TargetPicker({ kind, value, label, onChange }: { kind: 'courses' | 'instructors'; value: { id: string; title: string } | null; label: string; onChange: (v: { id: string; title: string } | null) => void }) {
-  const [q, setQ] = useState('')
-  const term = useDebounced(q.trim(), 200)
-  const search = useConsoleSearch(term)
-  const hits = search.data?.groups.find((g) => g.key === kind)?.hits ?? []
-  if (value) {
-    return (
-      <div className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm">
-        <span className="truncate font-medium">{value.title}</span>
-        <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)}>
-          Change
-        </Button>
-      </div>
-    )
-  }
+function CommissionCoursePicker({ value, onChange }: { value: { id: string; title: string } | null; onChange: (v: { id: string; title: string } | null) => void }) {
+  const [search, setSearch] = useState('')
+  const [open, setOpen] = useState(false)
+  const q = useDebounced(search.trim(), 200)
+  const courses = useConsoleCourses({ tab: 'instructor', q })
+  const rows = courses.data?.pages.flatMap((page) => page.items) ?? []
   return (
-    <div className="grid gap-1.5">
-      <Input icon={<Search />} value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${kind === 'courses' ? 'courses' : 'instructors'}`} aria-label={label} />
-      {term.length >= 2 ? (
-        <ul className="max-h-48 overflow-y-auto rounded-lg border border-border" role="listbox" aria-label={`${label} results`}>
-          {hits.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-muted">{search.isFetching ? 'Searching…' : 'Nothing matches.'}</li>
-          ) : (
-            hits.map((h) => (
-              <li key={h.id} role="option" aria-selected={false}>
-                <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-surface-2" onClick={() => (onChange({ id: h.id, title: h.title }), setQ(''))}>
-                  <span className="block truncate font-medium">{h.title}</span>
-                  <span className="block truncate text-xs text-muted">{h.subtitle}</span>
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
-      ) : null}
+    <div className="grid gap-2">
+      {value && !open ? <Button type="button" variant="secondary" onClick={() => setOpen(true)}>{value.title} · Change course</Button> : <Input icon={<Search />} value={search} onFocus={() => setOpen(true)} onChange={(event) => { setSearch(event.target.value); setOpen(true) }} placeholder="Search or choose a course" aria-label="Search instructor courses" />}
+      {open ? <div className="max-h-48 overflow-y-auto rounded-lg border border-border" role="listbox" aria-label="Instructor courses">
+        {courses.isLoading ? <p className="p-3 text-sm text-muted">Loading courses…</p> : rows.length === 0 ? <p className="p-3 text-sm text-muted">No instructor courses found.</p> : rows.map((course) => (
+          <button key={course.id} type="button" role="option" aria-selected={value?.id === course.id} className="block w-full border-b border-border px-3 py-2 text-left text-sm last:border-0 hover:bg-surface-2" onClick={() => { onChange({ id: course.id, title: course.title }); setOpen(false); setSearch('') }}>
+            <span className="block font-medium">{course.title}</span><span className="block text-xs text-muted">{course.status}{value?.id === course.id ? ' · Selected' : ''}</span>
+          </button>
+        ))}
+        {courses.hasNextPage ? <Button type="button" size="sm" variant="ghost" loading={courses.isFetchingNextPage} onClick={() => void courses.fetchNextPage()}>Show more courses</Button> : null}
+      </div> : null}
     </div>
   )
 }
 
 // ---------------------------------------------------------------- rule dialog
-type RuleDraft = { id?: string; scope: CommissionRuleIn['scope']; name: string; target: { id: string; title: string } | null; category: string; bandMin: string; bandMax: string; keeps: string; priority: string; starts: string; ends: string; active: boolean }
+type RuleDraft = { id?: string; name: string; target: { id: string; title: string } | null; instructorId: string; keeps: string; priority: number; starts: string; ends: string; active: boolean }
 
-const emptyRule = (scope: CommissionRuleIn['scope'] = 'course'): RuleDraft => ({ scope, name: '', target: null, category: '', bandMin: '', bandMax: '', keeps: '', priority: '0', starts: '', ends: '', active: true })
+const emptyRule = (): RuleDraft => ({ name: '', target: null, instructorId: '', keeps: '', priority: 0, starts: '', ends: '', active: true })
 
 const fromRule = (r: CommissionRule): RuleDraft => ({
   id: r.id,
-  scope: r.scope as CommissionRuleIn['scope'],
   name: r.name,
-  target: r.target_id && (r.scope === 'course' || r.scope === 'instructor') ? { id: r.target_id, title: r.target_label } : null,
-  category: r.scope === 'category' ? (r.target_id ?? '') : '',
-  bandMin: r.band_min_gbp_minor === null ? '' : (r.band_min_gbp_minor / 100).toString(),
-  bandMax: r.band_max_gbp_minor === null ? '' : (r.band_max_gbp_minor / 100).toString(),
+  target: r.target_id ? { id: r.target_id, title: r.target_label } : null,
+  instructorId: r.instructor_id ?? '',
   keeps: String(r.keeps_pct),
-  priority: String(r.priority),
+  priority: r.priority,
   starts: r.starts_at ? toLocalInput(r.starts_at) : '',
   ends: r.ends_at ? toLocalInput(r.ends_at) : '',
   active: r.is_active,
@@ -98,30 +77,37 @@ const fromRule = (r: CommissionRule): RuleDraft => ({
 
 function RuleDialog({ draft, onClose }: { draft: RuleDraft | null; onClose: () => void }) {
   const save = useSaveRule()
-  const cats = useCategoryOptions()
+  const existing = useCommissionRules('course')
   const [d, setD] = useState<RuleDraft>(emptyRule())
   const [key, setKey] = useState<string | null>(null)
-  const draftKey = draft ? (draft.id ?? `new-${draft.scope}`) : null
+  const draftKey = draft ? (draft.id ?? 'new-course') : null
   if (draft && key !== draftKey) {
     setKey(draftKey)
     setD(draft)
   }
+  const close = () => { setKey(null); onClose() }
   const set = <K extends keyof RuleDraft>(k: K, v: RuleDraft[K]) => setD((s) => ({ ...s, [k]: v }))
-  const pence = (s: string) => (s.trim() === '' ? null : Math.round(Number(s) * 100))
+  const instructors = useCourseCommissionInstructors(d.target?.id ?? '')
 
   function submit() {
     const keeps = Number(d.keeps)
     if (d.keeps.trim() === '' || !(keeps >= 0 && keeps <= 100)) return toast.error('Enter what the instructor keeps, between 0% and 100%.')
-    const target = d.scope === 'category' ? d.category || null : d.scope === 'price_band' ? null : (d.target?.id ?? null)
-    if (d.scope !== 'price_band' && !target) return toast.error(`Choose the ${SCOPE_LABEL[d.scope]!.toLowerCase()} this rule is for.`)
+    if (!d.target) return toast.error('Choose the course this rate is for.')
+    if (!instructors.data?.length) return toast.error('This course needs a linked instructor before you can set a commission.')
+    if (!d.id && !d.instructorId) return toast.error('Choose the instructor whose rate you want to set.')
+    if (d.instructorId && !instructors.data.some((instructor) => instructor.id === d.instructorId)) return toast.error('Choose an instructor linked to this course.')
+    if (existing.data?.some((rule) => rule.target_id === d.target?.id && rule.instructor_id === (d.instructorId || null) && rule.id !== d.id && rule.is_active)) {
+      return toast.error('This instructor already has an active rate for this course. Edit that rule instead.')
+    }
     const body: CommissionRuleIn = {
       name: d.name.trim(),
-      scope: d.scope,
-      target_id: target,
-      band_min_gbp_minor: d.scope === 'price_band' ? pence(d.bandMin) : null,
-      band_max_gbp_minor: d.scope === 'price_band' ? pence(d.bandMax) : null,
+      scope: 'course',
+      target_id: d.target.id,
+      instructor_id: d.instructorId || null,
+      band_min_gbp_minor: null,
+      band_max_gbp_minor: null,
       keeps_pct: keeps,
-      priority: Number(d.priority) || 0,
+      priority: d.priority,
       is_active: d.active,
       starts_at: d.starts ? new Date(d.starts).toISOString() : null,
       ends_at: d.ends ? new Date(d.ends).toISOString() : null,
@@ -133,45 +119,31 @@ function RuleDialog({ draft, onClose }: { draft: RuleDraft | null; onClose: () =
   }
 
   return (
-    <Dialog open={!!draft} onOpenChange={(o) => !o && (onClose(), setKey(null))}>
-      <DialogContent title={d.id ? 'Edit commission rule' : 'Add commission rule'} description="The most specific rule wins: course, then instructor, then category, then price band. Past earnings never change." className="max-w-2xl">
+    <Dialog open={!!draft} onOpenChange={(o) => !o && close()}>
+      <DialogContent
+        title={d.id ? 'Edit course commission' : 'Set a course-specific commission'}
+        description="Choose one course and set the instructor's share of future marketplace sales."
+        className="max-w-2xl"
+      >
         <form className="grid gap-4" onSubmit={(e) => (e.preventDefault(), submit())}>
-          <Field label="Name" hint="Optional, for example “Launch offer”.">{(p) => <Input {...p} value={d.name} onChange={(e) => set('name', e.target.value)} maxLength={120} />}</Field>
-          <div className="grid gap-1.5">
-            <Label htmlFor="rule-scope">Applies to</Label>
-            <NativeSelect id="rule-scope" value={d.scope} onChange={(e) => setD((s) => ({ ...s, scope: e.target.value as RuleDraft['scope'], target: null, category: '' }))}>
-              <option value="course">One course</option>
-              <option value="instructor">One instructor</option>
-              <option value="category">A category</option>
-              <option value="price_band">A price band</option>
-            </NativeSelect>
+          <div className="rounded-lg border border-primary/20 bg-primary-soft/40 p-3 text-sm text-primary-soft-text">
+            <p className="font-medium">What this changes</p>
+            <p className="mt-1">This rate replaces the instructor's usual rate for the selected course only. A promotion may lower the customer's price; it does not create or edit this rate.</p>
           </div>
-          {d.scope === 'course' || d.scope === 'instructor' ? (
-            <div className="grid gap-1.5">
-              <span className="text-sm font-medium">{d.scope === 'course' ? 'Course' : 'Instructor'}</span>
-              <TargetPicker kind={d.scope === 'course' ? 'courses' : 'instructors'} label={d.scope === 'course' ? 'Course' : 'Instructor'} value={d.target} onChange={(v) => set('target', v)} />
-            </div>
-          ) : d.scope === 'category' ? (
-            <div className="grid gap-1.5">
-              <Label htmlFor="rule-cat">Category</Label>
-              <NativeSelect id="rule-cat" value={d.category} onChange={(e) => set('category', e.target.value)} required>
-                <option value="">Choose a category</option>
-                {cats.data?.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="From (£)" hint="Included.">{(p) => <Input {...p} inputMode="decimal" value={d.bandMin} onChange={(e) => set('bandMin', e.target.value)} placeholder="0.00" />}</Field>
-              <Field label="Up to (£)" hint="Not included; empty = no top.">{(p) => <Input {...p} inputMode="decimal" value={d.bandMax} onChange={(e) => set('bandMax', e.target.value)} placeholder="No limit" />}</Field>
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Instructor keeps (%)">{(p) => <Input {...p} inputMode="decimal" value={d.keeps} onChange={(e) => set('keeps', e.target.value)} required placeholder="70" />}</Field>
-            <Field label="Priority" hint="Higher wins within the same kind.">{(p) => <Input {...p} inputMode="numeric" value={d.priority} onChange={(e) => set('priority', e.target.value.replace(/[^0-9-]/g, ''))} />}</Field>
+          <div className="grid gap-1.5">
+            <span className="text-sm font-medium">Course</span>
+            <CommissionCoursePicker value={d.target} onChange={(v) => { set('target', v); set('instructorId', '') }} />
+          </div>
+          <div className="grid gap-1.5">
+            <span className="text-sm font-medium">Instructor for this rule</span>
+            {!d.target ? <p className="text-sm text-muted">Choose a course to see its instructors.</p> : instructors.isLoading ? <p className="text-sm text-muted">Loading instructors…</p> : instructors.error ? <p className="text-sm text-danger">Could not load this course’s instructors.</p> : <NativeSelect value={d.instructorId} onChange={(event) => set('instructorId', event.target.value)} aria-label="Instructor for this course rule">
+              <option value="">{d.id && !d.instructorId ? 'All instructors (existing rule)' : 'Choose an instructor'}</option>
+              {instructors.data?.map((instructor) => <option key={instructor.id} value={instructor.id}>{instructor.name}</option>)}
+            </NativeSelect>}
+            <p className="text-xs text-muted">Each instructor’s percentage applies to their own share of this course. Add a separate rule for another instructor.</p>
+          </div>
+          <div className="grid gap-3">
+            <Field label="Instructor keeps from this course (%)" hint="For example, 70 means the instructor receives 70% of the eligible sale amount for this course.">{(p) => <Input {...p} inputMode="decimal" value={d.keeps} onChange={(e) => set('keeps', e.target.value)} required placeholder="70" />}</Field>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Starts" hint="Empty = now.">{(p) => <Input {...p} type="datetime-local" value={d.starts} onChange={(e) => set('starts', e.target.value)} />}</Field>
@@ -182,7 +154,7 @@ function RuleDialog({ draft, onClose }: { draft: RuleDraft | null; onClose: () =
             <Switch id="rule-active" checked={d.active} onCheckedChange={(v) => set('active', v)} />
           </div>
           <div className="flex flex-wrap justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={onClose}>
+            <Button type="button" variant="secondary" onClick={close}>
               Cancel
             </Button>
             <Button type="submit" loading={save.isPending}>
@@ -196,7 +168,7 @@ function RuleDialog({ draft, onClose }: { draft: RuleDraft | null; onClose: () =
 }
 
 // ---------------------------------------------------------------- rules list
-function RulesList({ scope, onEdit, onAdd }: { scope: string; onEdit: (r: CommissionRule) => void; onAdd: () => void }) {
+function RulesList({ scope, addLabel = 'Add commission rule', onEdit, onAdd }: { scope: string; addLabel?: string; onEdit: (r: CommissionRule) => void; onAdd: () => void }) {
   const q = useCommissionRules(scope)
   const save = useSaveRule()
   const [toggling, setToggling] = useState<CommissionRule | null>(null)
@@ -209,7 +181,8 @@ function RulesList({ scope, onEdit, onAdd }: { scope: string; onEdit: (r: Commis
         ))}
       </div>
     )
-  if (q.data.length === 0)
+  const rules = q.data
+  if (rules.length === 0)
     return (
       <EmptyState
         icon={<SlidersHorizontal />}
@@ -217,7 +190,7 @@ function RulesList({ scope, onEdit, onAdd }: { scope: string; onEdit: (r: Commis
         body="Without rules, each instructor keeps their own rate or the platform default."
         action={
           <Button onClick={onAdd}>
-            <Plus /> Add commission rule
+            <Plus /> {addLabel}
           </Button>
         }
       />
@@ -226,20 +199,20 @@ function RulesList({ scope, onEdit, onAdd }: { scope: string; onEdit: (r: Commis
     save.mutate(
       {
         id: r.id,
-        body: { name: r.name, scope: r.scope as CommissionRuleIn['scope'], target_id: r.target_id, band_min_gbp_minor: r.band_min_gbp_minor, band_max_gbp_minor: r.band_max_gbp_minor, keeps_pct: r.keeps_pct, priority: r.priority, is_active: !r.is_active, starts_at: r.starts_at, ends_at: r.ends_at },
+        body: { name: r.name, scope: r.scope as CommissionRuleIn['scope'], target_id: r.target_id, instructor_id: r.instructor_id, band_min_gbp_minor: r.band_min_gbp_minor, band_max_gbp_minor: r.band_max_gbp_minor, keeps_pct: r.keeps_pct, priority: r.priority, is_active: !r.is_active, starts_at: r.starts_at, ends_at: r.ends_at },
       },
       { onSuccess: () => (toast.success(r.is_active ? 'Rule switched off' : 'Rule switched on'), setToggling(null)), onError: (e) => toast.error((e as Error).message) },
     )
   return (
     <div className="animate-reveal">
       <ul className="stagger grid gap-3 p-3 md:hidden">
-        {q.data.map((r) => (
+        {rules.map((r) => (
           <li key={r.id} className="rounded-lg border border-border p-3.5 text-sm">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate font-medium">{r.name || r.target_label}</p>
                 <p className="text-xs text-muted">
-                  {SCOPE_LABEL[r.scope]} · {r.target_label}
+                  {SCOPE_LABEL[r.scope]} · {r.target_label} · {r.instructor_name || 'All instructors'}
                 </p>
               </div>
               <span className="font-semibold tabular">{r.keeps_pct}%</span>
@@ -260,7 +233,6 @@ function RulesList({ scope, onEdit, onAdd }: { scope: string; onEdit: (r: Commis
               <Th>Rule</Th>
               <Th>Applies to</Th>
               <Th className="text-right">Instructor keeps</Th>
-              <Th className="text-right">Priority</Th>
               <Th className="hidden lg:table-cell">Dates</Th>
               <Th>Status</Th>
               <Th className="text-right">
@@ -269,15 +241,14 @@ function RulesList({ scope, onEdit, onAdd }: { scope: string; onEdit: (r: Commis
             </tr>
           </thead>
           <tbody className="stagger">
-            {q.data.map((r) => (
+            {rules.map((r) => (
               <Tr key={r.id}>
                 <Td>
-                  <p className="font-medium">{r.name || '—'}</p>
-                  <p className="text-xs text-muted">{SCOPE_LABEL[r.scope]}</p>
+                  <p className="font-medium">{r.target_label}</p>
+                  <p className="text-xs text-muted">{SCOPE_LABEL[r.scope]} · {r.instructor_name || 'All instructors'}</p>
                 </Td>
                 <Td className="max-w-[16rem] truncate">{r.target_label}</Td>
                 <Td className="text-right font-medium tabular">{r.keeps_pct}%</Td>
-                <Td className="text-right tabular">{r.priority}</Td>
                 <Td className="hidden text-xs text-muted lg:table-cell">
                   {r.starts_at ? day(r.starts_at) : 'Now'} – {r.ends_at ? day(r.ends_at) : 'no end'}
                 </Td>
@@ -317,6 +288,26 @@ function RulesList({ scope, onEdit, onAdd }: { scope: string; onEdit: (r: Commis
         onConfirm={() => toggle(toggling!)}
       />
     </div>
+  )
+}
+
+function LegacyRulesNotice() {
+  const rules = useCommissionRules('')
+  const save = useSaveRule()
+  const legacy = rules.data?.filter((rule) => rule.scope !== 'course' && rule.is_active) ?? []
+  if (legacy.length === 0) return null
+  return (
+    <Card>
+      <CardHeader title="Existing broader commission rules" description="These older instructor, category or price rules can still affect future sales. Review them before relying on a standard instructor rate." />
+      <CardBody className="grid gap-3 text-sm">
+        {legacy.map((rule) => (
+          <div key={rule.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3">
+            <div><p className="font-medium">{rule.name || rule.target_label} · {SCOPE_LABEL[rule.scope]}</p><p className="text-muted">{rule.keeps_pct}% to instructor · {rule.is_live ? 'Applies now' : 'Outside scheduled dates'}</p></div>
+            <Button size="sm" variant="secondary" loading={save.isPending} onClick={() => save.mutate({ id: rule.id, body: { name: rule.name, scope: rule.scope as CommissionRuleIn['scope'], target_id: rule.target_id, instructor_id: rule.instructor_id, band_min_gbp_minor: rule.band_min_gbp_minor, band_max_gbp_minor: rule.band_max_gbp_minor, keeps_pct: rule.keeps_pct, priority: rule.priority, is_active: false, starts_at: rule.starts_at, ends_at: rule.ends_at } }, { onSuccess: () => toast.success('Older rule switched off. Past earnings are unchanged.'), onError: (error) => toast.error((error as Error).message) })}>Switch off</Button>
+          </div>
+        ))}
+      </CardBody>
+    </Card>
   )
 }
 
@@ -362,7 +353,7 @@ function RateDialog({ row, onClose }: { row: InstructorCommission | null; onClos
   )
 }
 
-function InstructorCommissions({ compact }: { compact?: boolean }) {
+function InstructorCommissions({ compact, onBack }: { compact?: boolean; onBack?: () => void }) {
   const [qText, setQText] = useState('')
   const q = useDebounced(qText.trim())
   const [status, setStatus] = useState('')
@@ -372,6 +363,11 @@ function InstructorCommissions({ compact }: { compact?: boolean }) {
   return (
     <>
       <Toolbar>
+        {onBack ? (
+          <Button type="button" variant="ghost" size="sm" onClick={onBack}>
+            <ArrowLeft /> Back to overview
+          </Button>
+        ) : null}
         <SearchBox value={qText} onChange={setQText} label="Search instructors" placeholder="Search instructors" className="sm:max-w-xs" />
         <NativeSelect aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)} className="w-auto">
           <option value="">All statuses</option>
@@ -467,14 +463,20 @@ function InstructorCommissions({ compact }: { compact?: boolean }) {
 // ---------------------------------------------------------------- preview ("which rate applies?")
 function RatePreview() {
   const [course, setCourse] = useState<{ id: string; title: string } | null>(null)
-  const p = useCommissionPreview(course?.id ?? '')
+  const [instructorId, setInstructorId] = useState('')
+  const instructors = useCourseCommissionInstructors(course?.id ?? '')
+  const p = useCommissionPreview(course?.id ?? '', instructorId)
   const source = { rule: 'a commission rule', instructor: "the instructor's own rate", default: 'the platform default' } as Record<string, string>
   return (
     <Card>
-      <CardHeader title="Which rate applies?" description="Pick a course to see what a sale today would pay its instructor." />
+      <CardHeader title="Which rate applies?" description="Pick a course and one of its instructors to check the rate on a sale today." />
       <CardBody className="grid gap-3">
-        <TargetPicker kind="courses" label="Course to check" value={course} onChange={setCourse} />
-        {course ? (
+        <CommissionCoursePicker value={course} onChange={(value) => { setCourse(value); setInstructorId('') }} />
+        {course && instructors.data?.length ? <NativeSelect aria-label="Instructor to check" value={instructorId} onChange={(event) => setInstructorId(event.target.value)}>
+          <option value="">Choose an instructor</option>
+          {instructors.data.map((instructor) => <option key={instructor.id} value={instructor.id}>{instructor.name}</option>)}
+        </NativeSelect> : null}
+        {course && instructorId ? (
           p.error ? (
             <p className="text-sm text-danger">{(p.error as Error).message}</p>
           ) : !p.data ? (
@@ -531,7 +533,7 @@ function SettingsForm({ only }: { only?: 'pool' }) {
           <div className="flex items-start justify-between gap-4 rounded-lg border border-border p-4">
             <div>
               <Label htmlFor="discount-impact">Discounts reduce the instructor's share</Label>
-              <p className="mt-0.5 text-xs text-muted">On: the share is worked out on what the customer paid. Off: the platform absorbs its own discounts (never more than the customer paid).</p>
+              <p className="mt-0.5 text-xs text-muted">A Promotion changes the customer's checkout price, not the instructor's rate. On: calculate the share from the amount paid. Off: calculate from the original price, capped at the amount paid. Example: £100 course, 20% discount, 70% instructor rate → £56 on, £70 off.</p>
             </div>
             <Switch id="discount-impact" checked={f.discount} onCheckedChange={(v) => set('discount', v)} />
           </div>
@@ -564,7 +566,7 @@ function Overview({ go }: { go: (t: Tab) => void }) {
             <StatCard label="Default commission" value={`${d.default_keeps_pct}%`} icon={<Percent />} hint="to the instructor" />
             <KpiCard label="Platform commission (this month)" kpi={d.commissions_month} icon={<PieChart />} format={gbp} tone="success" />
             <KpiCard label="Subscription revenue pool" kpi={d.pool_month} icon={<Crown />} format={gbp} tone="info" />
-            <StatCard label="Active instructors" value={d.active_instructors} icon={<Users />} tone="warning" hint={`${d.active_rules} active rules`} />
+            <StatCard label="Active instructors" value={d.active_instructors} icon={<Users />} tone="warning" hint={`${d.active_rules} active commission rules across all types`} />
           </>
         )}
       </section>
@@ -580,7 +582,7 @@ function Overview({ go }: { go: (t: Tab) => void }) {
               {[
                 { t: 'settings' as Tab, Icon: Percent, label: 'Default commission rate', hint: "The platform's default for course sales", value: d ? `${d.default_keeps_pct}%` : '' },
                 { t: 'pool' as Tab, Icon: Crown, label: 'Subscription revenue pool', hint: 'The share of subscription revenue', value: d ? `${d.pool_pct}%` : '' },
-                { t: 'rules' as Tab, Icon: SlidersHorizontal, label: 'Commission rules', hint: 'By instructor, course, category or price', value: d ? String(d.active_rules) : '' },
+                { t: 'courses' as Tab, Icon: BookOpen, label: 'Course-specific rates', hint: 'Exceptions for individual courses', value: '' },
                 { t: 'settings' as Tab, Icon: ListFilter, label: 'Discount impact', hint: 'How discounts affect commissions', value: d ? (d.discount_reduces_commission ? 'Shared' : 'Platform') : '' },
               ].map((x) => (
                 <button key={x.label} type="button" onClick={() => go(x.t)} className="flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors hover:bg-surface-2">
@@ -601,7 +603,7 @@ function Overview({ go }: { go: (t: Tab) => void }) {
               <Info className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
               <div>
                 <p className="font-medium">About commissions</p>
-                <p className="mt-1 text-muted">Set the default, customise per instructor or course, and share subscription revenue through the pool. Each sale stores its rate, so changes never rewrite past earnings.</p>
+                <p className="mt-1 text-muted">Set the default, customise per instructor or course, and share subscription revenue through the pool. Promotions set customer discounts on their own page. Each sale stores its instructor rate, so changes never rewrite past earnings.</p>
               </div>
             </CardBody>
           </Card>
@@ -620,10 +622,10 @@ export function ConsoleCommissionsPage() {
     <>
       <PageHeader
         title="Commission management"
-        description="Commission rates, rules and subscription revenue sharing."
+        description="Set instructors' earnings from course sales and the personal subscription pool. Customer discounts are managed in Promotions."
         actions={
-          <Button onClick={() => setDraft(emptyRule(tab === 'courses' ? 'course' : 'course'))}>
-            <Plus /> Add commission rule
+          <Button onClick={() => setDraft(emptyRule())}>
+            <Plus /> Add course rule
           </Button>
         }
       />
@@ -638,9 +640,6 @@ export function ConsoleCommissionsPage() {
           <TabsTrigger value="courses">
             <BookOpen /> Course commissions
           </TabsTrigger>
-          <TabsTrigger value="rules">
-            <SlidersHorizontal /> Commission rules
-          </TabsTrigger>
           <TabsTrigger value="pool">
             <Crown /> Subscription revenue pool
           </TabsTrigger>
@@ -653,42 +652,55 @@ export function ConsoleCommissionsPage() {
         </TabsContent>
         <TabsContent value="instructors" className="pt-0">
           <Card>
-            <InstructorCommissions />
+            <CardHeader title="Instructor commissions" description="Set an instructor’s usual share for future marketplace sales. A course-specific rate can override it." />
+            <InstructorCommissions onBack={() => setTab('overview')} />
           </Card>
         </TabsContent>
         <TabsContent value="courses" className="grid gap-5 pt-0 lg:grid-cols-12">
           <Card className="lg:col-span-8">
             <CardHeader
               title="Course commissions"
-              description="A course rule beats every other rate for that course."
+              description="Set a different share for one course. It overrides that instructor’s normal rate for this course only."
               action={
-                <Button size="sm" variant="secondary" onClick={() => setDraft(emptyRule('course'))}>
-                  <Plus /> Add course rule
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => setTab('overview')}>
+                    <ArrowLeft /> Back
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => setDraft(emptyRule())}>
+                    <Plus /> Add course rule
+                  </Button>
+                </div>
               }
             />
-            <RulesList scope="course" onEdit={(r) => setDraft(fromRule(r))} onAdd={() => setDraft(emptyRule('course'))} />
+            <CardBody className="border-b border-border bg-surface-2/40 text-sm text-muted">
+              Example: an instructor normally keeps 37%. Set SQL for Analysts to 70%, and that instructor keeps 70% on future SQL for Analysts sales only. No learner is selected here.
+            </CardBody>
+            <RulesList scope="course" addLabel="Add course rule" onEdit={(r) => setDraft(fromRule(r))} onAdd={() => setDraft(emptyRule())} />
           </Card>
-          <div className="lg:col-span-4">
+          <div className="grid content-start gap-5 lg:col-span-4">
             <RatePreview />
+            <LegacyRulesNotice />
           </div>
-        </TabsContent>
-        <TabsContent value="rules" className="grid gap-5 pt-0">
-          <Card>
-            <CardHeader title="Commission rules" description="Priority: course, then instructor, then category, then price band, then the instructor's own rate, then the default." />
-            <RulesList scope="" onEdit={(r) => setDraft(fromRule(r))} onAdd={() => setDraft(emptyRule())} />
-          </Card>
-          <RatePreview />
         </TabsContent>
         <TabsContent value="pool" className="pt-0">
           <div className="grid gap-5 lg:grid-cols-12">
             <Card className="lg:col-span-7">
-              <CardHeader title="Subscription revenue pool" description="Personal subscriptions don't pay per course. Each month, this share of their revenue is split between instructors by the minutes learners spent on their courses." />
+              <CardHeader title="Subscription revenue pool" description="This is a share of personal subscription revenue, not a percentage of a course price." action={<Button size="sm" variant="ghost" onClick={() => setTab('overview')}><ArrowLeft /> Back</Button>} />
               <CardBody>
                 <SettingsForm only="pool" />
               </CardBody>
             </Card>
-            <div className="lg:col-span-5">{o.data ? <KpiCard label="Paid to instructors (last settled month)" kpi={o.data.pool_month} icon={<Crown />} format={gbp} tone="info" /> : <Skeleton className="h-[118px]" />}</div>
+            <div className="grid content-start gap-5 lg:col-span-5">
+              {o.data ? <KpiCard label="Paid to instructors (last settled month)" kpi={o.data.pool_month} icon={<Crown />} format={gbp} tone="info" /> : <Skeleton className="h-[118px]" />}
+              <Card>
+                <CardHeader title="How the monthly pool is shared" description="A simple example using a £20 personal subscription and a 25% pool." />
+                <CardBody className="grid gap-3 text-sm">
+                  <div className="rounded-lg bg-surface-2 p-3"><strong>1. Build the pool</strong><p className="mt-1 text-muted">£20 subscription × 25% = £5 for instructors. The remaining £15 belongs to the platform before its operating costs.</p></div>
+                  <div className="rounded-lg bg-surface-2 p-3"><strong>2. Measure learning</strong><p className="mt-1 text-muted">At month end, we total recorded learning time on instructor-owned courses watched through the personal plan.</p></div>
+                  <div className="rounded-lg bg-surface-2 p-3"><strong>3. Pay by share of learning</strong><p className="mt-1 text-muted">If learners spent 60% of their time in Ahmed’s courses and 40% in Sara’s, Ahmed receives £3 and Sara receives £2 from this subscription’s pool.</p></div>
+                </CardBody>
+              </Card>
+            </div>
           </div>
         </TabsContent>
         <TabsContent value="settings" className="pt-0">

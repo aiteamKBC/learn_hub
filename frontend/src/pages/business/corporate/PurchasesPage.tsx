@@ -33,34 +33,35 @@ function PurchaseFiles({ id, title, onClose }: { id: string; title: string; onCl
 
 /** Back from Stripe: the webhook confirms payment a moment later, so we wait for it
  * instead of claiming success. */
-function PaymentNotice({ pending }: { pending: boolean }) {
+function PaymentNotice({ status }: { status: 'pending' | 'confirmed' | 'unknown' }) {
   return (
     <Card className="mb-6 flex items-start gap-3 p-4 animate-reveal" role="status" aria-live="polite">
-      {pending ? <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-info motion-reduce:animate-none" /> : <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" />}
+      {status === 'pending' ? <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-info motion-reduce:animate-none" /> : status === 'confirmed' ? <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" /> : <Receipt className="mt-0.5 size-5 shrink-0 text-muted" />}
       <div className="text-sm">
-        <p className="font-medium">{pending ? 'Confirming your payment…' : 'Payment confirmed'}</p>
+        <p className="font-medium">{status === 'pending' ? 'Confirming your payment…' : status === 'confirmed' ? 'Payment confirmed' : 'Check payment status'}</p>
         <p className="text-muted">
-          {pending ? (
+          {status === 'pending' ? (
             'This usually takes a few seconds. You can leave this page; we will finish in the background.'
-          ) : (
+          ) : status === 'confirmed' ? (
             <>
               Your seats are ready. <Link to="/business/seats" className="font-medium text-primary hover:underline">Give them to your people</Link>.
             </>
-          )}
+          ) : 'Check the purchase status below. If it is not paid, contact support.'}
         </p>
       </div>
     </Card>
   )
 }
 
-function Purchases({ back }: { back: boolean }) {
+function Purchases({ back, purchaseId }: { back: boolean; purchaseId: string | null }) {
   const q = usePurchases(back)
   const isAdmin = useIsOrgAdmin()
   const [filesFor, setFilesFor] = useState<{ id: string; title: string } | null>(null)
-  const pending = q.data?.some((p) => p.status === 'pending') ?? true
+  const tracked = q.data?.find((p) => p.id === purchaseId)
+  const paymentStatus = tracked?.status === 'paid' ? 'confirmed' : tracked?.status === 'pending' || (!q.data && !q.error) ? 'pending' : 'unknown'
   return (
     <>
-      {back ? <PaymentNotice pending={pending} /> : null}
+      {back ? <PaymentNotice status={paymentStatus} /> : null}
       <Card>
         <CardHeader title="Purchases" description="Seats your company has bought" />
         <div className="mt-3">
@@ -159,6 +160,7 @@ export function PurchasesPage() {
   const admin = useIsOrgAdmin()
   const [params] = useSearchParams()
   const back = params.get('success') === '1'
+  const purchaseId = params.get('purchase')
   useEffect(() => {
     document.title = 'Purchases · LearnHub'
   }, [])
@@ -176,7 +178,7 @@ export function PurchasesPage() {
         }
       />
       <div className="grid gap-6">
-        <Purchases back={back} />
+        <Purchases back={back} purchaseId={purchaseId} />
         {admin ? <Quotes /> : null}
       </div>
     </>

@@ -3,6 +3,7 @@
 from datetime import date, datetime, time, timedelta
 from uuid import UUID
 
+from django.core.exceptions import PermissionDenied
 from django.utils import timezone
 from ninja import Field, Router, Schema
 from ninja.security import SessionAuth
@@ -12,13 +13,15 @@ from core.permissions import require_staff
 
 
 class StaffSessionAuth(SessionAuth):
-    """The session cookie, and platform staff only: a learner, instructor or company admin
-    is refused (403) before any request body is even read."""
+    """The session cookie, and platform staff only: a signed-in learner, instructor or
+    company admin is refused (403) before the request body is even parsed. Ninja routes
+    exceptions raised here through the API's exception handlers, so PermissionDenied
+    (not ServiceError raised mid-auth) is what reliably maps to 403 via core.errors."""
 
     def authenticate(self, request, key):
         user = super().authenticate(request, key)
         if user and not user.is_staff:
-            raise ServiceError("forbidden", "Staff only.", status=403)
+            raise PermissionDenied("Staff only.")
         return user
 
 

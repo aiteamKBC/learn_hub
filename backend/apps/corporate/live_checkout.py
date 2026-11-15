@@ -126,7 +126,7 @@ def _create_live_checkout(request, cohort_company_id) -> dict:
         },
         customer_email=request.user.email,
         customer=customer_id or "",
-        success_url=f"{settings.FRONTEND_URL}/business/live-bookings?success=1",
+        success_url=f"{settings.FRONTEND_URL}/business/live-bookings?success=1&paid_booking={cc.id}",
         cancel_url=f"{settings.FRONTEND_URL}/business/live-bookings",
         idempotency_key=f"corp_live_checkout_{purchase.id}",  # one Stripe session per attempt
     )

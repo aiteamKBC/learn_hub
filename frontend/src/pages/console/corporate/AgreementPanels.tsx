@@ -290,8 +290,11 @@ export function InstalmentPlanForm({ onClose }: { onClose: () => void }) {
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent title="New instalment plan" description="The company commits to the full price and pays it in parts. Each payment covers only the people you choose." className="sm:max-w-2xl">
         <form onSubmit={save} className="grid gap-4">
+          <p className="rounded-md border border-border bg-surface/50 p-3 text-sm text-muted">
+            This creates a recorded-course purchase and its payment schedule. It does not email an invoice yet. After creating it, open the purchase to choose which seats each instalment covers and send the invoices.
+          </p>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Find a company">{(f) => <Input {...f} value={cq} onChange={(e) => setCq(e.target.value)} />}</Field>
+            <Field label="Search companies" hint="Typing filters the company menu. Choose the company in the field beside it.">{(f) => <Input {...f} value={cq} onChange={(e) => setCq(e.target.value)} placeholder="Type a company name" />}</Field>
             <Field label="Company">
               {(f) => (
                 <NativeSelect {...f} value={orgId} onChange={(e) => (setOrgId(e.target.value), setBuyerId(''))} required>

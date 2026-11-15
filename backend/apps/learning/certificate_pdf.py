@@ -32,7 +32,7 @@ def _fit(c: canvas.Canvas, text: str, font: str, size: float, max_width: float) 
     return size
 
 
-def _signature_image(url: str) -> ImageReader | None:
+def _storage_image(url: str, *, cache_prefix: str, max_bytes: int) -> ImageReader | None:
     """The signature image from our own storage (never any other host), cached an hour.
     A storage problem prints the signatory's name instead of failing the certificate."""
     from core import storage
@@ -42,7 +42,7 @@ def _signature_image(url: str) -> ImageReader | None:
     prefix = f"{storage.account_url()}/{settings.AZURE_STORAGE['CONTAINER']}/"
     if not url.startswith(prefix):
         return None
-    key = f"cert-sig:{url}"
+    key = f"{cache_prefix}:{url}"
     data = cache.get(key)
     if data is None:
         from urllib.parse import unquote
@@ -52,12 +52,20 @@ def _signature_image(url: str) -> ImageReader | None:
 
             r = httpx.get(storage.download_url(unquote(url[len(prefix) :])), timeout=3)
             r.raise_for_status()
-            data = r.content if len(r.content) <= 1_000_000 else b""
+            data = r.content if len(r.content) <= max_bytes else b""
         except Exception:  # noqa: BLE001 - a missing image must never break the certificate
-            log.warning("certificate signature image could not be loaded")
+            log.warning("certificate image could not be loaded")
             data = b""
         cache.set(key, data, 3600)
     return ImageReader(io.BytesIO(data)) if data else None
+
+
+def _signature_image(url: str) -> ImageReader | None:
+    return _storage_image(url, cache_prefix="cert-sig", max_bytes=1_000_000)
+
+
+def _artwork_image(url: str) -> ImageReader | None:
+    return _storage_image(url, cache_prefix="cert-artwork", max_bytes=8_000_000)
 
 
 def _border(c: canvas.Canvas, style: str, width: float, height: float, primary, accent) -> None:
@@ -118,7 +126,11 @@ def render(cert, template=None) -> bytes:
     c = canvas.Canvas(buf, pagesize=(width, height))
     c.setTitle(f"Certificate {cert.verification_code}")
     c.setAuthor(platform)
-    _border(c, layout["style"], width, height, primary, accent)
+    artwork = _artwork_image(layout.get("artwork_image_url", ""))
+    if artwork is not None:
+        c.drawImage(artwork, 0, 0, width=width, height=height, preserveAspectRatio=False, mask="auto")
+    else:
+        _border(c, layout["style"], width, height, primary, accent)
 
     cx = width / 2
     if layout["show_platform"]:

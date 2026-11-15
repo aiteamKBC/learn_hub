@@ -7,12 +7,12 @@ they see exactly what a company admin's browser would see.
 import uuid
 from datetime import timedelta
 from decimal import Decimal
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from django.utils import timezone
 
 from apps.catalog.models import Category, Course, CourseVersion
-from apps.commerce.models import PriceTier
+from apps.commerce.models import CoursePrice, PriceTier
 from apps.corporate.live import add_company_to_cohort, confirm_cohort, create_cohort
 from apps.corporate.models import CorporateOffering, SeatPurchase
 from apps.corporate.scheduling import add_session
@@ -50,6 +50,7 @@ class CompanyHttpTest(SchemaTransactionTestCase):
             self.course.live_version = v
             self.course.save(update_fields=["live_version"])
             tier = PriceTier.objects.create(name=f"HttpTier-{tag}", gbp_minor=10000, sort_order=0)
+            CoursePrice.objects.create(course=self.course, tier=tier, is_free=False)
             self.live = CorporateOffering.objects.create(
                 course=self.course, delivery_type="live", price_tier=tier, is_active=True
             )
@@ -84,6 +85,31 @@ class CompanyHttpTest(SchemaTransactionTestCase):
         r = self._get("/live-bookings")
         self.assertEqual(r.status_code, 200, r.content)
         self.assertEqual(len(r.json()), 1, "the company's own booking must be listed")
+
+    @patch("apps.corporate.live_checkout.gateway.create_checkout_session")
+    def test_live_checkout_return_tracks_the_booking(self, mock_checkout):
+        self._confirmed_booking()
+        booking_id = self._get("/live-bookings").json()[0]["id"]
+        mock_checkout.return_value = {"id": "cs_live_test", "url": "https://checkout.stripe.com/test"}
+        response = self._post(f"/live-bookings/{booking_id}/checkout", {})
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertIn(f"paid_booking={booking_id}", mock_checkout.call_args.kwargs["success_url"])
+
+    def test_dashboard_does_not_count_live_places_as_recorded_seats(self):
+        with tenant_context(staff=True):
+            for offering, quantity in ((self.recorded, 2), (self.live, 3)):
+                SeatPurchase.objects.create(
+                    org=self.org, offering=offering, buyer=self.admin,
+                    quantity=quantity, unit_price_minor=10000, currency="GBP",
+                    total_minor=quantity * 10000, gbp_total_minor=quantity * 10000,
+                    status="paid", paid_at=timezone.now(),
+                )
+        response = self._get("/dashboard")
+        self.assertEqual(response.status_code, 200, response.content)
+        dashboard = response.json()
+        self.assertEqual(dashboard["total_seats_purchased"], 2)
+        self.assertEqual(dashboard["seats_available"], 2)
+        self.assertEqual(dashboard["total_spend_minor"], 50000)
 
     def test_schedule_visible_to_company_admin(self):
         self._confirmed_booking()
@@ -439,19 +465,106 @@ class CompanyHttpTest(SchemaTransactionTestCase):
                 name=f"LiveP-{uuid.uuid4().hex[:6]}", gbp_minor=45000, sort_order=0
             )
             CorporateOffering.objects.filter(pk=self.live.pk).update(price_tier=live_tier)
+            recorded_tier = PriceTier.objects.create(
+                name=f"RecordedGlobal-{uuid.uuid4().hex[:6]}", gbp_minor=12000, sort_order=0
+            )
+            CoursePrice.objects.filter(course=self.course).update(tier=recorded_tier)
         mine = [p for p in self._get("/packages").json() if p["course_id"] == str(self.course.id)]
         prices = {p["delivery_type"]: p["price_gbp_minor"] for p in mine}
-        self.assertEqual(prices, {"recorded": 10000, "live": 45000}, "each option shows its own price")
+        self.assertEqual(prices, {"recorded": 12000, "live": 45000}, "recorded uses the shared course price")
+        recorded = next(p for p in mine if p["delivery_type"] == "recorded")
+        self.assertEqual(recorded["id"], str(self.course.id))
+
+    def test_recorded_package_appears_without_a_company_package_row(self):
+        with tenant_context(staff=True):
+            CorporateOffering.objects.filter(pk=self.recorded.pk).delete()
+        mine = [p for p in self._get("/packages").json() if p["course_id"] == str(self.course.id)]
+        recorded = next(p for p in mine if p["delivery_type"] == "recorded")
+        self.assertEqual(recorded["price_gbp_minor"], 10000)
+        self.assertEqual(recorded["id"], str(self.course.id))
+
+    def test_admin_catalog_uses_shared_recorded_price_without_creating_a_package(self):
+        with tenant_context(staff=True):
+            CorporateOffering.objects.filter(pk=self.recorded.pk).delete()
+        self.client.force_login(self.staff)
+        response = self.client.get("/api/v1/console/corporate/offerings")
+        self.assertEqual(response.status_code, 200, response.content)
+        recorded = next(item for item in response.json() if item["course_id"] == str(self.course.id) and item["delivery_type"] == "recorded")
+        self.assertEqual((recorded["id"], recorded["gbp_minor"]), (str(self.course.id), 10000))
+        with tenant_context(staff=True):
+            self.assertFalse(CorporateOffering.objects.filter(course=self.course, delivery_type="recorded", is_active=True).exists())
+
+    @patch("apps.corporate.checkout.gateway.create_checkout_session")
+    def test_recorded_company_checkout_uses_the_shared_course_price(self, mock_checkout):
+        mock_checkout.return_value = {"id": "cs_shared_price", "url": "https://checkout.stripe.com/test"}
+        with tenant_context(staff=True):
+            shared_tier = PriceTier.objects.create(
+                name=f"Shared-{uuid.uuid4().hex[:6]}", gbp_minor=12500, sort_order=0
+            )
+            CoursePrice.objects.filter(course=self.course).update(tier=shared_tier)
+        response = self._post(f"/packages/{self.course.id}/checkout", {"quantity": 5})
+        self.assertEqual(response.status_code, 200, response.content)
+        with tenant_context(staff=True):
+            purchase = SeatPurchase.objects.get(pk=response.json()["purchase_id"])
+            synced = CorporateOffering.objects.get(course=self.course, delivery_type="recorded", is_active=True)
+        self.assertEqual((purchase.unit_price_minor, purchase.total_minor), (12500, 62500))
+        self.assertEqual(synced.price_tier_id, shared_tier.id)
+
+    def test_quote_can_select_a_shared_recorded_course(self):
+        with tenant_context(staff=True):
+            CorporateOffering.objects.filter(pk=self.recorded.pk).delete()
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            "/api/v1/console/corporate/quotes",
+            {
+                "org_id": str(self.org.id),
+                "buyer_id": str(self.admin.id),
+                "currency": "GBP",
+                "valid_until": (timezone.now() + timedelta(days=30)).isoformat(),
+                "notes": "Agreed price for five company seats",
+                "items": [{"offering_id": str(self.course.id), "quantity": 5, "unit_price_minor": 9000}],
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual((response.json()["total_minor"], response.json()["items"][0]["course_title"]), (45000, self.course.title))
+
+    def test_instalment_plan_can_select_a_shared_recorded_course(self):
+        with tenant_context(staff=True):
+            CorporateOffering.objects.filter(pk=self.recorded.pk).delete()
+        self.client.force_login(self.staff)
+        due_one = timezone.now() + timedelta(days=1)
+        due_two = due_one + timedelta(days=30)
+        response = self.client.post(
+            "/api/v1/console/corporate/instalment-plans",
+            {
+                "org_id": str(self.org.id),
+                "offering_id": str(self.course.id),
+                "buyer_id": str(self.admin.id),
+                "quantity": 5,
+                "unit_price_minor": 10000,
+                "currency": "GBP",
+                "schedule": [
+                    {"amount_minor": 25000, "due_at": due_one.isoformat(), "covers_months": 3},
+                    {"amount_minor": 25000, "due_at": due_two.isoformat(), "covers_months": 3},
+                ],
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        with tenant_context(staff=True):
+            purchase = SeatPurchase.objects.get(pk=response.json()["purchase_id"])
+        self.assertEqual((purchase.total_minor, purchase.quantity), (50000, 5))
 
     def test_switched_off_or_unpriced_option_is_not_offered(self):
         with tenant_context(staff=True):
             CorporateOffering.objects.filter(pk=self.live.pk).update(is_active=False)
-            CorporateOffering.objects.filter(pk=self.recorded.pk).update(price_tier=self._free_tier())
+            CoursePrice.objects.filter(course=self.course).update(is_free=True, tier=None)
         mine = [p for p in self._get("/packages").json() if p["course_id"] == str(self.course.id)]
         self.assertEqual(mine, [], "neither option is on sale")
-        r = self._post(f"/packages/{self.recorded.id}/checkout", {"quantity": 2})
-        self.assertEqual(r.status_code, 400, r.content)
-        self.assertEqual(r.json()["error"]["code"], "no_price")
+        r = self._post(f"/packages/{self.course.id}/checkout", {"quantity": 2})
+        self.assertEqual(r.status_code, 404, r.content)
+        self.assertEqual(r.json()["error"]["code"], "offering_not_found")
         r = self._post("/training-requests", {"course_id": str(self.course.id), "seats": 3})
         self.assertEqual(r.status_code, 400, r.content)
         self.assertEqual(r.json()["error"]["code"], "live_not_offered")
@@ -459,8 +572,28 @@ class CompanyHttpTest(SchemaTransactionTestCase):
             self.assertFalse(SeatPurchase.objects.filter(org=self.org).exists(), "no purchase was started")
 
     def test_live_request_allowed_when_live_is_offered(self):
-        r = self._post("/training-requests", {"course_id": str(self.course.id), "seats": 3})
+        message = "Please arrange a private cohort for our team in March."
+        r = self._post(
+            "/training-requests",
+            {"course_id": str(self.course.id), "seats": 3, "company_message": message},
+        )
         self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()["company_message"], message)
+
+        request_id = r.json()["id"]
+        self.client.force_login(self.staff)
+        reply = self.client.patch(
+            f"/api/v1/console/corporate/requests/{request_id}",
+            {"admin_reply": "We can schedule the private cohort in March. We will send dates and pricing shortly."},
+            content_type="application/json",
+        )
+        self.assertEqual(reply.status_code, 200, reply.content)
+        employer_view = self._get("/training-requests")
+        self.assertEqual(employer_view.status_code, 200, employer_view.content)
+        self.assertEqual(
+            employer_view.json()[0]["admin_reply"],
+            "We can schedule the private cohort in March. We will send dates and pricing shortly.",
+        )
 
     def test_console_needs_a_price_and_one_active_option_per_type(self):
         self.client.force_login(self.staff)
@@ -493,6 +626,20 @@ class CompanyHttpTest(SchemaTransactionTestCase):
             (10000, 30000),
             "changing live never touches recorded",
         )
+
+    def test_admin_cannot_create_a_separate_recorded_company_price(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            "/api/v1/console/corporate/offerings",
+            {
+                "course_id": str(self.course.id),
+                "delivery_type": "recorded",
+                "price_tier_id": str(self.recorded.price_tier_id),
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(response.json()["error"]["code"], "recorded_price_managed_globally")
 
     # ------------------------------------------- assign training: recorded uses seats
 

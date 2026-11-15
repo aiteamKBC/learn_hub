@@ -18,7 +18,7 @@ import { Link } from '@/lib/router'
 const SUCCESS = '/subscription?checkout=1'
 const CANCEL = '/subscription'
 
-/** The unlimited personal plan: learn any included course for a monthly or yearly fee.
+/** Unlimited learning: learn every course in the plan for a monthly or yearly fee.
  * Status, renewal and cancellation come from the server; cancellation is handled in Stripe's
  * billing portal (the authoritative place to change or stop a subscription). */
 export function SubscriptionPage() {
@@ -32,8 +32,8 @@ export function SubscriptionPage() {
       <Backdrop variant="aurora" height={520} />
       <div className="relative mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <PageHeader
-          title="Unlimited personal plan"
-          description="One subscription, every included course. Cancel whenever you like."
+          title="Unlimited learning"
+          description="One subscription, access to every course in your plan. Cancel whenever you like."
         />
         {sub.isLoading ? (
           <Skeleton className="h-40 rounded-lg" />
@@ -124,7 +124,7 @@ function Plans({ justCheckedOut }: { justCheckedOut: boolean }) {
     )
   if (plans.error) return <ErrorState message="We couldn't load the plans." onRetry={() => void plans.refetch()} />
   if (!plans.data?.length)
-    return <EmptyState icon={<Crown />} title="No plans available yet" body="The unlimited personal plan hasn't been set up. Please check back soon." />
+    return <EmptyState icon={<Crown />} title="No plans available yet" body="Unlimited learning has not been set up yet. Please check back soon." />
 
   const subscribe = (plan: { id: string; name: string; interval: string; amount_minor: number; currency: string }) => {
     const item: ReviewItem = {
@@ -163,9 +163,9 @@ function Plans({ justCheckedOut }: { justCheckedOut: boolean }) {
           </p>
           {p.description ? <p className="mt-3 text-sm text-muted">{p.description}</p> : null}
           <ul className="mt-4 space-y-1.5 text-sm">
-            <Feature>Every course marked &ldquo;included&rdquo;</Feature>
-            <Feature>New included courses as they&apos;re added</Feature>
-            <Feature>Cancel anytime in the billing portal</Feature>
+            <Feature>Every course included in your plan</Feature>
+            <Feature>New courses added to your plan</Feature>
+            <Feature>Cancel at any time in the billing portal</Feature>
           </ul>
           {p.trial_days > 0 ? <p className="mt-3 text-xs text-muted">Includes a {p.trial_days}-day trial.</p> : null}
           <Button className="mt-5" onClick={() => subscribe(p)}>

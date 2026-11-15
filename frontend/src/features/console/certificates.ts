@@ -25,6 +25,7 @@ export const DEFAULT_LAYOUT: CertLayout = {
   show_seal: true,
   show_cpd: true,
   show_instructor: true,
+  artwork_image_url: '',
 }
 
 export function useCertOverview() {
@@ -127,9 +128,18 @@ export function useSetCourseTemplate() {
 
 /** Signature image: 1) a write-only link, 2) PUT to storage, 3) the URL to save on the template. */
 export async function uploadSignature(file: File) {
+  return uploadCertificateImage(file, 1_000_000)
+}
+
+/** A ready-made certificate design used as the full-page background of a template. */
+export async function uploadCertificateArtwork(file: File) {
+  return uploadCertificateImage(file, 8_000_000)
+}
+
+async function uploadCertificateImage(file: File, maxBytes: number) {
   const type = file.type === 'image/png' ? 'image/png' : file.type === 'image/jpeg' ? 'image/jpeg' : null
   if (!type) throw new Error('Use a PNG or JPEG image.')
-  if (file.size > 1_000_000) throw new Error('The image can be up to 1 MB.')
+  if (file.size > maxBytes) throw new Error(`The image can be up to ${maxBytes / 1_000_000} MB.`)
   const ticket = await unwrap(api.POST('/api/v1/console/certificates/signature-upload', { body: { filename: file.name, size_bytes: file.size, content_type: type } }))
   await putToAzure(ticket, file)
   return ticket.url

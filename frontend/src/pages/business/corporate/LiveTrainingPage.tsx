@@ -87,6 +87,8 @@ function Requests() {
                       {r.preferred_intake ? ` · ${r.preferred_intake}` : ''}
                       {r.preferred_delivery_mode ? ` · ${MODE_LABEL[r.preferred_delivery_mode] ?? r.preferred_delivery_mode}` : ''} · sent {relativeDate(r.created_at)}
                     </p>
+                    {r.company_message ? <p className="mt-1 line-clamp-3 text-sm text-muted">Your message: {r.company_message}</p> : null}
+                    {r.admin_reply ? <p className="mt-2 rounded-md bg-primary-soft p-2 text-sm text-primary-soft-text">LearnHub admin: {r.admin_reply}</p> : null}
                   </div>
                   <div className="flex items-center gap-2">
                     <StatusBadge map={REQUEST_STATUS} status={r.status} />
@@ -295,13 +297,13 @@ function BookingCard({ b, onOpen }: { b: LiveBooking; onOpen: () => void }) {
   )
 }
 
-function PaymentNotice({ pending }: { pending: boolean }) {
+function PaymentNotice({ status }: { status: 'pending' | 'confirmed' | 'unknown' }) {
   return (
     <Card className="flex items-start gap-3 p-4 animate-reveal" role="status" aria-live="polite">
-      {pending ? <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-info motion-reduce:animate-none" /> : <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" />}
+      {status === 'pending' ? <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-info motion-reduce:animate-none" /> : status === 'confirmed' ? <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" /> : <CreditCard className="mt-0.5 size-5 shrink-0 text-muted" />}
       <div className="text-sm">
-        <p className="font-medium">{pending ? 'Confirming your payment…' : 'Payment confirmed'}</p>
-        <p className="text-muted">{pending ? 'This usually takes a few seconds.' : 'Now name the people who will attend.'}</p>
+        <p className="font-medium">{status === 'pending' ? 'Confirming your payment…' : status === 'confirmed' ? 'Payment confirmed' : 'Check payment status'}</p>
+        <p className="text-muted">{status === 'pending' ? 'This usually takes a few seconds.' : status === 'confirmed' ? 'Now name the people who will attend.' : 'Check the booking status below. If it is not paid, contact support.'}</p>
       </div>
     </Card>
   )
@@ -314,6 +316,8 @@ export function LiveTrainingPage() {
   const q = useLiveBookings(back)
   const openId = params.get('booking')
   const open = q.data?.find((b) => b.id === openId)
+  const paidBooking = q.data?.find((b) => b.id === params.get('paid_booking'))
+  const paymentStatus = paidBooking?.status === 'paid' || paidBooking?.status === 'active' ? 'confirmed' : paidBooking?.status === 'pending_pay' || (!q.data && !q.error) ? 'pending' : 'unknown'
   const setOpen = (id: string | null) =>
     setParams(
       (p) => {
@@ -330,7 +334,7 @@ export function LiveTrainingPage() {
     <>
       <PageHeader title="Live training" description="Group sessions led by a tutor. You pay once the dates are confirmed." />
       <div className="grid gap-6">
-        {back ? <PaymentNotice pending={q.data?.some((b) => b.status === 'pending_pay') ?? true} /> : null}
+        {back ? <PaymentNotice status={paymentStatus} /> : null}
         <Card>
           <CardHeader title="Bookings" description="Groups your company has a place in" />
           <div className="mt-3 p-5 pt-0">

@@ -9,6 +9,7 @@ from django.utils import timezone
 from apps.commerce import services as shop
 from apps.commerce.models import Plan, PlanPrice, Subscription
 from apps.identity.models import InstructorProfile
+from apps.org import services as org_services
 from core.tenancy import tenant_context
 from core.tests import factories as f
 from core.tests.base import SchemaTransactionTestCase
@@ -54,8 +55,8 @@ class MarketplaceApiTest(SchemaTransactionTestCase):
                                               content_type="application/json").json(), {"ok": True})  # fmt: skip
         self.assertEqual(self.client.get("/api/v1/commerce/cart/count").json(), {"count": 2})
         self.assertEqual(
-            self.client.get("/api/v1/commerce/wishlist").json()["items"], []
-        )  # moved to the cart
+            [c["slug"] for c in self.client.get("/api/v1/commerce/wishlist").json()["items"]], ["js"]
+        )  # saving a course survives adding it to the cart
         cart = self.client.get("/api/v1/commerce/cart?currency=USD").json()
         self.assertEqual((cart["currency"], len(cart["lines"])), ("USD", 2))
         self.assertEqual(self.client.delete(f"/api/v1/commerce/cart/{self.js.id}").json(), {"ok": True})
@@ -80,6 +81,53 @@ class MarketplaceApiTest(SchemaTransactionTestCase):
         self.assertEqual((v["plan_access"], v["enrollment_id"] is not None), (False, True))
         subs = self.client.get("/api/v1/commerce/subscriptions").json()
         self.assertEqual((subs[0]["plan"], subs[0]["status"]), ("Personal", "active"))
+
+    def test_wishlist_is_personal_for_learner_instructor_and_staff(self):
+        choices = [(self.sara, self.py), (self.teacher, self.js), (self.staff, self.free)]
+        for user, course in choices:
+            self.client.force_login(user)
+            self.assertEqual(self.client.get("/api/v1/commerce/wishlist").json()["items"], [])
+            saved = self.client.put(f"/api/v1/commerce/wishlist/{course.id}")
+            self.assertEqual(saved.status_code, 200, saved.content)
+            self.assertTrue(saved.json()["in_wishlist"])
+            self.assertEqual(self.client.put(f"/api/v1/commerce/wishlist/{course.id}").status_code, 200)
+            self.assertEqual(
+                [row["id"] for row in self.client.get("/api/v1/commerce/wishlist").json()["items"]],
+                [str(course.id)],
+            )
+            self.assertTrue(self.client.get(f"/api/v1/catalog/courses/{course.slug}").json()["viewer"]["in_wishlist"])
+
+        self.client.force_login(self.omar)
+        self.assertEqual(self.client.get("/api/v1/commerce/wishlist").json()["items"], [])
+        self.client.force_login(self.sara)
+        removed = self.client.post(f"/api/v1/commerce/wishlist/{self.py.id}/toggle")
+        self.assertFalse(removed.json()["in_wishlist"])
+        self.assertFalse(self.client.delete(f"/api/v1/commerce/wishlist/{self.py.id}").json()["in_wishlist"])
+        self.assertEqual(self.client.get("/api/v1/commerce/wishlist").json()["items"], [])
+        self.client.force_login(self.teacher)
+        self.assertEqual(
+            [row["id"] for row in self.client.get("/api/v1/commerce/wishlist").json()["items"]],
+            [str(self.js.id)],
+        )
+
+    def test_company_owner_can_save_visible_private_course(self):
+        org = org_services.create_organization(name="Acme", slug="acme-wishlist", owner=self.omar)
+        private = f.course(
+            staff=self.staff, owner=self.omar, slug="acme-safety", title="Acme Safety",
+            ownership="organization", org_id=org.id,
+        )
+        self.client.force_login(self.omar)
+        company = {"HTTP_X_ORG_ID": str(org.id)}
+        saved = self.client.post(f"/api/v1/commerce/wishlist/{private.id}/toggle", **company)
+        self.assertEqual(saved.status_code, 200, saved.content)
+        self.assertTrue(saved.json()["in_wishlist"])
+        self.assertEqual(
+            [row["id"] for row in self.client.get("/api/v1/commerce/wishlist", **company).json()["items"]],
+            [str(private.id)],
+        )
+        self.assertEqual(self.client.get("/api/v1/commerce/wishlist").json()["items"], [])
+        self.assertFalse(self.client.post(f"/api/v1/commerce/wishlist/{private.id}/toggle", **company).json()["in_wishlist"])
+        self.assertEqual(self.client.get("/api/v1/commerce/wishlist", **company).json()["items"], [])
 
     def test_course_detail_exposes_b2c_token_fields(self):
         # Course-level token / subscription fields are additive and default safely.

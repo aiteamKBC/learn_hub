@@ -158,6 +158,16 @@ def toggle_wishlist(request, course_id: str):
     return {"in_wishlist": services.toggle_wishlist(user=request.user, course_id=course_id)}
 
 
+@router.put("/wishlist/{course_id}", response=WishlistToggleOut, auth=session_auth)
+def save_wishlist(request, course_id: str):
+    return {"in_wishlist": services.save_wishlist(user=request.user, course_id=course_id)}
+
+
+@router.delete("/wishlist/{course_id}", response=WishlistToggleOut, auth=session_auth)
+def remove_wishlist(request, course_id: str):
+    return {"in_wishlist": services.remove_wishlist(user=request.user, course_id=course_id)}
+
+
 # ---------------------------------------------------------------- checkout & orders
 @router.post("/checkout", response=CheckoutOut, auth=session_auth)
 def checkout(request, body: CheckoutIn):

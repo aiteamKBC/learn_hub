@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
-import { Field, Input, NativeSelect } from '@/components/ui/input'
+import { Field, Input, NativeSelect, Textarea } from '@/components/ui/input'
 
 import { type Package, MODE_LABEL, useRecordedCheckout, useSubmitTrainingRequest } from './api'
 import { gbp } from './format'
@@ -35,7 +35,7 @@ function Count({ label, hint, value, onChange, max }: { label: string; hint: str
 
 /** Seats on a recorded course, then Stripe. The server works out the price. */
 export function SeatsForm({ pkg, footer }: { pkg: Package; footer?: ReactNode }) {
-  const [qty, setQty] = useState(5)
+  const [qty, setQty] = useState(1)
   const checkout = useRecordedCheckout()
   const valid = Number.isInteger(qty) && qty >= 1 && qty <= MAX_SEATS
   const pay = () =>
@@ -75,15 +75,16 @@ export function LiveForm({ pkg, onSent, footer }: { pkg: Package; onSent: () => 
   const [seats, setSeats] = useState(5)
   const [intake, setIntake] = useState('')
   const [mode, setMode] = useState('')
+  const [message, setMessage] = useState('')
   const submit = useSubmitTrainingRequest()
   const valid = Number.isInteger(seats) && seats >= 1 && seats <= 200
   const send = (e: FormEvent) => {
     e.preventDefault()
     submit.mutate(
-      { course_id: pkg.course_id, seats, preferred_intake: intake, preferred_delivery_mode: mode },
+      { course_id: pkg.course_id, seats, preferred_intake: intake, preferred_delivery_mode: mode, company_message: message },
       {
         onSuccess: () => {
-          toast.success('Request sent. We will be in touch with dates and a price.')
+          toast.success('Request sent to LearnHub. The admin will contact you with the proposed schedule and price.')
           onSent()
         },
         onError: (err) => toast.error((err as Error).message),
@@ -110,13 +111,16 @@ export function LiveForm({ pkg, onSent, footer }: { pkg: Package; onSent: () => 
           )}
         </Field>
       </div>
+      <Field label="Message to the LearnHub admin" hint="Tell us what your team needs, preferred timing, or any questions (optional).">
+        {(p) => <Textarea {...p} value={message} onChange={(e) => setMessage(e.target.value.slice(0, 2000))} maxLength={2000} rows={4} placeholder="We need live training for our support team. Ideally starting in January…" />}
+      </Field>
       <p className="rounded-lg bg-surface-2 p-4 text-sm">
-        <span className="font-medium">{gbp(pkg.price_gbp_minor)}</span> <span className="text-muted">per person. No payment now: we plan a group, then send you the dates and the price to approve.</span>
+        <span className="font-medium">{gbp(pkg.price_gbp_minor)}</span> <span className="text-muted">per person. This request does not book or open the course yet. The admin will confirm the group, dates and price; you review and pay after that.</span>
       </p>
       <div className="flex flex-wrap justify-end gap-2">
         {footer}
         <Button type="submit" loading={submit.isPending} disabled={!valid}>
-          <Send /> Send request
+          <Send /> Send to admin
         </Button>
       </div>
     </form>
@@ -138,7 +142,7 @@ export function BuySeats({ pkg }: { pkg: Package }) {
       <Button onClick={() => setOpen(true)}>
         <CreditCard /> Buy seats
       </Button>
-      <DialogContent title={`Buy seats: ${pkg.course_title}`} description="Each seat gives one employee this course. Unused seats stay yours while the course is available.">
+      <DialogContent title={`Buy seats: ${pkg.course_title}`} description="Buy seats for this course. After payment, assign each seat to an employee from Assign training. Buy a different course separately.">
         {open ? <SeatsForm pkg={pkg} footer={cancel} /> : null}
       </DialogContent>
     </Dialog>

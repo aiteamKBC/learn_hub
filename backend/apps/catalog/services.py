@@ -217,17 +217,25 @@ def publish_checklist(version: CourseVersion) -> list[str]:
     # and the instructor review queue.
     course = version.course
     if course.ownership in (Course.Ownership.PLATFORM, Course.Ownership.INSTRUCTOR):
+        from apps.commerce import conversion
         from apps.commerce.models import CoursePrice
 
         cash_price = CoursePrice.objects.filter(course=course).only("is_free").first()
         if cash_price is None:
             problems.append("Set a course price, or make the course free.")
-        elif not cash_price.is_free and not course.full_course_token_price:
-            for lec in lectures:
-                if not lec.is_preview and not lec.token_price:
-                    problems.append(
-                        f"Set a token price for lesson '{lec.title}', or mark it as a free preview."
-                    )
+        elif not cash_price.is_free:
+            # A course is "priced in tokens" automatically when (a) a cash tier is set
+            # AND a live TokenRate exists (derived), OR (b) a legacy override is stored.
+            try:
+                derived = conversion.course_token_price(course)
+            except conversion.NoTokenRate:
+                derived = None
+            if not derived:
+                for lec in lectures:
+                    if not lec.is_preview and not lec.token_price:
+                        problems.append(
+                            f"Set a token price for lesson '{lec.title}', or mark it as a free preview."
+                        )
     return problems
 
 

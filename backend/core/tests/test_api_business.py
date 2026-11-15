@@ -194,7 +194,9 @@ class BusinessApiTest(SchemaTransactionTestCase):
             "member_ids": [str(self.m_omar.id)],
         }
         preview = self.post("/org/assign", {**target, "dry_run": True}).json()
-        self.assertEqual(preview, {"enrolled": 3, "already_had_it": 0})  # counted, nothing written
+        self.assertEqual(
+            preview, {"enrolled": 3, "already_had_it": 0, "seats": None}
+        )  # counted, nothing written; no seat limit on this org
         r = self.post("/org/assign", target).json()
         self.assertEqual(r["enrolled"], 3)
         self.assertEqual(

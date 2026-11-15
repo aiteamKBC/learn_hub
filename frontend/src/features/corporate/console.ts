@@ -156,6 +156,7 @@ export function useCnRequests(status: string) {
         }),
       ),
     placeholderData: keepPreviousData,
+    refetchInterval: 30_000,
   })
 }
 export function useCnUpdateRequest() {

@@ -51,7 +51,7 @@ export function useAllocations(offeringId?: string) {
   })
 }
 export function useTrainingRequests(enabled = true) {
-  return useQuery({ queryKey: key('requests'), queryFn: () => unwrap(api.GET('/api/v1/corporate/training-requests')), enabled })
+  return useQuery({ queryKey: key('requests'), queryFn: () => unwrap(api.GET('/api/v1/corporate/training-requests')), enabled, refetchInterval: 30_000 })
 }
 export function useLiveBookings(poll = false) {
   return useQuery({
