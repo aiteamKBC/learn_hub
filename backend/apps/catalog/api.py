@@ -142,7 +142,7 @@ def course_detail(request, slug: str, currency: str | None = None):
     """The course landing page. A company's private course is visible only inside that
     company (RLS), so a guessed slug just returns 404."""
     course = get_object_or_404(
-        Course.objects.select_related("category", "live_version").prefetch_related(
+        Course.objects.select_related("category", "live_version", "cash_price_tier").prefetch_related(
             _instructor_names(), "topics"
         ),
         slug=slug, status="published", live_version__isnull=False, deleted_at__isnull=True,
@@ -188,12 +188,18 @@ def course_detail(request, slug: str, currency: str | None = None):
         p = getattr(link.user, "instructor_profile", None)
         profiles.append({"id": link.user_id, "name": link.user.full_name, "avatar_url": link.user.avatar_url,
                          "headline": p.headline if p else "", "slug": p.public_slug if p else None})  # fmt: skip
+    from apps.commerce import conversion
+
+    try:
+        derived_token_price = conversion.course_token_price(course)
+    except conversion.NoTokenRate:
+        derived_token_price = None
     return {
         **card, "description": course.description, "cpd_hours": float(course.cpd_hours) if course.cpd_hours else None,
         "published_at": course.published_at, "updated_at": course.updated_at,
         "topics": [t.name for t in course.topics.all()], "instructor_profiles": profiles,
         "rating_breakdown": breakdown, "sections": sections, "viewer": viewer,
-        "full_course_token_price": course.full_course_token_price,
+        "full_course_token_price": derived_token_price,
         "token_pricing_mode": course.token_pricing_mode, "in_subscription": course.in_subscription,
     }  # fmt: skip
 

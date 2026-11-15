@@ -116,6 +116,8 @@ function Requests() {
                 <Th className="hidden md:table-cell">Course</Th>
                 <Th className="text-right">People</Th>
                 <Th className="hidden lg:table-cell">Wishes</Th>
+                <Th className="hidden xl:table-cell">Company message</Th>
+                <Th className="hidden xl:table-cell">Reply to employer</Th>
                 <Th>Status</Th>
                 <Th className="text-right">
                   <span className="sr-only">Actions</span>
@@ -132,6 +134,10 @@ function Requests() {
                   <Td className="hidden max-w-[14rem] truncate md:table-cell">{r.course_title}</Td>
                   <Td className="text-right tabular-nums">{r.requested_seats}</Td>
                   <Td className="hidden text-muted lg:table-cell">{[r.preferred_intake, MODE_LABEL[r.preferred_delivery_mode]].filter(Boolean).join(' · ') || 'None'}</Td>
+                  <Td className="hidden max-w-[18rem] text-muted xl:table-cell">{r.company_message || 'No message'}</Td>
+                  <Td className="hidden xl:table-cell">
+                    <RequestReply r={r} />
+                  </Td>
                   <Td>
                     <StatusBadge map={REQUEST_STATUS} status={r.status} />
                   </Td>
@@ -155,6 +161,20 @@ function Requests() {
       </QueryBlock>
       {placing ? <PlaceRequest r={placing} onClose={() => setPlacing(null)} /> : null}
     </Card>
+  )
+}
+
+function RequestReply({ r }: { r: CnRequest }) {
+  const [reply, setReply] = useState(r.admin_reply)
+  const update = useCnUpdateRequest()
+  useEffect(() => setReply(r.admin_reply), [r.admin_reply])
+  return (
+    <div className="grid min-w-56 gap-1.5">
+      <Textarea aria-label={`Reply to ${r.org_name}`} value={reply} onChange={(e) => setReply(e.target.value.slice(0, 2000))} rows={2} placeholder="Write a reply the employer can see" maxLength={2000} />
+      <Button size="sm" variant="secondary" className="justify-self-start" disabled={reply === r.admin_reply} loading={update.isPending} onClick={() => update.mutate({ id: r.id, admin_reply: reply }, { onSuccess: () => toast.success('Reply saved for the employer'), onError: err })}>
+        Save reply
+      </Button>
+    </div>
   )
 }
 
@@ -416,7 +436,7 @@ function NewGroup({ onClose }: { onClose: () => void }) {
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent title="New live group" description="Companies from several organisations can share one group.">
         <form onSubmit={save} className="grid gap-4">
-          <Field label="Course" hint={live.length ? undefined : 'Create a live package first.'}>
+          <Field label="Course" hint={live.length ? undefined : 'Add a live course under Company sales > Live offers first.'}>
             {(p) => (
               <NativeSelect {...p} value={courseId} onChange={(e) => setCourseId(e.target.value)} required>
                 <option value="">Choose…</option>

@@ -12,6 +12,7 @@ import { EmptyState, ErrorState, PageHeader, Rating } from '@/components/ui/misc
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { type CourseDecision, type QueueItem, type QueueTab, type ReviewVersion, useApprovalQueue, useCourseDecision, useReviewPlayback, useReviewVersion, useTemplateDecision } from '@/features/console/approvals'
+import { useAdminRates } from '@/features/b2c/console'
 import { CertificatePreview } from '@/features/console/certificate-preview'
 import { templatePreviewPath, useCertTemplates } from '@/features/console/certificates'
 import { ConfirmDialog, gbp, StatusPill, useParam, useTabParam } from '@/features/console/ui'
@@ -19,6 +20,7 @@ import { useDebounced } from '@/features/org/ui'
 import { API_BASE_URL } from '@/lib/env'
 import { cn } from '@/lib/cn'
 import { duration, relativeDate, shortDate } from '@/lib/format'
+import { tokenValueGbp } from '@/lib/token-value'
 
 const QUEUE_TABS = ['all', 'new', 'changes', 'templates'] as const
 const QUEUE_LABEL: Record<QueueTab, string> = { all: 'All', new: 'New courses', changes: 'Course changes', templates: 'Certificate templates' }
@@ -120,6 +122,8 @@ const KIND_LABEL: Record<string, string> = { video: 'Video', article: 'Reading',
 
 function CourseReview({ id }: { id: string }) {
   const { data: v, error, refetch, isLoading } = useReviewVersion(id)
+  const rates = useAdminRates()
+  const tokenRate = Number(rates.data?.find((r) => r.is_current)?.tokens_per_gbp_minor ?? 0) || undefined
   const [tab, setTab] = useState('preview')
   useEffect(() => setTab('preview'), [id])
   if (error) return <ErrorState message={(error as Error).message} onRetry={() => void refetch()} />
@@ -195,7 +199,7 @@ function CourseReview({ id }: { id: string }) {
                 <h3 className="flex items-center gap-2 font-semibold"><Coins className="size-4 text-primary" aria-hidden /> Pricing &amp; access review</h3>
                 <dl className="mt-3 grid grid-cols-2 gap-3 text-[13px] sm:grid-cols-4">
                   <div><dt className="text-muted">Cash price</dt><dd className="font-semibold tabular">{c.is_free ? 'Free' : c.price_gbp_minor != null ? gbp(c.price_gbp_minor) : 'Not set'}</dd></div>
-                  <div><dt className="text-muted">Full course</dt><dd className="font-semibold tabular">{c.full_course_token_price != null ? `${c.full_course_token_price.toLocaleString('en-GB')} tokens` : 'Per lesson'}</dd></div>
+                  <div><dt className="text-muted">Full course</dt><dd className="font-semibold tabular">{c.full_course_token_price != null ? <>{c.full_course_token_price.toLocaleString('en-GB')} tokens<span className="block text-xs font-normal text-muted">{tokenValueGbp(c.full_course_token_price, tokenRate)}</span></> : 'Per lesson'}</dd></div>
                   <div><dt className="text-muted">Lessons priced</dt><dd className="font-semibold tabular">{tokenPriced} / {protectedLessons.length}</dd></div>
                   <div><dt className="text-muted">Subscription</dt><dd className="font-semibold">{c.in_subscription ? 'Included' : 'Excluded'}</dd></div>
                 </dl>
@@ -216,7 +220,7 @@ function CourseReview({ id }: { id: string }) {
                           <span className="min-w-0 truncate">{l.title}</span>
                           <span className="flex shrink-0 items-center gap-2 text-muted">
                             {l.is_preview ? <Badge tone="info">Preview</Badge> : null}
-                            {!l.is_preview && l.token_price != null ? <Badge tone="primary">{l.token_price.toLocaleString('en-GB')} tokens</Badge> : null}
+                            {!l.is_preview && l.token_price != null ? <Badge tone="primary">{l.token_price.toLocaleString('en-GB')} tokens{tokenValueGbp(l.token_price, tokenRate) ? ` · ${tokenValueGbp(l.token_price, tokenRate)}` : ''}</Badge> : null}
                             {!l.is_preview && l.token_price == null && c.full_course_token_price == null ? <Badge tone="warning">Unpriced</Badge> : null}
                             {KIND_LABEL[l.kind] ?? l.kind}
                             {l.duration_sec ? ` · ${duration(l.duration_sec)}` : ''}

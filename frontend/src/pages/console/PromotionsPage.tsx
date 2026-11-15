@@ -453,7 +453,7 @@ export function ConsolePromotionsPage() {
     <>
       <PageHeader
         title="Promotions"
-        description="Create and manage discounts, promo codes and marketing campaigns."
+        description="Set customer discounts, promo codes and offers. Instructor commission rates are managed separately in Commissions."
         actions={
           <>
             <Button onClick={() => setForm({ promo: null, kind: tabKind })}><Plus /> {createLabel}</Button>

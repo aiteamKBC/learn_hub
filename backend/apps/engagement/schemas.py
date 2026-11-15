@@ -57,6 +57,7 @@ class AnswerOut(Schema):
     body: str
     author: Author
     is_instructor: bool
+    is_staff: bool
     created_at: datetime
 
 

@@ -135,14 +135,24 @@ class CoursePatchTests(_Base):
         self.client.force_login(self.staff)
 
     def test_set_value_writes(self):
+        # Overriding the stored full_course_token_price now requires an explicit flag
+        # (the service derives the price from cash_price_tier x TokenRate by default).
         r = self._patch(
             f"/pricing/token/courses/{self.course.id}",
-            {"full_course_token_price": 500, "reason": "launch"},
+            {"full_course_token_price": 500, "price_override": True, "reason": "launch"},
         )
         self.assertEqual(r.status_code, 200, r.content)
         self.course.refresh_from_db()
         self.assertEqual(self.course.full_course_token_price, 500)
         self.assertGreaterEqual(self._audit_rows("course", self.course.id), 1)
+
+    def test_set_value_without_override_is_rejected(self):
+        r = self._patch(
+            f"/pricing/token/courses/{self.course.id}",
+            {"full_course_token_price": 500, "reason": "launch"},
+        )
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn(b"derived", r.content)
 
     def test_unset_leaves_alone(self):
         with tenant_context(user_id=self.staff.id, staff=True):
@@ -286,6 +296,7 @@ class BulkTests(_Base):
             {
                 "course_ids": [str(self.course.id), bad_id],
                 "patch": {"full_course_token_price": 300},
+                "price_override": True,
                 "reason": "bulk",
             },
         )
@@ -462,7 +473,7 @@ class AuditEndpointTests(_Base):
         self.client.force_login(self.staff)
         self._patch(
             f"/pricing/token/courses/{self.course.id}",
-            {"full_course_token_price": 777, "reason": "audit-seed"},
+            {"full_course_token_price": 777, "price_override": True, "reason": "audit-seed"},
         )
         r = self._get("/pricing/token/audit?entity_type=course")
         self.assertEqual(r.status_code, 200, r.content)

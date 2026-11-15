@@ -169,11 +169,17 @@ def unlock_material(*, user, material_id: UUID, actor=None, request=None) -> Con
 def unlock_course(*, user, course_id: UUID, actor=None, request=None) -> ContentEntitlement:
     from apps.catalog.models import Course
 
-    course = Course.objects.filter(pk=course_id).first()
+    from . import conversion
+
+    course = Course.objects.select_related("cash_price_tier").filter(pk=course_id).first()
     if course is None:
         raise ValueError("Course not found.")
 
-    if course.full_course_token_price is None or course.full_course_token_price <= 0:
+    try:
+        token_price = conversion.course_token_price(course)
+    except conversion.NoTokenRate as exc:
+        raise NoPriceSet(str(exc)) from exc
+    if token_price is None or token_price <= 0:
         raise NoPriceSet("This course does not have a full-course token price.")
 
     existing = (
@@ -196,7 +202,7 @@ def unlock_course(*, user, course_id: UUID, actor=None, request=None) -> Content
         user=user,
         scope="course",
         target_id=course_id,
-        tokens=course.full_course_token_price,
+        tokens=token_price,
         course_id=course_id,
         instructor_id=instructor_id,
         actor=actor or user,
@@ -223,7 +229,7 @@ def unlock_course(*, user, course_id: UUID, actor=None, request=None) -> Content
             "course",
             str(course_id),
             {
-                "tokens": course.full_course_token_price,
+                "tokens": token_price,
                 "spend_id": str(spend.id),
             },
         )

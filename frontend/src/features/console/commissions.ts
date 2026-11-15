@@ -37,10 +37,18 @@ export function useCommissionRules(scope = '') {
   return useQuery({ queryKey: ['console', 'commissions', 'rules', scope], queryFn: () => fetchRules(scope) })
 }
 
-export function useCommissionPreview(courseId: string) {
+export function useCommissionPreview(courseId: string, instructorId = '') {
   return useQuery({
-    queryKey: ['console', 'commissions', 'preview', courseId],
-    queryFn: () => unwrap(api.GET('/api/v1/console/commissions/preview', { params: { query: { course_id: courseId } } })),
+    queryKey: ['console', 'commissions', 'preview', courseId, instructorId],
+    queryFn: () => unwrap(api.GET('/api/v1/console/commissions/preview', { params: { query: { course_id: courseId, instructor_id: instructorId } } })),
+    enabled: !!courseId && !!instructorId,
+  })
+}
+
+export function useCourseCommissionInstructors(courseId: string) {
+  return useQuery({
+    queryKey: ['console', 'commissions', 'course-instructors', courseId],
+    queryFn: () => unwrap(api.GET('/api/v1/console/commissions/course-instructors', { params: { query: { course_id: courseId } } })),
     enabled: !!courseId,
   })
 }

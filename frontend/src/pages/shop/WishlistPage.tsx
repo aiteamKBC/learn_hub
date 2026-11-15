@@ -6,13 +6,13 @@ import { Card } from '@/components/ui/card'
 import { EmptyState, ErrorState } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CourseRow } from '@/features/catalog/CourseRow'
-import { useAddToCart, useToggleWishlist, useWishlist } from '@/features/commerce/api'
+import { useAddToCart, useRemoveWishlist, useWishlist } from '@/features/commerce/api'
 import { Link } from '@/lib/router'
 
 export function WishlistPage() {
   const { data, isLoading, error, refetch } = useWishlist()
   const add = useAddToCart()
-  const toggle = useToggleWishlist()
+  const remove = useRemoveWishlist()
   const fail = (e: unknown) => toast.error((e as Error).message)
   return (
     <>
@@ -37,10 +37,10 @@ export function WishlistPage() {
                 course={c}
                 actions={
                   <>
-                    <Button size="sm" loading={add.isPending && add.variables === c.id} onClick={() => add.mutate(c.id, { onSuccess: () => toast.success('Moved to your cart'), onError: fail })}>
+                    {c.price && !c.price.free ? <Button size="sm" loading={add.isPending && add.variables === c.id} onClick={() => add.mutate(c.id, { onSuccess: () => toast.success('Added to your cart'), onError: fail })}>
                       <ShoppingCart /> Add to cart
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => toggle.mutate(c.id, { onSuccess: () => toast.success('Removed from your wishlist'), onError: fail })}>
+                    </Button> : <Button size="sm" asChild><Link to={`/courses/${c.slug}`}>View course</Link></Button>}
+                    <Button size="sm" variant="ghost" loading={remove.isPending && remove.variables === c.id} onClick={() => remove.mutate(c.id, { onSuccess: () => toast.success('Removed from your wishlist'), onError: fail })}>
                       <Heart className="fill-danger text-danger" /> Remove
                     </Button>
                   </>

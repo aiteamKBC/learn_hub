@@ -116,7 +116,8 @@ class ConsoleCourseTokenDetail(Schema):
     title: str
     slug: str
     cash_price_tier_id: UUID | None
-    full_course_token_price: int | None
+    full_course_token_price: int | None  # stored value — may diverge from derived
+    derived_token_price: int | None  # cash_price_tier.gbp_minor x TokenRate.current
     token_pricing_mode: str
     live_version_id: UUID | None
     sections: list[ConsoleSectionTokenOut]
@@ -129,11 +130,16 @@ class ConsoleCourseTokenPatch(Schema):
     A field left out of the request body stays at its current value (UNSET sentinel).
     A field sent explicitly as JSON `null` clears the column. A field sent with a
     value sets the column.
+
+    `full_course_token_price` is normally derived from cash_price_tier x TokenRate.
+    Set `price_override=True` to store a value that diverges from the derived rate; the
+    reason is recorded in audit.
     """
 
     price_tier_id: Any = _UNSET  # UUID | None
     full_course_token_price: Any = _UNSET  # int | None
     token_pricing_mode: Any = _UNSET  # str
+    price_override: bool = False
     reason: str = Field(..., min_length=3, max_length=500)
 
 
@@ -185,6 +191,7 @@ class ConsoleBulkCourseTokenPatch(Schema):
 class ConsoleBulkCourseIn(Schema):
     course_ids: list[UUID] = Field(..., min_length=1, max_length=500)
     patch: ConsoleBulkCourseTokenPatch
+    price_override: bool = False
     reason: str = Field(..., min_length=3, max_length=500)
 
 
@@ -337,6 +344,8 @@ def _resolve_course_patch(payload) -> dict:
         kwargs["full_course_token_price"] = sent["full_course_token_price"]
     if "token_pricing_mode" in sent:
         kwargs["mode"] = sent["token_pricing_mode"]
+    if sent.get("price_override"):
+        kwargs["allow_override"] = True
     return kwargs
 
 
@@ -399,7 +408,7 @@ def get_token_course(request, course_id: UUID):
                             "title": lecture.title,
                             "kind": lecture.kind,
                             "position": lecture.position,
-                            "duration_min": (lecture.duration_sec or 0) // 60,
+                            "duration_min": max(1, round((lecture.duration_sec or 0) / 60)),
                             "token_price": lecture.token_price,
                             "is_free_preview": lecture.is_free_preview,
                             "is_preview": lecture.is_preview,
@@ -418,12 +427,19 @@ def get_token_course(request, course_id: UUID):
                     ],
                 }
             )
+    from apps.commerce import conversion
+
+    try:
+        derived = conversion.course_token_price(c)
+    except conversion.NoTokenRate:
+        derived = None
     return {
         "id": c.id,
         "title": c.title,
         "slug": c.slug,
         "cash_price_tier_id": c.cash_price_tier_id,
         "full_course_token_price": c.full_course_token_price,
+        "derived_token_price": derived,
         "token_pricing_mode": c.token_pricing_mode,
         "live_version_id": c.live_version_id,
         "sections": sections,
@@ -475,7 +491,7 @@ def distribute_tokens(request, course_id: UUID, payload: ConsoleDistributeIn):
                 "lecture_id": r["lecture_id"],
                 "title": lectures.get(r["lecture_id"]).title if r["lecture_id"] in lectures else "",
                 "kind": lectures.get(r["lecture_id"]).kind if r["lecture_id"] in lectures else "",
-                "duration_min": (lectures.get(r["lecture_id"]).duration_sec or 0) // 60
+                "duration_min": max(1, round((lectures.get(r["lecture_id"]).duration_sec or 0) / 60))
                 if r["lecture_id"] in lectures
                 else 0,
                 "current_price": r["current_price"],
@@ -568,6 +584,8 @@ def bulk_patch_courses(request, payload: ConsoleBulkCourseIn):
                 kwargs["full_course_token_price"] = patch_sent["full_course_token_price"]
             if "token_pricing_mode" in patch_sent:
                 kwargs["mode"] = patch_sent["token_pricing_mode"]
+            if payload.price_override:
+                kwargs["allow_override"] = True
             pricing_service.set_course_price(
                 c,
                 **kwargs,

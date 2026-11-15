@@ -35,6 +35,7 @@ import {
 } from '@/features/b2c/console'
 import { dateTime } from '@/features/console/money-ui'
 import { count } from '@/lib/format'
+import { gbpForTokenInput, moneyGbp, moneyUsd, tokensFromGbp, tokenValueGbp } from '@/lib/token-value'
 
 /** Console > Token pricing. Packs, exchange rate, custom top-up policy, bonus campaigns and the
  * audit trail. Everything is server-authoritative; the bonus-campaign funding model is not yet
@@ -82,6 +83,27 @@ const COMPONENT_META: Record<string, { label: string; Icon: typeof Video }> = {
 }
 function componentLabel(kind: string) { return COMPONENT_META[kind]?.label ?? kind.replace(/_/g, ' ') }
 
+function TokenValue({ tokens, rate }: { tokens: number | null | undefined; rate: number | undefined }) {
+  const value = tokenValueGbp(tokens, rate)
+  return value ? <span className="block text-xs font-normal text-muted">{value}</span> : null
+}
+
+function GbpPriceInput({ tokens, poundsDraft, rate, onChange, onBlur }: { tokens: string; poundsDraft: string | undefined; rate: number | undefined; onChange: (pounds: string, tokens: string) => void; onBlur: () => void }) {
+  const validTokens = tokens.trim() !== '' && Number.isInteger(Number(tokens)) && Number(tokens) >= 0
+  const pounds = poundsDraft ?? (rate && validTokens ? gbpForTokenInput(Number(tokens), rate) : '')
+  return <Field label="Equivalent (£)">
+    {(p) => <Input {...p} type="number" min="0" step="0.01" disabled={!rate} value={pounds} onBlur={onBlur} onChange={(e) => {
+      const raw = e.target.value
+      const amount = Number(raw)
+      onChange(raw, raw.trim() !== '' && Number.isFinite(amount) && amount >= 0 && rate ? String(tokensFromGbp(amount, rate)) : '')
+    }} placeholder="e.g. 5.00" />}
+  </Field>
+}
+
+function validPoundsDraft(value: string | undefined): boolean {
+  return value === undefined || value.trim() === '' || (Number.isFinite(Number(value)) && Number(value) >= 0)
+}
+
 const CAP_MULTIPLE = 2 // hard block above 2× the fair (cash-equivalent) price
 const SUGGEST_FACTOR = 0.8 // "Suggest" fills 20% cheaper than cash
 
@@ -99,6 +121,9 @@ function CoursesTab() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const courses = useTokenCourses(search)
+  const tiers = usePriceTiers()
+  const rates = useAdminRates()
+  const rate = Number(rates.data?.find((r) => r.is_current)?.tokens_per_gbp_minor ?? 0) || undefined
 
   if (selected) return <CourseEditor courseId={selected} onBack={() => setSelected(null)} />
 
@@ -121,24 +146,32 @@ function CoursesTab() {
             <thead>
               <Tr>
                 <Th>Course</Th>
+                <Th>Cash price</Th>
                 <Th>Mode</Th>
                 <Th>Full-course price</Th>
+                <Th>Token value</Th>
                 <Th>Lectures priced</Th>
                 <Th />
               </Tr>
             </thead>
             <tbody>
-              {courses.data.items.map((c) => (
+              {courses.data.items.map((c) => {
+                const tier = tiers.data?.find((t) => t.id === c.cash_price_tier_id)
+                const tokenPrice = c.full_course_token_price ?? (tier && rate ? Math.round(tier.gbp_minor * rate) : null)
+                return (
                 <Tr key={c.id}>
                   <Td className="font-medium">{c.title}</Td>
+                  <Td className="tabular-nums text-muted">{tier ? <>{moneyGbp(tier.gbp_minor)}{moneyUsd(tier.amount_minor) ? <span className="ml-1.5">· {moneyUsd(tier.amount_minor)}</span> : null}</> : 'Not set'}</Td>
                   <Td><Badge tone="neutral">{MODE_LABEL[c.token_pricing_mode] ?? c.token_pricing_mode}</Badge></Td>
                   <Td className="tabular-nums">{c.full_course_token_price != null ? `${count(c.full_course_token_price)} tokens` : <span className="text-muted">—</span>}</Td>
+                  <Td className="tabular-nums text-muted">{tokenValueGbp(tokenPrice, rate) ?? '—'}</Td>
                   <Td className="tabular-nums">{c.lectures_priced_count}{c.materials_priced_count ? ` (+${c.materials_priced_count} materials)` : ''}</Td>
                   <Td className="text-right">
                     <Button size="sm" variant="secondary" onClick={() => setSelected(c.id)}>Manage</Button>
                   </Td>
                 </Tr>
-              ))}
+                )
+              })}
             </tbody>
           </Table>
         )}
@@ -154,7 +187,9 @@ function CourseEditor({ courseId, onBack }: { courseId: string; onBack: () => vo
   const rates = useAdminRates()
   const [reason, setReason] = useState('')
   const [fullPriceDraft, setFullPriceDraft] = useState<string | undefined>(undefined)
+  const [fullPoundsDraft, setFullPoundsDraft] = useState<string | undefined>(undefined)
   const [mode, setMode] = useState('')
+  const [selectedKinds, setSelectedKinds] = useState<string[] | null>(null)
 
   const d = detail.data
   const needReason = reason.trim().length < 3
@@ -165,6 +200,7 @@ function CourseEditor({ courseId, onBack }: { courseId: string; onBack: () => vo
 
   // Fair price anchor = course cash price (its tier's GBP pence) × live token rate (tokens/penny).
   const gbpMinor = tiers.data?.find((t) => t.id === d?.cash_price_tier_id)?.gbp_minor
+  const usdMinor = tiers.data?.find((t) => t.id === d?.cash_price_tier_id)?.amount_minor
   const ratePerPenny = Number(rates.data?.find((r) => r.is_current)?.tokens_per_gbp_minor ?? 0) || undefined
   const fair = computeFair(gbpMinor, ratePerPenny)
 
@@ -177,9 +213,13 @@ function CourseEditor({ courseId, onBack }: { courseId: string; onBack: () => vo
     if ('full_course_token_price' in body && body.full_course_token_price != null && fair && body.full_course_token_price > fair.fair) {
       toast.warning('Heads up: this is dearer than paying cash for the course.')
     }
+    // A full-course amount is an intentional exception to the cash-price × token-rate
+    // calculation. The API requires this explicit flag so the audit log records it as
+    // an override rather than silently accepting a divergent price.
+    const priceOverride = 'full_course_token_price' in body && body.full_course_token_price != null
     patch.mutate(
-      { courseId, body: { ...body, reason: reason.trim() } },
-      { onSuccess: () => { if ('full_course_token_price' in body) setFullPriceDraft(undefined); toast.success('Saved.') }, onError: (e) => toast.error((e as Error).message) },
+      { courseId, body: { ...body, price_override: priceOverride, reason: reason.trim() } },
+      { onSuccess: () => { if ('full_course_token_price' in body) { setFullPriceDraft(undefined); setFullPoundsDraft(undefined) } toast.success('Saved.') }, onError: (e) => toast.error((e as Error).message) },
     )
   }
 
@@ -198,22 +238,29 @@ function CourseEditor({ courseId, onBack }: { courseId: string; onBack: () => vo
           <Card>
             <CardHeader title={d.title} description="Whole-course unlock and pricing mode." />
             <div className="grid gap-4 p-4">
+              {gbpMinor != null ? (
+                <p className="rounded-md bg-surface-2 px-3 py-2 text-sm text-muted">
+                  Course cash price: <strong className="text-text">{moneyGbp(gbpMinor)}{moneyUsd(usdMinor) ? ` · ${moneyUsd(usdMinor)}` : ''}</strong>
+                  {fair ? <> · Current equivalent: <strong className="text-text">{count(fair.fair)} tokens</strong></> : null}
+                </p>
+              ) : null}
               <Field label="Reason (required for every change)" hint={needReason ? 'Enter at least 3 characters to enable Save, Review, Apply, and component pricing.' : 'Recorded in the audit trail.'}>
                 {(p) => <Input {...p} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why are you changing this?" />}
               </Field>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <div className="flex items-end gap-2">
-                    <Field label="Full-course unlock price (tokens)" hint="Blank = not sold whole for tokens. Use a whole number.">
-                      {(p) => <Input {...p} type="number" min="0" step="1" value={fullPrice} onChange={(e) => setFullPriceDraft(e.target.value)} placeholder="e.g. 500" />}
+              <div className="grid gap-5 lg:grid-cols-2">
+                <div className="min-w-0 space-y-3 rounded-lg border border-border p-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Full course · tokens">
+                      {(p) => <Input {...p} type="number" min="0" step="1" value={fullPrice} onChange={(e) => { setFullPriceDraft(e.target.value); setFullPoundsDraft(undefined) }} placeholder="e.g. 500" />}
                     </Field>
-                    <Button disabled={patch.isPending || needReason || !fullPriceValid} onClick={() => saveCourse({ full_course_token_price: fullPriceValue })}>Save</Button>
+                    <GbpPriceInput tokens={fullPrice} poundsDraft={fullPoundsDraft} rate={ratePerPenny} onChange={(pounds, tokens) => { setFullPoundsDraft(pounds); setFullPriceDraft(tokens) }} onBlur={() => setFullPoundsDraft(undefined)} />
                   </div>
+                  <div className="flex justify-end"><Button disabled={patch.isPending || needReason || !fullPriceValid || !validPoundsDraft(fullPoundsDraft)} onClick={() => saveCourse({ full_course_token_price: fullPriceValue })}>Save course price</Button></div>
                   {fair ? (
                     <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
                       <Info className="size-3.5" />
                       Cash £{(fair.gbp_minor / 100).toFixed(2)} ≈ <strong className="text-text">{count(fair.fair)}</strong> tokens. Max {count(fair.cap)}.
-                      <button type="button" className="font-medium text-primary hover:underline" onClick={() => setFullPriceDraft(String(fair.suggested))}>
+                      <button type="button" className="font-medium text-primary hover:underline" onClick={() => { setFullPriceDraft(String(fair.suggested)); setFullPoundsDraft(undefined) }}>
                         Suggest {count(fair.suggested)}
                       </button>
                     </p>
@@ -221,7 +268,7 @@ function CourseEditor({ courseId, onBack }: { courseId: string; onBack: () => vo
                     <p className="mt-1.5 text-xs text-muted">Set a cash price and token rate to get a fair-price suggestion.</p>
                   )}
                 </div>
-                <div className="flex items-end gap-2">
+                <div className="flex min-w-0 items-end gap-3 rounded-lg border border-border p-4">
                   <Field label="Per-lecture pricing mode">
                     {(p) => (
                       <NativeSelect {...p} value={mode || d.token_pricing_mode} onChange={(e) => setMode(e.target.value)}>
@@ -230,46 +277,49 @@ function CourseEditor({ courseId, onBack }: { courseId: string; onBack: () => vo
                       </NativeSelect>
                     )}
                   </Field>
-                  <Button variant="secondary" disabled={patch.isPending || needReason || !modeChanged} onClick={() => saveCourse({ token_pricing_mode: (mode || d.token_pricing_mode) as 'manual' | 'auto_weighted' })}>Save</Button>
+                  <Button variant="secondary" disabled={patch.isPending || needReason || !modeChanged} onClick={() => saveCourse({ token_pricing_mode: (mode || d.token_pricing_mode) as 'manual' | 'auto_weighted' })}>Save mode</Button>
                 </div>
               </div>
             </div>
           </Card>
 
-          <DistributeCard courseId={courseId} reason={reason} needReason={needReason} fair={fair} />
+          <DistributeCard courseId={courseId} reason={reason} needReason={needReason} fair={fair} rate={ratePerPenny} selectedKinds={selectedKinds} setSelectedKinds={setSelectedKinds} />
 
-          <LecturesCard courseId={courseId} detail={d} reason={reason} needReason={needReason} fullPrice={d.full_course_token_price} />
+          <LecturesCard courseId={courseId} detail={d} reason={reason} needReason={needReason} fullPrice={d.full_course_token_price} rate={ratePerPenny} selectedKinds={selectedKinds} />
         </>
       )}
     </div>
   )
 }
 
-function DistributeCard({ courseId, reason, needReason, fair }: { courseId: string; reason: string; needReason: boolean; fair: FairPricing }) {
+function DistributeCard({ courseId, reason, needReason, fair, rate, selectedKinds, setSelectedKinds }: { courseId: string; reason: string; needReason: boolean; fair: FairPricing; rate: number | undefined; selectedKinds: string[] | null; setSelectedKinds: (kinds: string[]) => void }) {
   const distribute = useDistributeTokens()
   const course = useTokenCourse(courseId)
   const [total, setTotal] = useState('')
+  const [totalPoundsDraft, setTotalPoundsDraft] = useState<string | undefined>(undefined)
   const [useDuration, setUseDuration] = useState(true)
-  const [selectedKinds, setSelectedKinds] = useState<string[] | null>(null)
+  const [pricingMethod, setPricingMethod] = useState<'budget' | 'hourly'>('budget')
+  const [hourlyRate, setHourlyRate] = useState('')
   const [preview, setPreview] = useState<{ lecture_id: string; title: string; kind: string; duration_min: number; current_price: number | null; allocated_price: number }[] | null>(null)
   const availableKinds = [...new Set(course.data?.sections.flatMap((s) => s.lectures.map((l) => l.kind)) ?? [])]
   const includedKinds = selectedKinds ?? availableKinds
+  const selectedLectures = course.data?.sections.flatMap((s) => s.lectures).filter((l) => includedKinds.includes(l.kind)) ?? []
+  const hourlyTotal = Math.round(selectedLectures.reduce((sum, l) => sum + l.duration_min, 0) * Number(hourlyRate) / 60)
+  const effectiveTotal = pricingMethod === 'hourly' ? String(hourlyTotal) : total
   const toggleKind = (kind: string) => {
     setPreview(null)
-    setSelectedKinds((current) => {
-      const selected = current ?? availableKinds
-      return selected.includes(kind) ? selected.filter((item) => item !== kind) : [...selected, kind]
-    })
+    setSelectedKinds(includedKinds.includes(kind) ? includedKinds.filter((item) => item !== kind) : [...includedKinds, kind])
   }
 
   const run = (dry: boolean) => {
-    const n = parseInt(total, 10)
-    if (!Number.isFinite(n) || n < 0) return toast.error('Enter a total number of tokens.')
+    const n = Number(effectiveTotal)
+    if (pricingMethod === 'hourly' && (hourlyRate.trim() === '' || !Number.isInteger(Number(hourlyRate)) || Number(hourlyRate) <= 0 || selectedLectures.some((l) => !['video', 'live_session'].includes(l.kind)))) return toast.error('Select only video/live items and enter a whole-token hourly rate.')
+    if (effectiveTotal.trim() === '' || !Number.isInteger(n) || n <= 0 || (pricingMethod === 'budget' && !validPoundsDraft(totalPoundsDraft))) return toast.error('Enter a positive token amount.')
     if (fair && n > fair.cap) return toast.error(`Too high. Max ${count(fair.cap)} tokens (${CAP_MULTIPLE}× the fair price of ${count(fair.fair)}).`)
     if (needReason) return toast.error('Add a reason first (it is audited).')
     if (!includedKinds.length) return toast.error('Choose at least one component type.')
     distribute.mutate(
-      { courseId, body: { total_tokens: n, dry_run: dry, reason: reason.trim(), weights_config: { lecture_types: Object.fromEntries(includedKinds.map((kind) => [kind, 1])), use_duration: useDuration } } as never },
+      { courseId, body: { total_tokens: n, dry_run: dry, reason: reason.trim(), weights_config: { lecture_types: Object.fromEntries(includedKinds.map((kind) => [kind, 1])), use_duration: pricingMethod === 'hourly' || useDuration } } as never },
       {
         onSuccess: (r) => {
           setPreview(r.applied ? null : r.allocation as typeof preview)
@@ -282,20 +332,10 @@ function DistributeCard({ courseId, reason, needReason, fair }: { courseId: stri
 
   return (
     <Card>
-      <CardHeader title="Distribute a course token budget" description="Choose which learning components are sold, review the exact allocation, then apply it." />
-      <div className="grid gap-4 p-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <Field label="Total tokens for the course">
-            {(p) => <Input {...p} type="number" min="0" step="1" value={total} onChange={(e) => { setTotal(e.target.value); setPreview(null) }} placeholder={fair ? String(fair.suggested) : 'e.g. 1000'} className="max-w-[12rem]" />}
-          </Field>
-          <label className="flex items-center gap-2 pb-2 text-sm">
-            <Checkbox checked={useDuration} onCheckedChange={(v) => { setUseDuration(!!v); setPreview(null) }} /> Weight video/live items by duration
-          </label>
-          <Button variant="secondary" loading={distribute.isPending} disabled={needReason || !availableKinds.length} onClick={() => run(true)}><Wand2 /> Review allocation</Button>
-          <Button loading={distribute.isPending} disabled={needReason || !preview} onClick={() => run(false)}>Apply</Button>
-        </div>
+      <CardHeader title="Distribute a course token budget" description="Choose the content types, enter their combined price, then review each allocation." />
+      <div className="grid gap-5 p-4">
         <div>
-          <p className="mb-2 text-sm font-medium">Include in this distribution</p>
+          <p className="mb-2 text-sm font-medium">1. Include in this distribution</p>
           <div className="flex flex-wrap gap-2">
             {availableKinds.map((kind) => {
               const meta = COMPONENT_META[kind]
@@ -307,16 +347,40 @@ function DistributeCard({ courseId, reason, needReason, fair }: { courseId: stri
               </label>
             })}
           </div>
-          <p className="mt-2 text-xs text-muted">Unchecked component types are not repriced; their current token prices stay as they are.</p>
+          <p className="mt-2 text-xs text-muted">Selected: {selectedLectures.length} component{selectedLectures.length === 1 ? '' : 's'} ({includedKinds.map(componentLabel).join(', ') || 'none'}). When applied, unchecked types have their token price cleared.</p>
+        </div>
+        <div className="rounded-lg border border-border p-4">
+          <p className="mb-3 text-sm font-medium">2. Set the combined price</p>
+          <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Pricing method">
+            <Button size="sm" variant={pricingMethod === 'budget' ? 'primary' : 'secondary'} onClick={() => { setPricingMethod('budget'); setPreview(null) }}>Total budget</Button>
+            <Button size="sm" variant={pricingMethod === 'hourly' ? 'primary' : 'secondary'} onClick={() => { setPricingMethod('hourly'); setSelectedKinds(availableKinds.filter((kind) => kind === 'video' || kind === 'live_session')); setPreview(null) }}>Video price per hour</Button>
+          </div>
+          {pricingMethod === 'hourly' ? <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Video/live · tokens per hour">{(p) => <Input {...p} type="number" min="1" step="1" value={hourlyRate} onChange={(e) => { setHourlyRate(e.target.value); setPreview(null) }} placeholder="e.g. 100" />}</Field>
+            <div className="rounded-md bg-surface-2 px-3 py-2 text-sm">{hourlyRate && Number(hourlyRate) > 0 ? <><span className="block text-muted">{selectedLectures.reduce((sum, l) => sum + l.duration_min, 0)} minutes selected</span><strong>{count(hourlyTotal)} tokens total</strong> <span className="text-muted">{tokenValueGbp(hourlyTotal, rate)}</span></> : <span className="text-muted">Enter an hourly rate to calculate the course total.</span>}</div>
+          </div> : <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Selected components · tokens">
+              {(p) => <Input {...p} type="number" min="0" step="1" value={total} onChange={(e) => { setTotal(e.target.value); setTotalPoundsDraft(undefined); setPreview(null) }} placeholder={fair ? String(fair.suggested) : 'e.g. 1000'} />}
+            </Field>
+          <GbpPriceInput tokens={total} poundsDraft={totalPoundsDraft} rate={rate} onChange={(pounds, tokens) => { setTotalPoundsDraft(pounds); setTotal(tokens); setPreview(null) }} onBlur={() => setTotalPoundsDraft(undefined)} />
+          </div>}
+          {pricingMethod === 'budget' ? <label className="mt-4 flex items-center gap-2 text-sm">
+            <Checkbox checked={useDuration} onCheckedChange={(v) => { setUseDuration(!!v); setPreview(null) }} /> Weight video/live items by duration
+          </label> : null}
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <Button variant="secondary" loading={distribute.isPending} disabled={needReason || !availableKinds.length} onClick={() => run(true)}><Wand2 /> Review allocation</Button>
+          <Button loading={distribute.isPending} disabled={needReason || !preview} onClick={() => run(false)}>Apply prices</Button>
         </div>
         {fair ? (
           <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
             <Info className="size-3.5" /> Fair total ≈ {count(fair.fair)} tokens (max {count(fair.cap)}).
-            <button type="button" className="font-medium text-primary hover:underline" onClick={() => { setTotal(String(fair.suggested)); setPreview(null) }}>Use suggested {count(fair.suggested)}</button>
+            <button type="button" className="font-medium text-primary hover:underline" onClick={() => { setTotal(String(fair.suggested)); setTotalPoundsDraft(undefined); setPreview(null) }}>Use suggested {count(fair.suggested)}</button>
           </p>
         ) : null}
         {preview ? (
           <div className="overflow-x-auto">
+            <p className="mb-2 text-sm font-medium">Selected components · {count(preview.reduce((sum, row) => sum + row.allocated_price, 0))} tokens</p>
             <Table>
               <thead>
                 <Tr><Th>Component</Th><Th>Current</Th><Th>New price</Th></Tr>
@@ -326,11 +390,15 @@ function DistributeCard({ courseId, reason, needReason, fair }: { courseId: stri
                   <Tr key={r.lecture_id}>
                     <Td><span className="font-medium">{r.title}</span><span className="ml-2 text-xs text-muted">{componentLabel(r.kind)}{r.duration_min ? ` · ${r.duration_min} min` : ''}</span></Td>
                     <Td className="tabular-nums text-muted">{r.current_price != null ? count(r.current_price) : '—'}</Td>
-                    <Td className="tabular-nums font-medium">{count(r.allocated_price)}</Td>
+                    <Td className="tabular-nums font-medium">{count(r.allocated_price)}<TokenValue tokens={r.allocated_price} rate={rate} /></Td>
                   </Tr>
                 ))}
               </tbody>
             </Table>
+            {(course.data?.sections.flatMap((s) => s.lectures).filter((l) => !includedKinds.includes(l.kind) && l.token_price != null) ?? []).length > 0 ? <div className="mt-4 rounded-md bg-warning-soft p-3 text-xs text-warning">
+              <p className="font-medium">Excluded prices to clear on Apply:</p>
+              <ul className="mt-1 space-y-1">{course.data?.sections.flatMap((s) => s.lectures).filter((l) => !includedKinds.includes(l.kind) && l.token_price != null).map((l) => <li key={l.id}>{l.title} ({componentLabel(l.kind)}): {l.token_price} tokens → no token price</li>)}</ul>
+            </div> : null}
           </div>
         ) : null}
       </div>
@@ -340,7 +408,7 @@ function DistributeCard({ courseId, reason, needReason, fair }: { courseId: stri
 
 type CourseDetailData = NonNullable<ReturnType<typeof useTokenCourse>['data']>
 
-function LecturesCard({ courseId: _courseId, detail, reason, needReason, fullPrice }: { courseId: string; detail: CourseDetailData; reason: string; needReason: boolean; fullPrice: number | null }) {
+function LecturesCard({ courseId: _courseId, detail, reason, needReason, fullPrice, rate, selectedKinds }: { courseId: string; detail: CourseDetailData; reason: string; needReason: boolean; fullPrice: number | null; rate: number | undefined; selectedKinds: string[] | null }) {
   const patchLecture = usePatchLecture()
   const patchMaterial = usePatchMaterial()
   const [drafts, setDrafts] = useState<Record<string, string>>({})
@@ -427,13 +495,14 @@ function LecturesCard({ courseId: _courseId, detail, reason, needReason, fullPri
             <p className="mb-2 text-sm font-semibold">{s.title}</p>
             <Table>
               <tbody>
-                {s.lectures.flatMap((l) => {
+                {s.lectures.filter((l) => selectedKinds === null || selectedKinds.includes(l.kind)).flatMap((l) => {
                   const meta = COMPONENT_META[l.kind]
                   const Icon = meta?.Icon ?? BookOpen
                   return [
                   <Tr key={l.id}>
                     <Td className="font-medium"><span className="inline-flex items-center gap-2"><Icon className="size-4 text-muted" />{l.title}</span><span className="ml-2 text-xs font-normal text-muted">{componentLabel(l.kind)}{l.duration_min ? ` · ${l.duration_min} min` : ''}</span>{l.is_free_preview ? <Badge tone="info" className="ml-2">Free preview</Badge> : null}</Td>
-                    <Td className="w-40">
+                    <Td className="w-40 py-2.5">
+                      <div className="space-y-1">
                       <Input
                         type="number"
                         min="0"
@@ -442,6 +511,8 @@ function LecturesCard({ courseId: _courseId, detail, reason, needReason, fullPri
                         onChange={(e) => setDrafts((d) => ({ ...d, [l.id]: e.target.value }))}
                         placeholder="—"
                       />
+                      <TokenValue tokens={drafts[l.id] === undefined ? l.token_price : (drafts[l.id].trim() === '' ? null : Number(drafts[l.id]))} rate={rate} />
+                      </div>
                     </Td>
                     <Td className="w-24 text-right">
                       <Button size="sm" variant="secondary" loading={patchLecture.isPending} disabled={needReason || savingAll || !dirty.some((item) => item.id === l.id)} onClick={() => save(l.id, l.token_price)}>Save</Button>
@@ -641,7 +712,7 @@ function RatesTab() {
               <tbody>
                 {rates.data.map((r) => (
                   <Tr key={r.id}>
-                    <Td className="tabular-nums">£{(0.01 / Number(r.tokens_per_gbp_minor)).toFixed(4)}</Td>
+                    <Td className="tabular-nums">£{(0.01 / Number(r.tokens_per_gbp_minor)).toFixed(2)}</Td>
                     <Td className="whitespace-nowrap text-muted">{dateTime(r.effective_from)}</Td>
                     <Td className="whitespace-nowrap text-muted">{r.effective_to ? dateTime(r.effective_to) : '—'}</Td>
                     <Td>{r.is_current ? <Badge tone="success">Current</Badge> : <Badge tone="neutral">Scheduled/past</Badge>}</Td>

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 from django.utils import timezone
 
 from apps.catalog.models import Category, Course, CourseVersion
-from apps.commerce.models import PriceTier
+from apps.commerce.models import CoursePrice, PriceTier
 from apps.corporate.checkout import create_recorded_checkout
 from apps.corporate.fulfillment import expire_purchase, fail_purchase, fulfil_recorded_purchase
 from apps.corporate.models import (
@@ -69,6 +69,7 @@ class RecordedCheckoutTest(SchemaTransactionTestCase):
             self.course.save(update_fields=["live_version"])
 
             self.tier = PriceTier.objects.create(name=f"COTier-{tag}", gbp_minor=5000, sort_order=0)
+            CoursePrice.objects.create(course=self.course, tier=self.tier, is_free=False)
             self.offering = CorporateOffering.objects.create(
                 course=self.course,
                 delivery_type="recorded",
@@ -102,6 +103,7 @@ class RecordedCheckoutTest(SchemaTransactionTestCase):
         self.assertEqual(p.quantity, 5)
         self.assertEqual(p.total_minor, 25000)
         self.assertEqual(p.stripe_session_id, "cs_test_123")
+        self.assertIn(f"purchase={p.id}", mock_stripe.call_args.kwargs["success_url"])
 
     @patch("apps.corporate.checkout.gateway.create_checkout_session")
     def test_manager_cannot_checkout(self, mock_stripe):
@@ -110,10 +112,9 @@ class RecordedCheckoutTest(SchemaTransactionTestCase):
                 create_recorded_checkout(self._request(user=self.manager), str(self.offering.id), 3)
         self.assertEqual(cm.exception.code, "forbidden")
 
-    def test_inactive_offering_rejected(self):
+    def test_checkout_requires_a_current_shared_course_price(self):
         with tenant_context(staff=True):
-            self.offering.is_active = False
-            self.offering.save(update_fields=["is_active"])
+            CoursePrice.objects.filter(course=self.course).update(is_free=True, tier=None)
             with self.assertRaises(ServiceError) as cm:
                 create_recorded_checkout(self._request(), str(self.offering.id), 1)
         self.assertEqual(cm.exception.code, "offering_not_found")

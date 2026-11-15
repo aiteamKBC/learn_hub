@@ -32,6 +32,8 @@ class ConsoleTrainingRequestOut(Schema):
     requested_seats: int
     preferred_intake: str
     preferred_delivery_mode: str
+    company_message: str
+    admin_reply: str
     status: str
     admin_notes: str
     status_label: str
@@ -42,6 +44,7 @@ class ConsoleRequestPatch(Schema):
     status: str | None = None
     admin_notes: str | None = None
     status_label: str | None = None
+    admin_reply: str | None = Field(None, max_length=2000)
 
 
 class ConsoleCohortIn(Schema):
@@ -188,6 +191,8 @@ def list_requests(
             "requested_seats": r.requested_seats,
             "preferred_intake": r.preferred_intake,
             "preferred_delivery_mode": r.preferred_delivery_mode,
+            "company_message": r.company_message,
+            "admin_reply": r.admin_reply,
             "status": r.status,
             "admin_notes": r.admin_notes,
             "status_label": r.status_label,
@@ -211,6 +216,9 @@ def update_request(request, request_id: UUID, body: ConsoleRequestPatch):
     if body.status_label is not None:
         tr.status_label = body.status_label
         fields.append("status_label")
+    if body.admin_reply is not None:
+        tr.admin_reply = body.admin_reply.strip()
+        fields.append("admin_reply")
     if fields:
         fields.append("updated_at")
         tr.save(update_fields=fields)
