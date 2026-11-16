@@ -104,6 +104,34 @@ def add_member_to_unit(*, member: OrgMember, unit: OrgUnit, primary: bool = Fals
 
 
 @transaction.atomic
+def move_members(*, org_id, members: list[OrgMember], unit: OrgUnit) -> tuple[int, int]:
+    """Change each person's PRIMARY unit to `unit`. Their other (additional) units, role,
+    account, enrolments and training history stay exactly as they are: only the primary
+    link moves. Returns (moved, unchanged). Compliance is refreshed through the usual
+    structure-changed signal, by the existing rules."""
+    if unit.org_id != org_id:
+        raise ServiceError("bad_unit", "This location or team does not exist.")
+    if unit.archived_at:
+        raise ServiceError("unit_archived", "Cannot add people to an archived unit.")
+    primary = dict(
+        MemberUnit.objects.filter(member__in=members, is_primary=True).values_list("member_id", "unit_id")
+    )
+    moving = [m for m in members if primary.get(m.id) != unit.id]
+    if not moving:
+        return 0, len(members)
+    ids = [m.id for m in moving]
+    # the old primary link goes (it was the "home" being moved away from); additional units stay
+    MemberUnit.objects.filter(member_id__in=ids, is_primary=True).exclude(unit=unit).delete()
+    MemberUnit.objects.filter(member_id__in=ids, unit=unit).update(is_primary=True, updated_at=timezone.now())
+    have = set(MemberUnit.objects.filter(member_id__in=ids, unit=unit).values_list("member_id", flat=True))
+    MemberUnit.objects.bulk_create(
+        [MemberUnit(org_id=org_id, member_id=i, unit=unit, is_primary=True) for i in ids if i not in have]
+    )
+    notify_structure_changed(org_id, ids)
+    return len(moving), len(members) - len(moving)
+
+
+@transaction.atomic
 def remove_member_from_unit(*, member: OrgMember, unit: OrgUnit) -> None:
     MemberUnit.objects.filter(member=member, unit=unit).delete()
     notify_structure_changed(member.org_id, [member.id])

@@ -30,12 +30,12 @@ export function useCorporateDashboard() {
 export function usePackages(enabled = true) {
   return useQuery({ queryKey: key('packages'), queryFn: () => unwrap(api.GET('/api/v1/corporate/packages')), enabled })
 }
-export function usePurchases(poll = false) {
+export function usePurchases(poll = false, purchaseId?: string | null) {
   return useQuery({
     queryKey: key('purchases'),
     queryFn: () => unwrap(api.GET('/api/v1/corporate/purchases')),
     // after Stripe sends the buyer back, payment is confirmed by a webhook a moment later
-    refetchInterval: (q) => (poll && q.state.data?.some((p) => p.status === 'pending') ? 4000 : false),
+    refetchInterval: (q) => (poll && q.state.data?.some((p) => p.status === 'pending' && (!purchaseId || p.id === purchaseId)) ? 4000 : false),
   })
 }
 export function useQuotes(enabled = true) {
@@ -51,7 +51,7 @@ export function useAllocations(offeringId?: string) {
   })
 }
 export function useTrainingRequests(enabled = true) {
-  return useQuery({ queryKey: key('requests'), queryFn: () => unwrap(api.GET('/api/v1/corporate/training-requests')), enabled })
+  return useQuery({ queryKey: key('requests'), queryFn: () => unwrap(api.GET('/api/v1/corporate/training-requests')), enabled, refetchInterval: 30_000 })
 }
 export function useLiveBookings(poll = false) {
   return useQuery({

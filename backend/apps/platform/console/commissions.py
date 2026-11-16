@@ -256,6 +256,8 @@ class ConsoleCommissionRuleOut(Schema):
     name: str
     scope: str
     target_id: UUID | None
+    instructor_id: UUID | None
+    instructor_name: str | None
     target_label: str
     band_min_gbp_minor: int | None
     band_max_gbp_minor: int | None
@@ -274,6 +276,7 @@ class ConsoleCommissionRuleIn(Schema):
     name: str = Field("", max_length=120)
     scope: Scope
     target_id: UUID | None = None
+    instructor_id: UUID | None = None
     band_min_gbp_minor: int | None = Field(None, ge=0)
     band_max_gbp_minor: int | None = Field(None, ge=1)
     keeps_pct: float = Field(..., ge=0, le=100)
@@ -302,8 +305,11 @@ def _rule_rows(rules) -> list[dict]:
     labels, now = _labels(rules), timezone.now()
     names = dict(User.objects.filter(pk__in={r.created_by_id for r in rules if r.created_by_id})
                  .values_list("id", "full_name"))  # fmt: skip
+    instructors = dict(User.objects.filter(pk__in={r.instructor_id for r in rules if r.instructor_id})
+                       .values_list("id", "full_name"))  # fmt: skip
     return [{
         "id": r.id, "name": r.name, "scope": r.scope, "target_id": r.target_id,
+        "instructor_id": r.instructor_id, "instructor_name": instructors.get(r.instructor_id),
         "target_label": _band(r) if r.scope == "price_band" else labels.get(r.target_id, "Removed"),
         "band_min_gbp_minor": r.band_min_gbp_minor, "band_max_gbp_minor": r.band_max_gbp_minor,
         "keeps_pct": pct(r.instructor_bps), "priority": r.priority, "is_active": r.is_active,
@@ -336,11 +342,43 @@ def _validate(body: ConsoleCommissionRuleIn) -> dict:
             and not Course.objects.filter(pk=body.target_id, ownership="instructor").exists()
         ):
             raise ServiceError("not_marketplace", "Commission rules apply to marketplace courses only.")
+        if (
+            body.scope == "course"
+            and body.instructor_id
+            and not CourseInstructor.objects.filter(
+                course_id=body.target_id, user_id=body.instructor_id
+            ).exists()
+        ):
+            raise ServiceError("not_course_instructor", "Choose an instructor linked to this course.")
+        if body.scope != "course" and body.instructor_id:
+            raise ServiceError("bad_instructor", "An instructor can only be selected for a course rule.")
     if body.starts_at and body.ends_at and body.ends_at <= body.starts_at:
         raise ServiceError("bad_dates", "The end date must be after the start date.")
     data["name"] = data["name"].strip()
     data["instructor_bps"] = round(data.pop("keeps_pct") * 100)
     return data
+
+
+class ConsoleCourseInstructorOut(Schema):
+    id: UUID
+    name: str
+    revenue_share_bps: int
+
+
+@router.get("/commissions/course-instructors", response=list[ConsoleCourseInstructorOut])
+def course_instructors(request, course_id: UUID):
+    staff(request)
+    get_object_or_404(Course, pk=course_id, ownership="instructor", deleted_at__isnull=True)
+    return [
+        {
+            "id": link.user_id,
+            "name": link.user.full_name or link.user.email,
+            "revenue_share_bps": link.revenue_share_bps,
+        }
+        for link in CourseInstructor.objects.filter(course_id=course_id)
+        .select_related("user")
+        .order_by("position", "id")
+    ]
 
 
 def _rule_changed(rule: CommissionRule) -> None:
@@ -351,8 +389,12 @@ def _rule_changed(rule: CommissionRule) -> None:
     if rule.scope == "instructor":
         users = [rule.target_id]
     elif rule.scope == "course":
-        users = list(
-            CourseInstructor.objects.filter(course_id=rule.target_id).values_list("user_id", flat=True)
+        users = (
+            [rule.instructor_id]
+            if rule.instructor_id
+            else list(
+                CourseInstructor.objects.filter(course_id=rule.target_id).values_list("user_id", flat=True)
+            )
         )
     else:
         return
@@ -409,11 +451,13 @@ class ConsoleCommissionPreviewOut(Schema):
 
 
 @router.get("/commissions/preview", response=ConsoleCommissionPreviewOut)
-def commission_preview(request, course_id: UUID):
+def commission_preview(request, course_id: UUID, instructor_id: UUID | None = None):
     """Which rate a sale of this course would use right now, and why."""
     staff(request)
     course = get_object_or_404(Course, pk=course_id, ownership="instructor")
-    p = payouts.preview_rate(course_id=course.id)
+    if instructor_id and not CourseInstructor.objects.filter(course=course, user_id=instructor_id).exists():
+        raise ServiceError("not_course_instructor", "Choose an instructor linked to this course.")
+    p = payouts.preview_rate(course_id=course.id, instructor_id=instructor_id)
     rule = p["rule"]
     name = User.objects.filter(pk=p["instructor_id"]).values_list("full_name", flat=True).first()
     return {"course_id": course.id, "course": course.title, "instructor": name,

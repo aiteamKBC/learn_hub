@@ -279,6 +279,8 @@ class TrainingRequest(TenantModel):
     requested_seats = models.PositiveIntegerField()
     preferred_intake = models.CharField(max_length=50, blank=True)
     preferred_delivery_mode = models.CharField(max_length=12, blank=True)
+    company_message = models.TextField(blank=True, max_length=2000)
+    admin_reply = models.TextField(blank=True, max_length=2000)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.SUBMITTED)
     admin_notes = models.TextField(blank=True)
     status_label = models.CharField(max_length=64, blank=True)

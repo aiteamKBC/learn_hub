@@ -1,6 +1,8 @@
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
 import { api, unwrap } from '@/api/client'
+import { useMe } from '@/features/identity/auth'
+import { useWorkspace } from '@/features/identity/workspace'
 import { useCurrency } from '@/lib/currency'
 
 export type CourseFilters = { q?: string; category?: string; level?: string; price?: 'free' | 'paid'; rating?: number; sort?: string; limit?: number }
@@ -32,7 +34,9 @@ export function useCourseFeed(filters: CourseFilters) {
 
 export function useCourse(slug: string) {
   const { code } = useCurrency()
-  return useQuery({ queryKey: ['course', slug, code], queryFn: () => unwrap(api.GET('/api/v1/catalog/courses/{slug}', { params: { path: { slug }, query: { currency: code } } })) })
+  const { data: me } = useMe()
+  const { org } = useWorkspace()
+  return useQuery({ queryKey: ['course', slug, code, me?.id ?? '', org?.org_id ?? ''], queryFn: () => unwrap(api.GET('/api/v1/catalog/courses/{slug}', { params: { path: { slug }, query: { currency: code } } })) })
 }
 
 export function usePreview(slug: string, key: string | null) {

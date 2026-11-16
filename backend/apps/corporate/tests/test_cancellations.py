@@ -8,6 +8,7 @@ from django.utils import timezone
 from apps.catalog.models import Category, Course, CourseVersion
 from apps.commerce.models import PriceTier
 from apps.corporate.cancellations import (
+    process_postponement,
     process_refund,
     review_cancellation,
     submit_cancellation,
@@ -16,7 +17,9 @@ from apps.corporate.certificates import ConfigurationBlocked, issue_live_certifi
 from apps.corporate.departure import apply_departure, get_or_default_policy, set_policy
 from apps.corporate.models import (
     CancellationRequest,
+    CohortCompany,
     CorporateOffering,
+    LiveCohort,
     SeatPurchase,
 )
 from apps.corporate.services import allocate_seat
@@ -140,6 +143,7 @@ class CancellationTest(SchemaTransactionTestCase):
                 self._request(self.admin_user),
                 type="recorded_refund",
                 reason="Want refund",
+                seat_purchase_id=self.purchase.id,
             )
             reviewed = review_cancellation(
                 self._request(),
@@ -180,6 +184,115 @@ class CancellationTest(SchemaTransactionTestCase):
             with self.assertRaises(ServiceError) as cm:
                 process_refund(self._request(), str(cr.id), amount_minor=5000)
         self.assertEqual(cm.exception.code, "not_approved")
+
+    @patch("apps.commerce.gateway.refund", return_value="re_full_refund")
+    def test_full_refund_revokes_allocated_access(self, _mock_refund):
+        with tenant_context(staff=True):
+            alloc = allocate_seat(self._request(), self.purchase.id, self.employee.id)
+            cr = submit_cancellation(
+                self._request(self.admin_user),
+                type="recorded_refund",
+                reason="Course no longer required",
+                seat_purchase_id=self.purchase.id,
+            )
+            review_cancellation(self._request(), str(cr.id), approve=True)
+            process_refund(self._request(), str(cr.id), amount_minor=self.purchase.total_minor)
+            alloc.refresh_from_db()
+        self.assertEqual(alloc.status, "revoked")
+
+    def test_request_must_be_for_this_company_and_not_twice(self):
+        other = None
+        with tenant_context(staff=True):
+            other = Organization.objects.create(
+                name="Other", slug=f"other-{uuid.uuid4().hex[:6]}", status="active"
+            )
+
+            def submit(**kw):
+                return submit_cancellation(self._request(self.admin_user), reason="Please refund", **kw)  # noqa: E731
+
+            with self.assertRaises(ServiceError) as cm:  # no purchase chosen
+                submit(type="recorded_refund")
+            self.assertEqual(cm.exception.code, "bad_target")
+            with self.assertRaises(ServiceError) as cm:  # unknown type
+                submit(type="anything", seat_purchase_id=self.purchase.id)
+            self.assertEqual(cm.exception.code, "bad_type")
+            submit(type="recorded_refund", seat_purchase_id=self.purchase.id)
+            with self.assertRaises(ServiceError) as cm:  # a second open request
+                submit(type="recorded_refund", seat_purchase_id=self.purchase.id)
+            self.assertEqual(cm.exception.code, "already_requested")
+            # another company cannot ask about this purchase
+            with self.assertRaises(ServiceError) as cm:
+                submit_cancellation(self._request(self.admin_user, org=other), type="recorded_refund",
+                                    reason="Please refund", seat_purchase_id=self.purchase.id)  # fmt: skip
+            self.assertEqual(cm.exception.code, "not_found")
+            # a pending (unpaid) purchase cannot be refunded
+            SeatPurchase.objects.filter(pk=self.purchase.pk).update(status="pending")
+            CancellationRequest.objects.filter(seat_purchase=self.purchase).update(status="rejected")
+            with self.assertRaises(ServiceError) as cm:
+                submit(type="recorded_refund", seat_purchase_id=self.purchase.id)
+            self.assertEqual(cm.exception.code, "not_found")
+
+    def test_postponement_moves_only_unused_live_places_to_next_cohort(self):
+        with tenant_context(staff=True):
+            live_offering = CorporateOffering.objects.create(
+                course=self.course, delivery_type="live", price_tier=self.tier, is_active=True
+            )
+            live_purchase = SeatPurchase.objects.create(
+                org=self.org,
+                offering=live_offering,
+                buyer=self.admin_user,
+                quantity=3,
+                unit_price_minor=5000,
+                currency="GBP",
+                total_minor=15000,
+                gbp_total_minor=15000,
+                status="paid",
+                paid_at=timezone.now(),
+            )
+            source_cohort = LiveCohort.objects.create(
+                course=self.course,
+                title="Current",
+                status="confirmed",
+                delivery_mode="online",
+                min_learners=1,
+                max_learners=10,
+                current_seats=3,
+            )
+            target_cohort = LiveCohort.objects.create(
+                course=self.course,
+                title="Next",
+                status="forming",
+                delivery_mode="online",
+                min_learners=1,
+                max_learners=10,
+            )
+            source = CohortCompany.objects.create(
+                org=self.org,
+                cohort=source_cohort,
+                seat_purchase=live_purchase,
+                approved_seats=3,
+                status="paid",
+            )
+            request = submit_cancellation(
+                self._request(self.admin_user),
+                type="postponement",
+                reason="Move an unused place",
+                cohort_company_id=source.id,
+            )
+            processed = process_postponement(
+                self._request(),
+                str(request.id),
+                target_cohort_id=target_cohort.id,
+                seats=1,
+                admin_notes="Moved to next intake",
+            )
+            source.refresh_from_db()
+            target_cohort.refresh_from_db()
+            target_company = CohortCompany.objects.get(cohort=target_cohort, org=self.org)
+        self.assertEqual(processed.status, "processed")
+        self.assertEqual(source.approved_seats, 2)
+        self.assertEqual(target_cohort.current_seats, 1)
+        self.assertEqual(target_company.approved_seats, 1)
 
 
 class DeparturePolicyTest(SchemaTransactionTestCase):
@@ -259,53 +372,20 @@ class DeparturePolicyTest(SchemaTransactionTestCase):
             policy = set_policy(self._request(), self.org.id, "revoke_all")
         self.assertEqual(policy.action, "revoke_all")
 
-    def _leave(self):
-        OrgMember.objects.filter(org=self.org, user=self.employee).update(removed_at=timezone.now())
-
-    def test_departure_keeps_paid_access_until_it_expires(self):
-        """Leaves on day 0, paid until day 20: access stays, then ends by itself."""
-        from datetime import timedelta
-
+    def test_departure_releases_company_seat_and_revokes_company_access(self):
         from apps.learning.models import Enrollment
-        from apps.learning.services import _check_access
 
         with tenant_context(staff=True):
             alloc = allocate_seat(self._request(), self.purchase.id, self.employee.id)
-            Enrollment.objects.filter(pk=alloc.enrollment_id).update(
-                access_expires_at=timezone.now() + timedelta(days=20)
-            )
-            set_policy(self._request(), self.org.id, "revoke_all")  # even the strictest policy
-            self._leave()
             result = apply_departure(self._request(), self.org.id, self.employee.id)
             alloc.refresh_from_db()
             enrolment = Enrollment.objects.get(pk=alloc.enrollment_id)
-            _check_access(enrolment)  # still allowed: no error
-
-            Enrollment.objects.filter(pk=enrolment.pk).update(
-                access_expires_at=timezone.now() - timedelta(seconds=1)
-            )
-            enrolment.refresh_from_db()
-            with self.assertRaises(ServiceError) as cm:
-                _check_access(enrolment)
-        self.assertEqual(result["revoked"], 0)
-        self.assertEqual(result["preserved"], 1)
-        self.assertEqual(alloc.status, "active", "the paid seat is not freed or reused")
-        self.assertEqual(enrolment.status, "active", "the enrolment and its progress are kept")
-        self.assertEqual(cm.exception.code, "access_expired")
-
-    def test_departure_needs_the_person_to_have_left(self):
-        with tenant_context(staff=True):
-            with self.assertRaises(ServiceError) as cm:
-                apply_departure(self._request(), self.org.id, self.employee.id)
-        self.assertEqual(cm.exception.code, "still_member")
-
-    def test_departure_with_lifetime_seat_keeps_access(self):
-        with tenant_context(staff=True):
-            allocate_seat(self._request(), self.purchase.id, self.employee.id)
-            self._leave()
-            result = apply_departure(self._request(), self.org.id, self.employee.id)
-        self.assertEqual(result["courses"][0]["access_expires_at"], None)
-        self.assertEqual(result["revoked"], 0)
+            member = OrgMember.objects.get(org=self.org, user=self.employee)
+        self.assertEqual(result["action"], "release_and_replace")
+        self.assertEqual(result["revoked"], 1)
+        self.assertEqual(alloc.status, "released")
+        self.assertEqual(enrolment.status, "revoked")
+        self.assertIsNotNone(member.removed_at)
 
 
 class LiveCertificateGateTest(SchemaTransactionTestCase):

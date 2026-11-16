@@ -163,6 +163,7 @@ class CommissionRule(BaseModel):
     name = models.CharField(max_length=120, blank=True)
     scope = models.CharField(max_length=12, choices=Scope.choices)
     target_id = models.UUIDField(null=True, blank=True)  # course / instructor / category
+    instructor_id = models.UUIDField(null=True, blank=True)  # optional instructor on a course rule
     band_min_gbp_minor = models.PositiveIntegerField(null=True, blank=True)  # price band, inclusive
     band_max_gbp_minor = models.PositiveIntegerField(null=True, blank=True)  # exclusive; NULL = no top
     instructor_bps = models.PositiveIntegerField()  # 7000 = the instructor keeps 70%

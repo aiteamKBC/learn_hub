@@ -48,6 +48,7 @@ class ConsoleCertLayoutOut(Schema):
     show_seal: bool
     show_cpd: bool
     show_instructor: bool
+    artwork_image_url: str
 
 
 class ConsoleCertTemplateOut(Schema):
@@ -64,6 +65,7 @@ class ConsoleCertTemplateOut(Schema):
     signatory_title: str
     signature_image_url: str
     signature_preview_url: str  # a short-lived link the browser can show
+    artwork_preview_url: str  # a short-lived link the browser can show
     show_qr_code: bool
     decision_reason: str
 
@@ -79,6 +81,7 @@ class ConsoleCertLayoutIn(Schema):
     show_seal: bool = True
     show_cpd: bool = True
     show_instructor: bool = True
+    artwork_image_url: str = Field("", max_length=500)
 
 
 class ConsoleCertTemplateIn(Schema):
@@ -92,7 +95,7 @@ class ConsoleCertTemplateIn(Schema):
 
 class ConsoleSignatureUploadIn(Schema):
     filename: str = Field(..., max_length=200)
-    size_bytes: int = Field(..., gt=0, le=1_000_000)
+    size_bytes: int = Field(..., gt=0, le=8_000_000)
     content_type: Literal["image/png", "image/jpeg"]
 
 
@@ -177,6 +180,7 @@ def _template_rows(rows: list[CertificateTemplate]) -> list[dict]:
              "is_default": t.is_default, "updated_at": t.updated_at, "layout": templates.clean_layout(t.layout),
              "signatory_name": t.signatory_name, "signatory_title": t.signatory_title,
              "signature_image_url": t.signature_image_url, "signature_preview_url": _preview_url(t.signature_image_url),
+             "artwork_preview_url": _preview_url(templates.clean_layout(t.layout).get("artwork_image_url", "")),
              "show_qr_code": t.show_qr_code, "decision_reason": t.decision_reason} for t in rows]  # fmt: skip
 
 
@@ -280,12 +284,12 @@ def template_preview(request, template_id: UUID):
 
 @router.post("/certificates/signature-upload", response=ConsoleSignatureUploadOut)
 def signature_upload(request, body: ConsoleSignatureUploadIn):
-    """A write-only link for a signature image (PNG or JPEG, up to 1 MB)."""
+    """A write-only link for a certificate image (PNG or JPEG, up to 8 MB)."""
     staff(request)
     if not storage.configured():
         raise ServiceError("storage_unavailable", "File storage is not set up.", status=503)
     ext = "png" if body.content_type == "image/png" else "jpg"
-    path = f"certificates/signatures/{uuid4().hex}.{ext}"
+    path = f"certificates/artwork/{uuid4().hex}.{ext}"
     return {"upload_url": storage.upload_url(path), "method": "PUT",
             "headers": {"x-ms-blob-type": "BlockBlob", "Content-Type": body.content_type},
             "url": storage.blob_url(path)}  # fmt: skip

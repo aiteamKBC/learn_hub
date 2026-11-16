@@ -168,7 +168,7 @@ class SeatLedgerTest(SchemaTransactionTestCase):
         with tenant_context(staff=True):
             alloc = allocate_seat(self._request(), self.purchase.id, self.employee1.id)
             released = release_seat(self._request(), alloc.id, reason="Left company")
-        self.assertEqual(released.status, "revoked")
+        self.assertEqual(released.status, "released")
         with tenant_context(staff=True):
             enrollment = Enrollment.objects.get(pk=alloc.enrollment_id)
         self.assertEqual(enrollment.status, "revoked")
@@ -177,11 +177,11 @@ class SeatLedgerTest(SchemaTransactionTestCase):
         with tenant_context(staff=True):
             alloc = allocate_seat(self._request(), self.purchase.id, self.employee1.id)
             release_seat(self._request(), alloc.id, reason="Test reason")
-            has_revoked = AllocationEvent.objects.filter(
+            has_released = AllocationEvent.objects.filter(
                 allocation=alloc,
-                action="revoked",
+                action="released",
             ).exists()
-        self.assertTrue(has_revoked)
+        self.assertTrue(has_released)
 
     def test_reassign_creates_new_allocation(self):
         with tenant_context(staff=True):

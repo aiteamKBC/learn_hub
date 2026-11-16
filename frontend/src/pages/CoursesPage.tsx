@@ -235,7 +235,7 @@ export function CoursesPage() {
               ) : (
                 <div className="stagger grid gap-3">
                   {items.map((c) => (
-                    <CourseRow key={c.id} course={c} />
+                    <CourseRow key={c.id} course={c} showWishlist />
                   ))}
                 </div>
               )}

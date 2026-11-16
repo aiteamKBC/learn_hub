@@ -87,14 +87,14 @@ export function useAssignableRoles() {
 }
 
 // ---------------------------------------------------------------- people
-export type PeopleFilters = { q?: string; unit_id?: string; job_role_id?: string; role?: string }
+export type PeopleFilters = { q?: string; unit_id?: string; job_role_id?: string; role?: string; direct?: boolean }
 const fetchPeople = (f: PeopleFilters, cursor?: string, limit = 50) =>
-  unwrap(api.GET('/api/v1/org/people', { params: { query: { q: f.q || undefined, unit_id: f.unit_id || undefined, job_role_id: f.job_role_id || undefined, role: f.role || undefined, cursor, limit } } }))
+  unwrap(api.GET('/api/v1/org/people', { params: { query: { q: f.q || undefined, unit_id: f.unit_id || undefined, job_role_id: f.job_role_id || undefined, role: f.role || undefined, direct: f.unit_id && f.direct ? true : undefined, cursor, limit } } }))
 export type Person = Awaited<ReturnType<typeof fetchPeople>>['items'][number]
 
 export function usePeople(f: PeopleFilters) {
   return useInfiniteQuery({
-    queryKey: ['org', 'people', currentOrgId(), f.q ?? '', f.unit_id ?? '', f.job_role_id ?? '', f.role ?? ''],
+    queryKey: ['org', 'people', currentOrgId(), f.q ?? '', f.unit_id ?? '', f.job_role_id ?? '', f.role ?? '', !!f.direct],
     queryFn: ({ pageParam }) => fetchPeople(f, pageParam),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.next_cursor ?? undefined,
@@ -123,6 +123,31 @@ export function useUpdatePerson() {
   return useMutation({
     mutationFn: (v: { memberId: string; body: MemberPatch }) => unwrap(api.PATCH('/api/v1/org/people/{member_id}', { params: { path: { member_id: v.memberId } }, body: v.body })),
     onSuccess: () => personChanged(qc),
+  })
+}
+
+/** Move people's main location or team (their other units stay). */
+export function useMovePeople() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { member_ids: string[]; unit_id: string }) => unwrap(api.POST('/api/v1/org/people/move', { body })),
+    onSuccess: () => personChanged(qc),
+  })
+}
+
+/** Remind people about every required training still due (once a day per training). */
+export function useRemindPeople() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (memberIds: string[]) => unwrap(api.POST('/api/v1/org/people/remind', { body: { member_ids: memberIds } })),
+    onSuccess: () => refresh(qc, ['compliance']),
+  })
+}
+
+/** The selected people as rows, straight from the server (only people you may see). */
+export function useSelectedRows() {
+  return useMutation({
+    mutationFn: (memberIds: string[]) => unwrap(api.POST('/api/v1/org/people/rows', { body: { member_ids: memberIds } })),
   })
 }
 
@@ -211,11 +236,21 @@ export function useArchiveJobRole() {
 }
 
 // ---------------------------------------------------------------- invites
-const fetchInvites = () => unwrap(api.GET('/api/v1/org/invites'))
+export type InviteStatus = 'pending' | 'history'
+const fetchInvites = (status: InviteStatus = 'pending') => unwrap(api.GET('/api/v1/org/invites', { params: { query: { status } } }))
 export type Invite = Awaited<ReturnType<typeof fetchInvites>>[number]
 
-export function useInvites(enabled = true) {
-  return useQuery({ queryKey: ['org', 'invites', currentOrgId()], queryFn: fetchInvites, enabled })
+/** pending: waiting to join. history: expired, accepted and revoked ones. */
+export function useInvites(enabled = true, status: InviteStatus = 'pending') {
+  return useQuery({ queryKey: ['org', 'invites', currentOrgId(), status], queryFn: () => fetchInvites(status), enabled })
+}
+
+export function useResendInvite() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (inviteId: string) => unwrap(api.POST('/api/v1/org/invites/{invite_id}/resend', { params: { path: { invite_id: inviteId } } })),
+    onSuccess: () => refresh(qc, ['org', 'invites']),
+  })
 }
 
 export function useCreateInvite() {
@@ -309,6 +344,22 @@ export function useCompanyInvoices(enabled: boolean) {
 /** Stripe's billing portal for the company (the default X-Org-Id is the company). */
 export function useCompanyBillingPortal() {
   return useMutation({ mutationFn: () => unwrap(api.POST('/api/v1/commerce/billing-portal')) })
+}
+
+export const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']
+export const LOGO_MAX = 1024 * 1024
+
+/** Put a logo in private storage and get its path back, checked by the server. This only
+ * prepares it: the branding is unchanged until it is saved. */
+export function useUploadLogo() {
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const t = await unwrap(api.POST('/api/v1/org/company/logo/upload', { body: { filename: file.name, size_bytes: file.size } }))
+      const res = await fetch(t.upload_url, { method: t.method, headers: t.headers, body: file })
+      if (!res.ok) throw new Error('The upload failed. Try again.')
+      return unwrap(api.POST('/api/v1/org/company/logo/confirm', { body: { key: t.key } }))
+    },
+  })
 }
 
 export function useSaveBranding() {

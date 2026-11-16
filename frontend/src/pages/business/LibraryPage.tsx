@@ -1,6 +1,6 @@
 import { Award, BarChart3, BookOpen, Clock, PlayCircle, Search, UserPlus, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -14,9 +14,9 @@ import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { type LibraryCourse, useAssignments, useLibrary } from '@/features/org/api'
+import { AssignWizard, type PickedPerson } from '@/features/org/AssignWizard'
 import { cn } from '@/lib/cn'
 import { duration, relativeDate } from '@/lib/format'
-import { Link } from '@/lib/router'
 
 const STATUS: Record<string, { label: string; tone: 'success' | 'info' | 'neutral' | 'warning' }> = {
   completed: { label: 'Completed', tone: 'success' },
@@ -25,7 +25,7 @@ const STATUS: Record<string, { label: string; tone: 'success' | 'info' | 'neutra
 }
 
 /** Who has this course and how far they are (side sheet). */
-function ProgressSheet({ course, onClose }: { course: LibraryCourse | null; onClose: () => void }) {
+function ProgressSheet({ course, onClose, onAssign }: { course: LibraryCourse | null; onClose: () => void; onAssign: (courseId: string) => void }) {
   const { data, isLoading, error, refetch } = useAssignments(course?.id ?? null)
   return (
     <Dialog open={!!course} onOpenChange={(o) => !o && onClose()}>
@@ -42,10 +42,8 @@ function ProgressSheet({ course, onClose }: { course: LibraryCourse | null; onCl
                 <p className="mt-0.5 text-xl font-semibold tabular">{course.completed}</p>
               </div>
             </div>
-            <Button asChild>
-              <Link to={`/business/assign?course=${course.id}`}>
-                <UserPlus /> Assign to more people
-              </Link>
+            <Button onClick={() => onAssign(course.id)}>
+              <UserPlus /> Assign to more people
             </Button>
             {error ? (
               <ErrorState message={(error as Error).message} onRetry={() => void refetch()} />
@@ -87,7 +85,7 @@ function ProgressSheet({ course, onClose }: { course: LibraryCourse | null; onCl
   )
 }
 
-function LibraryCard({ c, onProgress }: { c: LibraryCourse; onProgress: () => void }) {
+function LibraryCard({ c, onProgress, onAssign }: { c: LibraryCourse; onProgress: () => void; onAssign: () => void }) {
   const pct = c.assigned ? (c.completed / c.assigned) * 100 : 0
   return (
     <Card className="flex flex-col p-2.5 transition-all hover:-translate-y-0.5 hover:border-border-strong hover:shadow">
@@ -128,10 +126,8 @@ function LibraryCard({ c, onProgress }: { c: LibraryCourse; onProgress: () => vo
           <Button variant="secondary" size="sm" className="flex-1" onClick={onProgress}>
             <BarChart3 /> Progress
           </Button>
-          <Button size="sm" className="flex-1" asChild>
-            <Link to={`/business/assign?course=${c.id}`}>
-              <UserPlus /> Assign
-            </Link>
+          <Button size="sm" className="flex-1" onClick={onAssign} aria-label={`Assign ${c.title}`}>
+            <UserPlus /> Assign
           </Button>
         </div>
       </div>
@@ -144,6 +140,29 @@ export function LibraryPage() {
   const source = params.get('source') ?? ''
   const [q, setQ] = useState('')
   const [open, setOpen] = useState<LibraryCourse | null>(null)
+  // ?assign=<course id> opens the wizard at "People and units"; ?assign=new at "Course".
+  // In the URL, so old links, back and forward all work.
+  const assign = params.get('assign')
+  const picked = (useLocation().state as { people?: PickedPerson[] } | null)?.people
+  const [opened, setOpened] = useState(0) // a fresh wizard every time it opens
+  const openAssign = (courseId?: string) => {
+    setOpen(null)
+    setOpened((n) => n + 1)
+    setParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('assign', courseId ?? 'new')
+      return next
+    })
+  }
+  const closeAssign = () =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('assign')
+        return next
+      },
+      { replace: true, state: null }, // people picked on the way are used once
+    )
   const { data, isLoading, error, refetch } = useLibrary(source || undefined)
   const shown = useMemo(() => (q.trim() ? (data ?? []).filter((c) => `${c.title} ${c.subtitle}`.toLowerCase().includes(q.trim().toLowerCase())) : (data ?? [])), [data, q])
 
@@ -153,15 +172,26 @@ export function LibraryPage() {
         title="Course library"
         description="Courses your company can assign: your own and the LearnHub library."
         actions={
-          <Button asChild>
-            <Link to="/business/assign">
-              <UserPlus /> Assign training
-            </Link>
+          <Button onClick={() => openAssign()}>
+            <UserPlus /> Assign training
           </Button>
         }
       />
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <Tabs value={source || 'all'} onValueChange={(v) => setParams(v === 'all' ? {} : { source: v }, { replace: true })}>
+        <Tabs
+          value={source || 'all'}
+          onValueChange={(v) =>
+            setParams(
+              (prev) => {
+                const next = new URLSearchParams(prev)
+                if (v === 'all') next.delete('source')
+                else next.set('source', v)
+                return next
+              },
+              { replace: true },
+            )
+          }
+        >
           <TabsList aria-label="Where courses come from" className="border-b-0">
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="company">Company</TabsTrigger>
@@ -199,11 +229,29 @@ export function LibraryPage() {
               />
             </Card>
           ) : (
-            shown.map((c) => <LibraryCard key={c.id} c={c} onProgress={() => setOpen(c)} />)
+            shown.map((c) => <LibraryCard key={c.id} c={c} onProgress={() => setOpen(c)} onAssign={() => openAssign(c.id)} />)
           )}
         </div>
       )}
-      <ProgressSheet course={open} onClose={() => setOpen(null)} />
+      <ProgressSheet course={open} onClose={() => setOpen(null)} onAssign={openAssign} />
+      <Dialog open={!!assign} onOpenChange={(o) => !o && closeAssign()}>
+        {assign ? (
+          <DialogContent side="right" title="Assign training" description="Give a course to people or whole teams. They get a notification and it appears in their learning." className="w-[min(880px,100vw)]">
+            <div className="p-4">
+              <AssignWizard
+                key={`${assign}:${opened}`}
+                preset={assign === 'new' ? null : assign}
+                picked={picked}
+                onSeeProgress={(id) => {
+                  closeAssign()
+                  const c = data?.find((x) => x.id === id)
+                  if (c) setOpen(c)
+                }}
+              />
+            </div>
+          </DialogContent>
+        ) : null}
+      </Dialog>
     </>
   )
 }

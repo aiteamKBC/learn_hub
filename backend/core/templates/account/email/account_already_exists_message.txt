@@ -1,0 +1,10 @@
+{% extends "account/email/base_message.txt" %}
+{% load i18n %}
+
+{% block content %}{% autoescape off %}{% blocktrans %}A sign-up was attempted with this email address:
+
+{{ email }}
+
+An account already exists. You do not need to reset your password to accept a company invitation. Return to the invitation and choose “I already have an account”, then sign in with your existing password.
+
+Use “Forgot password?” only if you have actually forgotten that password.{% endblocktrans %}{% endautoescape %}{% endblock content %}

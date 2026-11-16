@@ -1,4 +1,4 @@
-import { Armchair, CalendarDays, ClipboardList, GraduationCap, PoundSterling, Send, UserCheck } from 'lucide-react'
+import { Armchair, CalendarDays, ClipboardList, GraduationCap, LifeBuoy, PoundSterling, Send, UserCheck } from 'lucide-react'
 import { useEffect } from 'react'
 
 import { Avatar } from '@/components/ui/avatar'
@@ -49,7 +49,7 @@ const ENROL_TONE: Record<string, 'success' | 'primary' | 'neutral' | 'danger'> =
 function ProgressTab() {
   const q = useEmployeeProgress()
   return (
-    <QueryBlock query={q} empty={{ icon: <GraduationCap />, title: 'Nobody has a seat yet', body: 'Progress shows here once you give seats to your people.', action: <Button asChild variant="secondary"><Link to="/business/seats">Give seats</Link></Button> }}>
+    <QueryBlock query={q} empty={{ icon: <GraduationCap />, title: 'Nobody has a seat yet', body: 'Progress shows here once you give seats to your people.', action: <Button asChild variant="secondary"><Link to="/business/purchases-and-seats">Give seats</Link></Button> }}>
       {(rows) => (
         <Table>
           <thead>
@@ -146,6 +146,9 @@ export function CorporateOverviewPage() {
           <>
             <Button asChild variant="secondary">
               <Link to="/business/live-bookings">Live training</Link>
+            </Button>
+            <Button asChild variant="secondary">
+              <Link to="/support"><LifeBuoy /> B2B support</Link>
             </Button>
             <Button asChild>
               <Link to="/business/packages">Course packages</Link>

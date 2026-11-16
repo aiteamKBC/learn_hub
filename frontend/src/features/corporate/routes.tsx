@@ -10,7 +10,7 @@
  *   - businessNav:  ...corporateBusinessNav  (after 'Learning')
  * In pages/console/ConsoleShell.tsx consoleNav: ...corporateConsoleNav
  */
-import { BarChart3, Building2, CalendarDays, LayoutDashboard, Package, Receipt, Armchair, Undo2, Video } from 'lucide-react'
+import { BarChart3, Building2, CalendarDays, LayoutDashboard, Package, Receipt, Undo2, Video } from 'lucide-react'
 import { lazy, Suspense, type ComponentType, type ReactNode } from 'react'
 import type { RouteObject } from 'react-router-dom'
 
@@ -25,6 +25,7 @@ const PackagesPage = named(() => import('@/pages/business/corporate/PackagesPage
 const PurchasesPage = named(() => import('@/pages/business/corporate/PurchasesPage'), 'PurchasesPage')
 const SeatsPage = named(() => import('@/pages/business/corporate/SeatsPage'), 'SeatsPage')
 const LiveTrainingPage = named(() => import('@/pages/business/corporate/LiveTrainingPage'), 'LiveTrainingPage')
+const PurchasesSeatsPage = named(() => import('@/pages/business/corporate/PurchasesSeatsPage'), 'PurchasesSeatsPage')
 const CancellationsPage = named(() => import('@/pages/business/corporate/CancellationsPage'), 'CancellationsPage')
 const MyLiveTrainingPage = named(() => import('@/features/corporate/MyLiveTrainingPage'), 'MyLiveTrainingPage')
 const ConsolePackages = named(() => import('@/pages/console/corporate/CorporatePackagesPage'), 'ConsoleCorporatePackagesPage')
@@ -36,6 +37,8 @@ const ConsoleReports = named(() => import('@/pages/console/corporate/CorporateRe
 export const corporateBusinessRoutes: RouteObject[] = [
   { path: 'corporate', element: page(<CorporateOverviewPage />), handle: { art: 'seats' } },
   { path: 'packages', element: page(<PackagesPage />), handle: { art: 'seats' } },
+  { path: 'purchases-and-seats', element: page(<PurchasesSeatsPage />), handle: { art: 'seats' } },
+  // old addresses: each opens its tab on Purchases & seats (Stripe still returns to /purchases)
   { path: 'purchases', element: page(<PurchasesPage />), handle: { art: 'ribbons' } },
   { path: 'seats', element: page(<SeatsPage />), handle: { art: 'seats' } },
   { path: 'live-bookings', element: page(<LiveTrainingPage />), handle: { art: 'timetable' } },
@@ -59,10 +62,8 @@ export const corporateBusinessNav: NavSection[] = [
     items: [
       { to: '/business/corporate', label: 'Overview', Icon: LayoutDashboard },
       { to: '/business/packages', label: 'Course packages', Icon: Package },
-      { to: '/business/seats', label: 'Seats', Icon: Armchair },
+      { to: '/business/purchases-and-seats', label: 'Purchases & seats', Icon: Receipt },
       { to: '/business/live-bookings', label: 'Live training', Icon: Video },
-      { to: '/business/purchases', label: 'Purchases', Icon: Receipt },
-      { to: '/business/cancellations', label: 'Refunds and changes', Icon: Undo2 },
     ],
   },
 ]

@@ -5,13 +5,14 @@ dismissing closes the open reports and thanks the reporters."""
 from datetime import datetime, timedelta
 from uuid import UUID
 
+from django.db import transaction
 from django.db.models import Count, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja import Field, Schema
 
-from apps.engagement import moderation
+from apps.engagement import moderation, notify
 from apps.engagement.models import Answer, ContentReport, Question, Review
 from core import cursor as keyset
 from core import html
@@ -40,6 +41,12 @@ class ConsoleModItemOut(Schema):
     rating: int | None
     title: str
     body: str
+    question_id: UUID | None
+    question_author: str | None
+    question_hidden: bool
+    answer_count: int | None
+    instructor_reply: str | None
+    is_staff_answer: bool
     hidden: bool
     open_reports: int
     created_at: datetime
@@ -107,7 +114,8 @@ def summary(request):
 
 @router.get("/moderation/items", response=ConsoleModPageOut)
 def items(request, kind: str = "review", status: str | None = None, q: str | None = None,
-          max_rating: int | None = None, reported: bool = False, cursor: str | None = None, limit: int = 25):  # fmt: skip
+          max_rating: int | None = None, reported: bool = False, unanswered: bool = False,
+          cursor: str | None = None, limit: int = 25):  # fmt: skip
     """Reviews, questions or answers, newest first. status = visible | hidden."""
     staff(request)
     if kind == "review":
@@ -116,10 +124,21 @@ def items(request, kind: str = "review", status: str | None = None, q: str | Non
         if max_rating:
             qs = qs.filter(rating__lte=max_rating)
     elif kind == "question":
-        qs = Question.objects.select_related("user", "course")
+        visible_answers = Coalesce(
+            Subquery(
+                Answer.objects.filter(question_id=OuterRef("pk"), hidden_at__isnull=True)
+                .values("question_id")
+                .annotate(n=Count("id"))
+                .values("n")[:1]
+            ),
+            0,
+        )
+        qs = Question.objects.select_related("user", "course").annotate(visible_answers=visible_answers)
         hidden = Q(hidden_at__isnull=False)
+        if unanswered:
+            qs = qs.filter(visible_answers=0)
     elif kind == "answer":
-        qs = Answer.objects.select_related("user", "question__course")
+        qs = Answer.objects.select_related("user", "question__course", "question__user")
         hidden = Q(hidden_at__isnull=False)
     else:
         raise ServiceError("bad_kind", "Choose reviews, questions or answers.")
@@ -133,6 +152,7 @@ def items(request, kind: str = "review", status: str | None = None, q: str | Non
         cond = (
             Q(body__icontains=term)
             | Q(user__email__icontains=term)
+            | Q(user__full_name__icontains=term)
             | Q(**{f"{course_field}__icontains": term})
         )
         if kind == "question":
@@ -156,6 +176,12 @@ def items(request, kind: str = "review", status: str | None = None, q: str | Non
             "rating": r.rating if kind == "review" else None,
             "title": r.title if kind == "question" else (r.question.title if kind == "answer" else ""),
             "body": html.plain(r.body, 2000), "hidden": moderation.is_hidden(kind, r), "open_reports": r.reports,
+            "question_id": r.question_id if kind == "answer" else (r.id if kind == "question" else None),
+            "question_author": (r.question.user.full_name or r.question.user.email) if kind == "answer" else None,
+            "question_hidden": r.question.hidden_at is not None if kind == "answer" else False,
+            "answer_count": r.visible_answers if kind == "question" else None,
+            "instructor_reply": html.plain(r.instructor_reply, 4000) if kind == "review" else None,
+            "is_staff_answer": r.user.is_staff if kind == "answer" else False,
             "created_at": r.created_at,
         })  # fmt: skip
     nxt = keyset.encode(page[-1].created_at.isoformat(), str(page[-1].id)) if len(rows) > limit else None
@@ -173,6 +199,35 @@ def hide_or_show(request, kind: str, target_id: UUID, body: ConsoleHideIn):
         request, f"{kind}.{'hide' if body.hide else 'show'}", kind, target_id, {"reason": body.reason}
     )
     return {"ok": True}
+
+
+class ConsoleAnswerIn(Schema):
+    body: str = Field(..., min_length=1, max_length=10000)
+
+
+class ConsoleAnswerOut(Schema):
+    id: UUID
+
+
+@router.post("/moderation/questions/{question_id}/answer", response=ConsoleAnswerOut)
+@transaction.atomic
+def staff_answer(request, question_id: UUID, body: ConsoleAnswerIn):
+    """Post a visible platform answer to a learner's course question."""
+    staff(request)
+    question = get_object_or_404(Question.objects.select_related("course"), pk=question_id)
+    if question.hidden_at is not None:
+        raise ServiceError("question_hidden", "Show the question before answering it.")
+    answer_text = body.body.strip()
+    if not answer_text:
+        raise ServiceError("body_required", "Write an answer first.")
+    answer = Answer.objects.create(
+        user=request.user, question=question, body=answer_text, is_instructor=False
+    )
+    if question.user_id != request.user.id:
+        notify.notify([question.user_id], "answer_posted", {"course": question.course.title, "title": question.title},
+                      url=f"/learn/{question.course.slug}/qa/{question.id}", dedupe=f"answer:{answer.id}")  # fmt: skip
+    audit_request(request, "question.answer", "question", question.id, {"answer": str(answer.id)})
+    return {"id": answer.id}
 
 
 @router.get("/moderation/reports", response=ConsoleReportPageOut)
@@ -218,6 +273,8 @@ def report_hide(request, report_id: UUID, body: ConsoleHideIn):
     """Hide the reported content (closes every open report on it as actioned)."""
     staff(request)
     r = get_object_or_404(ContentReport, pk=report_id)
+    if r.status != "open":
+        raise ServiceError("already_handled", "This report was already handled.")
     moderation.set_hidden(target_type=r.target_type, target_id=r.target_id, hide=True, reason=body.reason,
                           by=request.user)  # fmt: skip
     audit_request(request, f"{r.target_type}.hide", r.target_type, r.target_id,

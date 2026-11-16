@@ -37,7 +37,7 @@ import { AgreementSection, InstalmentPlanForm, InventoryTab } from './AgreementP
 import { QueryBlock, StatusBadge } from '@/features/corporate/ui'
 import { useDebounced } from '@/features/org/ui'
 
-const TABS = ['offerings', 'purchases', 'inventory', 'quotes'] as const
+const TABS = ['live', 'purchases', 'inventory', 'quotes'] as const
 type Tab = (typeof TABS)[number]
 const err = (e: unknown) => toast.error((e as Error).message)
 
@@ -50,7 +50,6 @@ function OfferingForm({ open, onOpenChange, offering }: { open: boolean; onOpenC
   const create = useCnCreateOffering()
   const update = useCnUpdateOffering()
   const [courseId, setCourseId] = useState('')
-  const [delivery, setDelivery] = useState('recorded')
   const [tierId, setTierId] = useState(offering?.price_tier_id ?? '')
   const [desc, setDesc] = useState(offering?.description ?? '')
   const [quote, setQuote] = useState(offering?.custom_quote_enabled ?? false)
@@ -61,14 +60,14 @@ function OfferingForm({ open, onOpenChange, offering }: { open: boolean; onOpenC
 
   const save = (e: FormEvent) => {
     e.preventDefault()
-    const done = { onSuccess: () => (toast.success(offering ? 'Package saved' : 'Package created'), onOpenChange(false)), onError: err }
+    const done = { onSuccess: () => (toast.success(offering ? 'Live offer saved' : 'Live offer created'), onOpenChange(false)), onError: err }
     if (offering) update.mutate({ id: offering.id, price_tier_id: tierId, description: desc, custom_quote_enabled: quote, access_months: monthsNum ?? 0 }, done)
-    else create.mutate({ course_id: courseId, delivery_type: delivery, price_tier_id: tierId, is_active: true, custom_quote_enabled: quote, description: desc, access_months: monthsNum }, done)
+    else create.mutate({ course_id: courseId, delivery_type: 'live', price_tier_id: tierId, is_active: true, custom_quote_enabled: quote, description: desc, access_months: monthsNum }, done)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title={offering ? `Edit package: ${offering.course_title}` : 'New company package'} description="The price is per seat (recorded) or per person (live), in pounds.">
+      <DialogContent title={offering ? `Edit live offer: ${offering.course_title}` : 'Add a live course'} description="Live courses are arranged with the LearnHub admin. Set the per-person starting price used when a company accepts and pays for its confirmed group.">
         <form onSubmit={save} className="grid gap-4">
           {offering ? null : (
             <>
@@ -82,14 +81,6 @@ function OfferingForm({ open, onOpenChange, offering }: { open: boolean; onOpenC
                         {c.title}
                       </option>
                     ))}
-                  </NativeSelect>
-                )}
-              </Field>
-              <Field label="Type">
-                {(p) => (
-                  <NativeSelect {...p} value={delivery} onChange={(e) => setDelivery(e.target.value)}>
-                    <option value="recorded">Recorded course</option>
-                    <option value="live">Live training</option>
                   </NativeSelect>
                 )}
               </Field>
@@ -137,15 +128,14 @@ function Offerings() {
   const [form, setForm] = useState<{ o: CnOffering | null } | null>(null)
   return (
     <Card>
-      <CardHeader title="Company packages" description="What companies can buy" action={<Button size="sm" onClick={() => setForm({ o: null })}><Plus /> New package</Button>} />
+      <CardHeader title="Live course offers" description="Choose which courses companies can request as live training. Recorded course prices come from the shared course catalogue." action={<Button size="sm" onClick={() => setForm({ o: null })}><Plus /> Add live course</Button>} />
       <div className="mt-3">
-        <QueryBlock query={q} empty={{ icon: <Package />, title: 'No packages yet', body: 'Create one to let companies buy seats.' }}>
+        <QueryBlock query={{ ...q, data: q.data?.filter((o) => o.delivery_type === 'live') }} empty={{ icon: <Package />, title: 'No live courses offered', body: 'Add a live course so company admins can request a group.' }}>
           {(rows) => (
             <Table>
               <thead>
                 <tr>
                   <Th>Course</Th>
-                  <Th>Type</Th>
                   <Th className="text-right">Price</Th>
                   <Th>On sale</Th>
                   <Th className="text-right">
@@ -157,9 +147,6 @@ function Offerings() {
                 {rows.map((o) => (
                   <Tr key={o.id}>
                     <Td className="max-w-[16rem] truncate font-medium">{o.course_title}</Td>
-                    <Td>
-                      <Badge tone={o.delivery_type === 'live' ? 'info' : 'primary'}>{DELIVERY_LABEL[o.delivery_type] ?? o.delivery_type}</Badge>
-                    </Td>
                     <Td className="text-right tabular-nums">{gbp(o.gbp_minor)}</Td>
                     <Td>
                       <Switch
@@ -517,21 +504,21 @@ function Quotes() {
 }
 
 export function ConsoleCorporatePackagesPage() {
-  const [tab, setTab] = useTabParam(TABS, 'offerings')
+  const [tab, setTab] = useTabParam(TABS, 'live')
   useEffect(() => {
-    document.title = 'Company packages · Console · LearnHub'
+      document.title = 'Company sales · Console · LearnHub'
   }, [])
   return (
     <>
-      <PageHeader title="Company packages" description="Packages companies can buy, their purchases, seats and quotes." />
+      <PageHeader title="Company sales" description="Recorded courses use the same course price for learners and company seats. Live training requests and groups are managed in Live training." />
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
         <TabsList aria-label="Company package sections">
-          <TabsTrigger value="offerings">Packages</TabsTrigger>
+          <TabsTrigger value="live">Live offers</TabsTrigger>
           <TabsTrigger value="purchases">Purchases and seats</TabsTrigger>
           <TabsTrigger value="inventory">Inventory</TabsTrigger>
           <TabsTrigger value="quotes">Quotes</TabsTrigger>
         </TabsList>
-        <TabsContent value="offerings" className="mt-5">
+        <TabsContent value="live" className="mt-5">
           <Offerings />
         </TabsContent>
         <TabsContent value="purchases" className="mt-5">

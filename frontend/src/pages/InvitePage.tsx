@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { Building2, LinkIcon, LogOut, UserRound } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Building2, LinkIcon, Loader2, LogOut, UserRound } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -59,9 +59,46 @@ export function InvitePage() {
   const accept = useAcceptInvitation()
   const logout = useLogout()
   const [wrongAccount, setWrongAccount] = useState<string | null>(null)
+  const [acceptFailed, setAcceptFailed] = useState(false)
+  const acceptingToken = useRef<string | null>(null)
   const here = `/invite/${encodeURIComponent(token)}`
   const next = `?next=${encodeURIComponent(here)}`
   const gone = invitation.error instanceof ApiError && invitation.error.status === 404
+
+  const onAccept = () => {
+    const inv = invitation.data
+    if (!inv) return
+    accept.mutate(token, {
+      onSuccess: async ({ org_id }) => {
+        forgetInvite()
+        setAcceptFailed(false)
+        await qc.refetchQueries({ queryKey: ['me'], type: 'all' })
+        switchTo(org_id)
+        toast.success(`Welcome to ${inv.org_name}`)
+        // the role they actually have there (someone already in the company keeps theirs)
+        const role = qc.getQueryData<Me | null>(['me'])?.memberships.find((m) => m.org_id === org_id)?.role ?? inv.role
+        navigate(role === 'learner' ? '/learn' : '/business', { replace: true })
+      },
+      onError: (e) => {
+        if (e instanceof ApiError && e.code === 'wrong_account') setWrongAccount(e.message)
+        else if (e instanceof ApiError && e.status === 404) void invitation.refetch()
+        else {
+          acceptingToken.current = null
+          setAcceptFailed(true)
+          toast.error((e as Error).message)
+        }
+      },
+    })
+  }
+
+  // Opening an invite is the recipient's explicit action. Once signed in, finish
+  // acceptance here so email confirmation and login don't strand them on the learner home.
+  useEffect(() => {
+    if (me && invitation.data && !wrongAccount && !acceptFailed && acceptingToken.current !== token) {
+      acceptingToken.current = token
+      onAccept()
+    }
+  }, [me, invitation.data, token, wrongAccount, acceptFailed, onAccept])
 
   // an invitation that can't be used any more shouldn't keep bringing people back here
   useEffect(() => {
@@ -103,24 +140,6 @@ export function InvitePage() {
   const inv = invitation.data!
   const roleName = (ROLE_LABEL[inv.role] ?? inv.role).toLowerCase()
 
-  const onAccept = () =>
-    accept.mutate(token, {
-      onSuccess: async ({ org_id }) => {
-        forgetInvite()
-        await qc.refetchQueries({ queryKey: ['me'], type: 'all' })
-        switchTo(org_id)
-        toast.success(`Welcome to ${inv.org_name}`)
-        // the role they actually have there (someone already in the company keeps theirs)
-        const role = qc.getQueryData<Me | null>(['me'])?.memberships.find((m) => m.org_id === org_id)?.role ?? inv.role
-        navigate(role === 'learner' ? '/learn' : '/business', { replace: true })
-      },
-      onError: (e) => {
-        if (e instanceof ApiError && e.code === 'wrong_account') setWrongAccount(e.message)
-        else if (e instanceof ApiError && e.status === 404) void invitation.refetch()
-        else toast.error((e as Error).message)
-      },
-    })
-
   return (
     <Shell>
       <Card className="animate-reveal p-7">
@@ -153,10 +172,14 @@ export function InvitePage() {
               <Button size="lg" loading={logout.isPending} onClick={() => logout.mutate(undefined, { onSettled: () => (forgetInvite(), setWrongAccount(null), navigate(`/login${next}`)) })}>
                 <LogOut /> Sign out and use another account
               </Button>
-            ) : (
-              <Button size="lg" loading={accept.isPending} onClick={onAccept}>
-                Accept and join
+            ) : acceptFailed ? (
+              <Button size="lg" onClick={() => (acceptingToken.current = null, setAcceptFailed(false))}>
+                Try joining again
               </Button>
+            ) : (
+              <p className="flex items-center justify-center gap-2 py-2 text-sm text-muted" role="status">
+                <Loader2 className="size-4 animate-spin" /> Joining {inv.org_name}…
+              </p>
             )}
           </div>
         ) : (
@@ -169,7 +192,9 @@ export function InvitePage() {
             <Button size="lg" variant="secondary" asChild>
               <Link to={`/login${next}`}>I already have an account</Link>
             </Button>
-            <p className="text-center text-xs text-muted">Use the email address the invitation was sent to. You'll come back here to accept.</p>
+            <p className="text-center text-xs text-muted">
+              Use the invited email. New to LearnHub? Confirm it once, then return here and we’ll finish joining you. Already have an account? Sign in with your usual password; you don’t need to reset it just for this invitation.
+            </p>
           </div>
         )}
       </Card>

@@ -1,12 +1,13 @@
 import { Armchair, LifeBuoy, UserPlus } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { EmptyState, PageHeader } from '@/components/ui/misc'
+import { EmptyState, StatCard } from '@/components/ui/misc'
 import { Progress } from '@/components/ui/progress'
 import { Table, Td, Th, Tr } from '@/components/ui/table'
 import { type InventoryRow, useAllocate, useAllocations, useInventory } from '@/features/corporate/api'
@@ -16,8 +17,8 @@ import { cn } from '@/lib/cn'
 import { shortDate } from '@/lib/format'
 import { Link } from '@/lib/router'
 
-function GiveSeat({ row, holders }: { row: InventoryRow; holders: string[] }) {
-  const [open, setOpen] = useState(false)
+function GiveSeat({ row, holders, autoOpen = false }: { row: InventoryRow; holders: string[]; autoOpen?: boolean }) {
+  const [open, setOpen] = useState(autoOpen && row.available > 0)
   const allocate = useAllocate()
   const full = row.available <= 0
   return (
@@ -72,12 +73,12 @@ function CourseSeats({ row, selected, onSelect }: { row: InventoryRow; selected:
   )
 }
 
-function Holders({ row }: { row: InventoryRow }) {
+function Holders({ row, give }: { row: InventoryRow; give: boolean }) {
   const q = useAllocations(row.offering_id)
   const holders = q.data?.map((a) => a.user_id) ?? []
   return (
     <Card>
-      <CardHeader title={row.course_title} description="People with a seat on this course" action={<GiveSeat row={row} holders={holders} />} />
+      <CardHeader title={row.course_title} description="People with a seat on this course" action={q.data ? <GiveSeat row={row} holders={holders} autoOpen={give} /> : null} />
       <div className="mt-3">
         <QueryBlock query={q} rows={3} empty={{ icon: <Armchair />, title: 'Nobody has a seat yet', body: 'Give seats to the people who should take this course.' }}>
           {(rows) => (
@@ -134,23 +135,19 @@ function Holders({ row }: { row: InventoryRow }) {
   )
 }
 
+/** /business/seats is now the "Seats" tab of Purchases & seats. */
 export function SeatsPage() {
+  return <Navigate to="/business/purchases-and-seats" replace />
+}
+
+/** Seats bought on recorded courses: totals (the server's counts per course, added up),
+ * one card per course and who holds a seat. `offering` picks a course; with `give` its
+ * "Give a seat" opens straight away (after a purchase). */
+export function SeatsPanel({ offering, give = false }: { offering?: string | null; give?: boolean }) {
   const q = useInventory()
-  const [selected, setSelected] = useState<string | null>(null)
-  useEffect(() => {
-    document.title = 'Seats · LearnHub'
-  }, [])
+  const [selected, setSelected] = useState<string | null>(offering ?? null)
   return (
     <>
-      <PageHeader
-        title="Seats"
-        description="Recorded courses you have bought, and who has a seat."
-        actions={
-          <Button asChild variant="secondary">
-            <Link to="/business/packages">Buy seats</Link>
-          </Button>
-        }
-      />
       <QueryBlock query={q} rows={3}>
         {(all) => {
           const rows = all.filter((r) => r.delivery_type === 'recorded')
@@ -161,14 +158,20 @@ export function SeatsPage() {
               </Card>
             )
           const current = rows.find((r) => r.offering_id === selected) ?? rows[0]!
+          const total = (k: 'purchased' | 'allocated' | 'available') => rows.reduce((n, r) => n + r[k], 0)
           return (
             <div className="grid gap-6">
+              <div className="stagger grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <StatCard label="Seats bought" value={total('purchased')} icon={<Armchair />} hint={`${rows.length} ${rows.length === 1 ? 'course' : 'courses'}`} />
+                <StatCard label="Seats given" value={total('allocated')} icon={<UserPlus />} tone="info" hint="to your people" />
+                <StatCard label="Free seats" value={total('available')} icon={<Armchair />} tone="success" hint="ready to give" />
+              </div>
               <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {rows.map((r) => (
                   <CourseSeats key={r.offering_id} row={r} selected={r.offering_id === current.offering_id} onSelect={() => setSelected(r.offering_id)} />
                 ))}
               </div>
-              <Holders key={current.offering_id} row={current} />
+              <Holders key={current.offering_id} row={current} give={give && current.offering_id === offering} />
             </div>
           )
         }}

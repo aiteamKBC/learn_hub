@@ -356,6 +356,31 @@ class IsolationAndScaleTest(ComplianceBase):
             self.assertEqual(a["total"], 28)
             self.assertEqual(a["compliance_pct"], 0.0)
 
+    def test_matrix_requirement_and_status_filter_the_same_cell(self):
+        """Reports link to the matrix with ?req=&status=: both must match ONE cell, overdue
+        and expired stay apart, and another company's requirement id shows nobody."""
+        fire = self.require([{}])
+        gdpr = self.require([{}], name="GDPR", course=self.build_course_ctx("gdpr"))
+        with tenant_context(**self.ACME):
+            MemberStatus.objects.filter(member=self.m_sara, requirement=fire).update(status=S.OVERDUE)
+            MemberStatus.objects.filter(member=self.m_omar, requirement=gdpr).update(status=S.OVERDUE)
+            MemberStatus.objects.filter(member=self.m_omar, requirement=fire).update(status=S.EXPIRED)
+
+            def names(**kw):
+                return {r["user__full_name"] for r in selectors.matrix(self.admin_scope(), **kw)["rows"]}
+
+            self.assertEqual(names(requirement_id=fire.id, status=S.OVERDUE), {"Sara Ahmed"})
+            self.assertEqual(names(requirement_id=fire.id, status=S.EXPIRED), {"Omar Ali"})
+            self.assertEqual(names(requirement_id=gdpr.id, status=S.OVERDUE), {"Omar Ali"})
+            self.assertEqual(names(requirement_id=gdpr.id, status=S.EXPIRED), set())
+        # Beta's admin puts Acme's requirement id in the URL: nothing comes back
+        from core.permissions import OrgRole, Scope
+
+        with tenant_context(org_id=self.beta.id, user_id=self.bob.id):
+            m_bob = OrgMember.objects.get(org=self.beta, user=self.bob)
+            beta = Scope(self.beta.id, OrgRole.OWNER, m_bob.id, None)
+            self.assertEqual(selectors.matrix(beta, requirement_id=fire.id, status=S.OVERDUE)["rows"], [])
+
     def build_course_ctx(self, slug):
         with tenant_context(**self.ACME):
             return self.build_course(slug)

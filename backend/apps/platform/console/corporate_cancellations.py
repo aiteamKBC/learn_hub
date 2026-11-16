@@ -35,6 +35,12 @@ class ConsoleCancellationReview(Schema):
     admin_notes: str = ""
 
 
+class ConsolePostponementIn(Schema):
+    target_cohort_id: UUID
+    seats: int = Field(..., ge=1)
+    admin_notes: str = ""
+
+
 class ConsoleRefundIn(Schema):
     amount_minor: int = Field(..., ge=1)
     currency: str = Field("GBP", max_length=3)
@@ -112,6 +118,22 @@ def review_cancellation(request, cancellation_id: UUID, body: ConsoleCancellatio
     return {"ok": True}
 
 
+@router.post("/corporate/cancellations/{cancellation_id}/postpone", response=ConsoleOkOut)
+def process_postponement(request, cancellation_id: UUID, body: ConsolePostponementIn):
+    """Execute a live postponement; approval alone never changes a booking."""
+    staff(request)
+    from apps.corporate.cancellations import process_postponement as _postpone
+
+    _postpone(
+        request,
+        str(cancellation_id),
+        target_cohort_id=str(body.target_cohort_id),
+        seats=body.seats,
+        admin_notes=body.admin_notes,
+    )
+    return {"ok": True}
+
+
 @router.post("/corporate/cancellations/{cancellation_id}/refund", response=ConsoleOkOut)
 def process_refund(request, cancellation_id: UUID, body: ConsoleRefundIn):
     staff(request)
@@ -171,7 +193,7 @@ class ConsoleDepartureResultOut(Schema):
 
 @router.post("/corporate/departure-policies/{org_id}/apply", response=ConsoleDepartureResultOut)
 def apply_departure(request, org_id: UUID, body: ConsoleDepartureApplyIn):
-    """Record that someone left. Paid access is never ended early (see corporate/departure.py)."""
+    """Remove a leaver and release company-owned training places for reuse."""
     staff(request)
     from apps.corporate.departure import apply_departure as _apply
 

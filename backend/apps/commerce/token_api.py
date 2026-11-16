@@ -62,6 +62,7 @@ class TokenPackOut(Schema):
 
 class TokenRateOut(Schema):
     tokens_per_gbp_minor: str
+    token_price_gbp: str
     effective_from: str
 
 
@@ -211,31 +212,17 @@ def unlock_content(request, body: UnlockIn):
     try:
         if body.scope == "course":
             ent = unlock.unlock_course(user=request.user, course_id=body.target_id, request=request)
-            from apps.catalog.models import Course
-
-            price = (
-                Course.objects.filter(pk=body.target_id)
-                .values_list("full_course_token_price", flat=True)
-                .first()
-                or 0
-            )
         elif body.scope == "lecture":
             ent = unlock.unlock_lecture(user=request.user, lecture_id=body.target_id, request=request)
-            from apps.catalog.models import Lecture
-
-            price = (
-                Lecture.objects.filter(pk=body.target_id).values_list("token_price", flat=True).first() or 0
-            )
         else:
             ent = unlock.unlock_material(user=request.user, material_id=body.target_id, request=request)
-            from apps.catalog.models import LectureResource
+        # Report the actual tokens charged (the server-authoritative snapshot) so the
+        # client never sees a stale quote on success.
+        from apps.commerce.models import TokenSpend
 
-            price = (
-                LectureResource.objects.filter(pk=body.target_id)
-                .values_list("token_price", flat=True)
-                .first()
-                or 0
-            )
+        price = (
+            TokenSpend.objects.filter(pk=ent.source_ref).values_list("tokens_total", flat=True).first() or 0
+        )
     except AlreadyUnlocked as e:
         raise ServiceError("already_unlocked", str(e), status=409) from e
     except NoPriceSet as e:
@@ -286,6 +273,7 @@ def current_rate(request):
         return None
     return {
         "tokens_per_gbp_minor": str(r.tokens_per_gbp_minor),
+        "token_price_gbp": str((Decimal("0.01") / r.tokens_per_gbp_minor).quantize(Decimal("0.000001"))),
         "effective_from": r.effective_from.isoformat(),
     }
 

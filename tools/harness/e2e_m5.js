@@ -265,13 +265,15 @@ const CONSOLE_ROUTES = ['/console', '/console/courses', '/console/instructors', 
 
   // ================================================================ 14. templates
   await s.getByRole('tab', { name: 'Notification templates' }).click()
-  await s.getByRole('button', { name: /Edit/ }).first().click()
-  const body = s.getByRole('dialog').getByRole('textbox').last()
+  // Templates are edited directly in the right-hand panel. A preview validates
+  // the wording without saving or sending anything.
+  await s.getByLabel('Notification templates').getByRole('button').first().click()
+  const body = s.getByLabel('Message')
   await body.fill((await body.inputValue()) + ' {not_a_placeholder}')
-  await s.getByRole('button', { name: 'Save template' }).click()
-  await s.getByRole('dialog').getByText(/placeholder/i).first().waitFor()
-  await s.getByRole('button', { name: 'Use default' }).click()
-  step('14. a broken placeholder is refused; the default wording comes back')
+  await s.getByRole('button', { name: 'Preview' }).click()
+  await s.getByRole('alert').getByText(/placeholder/i).waitFor()
+  await s.getByRole('button', { name: 'Discard' }).click()
+  step('14. preview refuses a broken placeholder; discard keeps the saved wording')
 
   // ================================================================ 15. settings
   await s.goto(BASE + '/console/settings')

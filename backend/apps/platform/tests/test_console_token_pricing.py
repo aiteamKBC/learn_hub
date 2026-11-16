@@ -5,6 +5,7 @@ Follows the CommerceBase / tenant_context pattern used by test_console_pricing.p
 
 import json
 from datetime import timedelta
+from decimal import Decimal
 
 from django.db import connections
 from django.utils import timezone
@@ -13,6 +14,7 @@ from apps.catalog import services as cat
 from apps.catalog.models import Lecture, LectureResource, MediaAsset, VideoLibrary
 from apps.commerce.models import (
     BonusCampaign,
+    CoursePrice,
     PriceTier,
     TokenPack,
     TokenRate,
@@ -60,6 +62,7 @@ class _Base(SchemaTransactionTestCase):
                 created_by=self.staff,
                 owner_org_id=None,
             )
+            CoursePrice.objects.create(course=course, is_free=True)
             v = course.versions.get()
             sec = cat.add_section(version=v, title="S")
             lectures = [
@@ -132,14 +135,24 @@ class CoursePatchTests(_Base):
         self.client.force_login(self.staff)
 
     def test_set_value_writes(self):
+        # Overriding the stored full_course_token_price now requires an explicit flag
+        # (the service derives the price from cash_price_tier x TokenRate by default).
         r = self._patch(
             f"/pricing/token/courses/{self.course.id}",
-            {"full_course_token_price": 500, "reason": "launch"},
+            {"full_course_token_price": 500, "price_override": True, "reason": "launch"},
         )
         self.assertEqual(r.status_code, 200, r.content)
         self.course.refresh_from_db()
         self.assertEqual(self.course.full_course_token_price, 500)
         self.assertGreaterEqual(self._audit_rows("course", self.course.id), 1)
+
+    def test_set_value_without_override_is_rejected(self):
+        r = self._patch(
+            f"/pricing/token/courses/{self.course.id}",
+            {"full_course_token_price": 500, "reason": "launch"},
+        )
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn(b"derived", r.content)
 
     def test_unset_leaves_alone(self):
         with tenant_context(user_id=self.staff.id, staff=True):
@@ -283,6 +296,7 @@ class BulkTests(_Base):
             {
                 "course_ids": [str(self.course.id), bad_id],
                 "patch": {"full_course_token_price": 300},
+                "price_override": True,
                 "reason": "bulk",
             },
         )
@@ -302,7 +316,7 @@ class TokenPackTests(_Base):
             {
                 "name": "Starter",
                 "token_amount": 100,
-                "price_tier_id": str(self.tier.id),
+                "price_gbp_minor": 999,
                 "is_active": True,
                 "sort_order": 1,
                 "reason": "create",
@@ -310,12 +324,13 @@ class TokenPackTests(_Base):
         )
         self.assertEqual(r.status_code, 200, r.content)
         pack_id = r.json()["id"]
+        self.assertEqual(r.json()["price_gbp_minor"], 999)
         r = self._patch(
             f"/pricing/token/packs/{pack_id}",
             {
                 "name": "Starter+",
                 "token_amount": 150,
-                "price_tier_id": str(self.tier.id),
+                "price_gbp_minor": 1299,
                 "is_active": True,
                 "sort_order": 2,
                 "reason": "update",
@@ -323,14 +338,27 @@ class TokenPackTests(_Base):
         )
         self.assertEqual(r.status_code, 200, r.content)
         self.assertEqual(r.json()["token_amount"], 150)
+        self.assertEqual(r.json()["price_gbp_minor"], 1299)
         r = self._delete(f"/pricing/token/packs/{pack_id}")
         self.assertEqual(r.status_code, 200)
         self.assertFalse(TokenPack.objects.get(pk=pack_id).is_active)
         self.assertTrue(TokenPack.objects.filter(pk=pack_id).exists())
+        listed = self._get("/pricing/token/packs?include_inactive=true")
+        self.assertEqual(listed.status_code, 200, listed.content)
+        self.assertFalse(next(p for p in listed.json() if p["id"] == pack_id)["is_active"])
 
 
 # ============================================================================= token rate
 class TokenRateTests(_Base):
+    def test_immediate_rate_is_active_after_admin_confirmation(self):
+        self.client.force_login(self.staff)
+        r = self._post(
+            "/pricing/token/rates",
+            {"tokens_per_gbp_minor": "0.5", "apply_immediately": True, "reason": "set unit price"},
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(TokenRate.current().tokens_per_gbp_minor, Decimal("0.5000"))
+
     def test_past_effective_from_rejected(self):
         self.client.force_login(self.staff)
         r = self._post(
@@ -368,6 +396,20 @@ class TokenRateTests(_Base):
 
 # ============================================================================= top-up policy
 class TopUpTests(_Base):
+    def test_turning_policy_off_deactivates_active_row(self):
+        self.client.force_login(self.staff)
+        self._put(
+            "/pricing/token/topup-policies/GBP",
+            {"min_minor": 100, "max_minor": 10000, "is_active": True, "reason": "enable"},
+        )
+        r = self._put(
+            "/pricing/token/topup-policies/GBP",
+            {"min_minor": 100, "max_minor": 10000, "is_active": False, "reason": "disable"},
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(TopUpPolicy.objects.filter(currency="GBP", is_active=True).count(), 0)
+        self.assertFalse(r.json()["is_active"])
+
     def test_separate_currencies_coexist(self):
         self.client.force_login(self.staff)
         r = self._put(
@@ -431,7 +473,7 @@ class AuditEndpointTests(_Base):
         self.client.force_login(self.staff)
         self._patch(
             f"/pricing/token/courses/{self.course.id}",
-            {"full_course_token_price": 777, "reason": "audit-seed"},
+            {"full_course_token_price": 777, "price_override": True, "reason": "audit-seed"},
         )
         r = self._get("/pricing/token/audit?entity_type=course")
         self.assertEqual(r.status_code, 200, r.content)

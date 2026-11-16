@@ -94,16 +94,19 @@ class InventoryOut(Schema):
 @router.get("/packages", response=list[PackageOut])
 def list_packages(request):
     org_scope(request, OrgRole.MANAGER)
+    from apps.corporate.offerings import recorded_course_prices
+
     from .models import CorporateOffering
 
-    offerings = (
+    live_offerings = (
         CorporateOffering.objects.filter(
-            is_active=True, price_tier__gbp_minor__gt=0
+            is_active=True, delivery_type=CorporateOffering.DeliveryType.LIVE, price_tier__gbp_minor__gt=0
         )  # an option without a price is not on sale
         .select_related("course", "price_tier")
-        .order_by("course__title", "delivery_type")
+        .order_by("course__title")
     )
-    return [
+    recorded_prices = recorded_course_prices()
+    live = [
         {
             "id": str(o.id),
             "course_id": str(o.course_id),
@@ -115,8 +118,25 @@ def list_packages(request):
             "description": o.description,
             "currency": "GBP",
         }
-        for o in offerings
+        for o in live_offerings
     ]
+    recorded = [
+        {
+            # Recorded catalog items are keyed by course; checkout resolves the
+            # shared CoursePrice and creates/updates the internal seat-ledger row.
+            "id": str(price.course_id),
+            "course_id": str(price.course_id),
+            "course_title": price.course.title,
+            "course_slug": price.course.slug,
+            "delivery_type": "recorded",
+            "price_gbp_minor": price.tier.gbp_minor,
+            "custom_quote_enabled": False,
+            "description": "",
+            "currency": "GBP",
+        }
+        for price in recorded_prices
+    ]
+    return sorted(recorded + live, key=lambda item: (item["course_title"].casefold(), item["delivery_type"]))
 
 
 @router.post("/packages/{offering_id}/checkout", response=CorporateCheckoutOut)
@@ -230,6 +250,7 @@ class TrainingRequestIn(Schema):
     seats: int = Field(ge=1, le=200)
     preferred_intake: str = ""
     preferred_delivery_mode: str = ""
+    company_message: str = Field("", max_length=2000)
 
 
 class TrainingRequestOut(Schema):
@@ -239,6 +260,8 @@ class TrainingRequestOut(Schema):
     requested_seats: int
     preferred_intake: str
     preferred_delivery_mode: str
+    company_message: str = ""
+    admin_reply: str = ""
     status: str
     status_label: str
     created_at: str
@@ -255,6 +278,7 @@ def submit_request(request, body: TrainingRequestIn):
         body.seats,
         preferred_intake=body.preferred_intake,
         preferred_delivery=body.preferred_delivery_mode,
+        company_message=body.company_message,
     )
     return {
         "id": str(tr.id),
@@ -263,6 +287,8 @@ def submit_request(request, body: TrainingRequestIn):
         "requested_seats": tr.requested_seats,
         "preferred_intake": tr.preferred_intake,
         "preferred_delivery_mode": tr.preferred_delivery_mode,
+        "company_message": tr.company_message,
+        "admin_reply": tr.admin_reply,
         "status": tr.status,
         "status_label": tr.status_label,
         "created_at": tr.created_at.isoformat(),
@@ -287,6 +313,8 @@ def list_training_requests(request):
             "requested_seats": r.requested_seats,
             "preferred_intake": r.preferred_intake,
             "preferred_delivery_mode": r.preferred_delivery_mode,
+            "company_message": r.company_message,
+            "admin_reply": r.admin_reply,
             "status": r.status,
             "status_label": r.status_label,
             "created_at": r.created_at.isoformat(),

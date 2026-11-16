@@ -167,9 +167,53 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Set Branding */
+        /**
+         * Set Branding
+         * @description Logo: an https:// link (as before) or a logo this company uploaded.
+         */
         put: operations["apps_org_api_set_branding"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/company/logo/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logo Upload
+         * @description Step 1: a 15-minute write-only link to put the image in private storage.
+         */
+        post: operations["apps_org_api_logo_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/company/logo/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logo Confirm
+         * @description Step 2: check what arrived (size, real image content, safe SVG). Returns the path to
+         *     preview and to save with the branding; nothing is live until the branding is saved.
+         */
+        post: operations["apps_org_api_logo_confirm"];
         delete?: never;
         options?: never;
         head?: never;
@@ -279,10 +323,74 @@ export interface paths {
         /**
          * People
          * @description People in scope with their compliance counts: 4 queries for any page size.
+         *     With a unit: everyone in it and in the teams inside it; with direct=true only the
+         *     people placed in that exact unit.
          */
         get: operations["apps_org_api_people"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/people/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * People Rows
+         * @description The selected people as rows (for "Export selected"), only people the caller may see.
+         */
+        post: operations["apps_org_api_people_rows"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/people/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move People
+         * @description Move people's primary location or team. Other units, role, account and training
+         *     history are kept.
+         */
+        post: operations["apps_org_api_move_people"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/people/remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remind People
+         * @description Remind the selected people about every required training still due (the matrix
+         *     reminder, at most once a day per training).
+         */
+        post: operations["apps_org_api_remind_people"];
         delete?: never;
         options?: never;
         head?: never;
@@ -314,11 +422,36 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Invites */
+        /**
+         * Invites
+         * @description pending (default, as before) | expired | accepted | revoked | history (all but pending).
+         */
         get: operations["apps_org_api_invites"];
         put?: never;
         /** Create Invite */
         post: operations["apps_org_api_create_invite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/invites/{invite_id}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend Invite
+         * @description Send a pending or expired invitation again. A fresh link replaces the old one (the
+         *     old link stops working) and is valid for the usual 7 days. Accepted or cancelled
+         *     invitations cannot be resent, nor one to someone who has already joined.
+         */
+        post: operations["apps_org_api_resend_invite"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1209,6 +1342,17 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/wishlist/{course_id}": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put: operations["apps_commerce_api_save_wishlist"];
+        post?: never;
+        delete: operations["apps_commerce_api_remove_wishlist"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3998,6 +4142,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/commissions/course-instructors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Course Instructors */
+        get: operations["apps_platform_console_commissions_course_instructors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/commissions/rules": {
         parameters: {
             query?: never;
@@ -4731,6 +4892,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/corporate/cancellations/{cancellation_id}/postpone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Process Postponement
+         * @description Execute a live postponement; approval alone never changes a booking.
+         */
+        post: operations["apps_platform_console_corporate_cancellations_process_postponement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/corporate/cancellations/{cancellation_id}/refund": {
         parameters: {
             query?: never;
@@ -4793,7 +4974,7 @@ export interface paths {
         put?: never;
         /**
          * Apply Departure
-         * @description Record that someone left. Paid access is never ended early (see corporate/departure.py).
+         * @description Remove a leaver and release company-owned training places for reuse.
          */
         post: operations["apps_platform_console_corporate_cancellations_apply_departure"];
         delete?: never;
@@ -5637,6 +5818,17 @@ export interface paths {
          * @description Hide (reason required, the author is notified) or show again.
          */
         post: operations["apps_platform_console_moderation_hide_or_show"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/moderation/questions/{question_id}/answer": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put?: never;
+        post: operations["apps_platform_console_moderation_staff_answer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7866,6 +8058,36 @@ export interface components {
              */
             accent_color: string;
         };
+        /** LogoUploadOut */
+        LogoUploadOut: {
+            /** Key */
+            key: string;
+            /** Upload Url */
+            upload_url: string;
+            /** Method */
+            method: string;
+            /** Headers */
+            headers: {
+                [key: string]: string;
+            };
+        };
+        /** LogoUploadIn */
+        LogoUploadIn: {
+            /** Filename */
+            filename: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /** LogoOut */
+        LogoOut: {
+            /** Url */
+            url: string;
+        };
+        /** LogoConfirmIn */
+        LogoConfirmIn: {
+            /** Key */
+            key: string;
+        };
         /** UnitOut */
         UnitOut: {
             /**
@@ -7992,6 +8214,44 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** PersonRowsOut */
+        PersonRowsOut: {
+            /** Items */
+            items: components["schemas"]["PersonRow"][];
+        };
+        /** MemberIdsIn */
+        MemberIdsIn: {
+            /** Member Ids */
+            member_ids: string[];
+        };
+        /** MoveOut */
+        MoveOut: {
+            /** Moved */
+            moved: number;
+            /** Unchanged */
+            unchanged: number;
+        };
+        /** MoveIn */
+        MoveIn: {
+            /** Member Ids */
+            member_ids: string[];
+            /**
+             * Unit Id
+             * Format: uuid
+             */
+            unit_id: string;
+        };
+        /** BulkRemindOut */
+        BulkRemindOut: {
+            /** Sent */
+            sent: number;
+            /** Skipped */
+            skipped: number;
+            /** Failed */
+            failed: number;
+            /** People Without Due Training */
+            people_without_due_training: number;
+        };
         /** MemberPatch */
         MemberPatch: {
             /** Role */
@@ -8026,6 +8286,19 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Status
+             * @default pending
+             */
+            status: string;
+            /** Unit Name */
+            unit_name?: string | null;
+            /** Job Role Name */
+            job_role_name?: string | null;
+            /** Accepted At */
+            accepted_at?: string | null;
+            /** Revoked At */
+            revoked_at?: string | null;
         };
         /** InviteIn */
         InviteIn: {
@@ -8815,6 +9088,11 @@ export interface components {
              * @default false
              */
             ended: boolean;
+            /**
+             * Flush Now
+             * @default false
+             */
+            flush_now: boolean;
         };
         /** ProgressOut */
         ProgressOut: {
@@ -10044,6 +10322,8 @@ export interface components {
         TokenRateOut: {
             /** Tokens Per Gbp Minor */
             tokens_per_gbp_minor: string;
+            /** Token Price Gbp */
+            token_price_gbp: string;
             /** Effective From */
             effective_from: string;
         };
@@ -10482,6 +10762,8 @@ export interface components {
             author: components["schemas"]["Author"];
             /** Is Instructor */
             is_instructor: boolean;
+            /** Is Staff */
+            is_staff: boolean;
             /**
              * Created At
              * Format: date-time
@@ -10952,6 +11234,10 @@ export interface components {
             preferred_intake: string;
             /** Preferred Delivery Mode */
             preferred_delivery_mode: string;
+            /** Company Message */
+            company_message: string;
+            /** Admin Reply */
+            admin_reply: string;
             /** Status */
             status: string;
             /** Status Label */
@@ -10975,6 +11261,8 @@ export interface components {
              * @default
              */
             preferred_delivery_mode: string;
+            /** Company Message */
+            company_message: string;
         };
         /** CorporateOkOut */
         CorporateOkOut: {
@@ -13023,6 +13311,8 @@ export interface components {
             show_cpd: boolean;
             /** Show Instructor */
             show_instructor: boolean;
+            /** Artwork Image Url */
+            artwork_image_url: string;
         };
         /** ConsoleCertTemplateOut */
         ConsoleCertTemplateOut: {
@@ -13057,6 +13347,8 @@ export interface components {
             signature_image_url: string;
             /** Signature Preview Url */
             signature_preview_url: string;
+            /** Artwork Preview Url */
+            artwork_preview_url: string;
             /** Show Qr Code */
             show_qr_code: boolean;
             /** Decision Reason */
@@ -13115,6 +13407,8 @@ export interface components {
              * @default true
              */
             show_instructor: boolean;
+            /** Artwork Image Url */
+            artwork_image_url: string;
         };
         /** ConsoleCertTemplateIn */
         ConsoleCertTemplateIn: {
@@ -13371,6 +13665,18 @@ export interface components {
             /** Keeps Pct */
             keeps_pct?: number | null;
         };
+        /** ConsoleCourseInstructorOut */
+        ConsoleCourseInstructorOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Revenue Share Bps */
+            revenue_share_bps: number;
+        };
         /** ConsoleCommissionRuleOut */
         ConsoleCommissionRuleOut: {
             /**
@@ -13384,6 +13690,10 @@ export interface components {
             scope: string;
             /** Target Id */
             target_id: string | null;
+            /** Instructor Id */
+            instructor_id: string | null;
+            /** Instructor Name */
+            instructor_name: string | null;
             /** Target Label */
             target_label: string;
             /** Band Min Gbp Minor */
@@ -13429,6 +13739,8 @@ export interface components {
             scope: "course" | "instructor" | "category" | "price_band";
             /** Target Id */
             target_id?: string | null;
+            /** Instructor Id */
+            instructor_id?: string | null;
             /** Band Min Gbp Minor */
             band_min_gbp_minor?: number | null;
             /** Band Max Gbp Minor */
@@ -14439,6 +14751,21 @@ export interface components {
              */
             admin_notes: string;
         };
+        /** ConsolePostponementIn */
+        ConsolePostponementIn: {
+            /**
+             * Target Cohort Id
+             * Format: uuid
+             */
+            target_cohort_id: string;
+            /** Seats */
+            seats: number;
+            /**
+             * Admin Notes
+             * @default
+             */
+            admin_notes: string;
+        };
         /** ConsoleRefundIn */
         ConsoleRefundIn: {
             /** Amount Minor */
@@ -14552,6 +14879,10 @@ export interface components {
             preferred_intake: string;
             /** Preferred Delivery Mode */
             preferred_delivery_mode: string;
+            /** Company Message */
+            company_message: string;
+            /** Admin Reply */
+            admin_reply: string;
             /** Status */
             status: string;
             /** Admin Notes */
@@ -14572,6 +14903,7 @@ export interface components {
             admin_notes?: string | null;
             /** Status Label */
             status_label?: string | null;
+            admin_reply?: string | null;
         };
         /** ConsoleCohortOut */
         ConsoleCohortOut: {
@@ -15822,6 +16154,18 @@ export interface components {
             title: string;
             /** Body */
             body: string;
+            /** Question Id */
+            question_id: string | null;
+            /** Question Author */
+            question_author: string | null;
+            /** Question Hidden */
+            question_hidden: boolean;
+            /** Answer Count */
+            answer_count: number | null;
+            /** Instructor Reply */
+            instructor_reply: string | null;
+            /** Is Staff Answer */
+            is_staff_answer: boolean;
             /** Hidden */
             hidden: boolean;
             /** Open Reports */
@@ -18187,6 +18531,8 @@ export interface components {
             cash_price_tier_id: string | null;
             /** Full Course Token Price */
             full_course_token_price: number | null;
+            /** Derived Token Price */
+            derived_token_price: number | null;
             /** Token Pricing Mode */
             token_pricing_mode: string;
             /** Live Version Id */
@@ -18255,6 +18601,10 @@ export interface components {
          *     A field left out of the request body stays at its current value (UNSET sentinel).
          *     A field sent explicitly as JSON `null` clears the column. A field sent with a
          *     value sets the column.
+         *
+         *     `full_course_token_price` is normally derived from cash_price_tier x TokenRate.
+         *     Set `price_override=True` to store a value that diverges from the derived rate; the
+         *     reason is recorded in audit.
          */
         ConsoleCourseTokenPatch: {
             /**
@@ -18272,6 +18622,11 @@ export interface components {
              * @default __UNSET__
              */
             token_pricing_mode: unknown;
+            /**
+             * Price Override
+             * @default false
+             */
+            price_override: boolean;
             /** Reason */
             reason: string;
         };
@@ -18291,6 +18646,10 @@ export interface components {
             lecture_id: string;
             /** Title */
             title: string;
+            /** Kind */
+            kind: string;
+            /** Duration Min */
+            duration_min: number;
             /** Current Price */
             current_price: number | null;
             /** Allocated Price */
@@ -18383,6 +18742,11 @@ export interface components {
             /** Course Ids */
             course_ids: string[];
             patch: components["schemas"]["ConsoleBulkCourseTokenPatch"];
+            /**
+             * Price Override
+             * @default false
+             */
+            price_override: boolean;
             /** Reason */
             reason: string;
         };
@@ -18415,11 +18779,8 @@ export interface components {
             name: string;
             /** Token Amount */
             token_amount: number;
-            /**
-             * Price Tier Id
-             * Format: uuid
-             */
-            price_tier_id: string;
+            /** Price Gbp Minor */
+            price_gbp_minor: number;
             /** Is Active */
             is_active: boolean;
             /** Sort Order */
@@ -18431,11 +18792,8 @@ export interface components {
             name: string;
             /** Token Amount */
             token_amount: number;
-            /**
-             * Price Tier Id
-             * Format: uuid
-             */
-            price_tier_id: string;
+            /** Price Gbp Minor */
+            price_gbp_minor: number;
             /**
              * Is Active
              * @default true
@@ -18474,11 +18832,13 @@ export interface components {
         ConsoleTokenRateIn: {
             /** Tokens Per Gbp Minor */
             tokens_per_gbp_minor: number | string;
+            /** Effective From */
+            effective_from?: string | null;
             /**
-             * Effective From
-             * Format: date-time
+             * Apply Immediately
+             * @default false
              */
-            effective_from: string;
+            apply_immediately: boolean;
             /**
              * Notes
              * @default
@@ -18616,6 +18976,8 @@ export interface components {
             target_type: string;
             /** Target Id */
             target_id: string;
+            /** Target Name */
+            target_name: string;
             /** Data */
             data: {
                 [key: string]: unknown;
@@ -18935,6 +19297,54 @@ export interface operations {
             };
         };
     };
+    apps_org_api_logo_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogoUploadIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogoUploadOut"];
+                };
+            };
+        };
+    };
+    apps_org_api_logo_confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogoConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogoOut"];
+                };
+            };
+        };
+    };
     apps_org_api_units: {
         parameters: {
             query?: never;
@@ -19152,6 +19562,7 @@ export interface operations {
                 unit_id?: string | null;
                 job_role_id?: string | null;
                 role?: string | null;
+                direct?: boolean;
                 cursor?: string | null;
                 limit?: number;
             };
@@ -19168,6 +19579,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PersonPage"];
+                };
+            };
+        };
+    };
+    apps_org_api_people_rows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberIdsIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonRowsOut"];
+                };
+            };
+        };
+    };
+    apps_org_api_move_people: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoveOut"];
+                };
+            };
+        };
+    };
+    apps_org_api_remind_people: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberIdsIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkRemindOut"];
                 };
             };
         };
@@ -19222,7 +19705,9 @@ export interface operations {
     };
     apps_org_api_invites: {
         parameters: {
-            query?: never;
+            query?: {
+                status?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -19252,6 +19737,28 @@ export interface operations {
                 "application/json": components["schemas"]["InviteIn"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteOut"];
+                };
+            };
+        };
+    };
+    apps_org_api_resend_invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invite_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -20492,6 +20999,36 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["WishlistOut"];
                 };
+            };
+        };
+    };
+    apps_commerce_api_save_wishlist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: { course_id: string };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: { [name: string]: unknown };
+                content: { "application/json": components["schemas"]["WishlistToggleOut"] };
+            };
+        };
+    };
+    apps_commerce_api_remove_wishlist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: { course_id: string };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: { [name: string]: unknown };
+                content: { "application/json": components["schemas"]["WishlistToggleOut"] };
             };
         };
     };
@@ -24590,6 +25127,28 @@ export interface operations {
             };
         };
     };
+    apps_platform_console_commissions_course_instructors: {
+        parameters: {
+            query: {
+                course_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleCourseInstructorOut"][];
+                };
+            };
+        };
+    };
     apps_platform_console_commissions_commission_rules: {
         parameters: {
             query?: {
@@ -24667,6 +25226,7 @@ export interface operations {
         parameters: {
             query: {
                 course_id: string;
+                instructor_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -25690,6 +26250,32 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ConsoleCancellationReview"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_cancellations_process_postponement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cancellation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsolePostponementIn"];
             };
         };
         responses: {
@@ -27133,6 +27719,7 @@ export interface operations {
                 q?: string | null;
                 max_rating?: number | null;
                 reported?: boolean;
+                unanswered?: boolean;
                 cursor?: string | null;
                 limit?: number;
             };
@@ -27177,6 +27764,21 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ConsoleOkOut"];
                 };
+            };
+        };
+    };
+    apps_platform_console_moderation_staff_answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: { question_id: string };
+            cookie?: never;
+        };
+        requestBody: { content: { "application/json": { body: string } } };
+        responses: {
+            200: {
+                headers: { [name: string]: unknown };
+                content: { "application/json": { id: string } };
             };
         };
     };

@@ -45,7 +45,12 @@ class BusinessApiTest(SchemaTransactionTestCase):
             org_services.add_member_to_unit(member=self.m_mgr, unit=self.leeds, primary=True)
             UnitManager.objects.create(org=self.acme, unit=self.leeds, member=self.m_mgr)
         self.fire = f.course(
-            staff=self.staff, owner=self.staff, slug="fire", title="Fire Safety", ownership="platform"
+            staff=self.staff,
+            owner=self.staff,
+            slug="fire",
+            title="Fire Safety",
+            ownership="platform",
+            free=True,
         )
 
     def as_(self, user):
@@ -194,7 +199,9 @@ class BusinessApiTest(SchemaTransactionTestCase):
             "member_ids": [str(self.m_omar.id)],
         }
         preview = self.post("/org/assign", {**target, "dry_run": True}).json()
-        self.assertEqual(preview, {"enrolled": 3, "already_had_it": 0})  # counted, nothing written
+        self.assertEqual(
+            preview, {"enrolled": 3, "already_had_it": 0, "seats": None}
+        )  # counted, nothing written; no seat limit on this org
         r = self.post("/org/assign", target).json()
         self.assertEqual(r["enrolled"], 3)
         self.assertEqual(

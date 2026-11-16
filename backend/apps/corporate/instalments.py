@@ -48,7 +48,11 @@ def create_instalment_purchase(
     Amounts are whole minor units (pence), so they must add up exactly to the total.
     covers_months is each instalment's own paid period, counted from its payment.
     """
-    offering = CorporateOffering.objects.filter(pk=offering_id, is_active=True).first()
+    from .offerings import ensure_recorded_offering
+
+    offering, _ = ensure_recorded_offering(offering_id)
+    if offering is None:
+        offering = CorporateOffering.objects.filter(pk=offering_id, is_active=True).first()
     if offering is None:
         raise ServiceError("offering_not_found", "Package not found.", status=404)
     if not OrgMember.objects.filter(org_id=org_id, user_id=buyer_id, removed_at__isnull=True).exists():

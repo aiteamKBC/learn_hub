@@ -52,6 +52,20 @@ def process_participant_event(zoom_event: ZoomEvent, data: dict) -> None:
     if email:
         user = User.objects.filter(email__iexact=email).first()
         if user:
+            # Membership alone is not attendance eligibility.  A company can buy
+            # more places than it names, so an employee must be an active attendee
+            # on this cohort before an automatic Zoom match can be trusted.
+            from .models import LiveAttendee
+
+            named_attendee = LiveAttendee.objects.filter(
+                cohort=session.cohort, user=user, status=LiveAttendee.Status.ACTIVE
+            ).first()
+            if named_attendee is None:
+                match_status = SessionAttendance.MatchStatus.UNRESOLVED
+            else:
+                org_id = named_attendee.org_id
+                match_status = SessionAttendance.MatchStatus.VERIFIED
+        if user and org_id is None:
             from apps.org.models import OrgMember
 
             membership = OrgMember.objects.filter(
@@ -59,7 +73,6 @@ def process_participant_event(zoom_event: ZoomEvent, data: dict) -> None:
             ).first()
             if membership:
                 org_id = membership.org_id
-                match_status = SessionAttendance.MatchStatus.VERIFIED
             else:
                 match_status = SessionAttendance.MatchStatus.UNRESOLVED
 

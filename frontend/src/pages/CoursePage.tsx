@@ -1,4 +1,4 @@
-import { ArrowLeft, Award, BarChart3, Check, ChevronDown, Clock, Coins, Crown, FileText, Globe, Heart, HelpCircle, Infinity as InfinityIcon, ListChecks, PlayCircle, Radio, RefreshCw, ShoppingCart, Smartphone, Users, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, Award, BarChart3, Check, ChevronDown, Clock, Coins, Crown, FileText, Globe, HelpCircle, Infinity as InfinityIcon, ListChecks, PlayCircle, Radio, RefreshCw, ShoppingCart, Smartphone, Users, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -14,7 +14,8 @@ import { ErrorState, Rating } from '@/components/ui/misc'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCategories, useCourse, usePreview, useReviews } from '@/features/catalog/api'
-import { useAddToCart, useCheckout, usePlanEnroll, useToggleWishlist } from '@/features/commerce/api'
+import { useAddToCart, useCheckout, usePlanEnroll } from '@/features/commerce/api'
+import { WishlistHeart } from '@/features/commerce/WishlistHeart'
 import { useAccess } from '@/features/b2c/api'
 import { UnlockButton } from '@/features/b2c/UnlockButton'
 import { Price } from '@/features/catalog/CourseCard'
@@ -228,7 +229,6 @@ function BuyBox({ course, onPreview }: { course: Detail; onPreview?: () => void 
   const v = course.viewer
   const needLogin = () => navigate(`/login?next=${encodeURIComponent(location.pathname)}`)
   const addToCart = useAddToCart()
-  const wishlist = useToggleWishlist()
   const checkout = useCheckout()
   const planEnroll = usePlanEnroll()
   const free = !!course.price?.free
@@ -270,6 +270,7 @@ function BuyBox({ course, onPreview }: { course: Detail; onPreview?: () => void 
             <span className="text-sm font-semibold drop-shadow">Preview this course</span>
           </button>
         ) : null}
+        <WishlistHeart courseId={course.id} slug={course.slug} title={course.title} initialSaved={v.in_wishlist} className="absolute top-4 right-4 z-10" />
       </div>
       <div className="p-5">
         {v.enrollment_id ? (
@@ -313,12 +314,9 @@ function BuyBox({ course, onPreview }: { course: Detail; onPreview?: () => void 
         ) : course.price ? (
           <>
             <Price price={course.price} className="text-3xl [&>span:first-child]:text-3xl [&>span:first-child]:font-bold" />
-            <div className="mt-4 flex gap-2">
-              <Button size="lg" className="flex-1" loading={addToCart.isPending} onClick={() => (me ? (v.in_cart ? navigate('/cart') : add()) : needLogin())}>
+            <div className="mt-4">
+              <Button size="lg" className="w-full" loading={addToCart.isPending} onClick={() => (me ? (v.in_cart ? navigate('/cart') : add()) : needLogin())}>
                 <ShoppingCart /> {v.in_cart ? 'Go to cart' : 'Add to cart'}
-              </Button>
-              <Button size="lg" variant="secondary" className="px-3.5" aria-label={v.in_wishlist ? 'Remove from wishlist' : 'Save to wishlist'} aria-pressed={v.in_wishlist} onClick={() => (me ? wishlist.mutate(course.id, { onSuccess: (r) => toast.success(r.in_wishlist ? 'Saved to your wishlist' : 'Removed from your wishlist'), onError: fail }) : needLogin())}>
-                <Heart key={String(v.in_wishlist)} className={cn(v.in_wishlist && 'animate-pop fill-danger text-danger')} />
               </Button>
             </div>
             <Button size="lg" variant="soft" className="mt-2 w-full" loading={checkout.isPending} onClick={() => (me ? buyNow() : needLogin())}>

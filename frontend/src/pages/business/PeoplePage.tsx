@@ -1,16 +1,20 @@
-import { AlertOctagon, ChevronRight, MailPlus, Search, ShieldCheck, UserCog, Users } from 'lucide-react'
+import { AlertOctagon, ChevronRight, History, MailPlus, Search, ShieldCheck, UserCog, Users } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input, NativeSelect } from '@/components/ui/input'
 import { EmptyState, ErrorState, PageHeader, StatCard } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, Td, Th, Tr } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useDashboard } from '@/features/compliance/api'
 import { type Person, ROLE_LABEL, unitLabel, useInvites, useIsOrgAdmin, useJobRoles, usePeople, useUnits } from '@/features/org/api'
+import { BulkBar, type Picked } from '@/features/org/bulk'
+import { InviteForm, InviteList } from '@/features/org/invites'
 import { ComplianceMiniBar, RoleBadge, useDebounced } from '@/features/org/ui'
 import { cn } from '@/lib/cn'
 import { Link, useNavigate } from '@/lib/router'
@@ -41,6 +45,24 @@ function Kpis() {
   )
 }
 
+function Check({ checked, onChange, label, indeterminate }: { checked: boolean; onChange: (v: boolean) => void; label: string; indeterminate?: boolean }) {
+  return (
+    <input
+      type="checkbox"
+      className="size-4 shrink-0 cursor-pointer accent-[var(--color-primary)]"
+      checked={checked}
+      ref={(el) => {
+        if (el) el.indeterminate = !!indeterminate
+      }}
+      onChange={(e) => onChange(e.target.checked)}
+      onClick={(e) => e.stopPropagation()}
+      aria-label={label}
+    />
+  )
+}
+
+const pick = (p: Person): Picked => ({ member_id: p.member_id, name: p.name, email: p.email, units: p.units })
+
 function PersonCard({ p }: { p: Person }) {
   return (
     <Link to={`/business/people/${p.member_id}`} className="flex items-center gap-3 rounded-lg border border-border bg-surface p-3.5 shadow-sm transition-colors hover:border-border-strong">
@@ -64,7 +86,20 @@ export function PeoplePage() {
   const admin = useIsOrgAdmin()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const filters = { q: params.get('q') ?? '', unit_id: params.get('unit') ?? '', job_role_id: params.get('job_role') ?? '', role: params.get('role') ?? '' }
+  const tab = params.get('tab') === 'invites' && admin ? 'invites' : 'people'
+  const filters = { q: params.get('q') ?? '', unit_id: params.get('unit') ?? '', job_role_id: params.get('job_role') ?? '', role: params.get('role') ?? '', direct: params.get('direct') === '1' }
+  const [inviting, setInviting] = useState(false)
+  const [history, setHistory] = useState(false)
+  const { data: pendingInvites } = useInvites(admin)
+  // the selection survives filtering and paging; it is only cleared on purpose
+  const [selected, setSelected] = useState<Map<string, Picked>>(() => new Map())
+  const toggle = (p: Person, on: boolean) =>
+    setSelected((prev) => {
+      const next = new Map(prev)
+      if (on) next.set(p.member_id, pick(p))
+      else next.delete(p.member_id)
+      return next
+    })
   const [q, setQ] = useState(filters.q)
   const debounced = useDebounced(q)
   const { data: units } = useUnits()
@@ -72,6 +107,31 @@ export function PeoplePage() {
   const people = usePeople(filters)
   const rows = people.data?.pages.flatMap((p) => p.items) ?? []
   const filtered = !!(filters.q || filters.unit_id || filters.job_role_id || filters.role)
+  const shownSelected = rows.filter((p) => selected.has(p.member_id)).length
+  const allShown = rows.length > 0 && shownSelected === rows.length
+  const selectShown = (on: boolean) =>
+    setSelected((prev) => {
+      const next = new Map(prev)
+      for (const p of rows) {
+        if (on) next.set(p.member_id, pick(p))
+        else next.delete(p.member_id)
+      }
+      return next
+    })
+  const hidden = selected.size - shownSelected
+  const scopeNote = hidden
+    ? `${hidden} of them ${hidden === 1 ? 'is' : 'are'} hidden by the current filters`
+    : `"Select all" picks the ${rows.length} people loaded${people.hasNextPage ? '. Load more to include the rest' : ''}`
+  const setTab = (v: string) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (v === 'invites') next.set('tab', 'invites')
+        else next.delete('tab')
+        return next
+      },
+      { replace: true },
+    )
 
   // typing updates ?q= after a pause; the header search can also change ?q= while this
   // page is open, which then replaces what is in the box
@@ -109,16 +169,27 @@ export function PeoplePage() {
         description={admin ? 'Everyone in your company, their roles and how their training stands.' : 'The people in the units you manage.'}
         actions={
           admin ? (
-            <Button asChild>
-              <Link to="/business/invites">
-                <MailPlus /> Invite people
-              </Link>
+            <Button onClick={() => setInviting(true)}>
+              <MailPlus /> Invite people
             </Button>
           ) : null
         }
       />
       <div className="grid gap-6">
         <Kpis />
+        <Tabs value={tab} onValueChange={setTab}>
+          {admin ? (
+            <TabsList>
+              <TabsTrigger value="people">
+                <Users /> Employees
+              </TabsTrigger>
+              <TabsTrigger value="invites">
+                <MailPlus /> Pending invitations
+                {pendingInvites?.length ? <span className="ml-1 rounded-full bg-warning-soft px-1.5 text-xs text-warning tabular">{pendingInvites.length}</span> : null}
+              </TabsTrigger>
+            </TabsList>
+          ) : null}
+          <TabsContent value="people">
         <Card>
           <div className="grid gap-3 border-b border-border p-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
             <Input icon={<Search />} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or email" aria-label="Search people" type="search" />
@@ -146,7 +217,14 @@ export function PeoplePage() {
                 </option>
               ))}
             </NativeSelect>
+            {filters.unit_id ? (
+              <label className="flex items-center gap-2 text-sm text-muted sm:col-span-2 lg:col-span-4">
+                <input type="checkbox" className="size-4 accent-[var(--color-primary)]" checked={filters.direct} onChange={(e) => set('direct', e.target.checked ? '1' : '')} />
+                Only people placed directly in this unit, not in the teams inside it
+              </label>
+            ) : null}
           </div>
+          {selected.size ? <BulkBar selected={[...selected.values()]} admin={admin} scopeNote={scopeNote} onClear={() => setSelected(new Map())} /> : null}
 
           {people.error ? (
             <ErrorState message={(people.error as Error).message} onRetry={() => void people.refetch()} />
@@ -167,9 +245,7 @@ export function PeoplePage() {
                     Clear filters
                   </Button>
                 ) : admin ? (
-                  <Button asChild>
-                    <Link to="/business/invites">Invite people</Link>
-                  </Button>
+                  <Button onClick={() => setInviting(true)}>Invite people</Button>
                 ) : undefined
               }
             />
@@ -178,8 +254,11 @@ export function PeoplePage() {
               {/* phone: cards */}
               <ul className="stagger grid gap-3 p-3 md:hidden">
                 {rows.map((p) => (
-                  <li key={p.member_id}>
-                    <PersonCard p={p} />
+                  <li key={p.member_id} className="flex items-center gap-2">
+                    <Check checked={selected.has(p.member_id)} onChange={(on) => toggle(p, on)} label={`Select ${p.name || p.email}`} />
+                    <div className="min-w-0 flex-1">
+                      <PersonCard p={p} />
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -188,6 +267,9 @@ export function PeoplePage() {
                 <Table>
                   <thead>
                     <tr>
+                      <Th className="w-10">
+                        <Check checked={allShown} indeterminate={!allShown && shownSelected > 0} onChange={selectShown} label={`Select all ${rows.length} people shown`} />
+                      </Th>
                       <Th>Person</Th>
                       <Th>Units</Th>
                       <Th className="hidden xl:table-cell">Job roles</Th>
@@ -201,6 +283,9 @@ export function PeoplePage() {
                   <tbody className="stagger">
                     {rows.map((p) => (
                       <Tr key={p.member_id} className="cursor-pointer" onClick={() => navigate(`/business/people/${p.member_id}`)}>
+                        <Td className="w-10">
+                          <Check checked={selected.has(p.member_id)} onChange={(on) => toggle(p, on)} label={`Select ${p.name || p.email}`} />
+                        </Td>
                         <Td>
                           <div className="flex min-w-0 items-center gap-3">
                             <Avatar name={p.name || p.email} size="sm" />
@@ -245,7 +330,34 @@ export function PeoplePage() {
             </div>
           )}
         </Card>
+          </TabsContent>
+          {admin ? (
+            <TabsContent value="invites">
+              <Card>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
+                  <div>
+                    <h2 className="font-semibold">{history ? 'Past invitations' : 'Waiting to join'}</h2>
+                    <p className="text-sm text-muted">{history ? 'Expired, accepted and revoked invitations.' : 'Resend a link, or revoke one you no longer need.'}</p>
+                  </div>
+                  <Button variant="secondary" size="sm" onClick={() => setHistory((h) => !h)} aria-pressed={history}>
+                    {history ? <MailPlus /> : <History />} {history ? 'Show pending' : 'Show history'}
+                  </Button>
+                </div>
+                <InviteList key={history ? 'history' : 'pending'} status={history ? 'history' : 'pending'} />
+              </Card>
+            </TabsContent>
+          ) : null}
+        </Tabs>
       </div>
+      {admin ? (
+        <Dialog open={inviting} onOpenChange={setInviting}>
+          <DialogContent side="right" title="Invite people" description="Bring people into your company workspace." className="w-[min(480px,100vw)]">
+            <div className="p-4">
+              <InviteForm />
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </>
   )
 }

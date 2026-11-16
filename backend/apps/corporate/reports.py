@@ -26,7 +26,10 @@ from .models import (
 
 def company_dashboard(org_id) -> dict:
     paid_purchases = SeatPurchase.objects.filter(org_id=org_id, status="paid")
-    total_seats = paid_purchases.aggregate(t=Sum("quantity"))["t"] or 0
+    # Live places are tracked through cohort bookings, not the recorded-seat
+    # inventory shown on the company dashboard and Seats page.
+    recorded_purchases = paid_purchases.filter(offering__delivery_type="recorded")
+    total_seats = recorded_purchases.aggregate(t=Sum("quantity"))["t"] or 0
     active_allocs = SeatAllocation.objects.filter(
         org_id=org_id,
         status__in=["allocated", "active"],
