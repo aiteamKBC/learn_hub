@@ -8,6 +8,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 import { BlurText } from '@/components/art/blur-text'
 import { AuthTabs } from '@/components/home/GetStarted'
+import { HeroIntro } from '@/components/home/HeroIntro'
 import { Button } from '@/components/ui/button'
 import { CountUp } from '@/components/ui/count-up'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -643,6 +644,7 @@ export function HomePage() {
 
   return (
     <>
+      <HeroIntro />
       <Hero />
       <CategorySection />
       <FeaturedCourses />

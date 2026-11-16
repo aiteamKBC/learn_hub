@@ -11,6 +11,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { useCartCount } from '@/features/commerce/api'
 import { useMe } from '@/features/identity/auth'
 import { cn } from '@/lib/cn'
+import { skipHeroIntro } from '@/lib/hero-intro'
 import { useOn } from '@/lib/motion'
 import { scrollToAnchor, smoothScrollTo } from '@/lib/smooth-scroll'
 
@@ -145,10 +146,9 @@ export function PublicLayout() {
             {isLoading ? null : me ? (
               <UserMenu />
             ) : isHome ? (
-              // Landing page: this slot is the hero intro's "Skip" control. The intro
-              // video is still to come; for now Skip jumps to the hero image at the top.
-              // When the video is added, wire Skip to hide it and reveal the image.
-              <Button size="sm" className="!text-on-primary sm:h-10 sm:px-4 sm:text-sm" onClick={() => smoothScrollTo(0)}>
+              // Landing page: this slot is the hero intro's "Skip" control. It dismisses
+              // the intro video (if still playing) and returns to the hero at the top.
+              <Button size="sm" className="!text-on-primary sm:h-10 sm:px-4 sm:text-sm" onClick={() => { skipHeroIntro(); smoothScrollTo(0) }}>
                 Skip
               </Button>
             ) : (
