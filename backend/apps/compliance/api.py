@@ -6,6 +6,7 @@ admin-only. Every action is recorded in the company's audit trail.
 """
 
 import csv
+import uuid
 from datetime import datetime
 
 from django.http import StreamingHttpResponse
@@ -82,6 +83,11 @@ def matrix(request, unit_id: str | None = None, job_role_id: str | None = None, 
     scope = org_scope(request, OrgRole.MANAGER)
     if status and status not in MemberStatus.Status.values:
         raise ServiceError("bad_status", "Unknown status.")
+    if requirement_id:  # comes from the URL (links from Reports): reject junk instead of a 500
+        try:
+            requirement_id = str(uuid.UUID(requirement_id))
+        except ValueError:
+            raise ServiceError("bad_requirement", "Unknown requirement.") from None
     after = keyset.decode(cursor, 2)
     data = selectors.matrix(scope, unit=_unit(scope, unit_id), q=q, job_role_id=job_role_id, status=status,
                             requirement_id=requirement_id, after=after, limit=limit)  # fmt: skip

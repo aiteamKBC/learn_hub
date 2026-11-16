@@ -9,6 +9,8 @@ Changes are written to the company's audit trail.
 """
 
 import json
+import uuid
+from datetime import timedelta
 
 from django.db import connection, transaction
 from django.db.models import Count, Prefetch, Q
@@ -34,6 +36,7 @@ from .schemas import (
     AssignOut,
     AuditPage,
     BrandingIn,
+    BulkRemindOut,
     InvitationOut,
     InviteAcceptOut,
     InviteIn,
@@ -41,10 +44,18 @@ from .schemas import (
     JobRoleIn,
     JobRoleOut,
     LibraryCourse,
+    LogoConfirmIn,
+    LogoOut,
+    LogoUploadIn,
+    LogoUploadOut,
     ManagersIn,
+    MemberIdsIn,
     MemberPatch,
+    MoveIn,
+    MoveOut,
     OrgOut,
     PersonPage,
+    PersonRowsOut,
     UnitIn,
     UnitOut,
     UnitPatch,
@@ -68,12 +79,51 @@ def company(request):
 
 @router.put("/company/branding", response=OkOut)
 def set_branding(request, body: BrandingIn):
+    """Logo: an https:// link (as before) or a logo this company uploaded."""
+    from . import logos
+
     scope = org_scope(request, OrgRole.ADMIN)
-    if body.logo_url and not body.logo_url.startswith("https://"):
-        raise ServiceError("bad_url", "The logo must be an https:// link.")
-    OrgBranding.objects.update_or_create(org_id=scope.org_id, defaults=body.dict())
-    audit_request(request, "company.branding", "organization", scope.org_id, body.dict())
+    url = body.logo_url.strip()
+    if url and not (url.startswith("https://") or logos.is_own_logo(scope.org_id, url)):
+        raise ServiceError("bad_url", "The logo must be an https:// link or an uploaded image.")
+    old = OrgBranding.objects.filter(org_id=scope.org_id).values_list("logo_url", flat=True).first() or ""
+    OrgBranding.objects.update_or_create(org_id=scope.org_id, defaults={**body.dict(), "logo_url": url})
+    audit_request(request, "company.branding", "organization", scope.org_id, {**body.dict(), "logo_url": url})
+    transaction.on_commit(lambda: logos.forget(scope.org_id, old, url))  # the replaced upload, if any
     return {"ok": True}
+
+
+@router.post("/company/logo/upload", response=LogoUploadOut)
+def logo_upload(request, body: LogoUploadIn):
+    """Step 1: a 15-minute write-only link to put the image in private storage."""
+    from . import logos
+
+    scope = org_scope(request, OrgRole.ADMIN)
+    return logos.start_upload(org_id=scope.org_id, filename=body.filename, size_bytes=body.size_bytes)
+
+
+@router.post("/company/logo/confirm", response=LogoOut)
+def logo_confirm(request, body: LogoConfirmIn):
+    """Step 2: check what arrived (size, real image content, safe SVG). Returns the path to
+    preview and to save with the branding; nothing is live until the branding is saved."""
+    from . import logos
+
+    scope = org_scope(request, OrgRole.ADMIN)
+    url = logos.confirm(org_id=scope.org_id, name=body.key)
+    audit_request(request, "company.logo_upload", "organization", scope.org_id, {"url": url})
+    return {"url": url}
+
+
+@router.get("/logos/{org_id}/{name}", auth=None, include_in_schema=False)
+def logo_file(request, org_id: uuid.UUID, name: str):
+    """An uploaded company logo, for <img> tags: a 1-hour signed link to the private file."""
+    from django.http import HttpResponseRedirect
+
+    from . import logos
+
+    resp = HttpResponseRedirect(logos.signed(org_id, name))
+    resp["Cache-Control"] = "private, max-age=600"
+    return resp
 
 
 # ---------------------------------------------------------------- units
@@ -193,20 +243,42 @@ def archive_job_role(request, role_id: str):
 # ---------------------------------------------------------------- people
 @router.get("/people", response=PersonPage)
 def people(request, q: str | None = None, unit_id: str | None = None, job_role_id: str | None = None,
-           role: str | None = None, cursor: str | None = None, limit: int = 50):  # fmt: skip
-    """People in scope with their compliance counts: 4 queries for any page size."""
-    from apps.compliance.models import MemberStatus
+           role: str | None = None, direct: bool = False, cursor: str | None = None, limit: int = 50):  # fmt: skip
+    """People in scope with their compliance counts: 4 queries for any page size.
+    With a unit: everyone in it and in the teams inside it; with direct=true only the
+    people placed in that exact unit."""
     from apps.compliance.selectors import after_name, scoped_members
 
     scope = org_scope(request, OrgRole.MANAGER)
     limit = max(1, min(limit, 200))
-    unit = get_object_or_404(OrgUnit, pk=unit_id, org_id=scope.org_id) if unit_id else None
+    unit = _unit_or_404(scope, unit_id)
     qs = scoped_members(scope, unit=unit, q=q, job_role_id=job_role_id).select_related("user")
+    if unit is not None and direct:
+        qs = qs.filter(unit_links__unit=unit)
     if role:
         qs = qs.filter(role=role)
     qs = after_name(qs.order_by("user__full_name", "id"), keyset.decode(cursor, 2))  # alphabetical
     rows = list(qs[: limit + 1])
     page = rows[:limit]
+    return {
+        "items": _person_rows(page),
+        "next_cursor": keyset.encode(page[-1].user.full_name, page[-1].id) if len(rows) > limit else None,
+    }
+
+
+def _unit_or_404(scope, unit_id):
+    if not unit_id:
+        return None
+    try:
+        return get_object_or_404(OrgUnit, pk=uuid.UUID(str(unit_id)), org_id=scope.org_id)
+    except ValueError:
+        raise ServiceError("bad_unit", "This location or team does not exist.", status=404) from None
+
+
+def _person_rows(page: list) -> list[dict]:
+    """Rows for members (user loaded): units (primary first), job roles, compliance counts. 3 queries."""
+    from apps.compliance.models import MemberStatus
+
     ids = [m.id for m in page]
     units, roles = {}, {}
     for mid, name in (
@@ -237,10 +309,55 @@ def people(request, q: str | None = None, unit_id: str | None = None, job_role_i
          **{k: counts.get(m.id, {}).get(k, 0) for k in ("overdue", "expiring", "compliant", "total")}}
         for m in page
     ]  # fmt: skip
-    return {
-        "items": items,
-        "next_cursor": keyset.encode(page[-1].user.full_name, page[-1].id) if len(rows) > limit else None,
-    }
+    return items
+
+
+def _selected(scope, member_ids) -> list:
+    """The selected people, every id checked against the caller's scope (the company, and
+    a manager's own units). One id outside it and nothing happens."""
+    wanted = set(member_ids)
+    found = list(
+        scope.members(OrgMember.objects.filter(removed_at__isnull=True, pk__in=wanted)).select_related("user")
+    )
+    if len(found) != len(wanted):
+        raise ServiceError("bad_member", "Some of these people are not in your company.", status=404)
+    return found
+
+
+@router.post("/people/rows", response=PersonRowsOut)
+def people_rows(request, body: MemberIdsIn):
+    """The selected people as rows (for "Export selected"), only people the caller may see."""
+    scope = org_scope(request, OrgRole.MANAGER)
+    found = sorted(_selected(scope, body.member_ids), key=lambda m: (m.user.full_name.lower(), str(m.id)))
+    audit_request(request, "member.export", "org", scope.org_id, {"people": len(found)})
+    return {"items": _person_rows(found)}
+
+
+@router.post("/people/move", response=MoveOut)
+def move_people(request, body: MoveIn):
+    """Move people's primary location or team. Other units, role, account and training
+    history are kept."""
+    scope = org_scope(request, OrgRole.ADMIN)
+    members = _selected(scope, body.member_ids)
+    unit = get_object_or_404(OrgUnit, pk=body.unit_id, org_id=scope.org_id, archived_at__isnull=True)
+    moved, unchanged = services.move_members(org_id=scope.org_id, members=members, unit=unit)
+    audit_request(request, "member.move", "unit", unit.id, {"name": unit.name, "people": moved})
+    return {"moved": moved, "unchanged": unchanged}
+
+
+@router.post("/people/remind", response=BulkRemindOut)
+def remind_people(request, body: MemberIdsIn):
+    """Remind the selected people about every required training still due (the matrix
+    reminder, at most once a day per training)."""
+    from apps.compliance.services import remind_members
+
+    scope = org_scope(request, OrgRole.MANAGER)
+    members = _selected(scope, body.member_ids)
+    out = remind_members(org_id=scope.org_id, member_ids=[m.id for m in members], sent_by=request.user)
+    audit_request(
+        request, "compliance.remind", "org", scope.org_id, {"people": len(members), "sent": out["sent"]}
+    )
+    return out
 
 
 @router.patch("/people/{member_id}", response=OkOut)
@@ -293,10 +410,57 @@ def remove_person(request, member_id: str):
 
 # ---------------------------------------------------------------- invites
 @router.get("/invites", response=list[InviteOut])
-def invites(request):
+def invites(request, status: str = "pending"):
+    """pending (default, as before) | expired | accepted | revoked | history (all but pending)."""
     scope = org_scope(request, OrgRole.ADMIN)
-    return Invite.objects.filter(org_id=scope.org_id, accepted_at__isnull=True, revoked_at__isnull=True,
-                                 expires_at__gt=timezone.now()).order_by("-created_at")[:500]  # fmt: skip
+    now = timezone.now()
+    open_ = Q(accepted_at__isnull=True, revoked_at__isnull=True)
+    rules = {
+        "pending": open_ & Q(expires_at__gt=now),
+        "expired": open_ & Q(expires_at__lte=now),
+        "accepted": Q(accepted_at__isnull=False),
+        "revoked": Q(revoked_at__isnull=False, accepted_at__isnull=True),
+        "history": ~(open_ & Q(expires_at__gt=now)),
+    }
+    if status not in rules:
+        raise ServiceError("bad_status", "Unknown invitation status.")
+    return (
+        Invite.objects.filter(rules[status], org_id=scope.org_id)
+        .select_related("unit", "job_role")
+        .order_by("-created_at")[:500]
+    )
+
+
+RESEND_GAP = timedelta(minutes=5)
+
+
+@router.post("/invites/{invite_id}/resend", response=InviteOut)
+@transaction.atomic
+def resend_invite(request, invite_id: str):
+    """Send a pending or expired invitation again. A fresh link replaces the old one (the
+    old link stops working) and is valid for the usual 7 days. Accepted or cancelled
+    invitations cannot be resent, nor one to someone who has already joined."""
+    from .tasks import send_invite_task
+
+    scope = org_scope(request, OrgRole.ADMIN)
+    old = get_object_or_404(Invite.objects.select_for_update(), pk=invite_id, org_id=scope.org_id)
+    if old.accepted_at:
+        raise ServiceError("invite_accepted", "This invitation was already accepted.", status=409)
+    if old.revoked_at:
+        raise ServiceError(
+            "invite_revoked", "This invitation was cancelled. Send a new one instead.", status=409
+        )
+    if old.created_at > timezone.now() - RESEND_GAP:
+        raise ServiceError(
+            "too_soon", "This invitation was sent a moment ago. Try again in a few minutes.", status=429
+        )
+    inv, token = services.invite(org_id=scope.org_id, email=old.email, role=old.role, invited_by=request.user,
+                                 by_role=scope.role.value, unit=old.unit, job_role=old.job_role)  # fmt: skip
+    org_name = Organization.objects.filter(pk=scope.org_id).values_list("name", flat=True).first()
+    inviter = request.user.full_name or request.user.email
+    transaction.on_commit(lambda: send_invite_task.delay(inv.email, org_name, inviter, token))
+    audit_request(request, "invite.resend", "invite", inv.id, {"email": inv.email, "role": inv.role})
+    return inv
 
 
 @router.post("/invites", response=InviteOut)

@@ -1,93 +1,87 @@
-import { LifeBuoy, ShieldAlert, Undo2 } from 'lucide-react'
-import { type FormEvent, useEffect, useState } from 'react'
+import { Undo2 } from 'lucide-react'
+import { type FormEvent, useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardBody, CardHeader } from '@/components/ui/card'
-import { Field, NativeSelect, Textarea } from '@/components/ui/input'
-import { EmptyState, PageHeader } from '@/components/ui/misc'
+import { Card, CardHeader } from '@/components/ui/card'
+import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
+import { Field, Textarea } from '@/components/ui/input'
 import { CANCEL_STATUS, CANCEL_TYPE, useCancellations, useLiveBookings, usePurchases, useSubmitCancellation } from '@/features/corporate/api'
 import { gbp } from '@/features/corporate/format'
 import { QueryBlock, StatusBadge } from '@/features/corporate/ui'
-import { useIsOrgAdmin } from '@/features/org/api'
-import { relativeDate, shortDate } from '@/lib/format'
-import { Link } from '@/lib/router'
+import { relativeDate } from '@/lib/format'
 
-function RequestForm() {
-  const purchases = usePurchases()
-  const bookings = useLiveBookings()
+export type RequestTarget = { type: 'recorded_refund' | 'cohort_cancel' | 'postponement'; id: string; label: string }
+
+/** Ask for a refund (a recorded purchase) or a change (a live booking), for ONE known
+ * purchase or booking, opened from its own row. The server checks it is this company's,
+ * still open, and not already asked about. Nothing is refunded or moved automatically. */
+export function RequestDialog({ target, onClose, onSent }: { target: RequestTarget | null; onClose: () => void; onSent?: () => void }) {
   const submit = useSubmitCancellation()
-  const [type, setType] = useState('recorded_refund')
-  const [target, setTarget] = useState('')
   const [reason, setReason] = useState('')
-  const recorded = type === 'recorded_refund'
-  const options = recorded
-    ? (purchases.data ?? []).filter((p) => p.status === 'paid' && p.delivery_type === 'recorded').map((p) => ({ id: p.id, label: `${p.course_title} · ${p.quantity} seats · ${shortDate(p.paid_at ?? p.created_at)}` }))
-    : (bookings.data ?? []).filter((b) => ['offered', 'pending_pay', 'paid', 'active'].includes(b.status)).map((b) => ({ id: b.id, label: `${b.course_title} · ${b.approved_seats} places` }))
-  const valid = !!target && reason.trim().length >= 10
-
+  const valid = reason.trim().length >= 10
+  const recorded = target?.type === 'recorded_refund'
   const send = (e: FormEvent) => {
     e.preventDefault()
-    if (!valid) return
+    if (!target || !valid || submit.isPending) return
     submit.mutate(
-      { type, reason: reason.trim(), seat_purchase_id: recorded ? target : null, cohort_company_id: recorded ? null : target },
+      { type: target.type, reason: reason.trim(), seat_purchase_id: recorded ? target.id : null, cohort_company_id: recorded ? null : target.id },
       {
         onSuccess: () => {
-          toast.success('Request sent. We will reply soon.')
+          toast.success('Request sent. We will reply by email.')
           setReason('')
-          setTarget('')
+          onClose()
+          onSent?.()
         },
         onError: (err) => toast.error((err as Error).message),
       },
     )
   }
-
   return (
-    <Card className="self-start">
-      <CardHeader title="Ask for a refund or a change" description="We look at each request and reply by email." />
-      <CardBody>
-        <form onSubmit={send} className="grid gap-4">
-          <Field label="What do you need?">
-            {(p) => (
-              <NativeSelect {...p} value={type} onChange={(e) => (setType(e.target.value), setTarget(''))}>
-                {Object.entries(CANCEL_TYPE).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </NativeSelect>
-            )}
-          </Field>
-          <Field label={recorded ? 'Which purchase?' : 'Which booking?'} hint={options.length ? undefined : recorded ? 'You have no paid purchases.' : 'You have no open bookings.'}>
-            {(p) => (
-              <NativeSelect {...p} value={target} onChange={(e) => setTarget(e.target.value)} required disabled={!options.length}>
-                <option value="">Choose…</option>
-                {options.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.label}
-                  </option>
-                ))}
-              </NativeSelect>
-            )}
-          </Field>
-          <Field label="Why?" hint="At least 10 characters">
-            {(p) => <Textarea {...p} value={reason} onChange={(e) => setReason(e.target.value.slice(0, 2000))} rows={4} required minLength={10} maxLength={2000} />}
-          </Field>
-          <p className="text-xs text-muted">Refund amounts are decided by our team for each case. Your legal rights are not affected.</p>
-          <Button type="submit" loading={submit.isPending} disabled={!valid}>
-            Send request
-          </Button>
-        </form>
-      </CardBody>
-    </Card>
+    <Dialog open={!!target} onOpenChange={(o) => !o && (setReason(''), onClose())}>
+      {target ? (
+        <DialogContent title={CANCEL_TYPE[target.type] ?? 'Request'} description="We look at each request and reply by email.">
+          <form onSubmit={send} className="grid gap-4">
+            <div className="rounded-lg border border-border bg-surface-2/50 px-3 py-2 text-sm">
+              <p className="text-xs text-muted">{recorded ? 'Purchase' : 'Live booking'}</p>
+              <p className="font-medium">{target.label}</p>
+            </div>
+            <Field label={target.type === 'postponement' ? 'Why, and which dates would suit you?' : 'Why?'} hint="At least 10 characters">
+              {(p) => <Textarea {...p} value={reason} onChange={(e) => setReason(e.target.value.slice(0, 2000))} rows={4} required minLength={10} maxLength={2000} />}
+            </Field>
+            <p className="text-xs text-muted">{recorded ? 'Refund amounts are decided by our team for each case. Seats are not refunded automatically. Your legal rights are not affected.' : 'Nothing changes until our team confirms it.'}</p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button type="submit" loading={submit.isPending} disabled={!valid || submit.isPending}>
+                Send request
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      ) : null}
+    </Dialog>
   )
 }
 
-function History() {
+/** Every refund and change request, with what it is about and where it stands. */
+export function RequestsList() {
   const q = useCancellations()
+  const purchases = usePurchases()
+  const bookings = useLiveBookings()
+  const about = (c: { seat_purchase_id?: string | null; cohort_company_id?: string | null }) => {
+    const p = c.seat_purchase_id ? purchases.data?.find((x) => x.id === c.seat_purchase_id) : null
+    if (p) return `${p.course_title} · ${p.quantity} seats · ${gbp(p.total_minor)}`
+    const b = c.cohort_company_id ? bookings.data?.find((x) => x.id === c.cohort_company_id) : null
+    return b ? `${b.course_title}${b.cohort_title ? ` · ${b.cohort_title}` : ''}` : null
+  }
   return (
     <Card>
-      <CardHeader title="Your requests" />
+      <CardHeader title="Requests" description="Refunds, cancellations and date changes you have asked for" />
       <div className="mt-3">
         <QueryBlock query={q} rows={3} empty={{ icon: <Undo2 />, title: 'No requests', body: 'Refund and change requests you send will show here.' }}>
           {(rows) => (
@@ -98,6 +92,7 @@ function History() {
                     <span className="font-medium">{CANCEL_TYPE[c.type] ?? c.type}</span>
                     <StatusBadge map={CANCEL_STATUS} status={c.status} />
                   </div>
+                  {about(c) ? <p className="text-sm font-medium text-muted">{about(c)}</p> : null}
                   <p className="line-clamp-2 text-sm text-muted">{c.reason}</p>
                   <p className="text-xs text-muted">
                     Sent {relativeDate(c.created_at)}
@@ -113,24 +108,7 @@ function History() {
   )
 }
 
+/** /business/cancellations is now the "Requests" tab of Purchases & seats. */
 export function CancellationsPage() {
-  const admin = useIsOrgAdmin()
-  useEffect(() => {
-    document.title = 'Refunds and changes · LearnHub'
-  }, [])
-  return (
-    <>
-      <PageHeader title="Refunds and changes" description="Ask us to refund seats, or to cancel or move live training." />
-      {admin ? (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
-          <RequestForm />
-          <History />
-        </div>
-      ) : (
-        <Card>
-          <EmptyState icon={<ShieldAlert />} title="Only admins can ask for refunds" body="Ask a company admin, or contact us." action={<Button asChild variant="secondary"><Link to="/support"><LifeBuoy /> Contact us</Link></Button>} />
-        </Card>
-      )}
-    </>
-  )
+  return <Navigate to="/business/purchases-and-seats?tab=requests" replace />
 }

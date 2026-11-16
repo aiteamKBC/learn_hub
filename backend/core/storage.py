@@ -162,6 +162,14 @@ def properties(path: str) -> dict | None:
     }
 
 
+def read(path: str, limit: int) -> bytes:
+    """The first `limit` bytes of a blob (to check what an upload really is)."""
+    with client() as http:
+        r = http.get(blob_url(path), headers={**auth_headers(http), "x-ms-range": f"bytes=0-{limit - 1}"})
+    r.raise_for_status()
+    return r.content[:limit]
+
+
 def delete(path: str) -> None:
     with client() as http:
         r = http.delete(blob_url(path), headers=auth_headers(http))

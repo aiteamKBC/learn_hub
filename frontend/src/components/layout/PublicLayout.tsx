@@ -67,10 +67,11 @@ export function PublicLayout() {
       </a>
       <header className="vt-header sticky top-0 z-40 border-b border-border bg-surface/90 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6">
-          <Link to="/" aria-label="LearnHub home" className="shrink-0">
+          <span className="shrink-0">
             <Logo />
-          </Link>
+          </span>
           <nav className="ml-4 hidden items-center lg:flex" aria-label="Primary">
+            <NavLink to="/" end className={link}>Home</NavLink>
             <NavLink to="/courses" className={link}>Courses</NavLink>
             <NavLink to="/plans" className={link}>Plans</NavLink>
             {me ? <NavLink to="/learn" className={link}>My learning</NavLink> : null}

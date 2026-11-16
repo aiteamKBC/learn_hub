@@ -247,3 +247,26 @@ def send_reminder(*, status: MemberStatus, sent_by) -> Reminder:
     org_id, rid = str(status.org_id), str(reminder.id)
     transaction.on_commit(lambda: deliver_reminders_task.delay(org_id, [rid]))
     return reminder
+
+
+def remind_members(*, org_id, member_ids: list, sent_by) -> dict:
+    """Bulk 'nudge' from People: one manual reminder per training that is still due, for
+    each person, through send_reminder (same once-a-day rule, same delivery task). Each
+    send is its own savepoint, so one failure never hides or undoes the others."""
+    due = list(
+        MemberStatus.objects.filter(
+            org_id=org_id, member_id__in=member_ids, requirement__archived_at__isnull=True
+        ).exclude(status__in=[MemberStatus.Status.COMPLIANT, MemberStatus.Status.EXEMPT])
+    )
+    out = {"sent": 0, "skipped": 0, "failed": 0}
+    for status in due:
+        try:
+            with transaction.atomic():
+                send_reminder(status=status, sent_by=sent_by)
+            out["sent"] += 1
+        except ServiceError:
+            out["skipped"] += 1  # already reminded today / nothing due
+        except Exception:  # noqa: BLE001 - counted and reported, never shown as sent
+            out["failed"] += 1
+    out["people_without_due_training"] = len(set(member_ids) - {s.member_id for s in due})
+    return out

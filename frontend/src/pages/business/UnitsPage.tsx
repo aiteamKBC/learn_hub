@@ -395,10 +395,15 @@ function Detail({ unit, units, admin, onAction }: { unit: Unit; units: Unit[]; a
             </Link>
           </Button>
           <Button variant="secondary" size="sm" asChild>
-            <Link to={`/business/people?unit=${unit.id}`}>
-              <Users /> People
+            <Link to={`/business/people?unit=${unit.id}`} aria-label={`View the members of ${unit.name}, including the teams inside it`}>
+              <Users /> View members
             </Link>
           </Button>
+          {units.some((u) => u.parent_id === unit.id) ? (
+            <Button variant="ghost" size="sm" asChild>
+              <Link to={`/business/people?unit=${unit.id}&direct=1`}>Only placed directly here</Link>
+            </Button>
+          ) : null}
         </div>
       </CardBody>
       {admin ? <ManagersSheet unit={unit} open={managersOpen} onOpenChange={setManagersOpen} /> : null}

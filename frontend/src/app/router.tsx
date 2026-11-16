@@ -1,4 +1,4 @@
-import { BookOpen, Building2, ClipboardCheck, CreditCard, DollarSign, FileBarChart, GraduationCap, LayoutDashboard, LifeBuoy, MessageSquare, Network, ShieldCheck, UserPlus, Users, Wallet } from 'lucide-react'
+import { BookOpen, Building2, ClipboardCheck, CreditCard, DollarSign, FileBarChart, LayoutDashboard, LifeBuoy, MessageSquare, Network, ShieldCheck, Users, Wallet } from 'lucide-react'
 import { lazy, Suspense, type ReactNode } from 'react'
 import { createBrowserRouter, Outlet } from 'react-router-dom'
 
@@ -108,14 +108,12 @@ const businessNav: NavSection[] = [
     items: [
       { to: '/business/people', label: 'People', Icon: Users },
       { to: '/business/units', label: 'Locations & teams', Icon: Network },
-      { to: '/business/invites', label: 'Invitations', Icon: UserPlus },
     ],
   },
   {
     title: 'Learning',
     items: [
       { to: '/business/library', label: 'Course library', Icon: BookOpen },
-      { to: '/business/assign', label: 'Assign training', Icon: GraduationCap },
     ],
   },
   ...corporateBusinessNav,

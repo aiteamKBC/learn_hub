@@ -167,9 +167,53 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Set Branding */
+        /**
+         * Set Branding
+         * @description Logo: an https:// link (as before) or a logo this company uploaded.
+         */
         put: operations["apps_org_api_set_branding"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/company/logo/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logo Upload
+         * @description Step 1: a 15-minute write-only link to put the image in private storage.
+         */
+        post: operations["apps_org_api_logo_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/company/logo/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logo Confirm
+         * @description Step 2: check what arrived (size, real image content, safe SVG). Returns the path to
+         *     preview and to save with the branding; nothing is live until the branding is saved.
+         */
+        post: operations["apps_org_api_logo_confirm"];
         delete?: never;
         options?: never;
         head?: never;
@@ -279,10 +323,74 @@ export interface paths {
         /**
          * People
          * @description People in scope with their compliance counts: 4 queries for any page size.
+         *     With a unit: everyone in it and in the teams inside it; with direct=true only the
+         *     people placed in that exact unit.
          */
         get: operations["apps_org_api_people"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/people/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * People Rows
+         * @description The selected people as rows (for "Export selected"), only people the caller may see.
+         */
+        post: operations["apps_org_api_people_rows"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/people/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move People
+         * @description Move people's primary location or team. Other units, role, account and training
+         *     history are kept.
+         */
+        post: operations["apps_org_api_move_people"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/people/remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remind People
+         * @description Remind the selected people about every required training still due (the matrix
+         *     reminder, at most once a day per training).
+         */
+        post: operations["apps_org_api_remind_people"];
         delete?: never;
         options?: never;
         head?: never;
@@ -314,11 +422,36 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Invites */
+        /**
+         * Invites
+         * @description pending (default, as before) | expired | accepted | revoked | history (all but pending).
+         */
         get: operations["apps_org_api_invites"];
         put?: never;
         /** Create Invite */
         post: operations["apps_org_api_create_invite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/invites/{invite_id}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend Invite
+         * @description Send a pending or expired invitation again. A fresh link replaces the old one (the
+         *     old link stops working) and is valid for the usual 7 days. Accepted or cancelled
+         *     invitations cannot be resent, nor one to someone who has already joined.
+         */
+        post: operations["apps_org_api_resend_invite"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7925,6 +8058,36 @@ export interface components {
              */
             accent_color: string;
         };
+        /** LogoUploadOut */
+        LogoUploadOut: {
+            /** Key */
+            key: string;
+            /** Upload Url */
+            upload_url: string;
+            /** Method */
+            method: string;
+            /** Headers */
+            headers: {
+                [key: string]: string;
+            };
+        };
+        /** LogoUploadIn */
+        LogoUploadIn: {
+            /** Filename */
+            filename: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /** LogoOut */
+        LogoOut: {
+            /** Url */
+            url: string;
+        };
+        /** LogoConfirmIn */
+        LogoConfirmIn: {
+            /** Key */
+            key: string;
+        };
         /** UnitOut */
         UnitOut: {
             /**
@@ -8051,6 +8214,44 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** PersonRowsOut */
+        PersonRowsOut: {
+            /** Items */
+            items: components["schemas"]["PersonRow"][];
+        };
+        /** MemberIdsIn */
+        MemberIdsIn: {
+            /** Member Ids */
+            member_ids: string[];
+        };
+        /** MoveOut */
+        MoveOut: {
+            /** Moved */
+            moved: number;
+            /** Unchanged */
+            unchanged: number;
+        };
+        /** MoveIn */
+        MoveIn: {
+            /** Member Ids */
+            member_ids: string[];
+            /**
+             * Unit Id
+             * Format: uuid
+             */
+            unit_id: string;
+        };
+        /** BulkRemindOut */
+        BulkRemindOut: {
+            /** Sent */
+            sent: number;
+            /** Skipped */
+            skipped: number;
+            /** Failed */
+            failed: number;
+            /** People Without Due Training */
+            people_without_due_training: number;
+        };
         /** MemberPatch */
         MemberPatch: {
             /** Role */
@@ -8085,6 +8286,19 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Status
+             * @default pending
+             */
+            status: string;
+            /** Unit Name */
+            unit_name?: string | null;
+            /** Job Role Name */
+            job_role_name?: string | null;
+            /** Accepted At */
+            accepted_at?: string | null;
+            /** Revoked At */
+            revoked_at?: string | null;
         };
         /** InviteIn */
         InviteIn: {
@@ -19083,6 +19297,54 @@ export interface operations {
             };
         };
     };
+    apps_org_api_logo_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogoUploadIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogoUploadOut"];
+                };
+            };
+        };
+    };
+    apps_org_api_logo_confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogoConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogoOut"];
+                };
+            };
+        };
+    };
     apps_org_api_units: {
         parameters: {
             query?: never;
@@ -19300,6 +19562,7 @@ export interface operations {
                 unit_id?: string | null;
                 job_role_id?: string | null;
                 role?: string | null;
+                direct?: boolean;
                 cursor?: string | null;
                 limit?: number;
             };
@@ -19316,6 +19579,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PersonPage"];
+                };
+            };
+        };
+    };
+    apps_org_api_people_rows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberIdsIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonRowsOut"];
+                };
+            };
+        };
+    };
+    apps_org_api_move_people: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoveOut"];
+                };
+            };
+        };
+    };
+    apps_org_api_remind_people: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberIdsIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkRemindOut"];
                 };
             };
         };
@@ -19370,7 +19705,9 @@ export interface operations {
     };
     apps_org_api_invites: {
         parameters: {
-            query?: never;
+            query?: {
+                status?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -19400,6 +19737,28 @@ export interface operations {
                 "application/json": components["schemas"]["InviteIn"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteOut"];
+                };
+            };
+        };
+    };
+    apps_org_api_resend_invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invite_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {

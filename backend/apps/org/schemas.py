@@ -26,6 +26,26 @@ class BrandingIn(Schema):
     accent_color: str = Field("", pattern=r"^(#[0-9a-fA-F]{6})?$")
 
 
+class LogoUploadIn(Schema):
+    filename: str = Field(..., max_length=200)
+    size_bytes: int
+
+
+class LogoUploadOut(Schema):
+    key: str
+    upload_url: str
+    method: str
+    headers: dict[str, str]
+
+
+class LogoConfirmIn(Schema):
+    key: str = Field(..., max_length=60)
+
+
+class LogoOut(Schema):
+    url: str
+
+
 class UnitOut(Schema):
     id: UUID
     parent_id: UUID | None
@@ -110,6 +130,54 @@ class InviteOut(Schema):
     role: str
     expires_at: datetime
     created_at: datetime
+    # lifecycle, worked out on the server from the record: pending | expired | accepted | revoked
+    status: str = "pending"
+    unit_name: str | None = None
+    job_role_name: str | None = None
+    accepted_at: datetime | None = None
+    revoked_at: datetime | None = None
+
+    @staticmethod
+    def resolve_status(obj) -> str:
+        from django.utils import timezone
+
+        if getattr(obj, "accepted_at", None):
+            return "accepted"
+        if getattr(obj, "revoked_at", None):
+            return "revoked"
+        return "expired" if obj.expires_at <= timezone.now() else "pending"
+
+    @staticmethod
+    def resolve_unit_name(obj) -> str | None:
+        return obj.unit.name if getattr(obj, "unit_id", None) and obj.unit else None
+
+    @staticmethod
+    def resolve_job_role_name(obj) -> str | None:
+        return obj.job_role.name if getattr(obj, "job_role_id", None) and obj.job_role else None
+
+
+class MemberIdsIn(Schema):
+    member_ids: list[UUID] = Field(..., min_length=1, max_length=1000)
+
+
+class MoveIn(MemberIdsIn):
+    unit_id: UUID
+
+
+class MoveOut(Schema):
+    moved: int
+    unchanged: int
+
+
+class BulkRemindOut(Schema):
+    sent: int  # reminders queued (one per training that is due)
+    skipped: int  # already reminded today, or nothing due
+    failed: int
+    people_without_due_training: int
+
+
+class PersonRowsOut(Schema):
+    items: list[PersonRow]
 
 
 class AssignIn(Schema):
