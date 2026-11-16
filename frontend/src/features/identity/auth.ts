@@ -67,7 +67,9 @@ function raise(r: AllauthResponse): never {
   for (const e of r.errors ?? []) if (e.param) fields[e.param] = e.message
   const pending = r.status === 401 && !!r.data?.flows?.some((f) => f.id === 'verify_email' && f.is_pending)
   throw new AuthError(
-    pending ? 'Check your inbox: confirm your email address to finish signing in.' : (r.errors?.[0]?.message ?? 'Something went wrong. Please try again.'),
+    pending
+      ? 'Your email is not confirmed yet. Open the latest LearnHub confirmation email, then return to your invitation. A password reset is only needed if you have forgotten your password.'
+      : (r.errors?.[0]?.message ?? 'Something went wrong. Please try again.'),
     fields,
     pending,
   )

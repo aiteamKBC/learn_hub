@@ -9,9 +9,10 @@ import { Link } from '@/lib/router'
 
 import type { CourseCardData } from './api'
 import { Price } from './CourseCard'
+import { WishlistHeart } from '@/features/commerce/WishlistHeart'
 
 /** A course as a wide row: catalogue list view, cart and wishlist lines. */
-export function CourseRow({ course, aside, actions, showPrice = true }: { course: CourseCardData; aside?: ReactNode; actions?: ReactNode; showPrice?: boolean }) {
+export function CourseRow({ course, aside, actions, showPrice = true, showWishlist = false }: { course: CourseCardData; aside?: ReactNode; actions?: ReactNode; showPrice?: boolean; showWishlist?: boolean }) {
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-3 shadow-sm transition-shadow hover:shadow sm:flex-row">
       <Link to={`/courses/${course.slug}`} className="shrink-0 sm:w-56" tabIndex={-1} aria-hidden>
@@ -37,6 +38,7 @@ export function CourseRow({ course, aside, actions, showPrice = true }: { course
       </div>
       <div className="flex shrink-0 items-start justify-between gap-3 sm:flex-col sm:items-end sm:py-1">
         {aside ?? (showPrice ? <Price price={course.price} className="text-lg" /> : null)}
+        {showWishlist ? <WishlistHeart courseId={course.id} slug={course.slug} title={course.title} size="icon-sm" /> : null}
       </div>
     </div>
   )

@@ -321,7 +321,7 @@ function CompanyCard({ c, onOpen }: { c: ConsoleCompany; onOpen: () => void }) {
         <StatusPill status={c.status} label={COMPANY_STATUSES[c.status]} />
       </span>
       <span className="text-xs text-muted">
-        {count(c.members)}{c.seat_limit ? ` / ${count(c.seat_limit)}` : ''} people · {c.plan ?? 'No plan'}
+        {count(c.members)}{c.seat_limit ? ` / ${count(c.seat_limit)}` : ''} people
       </span>
     </button>
   )
@@ -378,8 +378,6 @@ export function ConsoleCompaniesPage() {
                       <Th>Company</Th>
                       <Th>Status</Th>
                       <Th className="text-right">Seats</Th>
-                      <Th>Plan</Th>
-                      <Th className="hidden xl:table-cell">Add-ons</Th>
                       <Th className="text-right">Joined</Th>
                     </tr>
                   </thead>
@@ -394,10 +392,6 @@ export function ConsoleCompaniesPage() {
                         </Td>
                         <Td><StatusPill status={c.status} label={COMPANY_STATUSES[c.status]} /></Td>
                         <Td className="text-right tabular">{count(c.members)}{c.seat_limit ? <span className="text-muted"> / {count(c.seat_limit)}</span> : null}</Td>
-                        <Td className="max-w-[12rem] truncate">{c.plan ?? <span className="text-muted">None</span>}</Td>
-                        <Td className="hidden xl:table-cell">
-                          <span className="flex flex-wrap gap-1">{c.addons.length ? c.addons.map((a) => <Badge key={a} tone="info">{a}</Badge>) : <span className="text-muted">None</span>}</span>
-                        </Td>
                         <Td className="text-right text-xs text-muted tabular">{shortDate(c.created_at)}</Td>
                       </Tr>
                     ))}

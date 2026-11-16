@@ -43,7 +43,12 @@ export function brandStyle(primary?: string | null, accent?: string | null): CSS
   return Object.keys(style).length ? (style as CSSProperties) : undefined
 }
 
-/** Only https logos are shown (the API only stores those). */
+// a logo the company uploaded, served by our API (see apps/org/logos.py)
+const UPLOADED = /^\/api\/v1\/org\/logos\/[0-9a-f-]{36}\/[0-9a-f]{32}\.(png|jpg|webp|svg)$/
+
+/** Only https links and the company's own uploads are shown (the API stores only those). */
 export function safeLogo(url?: string | null) {
-  return url && url.startsWith('https://') ? url : null
+  return url && (url.startsWith('https://') || UPLOADED.test(url)) ? url : null
 }
+
+export const isUploadedLogo = (url?: string | null) => !!url && UPLOADED.test(url)

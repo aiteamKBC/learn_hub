@@ -151,6 +151,7 @@ def question(request, question_id: str):
     return {
         **_question_out(q, voted),
         "answers": [{"id": a.id, "body": a.body, "author": _author(a.user), "is_instructor": a.is_instructor,
+                     "is_staff": a.user.is_staff,
                      "created_at": a.created_at} for a in answers],
     }  # fmt: skip
 

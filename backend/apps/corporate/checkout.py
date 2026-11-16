@@ -15,6 +15,7 @@ from core.errors import ServiceError
 from core.permissions import ROLE_RANK, OrgRole
 
 from .models import CorporateOffering, SeatPurchase
+from .offerings import ensure_recorded_offering
 
 
 def create_recorded_checkout(request, offering_id, quantity: int) -> dict:
@@ -26,20 +27,20 @@ def create_recorded_checkout(request, offering_id, quantity: int) -> dict:
     if member is None or ROLE_RANK.get(OrgRole(member.role), -1) < ROLE_RANK[OrgRole.ADMIN]:
         raise ServiceError("forbidden", "Only company admins or owners may purchase.", status=403)
 
-    offering = (
-        CorporateOffering.objects.select_related("price_tier", "course")
-        .filter(pk=offering_id, is_active=True, delivery_type="recorded")
-        .first()
-    )
-    if offering is None:
-        raise ServiceError("offering_not_found", "Active recorded offering not found.", status=404)
-
     if quantity < 1 or quantity > 500:
         raise ServiceError("bad_quantity", "Quantity must be between 1 and 500.", status=400)
 
-    unit_price = offering.price_tier.gbp_minor
-    if unit_price <= 0:  # the admin has not set a price for this option
-        raise ServiceError("no_price", "This option has no price yet. Please contact us.", status=400)
+    # New package cards carry the course ID. Accept a legacy offering ID too, but
+    # always charge the platform-wide CoursePrice used for individual learners.
+    legacy = (
+        CorporateOffering.objects.filter(pk=offering_id, delivery_type="recorded").only("course_id").first()
+    )
+    course_id = legacy.course_id if legacy else offering_id
+    offering, course_price = ensure_recorded_offering(course_id)
+    if offering is None or course_price is None:
+        raise ServiceError("offering_not_found", "This course is not currently for sale.", status=404)
+
+    unit_price = course_price.tier.gbp_minor
     currency = "GBP"
     total = unit_price * quantity
 
@@ -81,7 +82,7 @@ def create_recorded_checkout(request, offering_id, quantity: int) -> dict:
         },
         customer_email=request.user.email,
         customer=customer_id or "",
-        success_url=f"{settings.FRONTEND_URL}/business/purchases?success=1",
+        success_url=f"{settings.FRONTEND_URL}/business/purchases?success=1&purchase={purchase.id}",
         cancel_url=f"{settings.FRONTEND_URL}/business/packages",
         idempotency_key=idempotency_key,
     )

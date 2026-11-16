@@ -22,6 +22,7 @@ import {
   issuedCsvPath,
   templatePreviewPath,
   type TemplateInput,
+  uploadCertificateArtwork,
   uploadSignature,
   useCertOverview,
   useCertTemplates,
@@ -53,11 +54,13 @@ function TemplateEditor({ template, open, onOpenChange }: { template: CertTempla
   const blank: TemplateInput = { name: '', layout: DEFAULT_LAYOUT, signatory_name: '', signatory_title: '', signature_image_url: '', show_qr_code: true }
   const [f, setF] = useState<TemplateInput>(blank)
   const [preview, setPreview] = useState('')
+  const [artworkPreview, setArtworkPreview] = useState('')
   const [uploading, setUploading] = useState(false)
   useEffect(() => {
     if (!open) return
     setF(template ? { name: template.name, layout: template.layout, signatory_name: template.signatory_name, signatory_title: template.signatory_title, signature_image_url: template.signature_image_url, show_qr_code: template.show_qr_code } : blank)
     setPreview(template?.signature_preview_url ?? '')
+    setArtworkPreview(template?.artwork_preview_url ?? '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, template])
   const L = <K extends keyof CertLayout>(k: K, v: CertLayout[K]) => setF((x) => ({ ...x, layout: { ...x.layout, [k]: v } }))
@@ -86,6 +89,32 @@ function TemplateEditor({ template, open, onOpenChange }: { template: CertTempla
               </Field>
               <Field label="Main colour">{(p) => <Input {...p} type="color" value={f.layout.primary} onChange={(e) => L('primary', e.target.value.toUpperCase())} className="h-10 p-1" />}</Field>
               <Field label="Accent colour">{(p) => <Input {...p} type="color" value={f.layout.accent} onChange={(e) => L('accent', e.target.value.toUpperCase())} className="h-10 p-1" />}</Field>
+            </div>
+            <div className="grid gap-1.5 rounded-md border border-border p-3">
+              <Label htmlFor="artwork-file">Ready-made certificate design (PNG or JPEG, up to 8 MB)</Label>
+              <p className="text-xs text-muted">Upload a landscape A4 design from Photoshop or any other tool. Learner details and verification stay on top of it.</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button asChild variant="secondary" size="sm" loading={uploading}>
+                  <label htmlFor="artwork-file" className="cursor-pointer"><Upload /> {f.layout.artwork_image_url ? 'Replace design' : 'Upload design'}</label>
+                </Button>
+                <input id="artwork-file" type="file" accept="image/png,image/jpeg" className="sr-only" onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  e.target.value = ''
+                  if (!file) return
+                  setUploading(true)
+                  try {
+                    const url = await uploadCertificateArtwork(file)
+                    L('artwork_image_url', url)
+                    setArtworkPreview(URL.createObjectURL(file))
+                    toast.success('Certificate design uploaded')
+                  } catch (err) {
+                    toast.error((err as Error).message)
+                  } finally {
+                    setUploading(false)
+                  }
+                }} />
+                {f.layout.artwork_image_url ? <Button type="button" size="sm" variant="ghost" onClick={() => (L('artwork_image_url', ''), setArtworkPreview(''))}>Remove design</Button> : null}
+              </div>
             </div>
             <Field label="Heading">{(p) => <Input {...p} value={f.layout.heading} maxLength={60} onChange={(e) => L('heading', e.target.value)} required />}</Field>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -142,7 +171,7 @@ function TemplateEditor({ template, open, onOpenChange }: { template: CertTempla
             </div>
           </div>
           <div className="grid content-start gap-3">
-            <CertificatePreview data={{ ...f, signature_preview_url: preview }} />
+            <CertificatePreview data={{ ...f, signature_preview_url: preview, artwork_preview_url: artworkPreview }} />
             {template?.status === 'pending' ? <p className="text-[12.5px] text-warning">An instructor's template: approve it in Approvals.</p> : null}
             <div className="flex flex-wrap justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>

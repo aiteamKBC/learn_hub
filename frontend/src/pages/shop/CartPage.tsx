@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useCourses } from '@/features/catalog/api'
 import { CourseGrid } from '@/features/catalog/CourseCard'
 import { CourseRow } from '@/features/catalog/CourseRow'
-import { useCart, useCheckout, useCurrencies, useRemoveFromCart, useToggleWishlist } from '@/features/commerce/api'
+import { useCart, useCheckout, useCurrencies, useRemoveFromCart, useSaveWishlist } from '@/features/commerce/api'
 import { cn } from '@/lib/cn'
 import { useCurrency } from '@/lib/currency'
 import { money } from '@/lib/format'
@@ -22,7 +22,7 @@ export function CartPage() {
   const [code, setCode] = useState('')
   const { data: cart, isLoading, error, refetch, isFetching } = useCart(coupon)
   const remove = useRemoveFromCart()
-  const wish = useToggleWishlist()
+  const wish = useSaveWishlist()
   const checkout = useCheckout()
   const { data: currencies } = useCurrencies()
   const { setCurrency } = useCurrency()
@@ -94,11 +94,11 @@ export function CartPage() {
                           <Button
                             variant="link"
                             size="sm"
-                            onClick={() =>
-                              remove.mutate(l.course.id, {
-                                onSuccess: () => wish.mutate(l.course.id, { onSuccess: () => toast.success('Moved to your wishlist') }),
-                              })
-                            }
+                            loading={wish.isPending && wish.variables === l.course.id}
+                            onClick={() => wish.mutate(l.course.id, {
+                              onSuccess: () => remove.mutate(l.course.id, { onSuccess: () => toast.success('Moved to your wishlist'), onError: (e) => toast.error(e.message) }),
+                              onError: (e) => toast.error(e.message),
+                            })}
                           >
                             <Heart /> Move to wishlist
                           </Button>

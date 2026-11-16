@@ -71,13 +71,13 @@ export function PackagesPage() {
   }, [])
   return (
     <>
-      <PageHeader title="Course packages" description="Buy seats on recorded courses, or ask for live training for your team." />
+      <PageHeader title="Company course catalogue" description="Recorded courses use the same published price shown to individual learners. Buy seats for employees; request live training separately and agree dates with the LearnHub admin." />
       {!admin ? (
         <p className="mb-4 flex items-center gap-2 text-sm text-muted">
           <ShieldAlert className="size-4" /> Only company admins can buy seats or request training.
         </p>
       ) : null}
-      <QueryBlock query={q} rows={6} empty={{ icon: <PackageIcon />, title: 'No packages yet', body: 'Course packages for companies will appear here.' }}>
+      <QueryBlock query={q} rows={6} empty={{ icon: <PackageIcon />, title: 'No courses available yet', body: 'Published, paid recorded courses appear here automatically. Live courses appear when LearnHub makes them available for company requests.' }}>
         {(items) => (
           <Tabs defaultValue="recorded">
             <TabsList aria-label="Package type">

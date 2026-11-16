@@ -175,7 +175,7 @@ export function ComplianceDashboard() {
               <Download /> Export CSV
             </Button>
             <Button asChild>
-              <Link to="/business/assign">
+              <Link to="/business/library?assign=new">
                 <UserPlus /> Assign training
               </Link>
             </Button>

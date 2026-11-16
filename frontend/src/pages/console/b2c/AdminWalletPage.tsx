@@ -1,17 +1,18 @@
-import { Coins, MinusCircle, PlusCircle, Search, Wallet } from 'lucide-react'
-import { useState } from 'react'
+import { Coins, Loader2, MinusCircle, PlusCircle, Search } from 'lucide-react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { toast } from 'sonner'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
 import { Field, Input, Textarea } from '@/components/ui/input'
-import { EmptyState, ErrorState, PageHeader, StatCard } from '@/components/ui/misc'
+import { ErrorState, PageHeader, StatCard } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, Td, Th, Tr } from '@/components/ui/table'
-import { useAdjustWallet, useAdminStudentSearch, useAdminWallet, useAdminWalletLedger } from '@/features/b2c/console'
-import { dateTime, SearchBox } from '@/features/console/money-ui'
+import { useAdjustWallet, useAdminRates, useAdminStudentSearch, useAdminWallet, useAdminWalletLedger } from '@/features/b2c/console'
+import { dateTime } from '@/features/console/money-ui'
+import { useDebounced } from '@/features/org/ui'
 import { count } from '@/lib/format'
+import { tokenValueGbp } from '@/lib/token-value'
 
 /** Console > Wallet. Staff find a learner, read their token balance, grants and ledger, and
  * make a manual adjustment. A reason is always required and recorded in the audit trail. */
@@ -32,60 +33,90 @@ export function AdminWalletPage() {
 }
 
 function StudentPicker({ q, setQ, onPick }: { q: string; setQ: (v: string) => void; onPick: (u: { id: string; name: string; email: string }) => void }) {
-  const search = useAdminStudentSearch(q)
-  const rows = search.data?.pages.flatMap((p) => p.items) ?? []
+  const [open, setOpen] = useState(false)
+  const [active, setActive] = useState(0)
+  const listId = useId()
+  const box = useRef<HTMLDivElement>(null)
+  const term = useDebounced(q.trim(), 200)
+  const search = useAdminStudentSearch(term, open)
+  const waitingForSearch = q.trim() !== term
+  const rows = waitingForSearch ? [] : (search.data?.pages.flatMap((p) => p.items) ?? [])
+  useEffect(() => {
+    const close = (event: MouseEvent) => {
+      if (box.current && !box.current.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [])
+  const pick = (row: (typeof rows)[number]) => {
+    setOpen(false)
+    onPick({ id: row.id, name: row.name, email: row.email })
+  }
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') return setOpen(false)
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setOpen(true)
+      if (rows.length) setActive((index) => open ? (index + 1) % rows.length : 0)
+    } else if (event.key === 'ArrowUp' && rows.length) {
+      event.preventDefault()
+      setOpen(true)
+      setActive((index) => (index - 1 + rows.length) % rows.length)
+    } else if (event.key === 'Enter' && open && rows[active]) {
+      event.preventDefault()
+      pick(rows[active])
+    }
+  }
   return (
     <Card>
       <CardHeader title="Find a learner" />
       <div className="p-4">
-        <SearchBox value={q} onChange={setQ} label="Search learners" placeholder="Search by name or email…" />
-        {!q.trim() ? (
-          <p className="mt-4 flex items-center gap-2 text-sm text-muted">
-            <Search className="size-4" /> Type a name or email to begin.
-          </p>
-        ) : search.isLoading ? (
-          <Skeleton className="mt-4 h-40 rounded-lg" />
-        ) : search.error ? (
-          <ErrorState message="Search failed." onRetry={() => void search.refetch()} />
-        ) : !rows.length ? (
-          <EmptyState className="mt-4" icon={<Search />} title="No learners found" body="Try a different name or email." />
-        ) : (
-          <>
-            <Table className="mt-4">
-              <thead>
-                <Tr>
-                  <Th>Name</Th>
-                  <Th>Email</Th>
-                  <Th>Status</Th>
-                  <Th />
-                </Tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <Tr key={r.id}>
-                    <Td className="font-medium">{r.name || '—'}</Td>
-                    <Td className="text-muted">{r.email}</Td>
-                    <Td>
-                      <Badge tone={r.status === 'active' ? 'success' : 'neutral'} className="capitalize">
-                        {r.status}
-                      </Badge>
-                    </Td>
-                    <Td className="text-right">
-                      <Button size="sm" variant="secondary" onClick={() => onPick({ id: r.id, name: r.name, email: r.email })}>
-                        <Wallet /> View wallet
-                      </Button>
-                    </Td>
-                  </Tr>
-                ))}
-              </tbody>
-            </Table>
-            {search.hasNextPage ? (
-              <Button variant="secondary" className="mt-3" loading={search.isFetchingNextPage} onClick={() => void search.fetchNextPage()}>
-                Load more
-              </Button>
-            ) : null}
-          </>
-        )}
+        <div ref={box} className="relative">
+          <Input
+            icon={search.isFetching ? <Loader2 className="animate-spin" /> : <Search />}
+            type="search"
+            value={q}
+            onChange={(event) => { setQ(event.target.value); setActive(0); setOpen(true) }}
+            onFocus={() => setOpen(true)}
+            onKeyDown={onKeyDown}
+            placeholder="Search by name or email…"
+            aria-label="Search learners"
+            role="combobox"
+            aria-expanded={open}
+            aria-controls={listId}
+            aria-autocomplete="list"
+            aria-activedescendant={open && rows[active] ? `${listId}-${active}` : undefined}
+            autoComplete="off"
+          />
+          {open ? (
+            <div id={listId} role="listbox" aria-label="Learners" className="absolute inset-x-0 top-full z-40 mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-surface p-1 shadow-lg">
+              {waitingForSearch || search.isLoading ? <p className="px-3 py-3 text-sm text-muted">Loading learners…</p> : search.error ? (
+                <div className="px-3 py-2"><ErrorState message="Could not load learners." onRetry={() => void search.refetch()} /></div>
+              ) : !rows.length ? (
+                <p className="px-3 py-3 text-sm text-muted">{term ? 'No learners match this search.' : 'No learners found.'}</p>
+              ) : (
+                <>
+                  {rows.map((row, index) => (
+                    <button
+                      key={row.id}
+                      id={`${listId}-${index}`}
+                      type="button"
+                      role="option"
+                      aria-selected={index === active}
+                      onMouseEnter={() => setActive(index)}
+                      onClick={() => pick(row)}
+                      className={`flex w-full min-w-0 flex-col rounded-md px-3 py-2 text-left text-sm hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none ${index === active ? 'bg-primary-soft' : ''}`}
+                    >
+                      <span className="truncate font-medium">{row.name || row.email}</span>
+                      <span className="truncate text-xs text-muted">{row.email}{row.status !== 'active' ? ` · ${row.status}` : ''}</span>
+                    </button>
+                  ))}
+                  {search.hasNextPage ? <Button variant="ghost" size="sm" className="mt-1 w-full" loading={search.isFetchingNextPage} onClick={() => void search.fetchNextPage()}>Load more learners</Button> : null}
+                </>
+              )}
+            </div>
+          ) : null}
+        </div>
       </div>
     </Card>
   )
@@ -94,6 +125,8 @@ function StudentPicker({ q, setQ, onPick }: { q: string; setQ: (v: string) => vo
 function WalletDetail({ user, onBack }: { user: { id: string; name: string; email: string }; onBack: () => void }) {
   const wallet = useAdminWallet(user.id)
   const ledger = useAdminWalletLedger(user.id)
+  const rates = useAdminRates()
+  const rate = Number(rates.data?.find((r) => r.is_current)?.tokens_per_gbp_minor ?? 0) || undefined
 
   return (
     <div className="space-y-6">
@@ -114,7 +147,7 @@ function WalletDetail({ user, onBack }: { user: { id: string; name: string; emai
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2">
-            <StatCard label="Balance" value={<span className="tabular-nums">{count(wallet.data?.balance.balance ?? 0)}</span>} icon={<Coins />} tone="primary" hint="tokens" />
+            <StatCard label="Balance" value={<span className="tabular-nums">{count(wallet.data?.balance.balance ?? 0)}</span>} icon={<Coins />} tone="primary" hint={`tokens${tokenValueGbp(wallet.data?.balance.balance, rate) ? ` · ${tokenValueGbp(wallet.data?.balance.balance, rate)}` : ''}`} />
             <StatCard
               label="Expiring within 7 days"
               value={<span className="tabular-nums">{count(wallet.data?.balance.expiring_within_7_days ?? 0)}</span>}
@@ -124,7 +157,7 @@ function WalletDetail({ user, onBack }: { user: { id: string; name: string; emai
             />
           </div>
 
-          <AdjustForm userId={user.id} />
+          <AdjustForm userId={user.id} rate={rate} />
 
           <Card>
             <CardHeader title="Grants" description={`${wallet.data?.grants.length ?? 0} most recent`} />
@@ -198,7 +231,7 @@ function WalletDetail({ user, onBack }: { user: { id: string; name: string; emai
   )
 }
 
-function AdjustForm({ userId }: { userId: string }) {
+function AdjustForm({ userId, rate }: { userId: string; rate: number | undefined }) {
   const adjust = useAdjustWallet()
   const [sign, setSign] = useState<1 | -1>(1)
   const [amount, setAmount] = useState('')
@@ -238,6 +271,7 @@ function AdjustForm({ userId }: { userId: string }) {
           <Field label="Amount (tokens)">
             {(p) => <Input {...p} type="number" min="1" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 100" />}
           </Field>
+          {tokenValueGbp(Number.isInteger(n) ? n : null, rate) ? <p className="-mt-3 text-xs text-muted">Reference value: {tokenValueGbp(n, rate)}</p> : null}
           <Field label="Reason (required)" hint="Shown in the audit trail and the learner's ledger.">
             {(p) => <Textarea {...p} value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Why are you adjusting this balance?" />}
           </Field>

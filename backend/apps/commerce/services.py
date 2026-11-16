@@ -66,7 +66,6 @@ def add_to_cart(*, user, course_id) -> CartItem:
     if _owns(user, [course.id]):
         raise ServiceError("already_owned", "You already have this course.")
     item, _ = CartItem.objects.get_or_create(user=user, course=course)
-    WishlistItem.objects.filter(user=user, course=course).delete()  # moved from wishlist
     return item
 
 
@@ -74,13 +73,26 @@ def remove_from_cart(*, user, course_id) -> None:
     CartItem.objects.filter(user=user, course_id=course_id).delete()
 
 
-def toggle_wishlist(*, user, course_id) -> bool:
-    """Returns True if the course is now on the wishlist."""
-    deleted, _ = WishlistItem.objects.filter(user=user, course_id=course_id).delete()
-    if deleted:
-        return False
-    WishlistItem.objects.create(user=user, course=_sellable(course_id))
+def save_wishlist(*, user, course_id) -> bool:
+    """Idempotently save a course this person can currently view."""
+    course = Course.objects.filter(
+        pk=course_id, status="published", live_version__isnull=False, deleted_at__isnull=True
+    ).first()
+    if course is None:
+        raise ServiceError("not_available", "This course is not available.")
+    WishlistItem.objects.get_or_create(user=user, course=course)
     return True
+
+
+def toggle_wishlist(*, user, course_id) -> bool:
+    """Toggle this person's saved course, independent of cart and access state."""
+    deleted, _ = WishlistItem.objects.filter(user=user, course_id=course_id).delete()
+    return False if deleted else save_wishlist(user=user, course_id=course_id)
+
+
+def remove_wishlist(*, user, course_id) -> bool:
+    WishlistItem.objects.filter(user=user, course_id=course_id).delete()
+    return False
 
 
 def _owns(user, course_ids) -> set:

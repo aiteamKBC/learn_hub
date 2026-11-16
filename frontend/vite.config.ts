@@ -17,6 +17,9 @@ export default defineConfig(({ mode }) => ({
   },
   build: { target: 'es2022' },
   server: {
+    // Invitation emails are often opened on a phone during local testing. Bind to
+    // the LAN interface so a configured FRONTEND_URL can reach this dev server.
+    host: '0.0.0.0',
     port: 5173,
     // Same-origin in dev: session cookies + CSRF work without CORS tricks.
     proxy: {

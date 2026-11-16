@@ -201,6 +201,29 @@ class DistributionTests(_Base):
             lectures[0].refresh_from_db()
             self.assertIsNone(lectures[0].token_price)
 
+    def test_apply_clears_prices_for_excluded_component_types(self):
+        course, lectures = self._course("dist-clears-excluded")
+        with tenant_context(user_id=self.staff.id, staff=True):
+            # Reclassify one lesson solely to exercise the type filter; the course
+            # is already published and this does not affect the pricing invariant.
+            lectures[1].kind = "quiz"
+            lectures[1].save(update_fields=["kind"])
+            ps.set_lecture_token_price(lectures[0], 10, actor=self.staff, reason="initial")
+            ps.set_lecture_token_price(lectures[1], 20, actor=self.staff, reason="initial")
+
+            ps.distribute_course_token_price(
+                course,
+                100,
+                weights_config={"lecture_types": {"article": 1.0}},
+                actor=self.staff,
+                reason="videos only equivalent",
+            )
+
+            lectures[0].refresh_from_db()
+            lectures[1].refresh_from_db()
+        self.assertIsNotNone(lectures[0].token_price)
+        self.assertIsNone(lectures[1].token_price)
+
     def test_hamilton_pure_math(self):
         # Pure-math test: no DB required for this one.
         result = ps._hamilton_allocate([2.0, 1.0, 1.0, 1.0], 100)

@@ -80,15 +80,15 @@ function RequirementCard({ r, thumb, admin, onEdit, onArchive }: { r: Requiremen
             </div>
           </dl>
           <div className="ml-auto flex flex-col gap-2 sm:ml-2">
-            <Button variant="ghost" size="sm" asChild>
-              <Link to={`/business/matrix?req=${r.id}`}>Matrix</Link>
+            <Button variant="secondary" size="sm" asChild>
+              <Link to={`/business/matrix?req=${r.id}`}>View in matrix</Link>
             </Button>
             {admin ? (
               <div className="hidden flex-col gap-2 sm:flex">
                 <Button variant="secondary" size="sm" onClick={onEdit} aria-label={`Edit ${r.name}`}>
                   <Pencil /> Edit
                 </Button>
-                <Button variant="ghost" size="sm" onClick={onArchive} aria-label={`Archive ${r.name}`} className="text-danger hover:text-danger">
+                <Button variant="secondary" size="sm" onClick={onArchive} aria-label={`Archive ${r.name}`} className="text-danger hover:text-danger">
                   <Archive /> Archive
                 </Button>
               </div>

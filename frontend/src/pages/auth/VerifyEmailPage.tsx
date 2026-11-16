@@ -1,9 +1,9 @@
-import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { CheckCircle2, Loader2, MailCheck, XCircle } from 'lucide-react'
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
-import { useVerifyEmail } from '@/features/identity/auth'
+import { useMe, useVerifyEmail } from '@/features/identity/auth'
 import { pendingInvite } from '@/lib/next'
 
 import { AuthShell } from './AuthShell'
@@ -13,19 +13,14 @@ import { Link } from '@/lib/router'
 export function VerifyEmailPage() {
   const { key = '' } = useParams()
   const verify = useVerifyEmail()
+  const { data: me } = useMe()
   const [invite] = useState(pendingInvite)
-  const sent = useRef(false)
-  useEffect(() => {
-    if (!sent.current) {
-      sent.current = true
-      verify.mutate(key)
-    }
-  }, [key, verify])
+  const inviteNext = invite ? `?next=${encodeURIComponent(invite)}` : ''
 
   return (
-    <AuthShell title="Confirming your email">
+    <AuthShell title={verify.isPending ? 'Confirming your email' : verify.isSuccess ? 'Email confirmed' : 'Confirm your email'}>
       <div className="rounded-lg border border-border bg-surface p-6 text-center">
-        {verify.isPending || verify.isIdle ? (
+        {verify.isPending ? (
           <Loader2 className="mx-auto size-8 animate-spin text-primary" />
         ) : verify.isSuccess ? (
           <>
@@ -41,11 +36,36 @@ export function VerifyEmailPage() {
           </>
         ) : (
           <>
-            <XCircle className="mx-auto size-10 text-danger" />
-            <p className="mt-3 font-medium">This link has expired or was already used.</p>
-            <Button className="mt-5" variant="secondary" asChild>
-              <Link to="/login">Back to log in</Link>
-            </Button>
+            {verify.isError && me ? (
+              <>
+                <CheckCircle2 className="mx-auto size-10 text-success" />
+                <p className="mt-3 font-medium">You’re already signed in.</p>
+                <p className="mt-2 text-sm text-muted">Continue to your invitation and we’ll finish joining you.</p>
+                <Button className="mt-5 w-full" asChild>
+                  <Link to={invite ?? '/learn'}>{invite ? 'Continue to your invitation' : 'Go to my learning'}</Link>
+                </Button>
+              </>
+            ) : verify.isError ? (
+              <>
+                <XCircle className="mx-auto size-10 text-danger" />
+                <p className="mt-3 font-medium">This link has expired or was already used.</p>
+                <p className="mt-2 text-sm text-muted">If you already confirmed your email, sign in. Otherwise, sign in with the password you set and check for the latest confirmation email. You only need a password reset if you have forgotten your password.</p>
+                <div className="mt-5 grid gap-2">
+                  <Button variant="secondary" asChild>
+                    <Link to={`/login${inviteNext}`}>Log in to continue</Link>
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <MailCheck className="mx-auto size-10 text-primary" />
+                <p className="mt-3 font-medium">Confirm your email address</p>
+                <p className="mt-2 text-sm text-muted">Continue to verify this email and finish setting up your account.</p>
+                <Button className="mt-5 w-full" onClick={() => verify.mutate(key)}>
+                  Confirm email address
+                </Button>
+              </>
+            )}
           </>
         )}
       </div>

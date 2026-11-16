@@ -6,6 +6,7 @@ import { Rating } from '@/components/ui/misc'
 import { cn } from '@/lib/cn'
 import { Skeleton } from '@/components/ui/skeleton'
 import { duration, money } from '@/lib/format'
+import { WishlistHeart } from '@/features/commerce/WishlistHeart'
 
 import type { CourseCardData } from './api'
 import { Link } from '@/lib/router'
@@ -32,35 +33,38 @@ function nameForMorph(e: React.MouseEvent<HTMLAnchorElement>) {
 
 export function CourseCard({ course }: { course: CourseCardData }) {
   return (
-    <Link
-      to={`/courses/${course.slug}`}
-      onClick={nameForMorph}
-      className="group flex flex-col rounded-lg border border-border bg-surface p-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-border-strong hover:shadow"
-    >
-      <div className="relative" data-morph="cover">
-        <CourseThumb src={course.thumbnail_url} title={course.title} category={course.category} />
-        {course.student_count > 50 ? <Badge tone="warning" className="absolute top-2 left-2 bg-warning-soft/95 shadow-sm">Bestseller</Badge> : null}
-      </div>
-      <div className="flex flex-1 flex-col px-1 pt-3 pb-1">
-        <h3 data-morph="title" className="line-clamp-2 text-[15px] leading-snug font-semibold tracking-tight text-text group-hover:text-primary">{course.title}</h3>
-        <p className="mt-1 truncate text-[13px] text-muted">{course.instructors.join(', ')}</p>
-        <div className="mt-2">
-          <Rating value={course.rating_avg} count={course.rating_count} />
+    <div className="relative flex flex-col">
+      <Link
+        to={`/courses/${course.slug}`}
+        onClick={nameForMorph}
+        className="group flex flex-1 flex-col rounded-lg border border-border bg-surface p-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-border-strong hover:shadow"
+      >
+        <div className="relative" data-morph="cover">
+          <CourseThumb src={course.thumbnail_url} title={course.title} category={course.category} />
+          {course.student_count > 50 ? <Badge tone="warning" className="absolute top-2 left-2 bg-warning-soft/95 shadow-sm">Bestseller</Badge> : null}
         </div>
-        <p className="mt-2 flex items-center gap-3 text-xs text-muted">
-          <span className="inline-flex items-center gap-1">
-            <Clock className="size-3.5" /> {duration(course.total_duration_sec)}
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <PlayCircle className="size-3.5" /> {course.lecture_count} lectures
-          </span>
-        </p>
-        <div className="mt-auto flex items-end justify-between pt-3">
-          <Price price={course.price} />
-          {course.level && course.level !== 'all' ? <Badge tone="outline" className="capitalize">{course.level}</Badge> : null}
+        <div className="flex flex-1 flex-col px-1 pt-3 pb-1">
+          <h3 data-morph="title" className="line-clamp-2 text-[15px] leading-snug font-semibold tracking-tight text-text group-hover:text-primary">{course.title}</h3>
+          <p className="mt-1 truncate text-[13px] text-muted">{course.instructors.join(', ')}</p>
+          <div className="mt-2">
+            <Rating value={course.rating_avg} count={course.rating_count} />
+          </div>
+          <p className="mt-2 flex items-center gap-3 text-xs text-muted">
+            <span className="inline-flex items-center gap-1">
+              <Clock className="size-3.5" /> {duration(course.total_duration_sec)}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <PlayCircle className="size-3.5" /> {course.lecture_count} lectures
+            </span>
+          </p>
+          <div className="mt-auto flex items-end justify-between pt-3">
+            <Price price={course.price} />
+            {course.level && course.level !== 'all' ? <Badge tone="outline" className="capitalize">{course.level}</Badge> : null}
+          </div>
         </div>
-      </div>
-    </Link>
+      </Link>
+      <WishlistHeart courseId={course.id} slug={course.slug} title={course.title} className="absolute top-4 right-4 z-10" size="icon-sm" />
+    </div>
   )
 }
 

@@ -307,11 +307,11 @@ function QuestionThread({ id, onBack }: { id: string; onBack: () => void }) {
       </h4>
       <ul className="stagger grid gap-2.5">
         {d.answers.map((a) => (
-          <li key={a.id} className={cn('rounded-xl border bg-surface p-4 shadow-sm', a.is_instructor ? 'border-primary/40' : 'border-border')}>
+          <li key={a.id} className={cn('rounded-xl border bg-surface p-4 shadow-sm', a.is_instructor || a.is_staff ? 'border-primary/40' : 'border-border')}>
             <div className="flex items-center gap-2.5">
               <Avatar name={a.author.name} src={a.author.avatar_url} size="sm" />
               <p className="text-sm font-medium">{a.author.name}</p>
-              {a.is_instructor ? <Badge tone="primary"><BadgeCheck /> Instructor</Badge> : null}
+              {a.is_staff ? <Badge tone="primary"><BadgeCheck /> LearnHub team</Badge> : a.is_instructor ? <Badge tone="primary"><BadgeCheck /> Instructor</Badge> : null}
               <span className="ml-auto text-xs text-muted">{relativeDate(a.created_at)}</span>
             </div>
             <p className="mt-2 text-sm whitespace-pre-wrap">{a.body}</p>

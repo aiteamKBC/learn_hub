@@ -1,4 +1,4 @@
-import { CalendarDays, CheckCircle2, CreditCard, Loader2, MapPin, Send, Trash2, UserPlus, Users, Video, X } from 'lucide-react'
+import { CalendarClock, CalendarDays, CheckCircle2, CreditCard, Loader2, MapPin, Send, Trash2, UserPlus, Users, Video, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -28,12 +28,58 @@ import {
 import { fullDate, gbp } from '@/features/corporate/format'
 import { PersonPicker, QueryBlock, StatusBadge } from '@/features/corporate/ui'
 import { useIsOrgAdmin } from '@/features/org/api'
+import { CANCEL_STATUS, CANCEL_TYPE, useCancellations } from '@/features/corporate/api'
+import { RequestDialog, type RequestTarget } from './CancellationsPage'
 import { relativeDate, shortDate } from '@/lib/format'
 import { Link } from '@/lib/router'
 
 const PAYABLE = ['offered', 'pending_pay']
 const NAMEABLE = ['paid', 'active']
 const LOCKED_COHORT = ['in_progress', 'completed', 'cancelled']
+const CHANGEABLE = ['offered', 'pending_pay', 'paid', 'active'] // what the server accepts requests for
+
+/** Ask to move or cancel this booking (admins). Requests already sent for it are shown
+ * with their status and a link to all requests; the same kind cannot be sent twice. */
+function BookingChanges({ b }: { b: LiveBooking }) {
+  const q = useCancellations()
+  const [target, setTarget] = useState<RequestTarget | null>(null)
+  const mine = (q.data ?? []).filter((c) => c.cohort_company_id === b.id)
+  const open = (type: string) => mine.some((c) => c.type === type && (c.status === 'submitted' || c.status === 'under_review'))
+  const label = `${b.course_title}${b.cohort_title ? ` · ${b.cohort_title}` : ''} · ${b.approved_seats} ${b.approved_seats === 1 ? 'place' : 'places'}`
+  return (
+    <section className="grid gap-3 border-t border-border pt-4" aria-labelledby={`changes-${b.id}`}>
+      <h3 id={`changes-${b.id}`} className="text-sm font-semibold">
+        Changes
+      </h3>
+      {mine.length ? (
+        <ul className="grid gap-1.5 text-sm">
+          {mine.map((c) => (
+            <li key={c.id} className="flex flex-wrap items-center justify-between gap-2">
+              <span>
+                {CANCEL_TYPE[c.type] ?? c.type} <span className="text-xs text-muted">· sent {relativeDate(c.created_at)}</span>
+              </span>
+              <StatusBadge map={CANCEL_STATUS} status={c.status} />
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {CHANGEABLE.includes(b.status) ? (
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="secondary" disabled={open('postponement')} onClick={() => setTarget({ type: 'postponement', id: b.id, label })}>
+            <CalendarClock /> Request reschedule
+          </Button>
+          <Button size="sm" variant="secondary" className="text-danger hover:text-danger" disabled={open('cohort_cancel')} onClick={() => setTarget({ type: 'cohort_cancel', id: b.id, label })}>
+            <X /> Request cancellation
+          </Button>
+        </div>
+      ) : null}
+      <Link to="/business/purchases-and-seats?tab=requests" className="text-xs font-medium text-primary hover:underline">
+        See all requests
+      </Link>
+      <RequestDialog target={target} onClose={() => setTarget(null)} />
+    </section>
+  )
+}
 
 // ---------------------------------------------------------------- requests
 
@@ -87,6 +133,8 @@ function Requests() {
                       {r.preferred_intake ? ` · ${r.preferred_intake}` : ''}
                       {r.preferred_delivery_mode ? ` · ${MODE_LABEL[r.preferred_delivery_mode] ?? r.preferred_delivery_mode}` : ''} · sent {relativeDate(r.created_at)}
                     </p>
+                    {r.company_message ? <p className="mt-1 line-clamp-3 text-sm text-muted">Your message: {r.company_message}</p> : null}
+                    {r.admin_reply ? <p className="mt-2 rounded-md bg-primary-soft p-2 text-sm text-primary-soft-text">LearnHub admin: {r.admin_reply}</p> : null}
                   </div>
                   <div className="flex items-center gap-2">
                     <StatusBadge map={REQUEST_STATUS} status={r.status} />
@@ -251,6 +299,7 @@ function BookingDetail({ b, admin, onClose }: { b: LiveBooking; admin: boolean; 
           ) : null}
           <Schedule b={b} />
           <Attendees b={b} admin={admin} />
+          {admin ? <BookingChanges b={b} /> : null}
         </div>
       </DialogContent>
     </Dialog>
@@ -295,13 +344,13 @@ function BookingCard({ b, onOpen }: { b: LiveBooking; onOpen: () => void }) {
   )
 }
 
-function PaymentNotice({ pending }: { pending: boolean }) {
+function PaymentNotice({ status }: { status: 'pending' | 'confirmed' | 'unknown' }) {
   return (
     <Card className="flex items-start gap-3 p-4 animate-reveal" role="status" aria-live="polite">
-      {pending ? <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-info motion-reduce:animate-none" /> : <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" />}
+      {status === 'pending' ? <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-info motion-reduce:animate-none" /> : status === 'confirmed' ? <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" /> : <CreditCard className="mt-0.5 size-5 shrink-0 text-muted" />}
       <div className="text-sm">
-        <p className="font-medium">{pending ? 'Confirming your payment…' : 'Payment confirmed'}</p>
-        <p className="text-muted">{pending ? 'This usually takes a few seconds.' : 'Now name the people who will attend.'}</p>
+        <p className="font-medium">{status === 'pending' ? 'Confirming your payment…' : status === 'confirmed' ? 'Payment confirmed' : 'Check payment status'}</p>
+        <p className="text-muted">{status === 'pending' ? 'This usually takes a few seconds.' : status === 'confirmed' ? 'Now name the people who will attend.' : 'Check the booking status below. If it is not paid, contact support.'}</p>
       </div>
     </Card>
   )
@@ -314,6 +363,8 @@ export function LiveTrainingPage() {
   const q = useLiveBookings(back)
   const openId = params.get('booking')
   const open = q.data?.find((b) => b.id === openId)
+  const paidBooking = q.data?.find((b) => b.id === params.get('paid_booking'))
+  const paymentStatus = paidBooking?.status === 'paid' || paidBooking?.status === 'active' ? 'confirmed' : paidBooking?.status === 'pending_pay' || (!q.data && !q.error) ? 'pending' : 'unknown'
   const setOpen = (id: string | null) =>
     setParams(
       (p) => {
@@ -330,7 +381,7 @@ export function LiveTrainingPage() {
     <>
       <PageHeader title="Live training" description="Group sessions led by a tutor. You pay once the dates are confirmed." />
       <div className="grid gap-6">
-        {back ? <PaymentNotice pending={q.data?.some((b) => b.status === 'pending_pay') ?? true} /> : null}
+        {back ? <PaymentNotice status={paymentStatus} /> : null}
         <Card>
           <CardHeader title="Bookings" description="Groups your company has a place in" />
           <div className="mt-3 p-5 pt-0">

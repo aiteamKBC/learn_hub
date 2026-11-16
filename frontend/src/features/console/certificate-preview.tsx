@@ -9,6 +9,7 @@ export type PreviewData = {
   signatory_name: string
   signatory_title: string
   signature_preview_url?: string
+  artwork_preview_url?: string
   show_qr_code: boolean
   platform?: string
 }
@@ -27,25 +28,25 @@ export function CertificatePreview({ data, className }: { data: PreviewData; cla
       role="img"
       aria-label={`Certificate preview: ${l.heading} for Sara Mahmoud, Advanced React Development`}
       className={cn('@container relative aspect-[297/210] w-full overflow-hidden rounded-md bg-white text-[#111827] shadow-sm ring-1 ring-black/5', className)}
-      style={{ ['--p' as string]: l.primary, ['--a' as string]: l.accent }}
+      style={{ ['--p' as string]: l.primary, ['--a' as string]: l.accent, ...(data.artwork_preview_url ? { backgroundImage: `url("${data.artwork_preview_url}")`, backgroundSize: '100% 100%' } : {}) }}
     >
-      {modern ? (
+      {!data.artwork_preview_url && modern ? (
         <>
           <span aria-hidden className="absolute top-0 left-0 h-[22%] w-[24%] bg-[var(--p)] [clip-path:polygon(0_0,100%_0,0_100%)]" />
           <span aria-hidden className="absolute right-0 bottom-0 h-[22%] w-[24%] bg-[var(--p)] [clip-path:polygon(100%_0,100%_100%,0_100%)]" />
           <span aria-hidden className="absolute inset-[4%] border border-[var(--a)]" />
         </>
-      ) : minimal ? (
+      ) : !data.artwork_preview_url && minimal ? (
         <>
           <span aria-hidden className="absolute inset-x-[10%] top-[10%] h-px bg-[var(--p)]" />
           <span aria-hidden className="absolute inset-x-[10%] bottom-[10%] h-px bg-[var(--p)]" />
         </>
-      ) : (
+      ) : !data.artwork_preview_url ? (
         <>
           <span aria-hidden className="absolute inset-[4%] border-[3px] border-[var(--p)]" />
           <span aria-hidden className="absolute inset-[5.5%] border border-[var(--a)]" />
         </>
-      )}
+      ) : null}
       {l.show_seal ? (
         <span aria-hidden className="absolute top-[11%] right-[9%] flex size-[11cqw] items-center justify-center rounded-full bg-[var(--a)]">
           <span className="size-[60%] rounded-full border border-white bg-[var(--p)]" />

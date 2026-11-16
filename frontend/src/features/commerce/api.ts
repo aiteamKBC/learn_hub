@@ -4,6 +4,7 @@ import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClie
 
 import { api, unwrap } from '@/api/client'
 import { useMe } from '@/features/identity/auth'
+import { useWorkspace } from '@/features/identity/workspace'
 import { useCurrency } from '@/lib/currency'
 import { emit } from '@/lib/motion'
 
@@ -50,13 +51,31 @@ export function useRemoveFromCart() {
 
 export function useWishlist() {
   const { code } = useCurrency()
-  return useQuery({ queryKey: ['wishlist', code], queryFn: () => unwrap(api.GET('/api/v1/commerce/wishlist', { params: { query: { currency: code } } })) })
+  const { data: me } = useMe()
+  const { org } = useWorkspace()
+  return useQuery({ queryKey: ['wishlist', me?.id, org?.org_id ?? '', code], queryFn: () => unwrap(api.GET('/api/v1/commerce/wishlist', { params: { query: { currency: code } } })), enabled: !!me })
 }
 
 export function useToggleWishlist() {
   const refresh = useCommerceRefresh()
   return useMutation({
     mutationFn: (courseId: string) => unwrap(api.POST('/api/v1/commerce/wishlist/{course_id}/toggle', { params: { path: { course_id: courseId } } })),
+    onSuccess: () => refresh(),
+  })
+}
+
+export function useSaveWishlist() {
+  const refresh = useCommerceRefresh()
+  return useMutation({
+    mutationFn: (courseId: string) => unwrap(api.PUT('/api/v1/commerce/wishlist/{course_id}', { params: { path: { course_id: courseId } } })),
+    onSuccess: () => refresh(),
+  })
+}
+
+export function useRemoveWishlist() {
+  const refresh = useCommerceRefresh()
+  return useMutation({
+    mutationFn: (courseId: string) => unwrap(api.DELETE('/api/v1/commerce/wishlist/{course_id}', { params: { path: { course_id: courseId } } })),
     onSuccess: () => refresh(),
   })
 }
