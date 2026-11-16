@@ -73,10 +73,10 @@ function Hero() {
             </Button>
             <Dialog open={videoOpen} onOpenChange={setVideoOpen}>
               <DialogContent title="Watch the LearnHub intro" description="A short look at how LearnHub works." className="max-w-3xl">
-                {/* Placeholder until the real intro video is added — not shipped content. */}
-                <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-lg bg-surface-2 text-muted">
-                  <PlayCircle className="size-10 opacity-60" />
-                  <p className="text-sm">Video coming soon</p>
+                <div className="overflow-hidden rounded-lg bg-black">
+                  <video src="/hero-intro.mp4" controls autoPlay playsInline className="aspect-video w-full" preload="metadata">
+                    Your browser cannot play this video.
+                  </video>
                 </div>
               </DialogContent>
             </Dialog>
