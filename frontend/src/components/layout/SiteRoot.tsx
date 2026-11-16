@@ -9,6 +9,7 @@ import { useLogout, useMe } from '@/features/identity/auth'
 import { usePublicSettings, useSiteBanner } from '@/features/platform/api'
 import { setDatePrefs } from '@/lib/format'
 import { Link } from '@/lib/router'
+import { SmoothScroll } from '@/lib/smooth-scroll'
 
 // Pages a visitor can open while guest browsing is off are sign-in pages only; the
 // catalogue sends them to log in (the API refuses it too).
@@ -135,6 +136,7 @@ export function SiteRoot() {
   }
   return (
     <>
+      <SmoothScroll />
       <SiteBanner />
       <Outlet />
     </>

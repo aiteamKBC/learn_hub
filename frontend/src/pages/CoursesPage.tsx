@@ -1,8 +1,8 @@
-import { LayoutGrid, List, SearchX, SlidersHorizontal, Star, X } from 'lucide-react'
+import { ArrowLeft, LayoutGrid, List, SearchX, SlidersHorizontal, Star, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
-import { Backdrop } from '@/components/art/backdrops'
+import { DashboardBackdrop } from '@/components/art/dashboard-backdrop'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -49,7 +49,13 @@ function Choice({ name, value, current, label, onPick, extra }: { name: string; 
   const checked = current === value
   return (
     <label className={cn('flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-surface-2', checked && 'font-medium text-primary')}>
-      <input type="radio" name={name} checked={checked} onChange={() => onPick(name, value || undefined)} className="size-4 accent-[var(--primary)]" />
+      <input
+        type="radio"
+        name={name}
+        checked={checked}
+        onChange={() => onPick(name, value || undefined)}
+        className="size-4 shrink-0 appearance-none rounded-full border-2 border-primary bg-surface transition-colors checked:border-primary checked:bg-primary focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 focus-visible:outline-none"
+      />
       <span className="flex-1">{label}</span>
       {extra}
     </label>
@@ -76,7 +82,7 @@ function Filters({ params, set }: { params: URLSearchParams; set: Setter }) {
             onPick={set}
             label={
               <span className="inline-flex items-center gap-1.5">
-                <Star className="size-3.5 fill-warning text-warning" /> {r} & up
+                <Star className="size-3.5 fill-none text-subtle" /> {r} & up
               </span>
             }
           />
@@ -98,7 +104,11 @@ function Filters({ params, set }: { params: URLSearchParams; set: Setter }) {
 
 export function CoursesPage() {
   const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
   const [drawer, setDrawer] = useState(false)
+  // Return to where the learner came from (e.g. My learning); fall back to the learner home
+  // if this page was opened directly with no in-app history to step back through.
+  const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate('/learn'))
   const view = params.get('view') === 'list' ? 'list' : 'grid'
   const filters: CourseFilters = {
     q: params.get('q') ?? undefined,
@@ -140,13 +150,42 @@ export function CoursesPage() {
 
   return (
     <div className="relative isolate">
-      <Backdrop variant="mosaic" height={380} />
+      <DashboardBackdrop className="animate-fade-in" />
       <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <div className="animate-reveal">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{filters.q ? `Results for “${filters.q}”` : 'Explore courses'}</h1>
-          <p className="mt-1 text-sm text-muted" aria-live="polite">
-            {total == null ? <Skeleton className="inline-block h-4 w-32 align-middle" /> : `${total.toLocaleString('en-GB')} ${total === 1 ? 'course' : 'courses'}`}
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-4 animate-reveal">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{filters.q ? `Results for “${filters.q}”` : 'Explore courses'}</h1>
+            <p className="mt-1 text-sm text-muted" aria-live="polite">
+              {total == null ? <Skeleton className="inline-block h-4 w-32 align-middle" /> : `${total.toLocaleString('en-GB')} ${total === 1 ? 'course' : 'courses'}`}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-muted">
+              <span className="hidden sm:inline">Sort by</span>
+              <NativeSelect value={filters.sort} onChange={(e) => set('sort', e.target.value)} className="h-8 w-40 rounded-full text-[13px]" aria-label="Sort by">
+                {SORTS.map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </NativeSelect>
+            </label>
+            <div className="hidden rounded-full border border-border bg-surface p-0.5 shadow-sm sm:flex" role="group" aria-label="Layout">
+              {(
+                [
+                  ['grid', LayoutGrid],
+                  ['list', List],
+                ] as const
+              ).map(([v, Icon]) => (
+                <Button key={v} variant="ghost" size="icon-sm" aria-pressed={view === v} aria-label={`${v} view`} onClick={() => set('view', v === 'grid' ? undefined : v)} className={cn(view === v && 'bg-primary-soft text-primary-soft-text')}>
+                  <Icon />
+                </Button>
+              ))}
+            </div>
+            <Button variant="secondary" size="sm" onClick={goBack}>
+              <ArrowLeft /> Back
+            </Button>
+          </div>
         </div>
 
         <div className="mt-6 lg:grid lg:grid-cols-[248px_1fr] lg:gap-8">
@@ -165,44 +204,20 @@ export function CoursesPage() {
           </aside>
 
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="secondary" className="lg:hidden" onClick={() => setDrawer(true)}>
-                <SlidersHorizontal /> Filters {active ? <Badge tone="primary">{active}</Badge> : null}
-              </Button>
-              <div className="flex flex-wrap gap-1.5">
+            <Button variant="secondary" className="mb-4 lg:hidden" onClick={() => setDrawer(true)}>
+              <SlidersHorizontal /> Filters {active ? <Badge tone="primary">{active}</Badge> : null}
+            </Button>
+            {chips.length ? (
+              <div className="mb-4 flex flex-wrap gap-1.5">
                 {chips.map(([k, label]) => (
                   <button key={k} type="button" onClick={() => set(k)} className="inline-flex h-8 items-center gap-1.5 rounded-full border border-primary/30 bg-primary-soft pr-2 pl-3 text-[13px] font-medium text-primary-soft-text transition-colors hover:bg-primary-soft/70" aria-label={`Remove filter ${label}`}>
                     {label} <X className="size-3.5" />
                   </button>
                 ))}
               </div>
-              <div className="ml-auto flex items-center gap-2">
-                <label className="flex items-center gap-2 text-sm text-muted">
-                  <span className="hidden sm:inline">Sort by</span>
-                  <NativeSelect value={filters.sort} onChange={(e) => set('sort', e.target.value)} className="h-9 w-40" aria-label="Sort by">
-                    {SORTS.map(([v, l]) => (
-                      <option key={v} value={v}>
-                        {l}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </label>
-                <div className="hidden rounded-md border border-border bg-surface p-0.5 sm:flex" role="group" aria-label="Layout">
-                  {(
-                    [
-                      ['grid', LayoutGrid],
-                      ['list', List],
-                    ] as const
-                  ).map(([v, Icon]) => (
-                    <Button key={v} variant="ghost" size="icon-sm" aria-pressed={view === v} aria-label={`${v} view`} onClick={() => set('view', v === 'grid' ? undefined : v)} className={cn(view === v && 'bg-primary-soft text-primary-soft-text')}>
-                      <Icon />
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </div>
+            ) : null}
 
-            <div className={cn('mt-5 transition-opacity duration-200', feed.isFetching && !feed.isFetchingNextPage && !feed.isLoading && 'opacity-60')}>
+            <div className={cn('transition-opacity duration-200', feed.isFetching && !feed.isFetchingNextPage && !feed.isLoading && 'opacity-60')}>
               {feed.error ? (
                 <ErrorState message={(feed.error as Error).message} onRetry={() => void feed.refetch()} />
               ) : feed.isLoading ? (

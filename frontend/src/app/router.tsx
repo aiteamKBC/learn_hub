@@ -87,6 +87,8 @@ const ConsoleCertificatesPage = named(() => import('@/pages/console/Certificates
 const ConsoleCompaniesPage = named(() => import('@/pages/console/CompaniesPage'), 'ConsoleCompaniesPage')
 const ConsoleSettingsPage = named(() => import('@/pages/console/SettingsPage'), 'ConsoleSettingsPage')
 const ConsoleAuditPage = named(() => import('@/pages/console/AuditPage'), 'ConsoleAuditPage')
+const ConsoleHomeLayoutPage = named(() => import('@/pages/console/HomeLayoutPage'), 'ConsoleHomeLayoutPage')
+const ConsoleCoursePaymentsPage = named(() => import('@/pages/console/CoursePaymentsPage'), 'ConsoleCoursePaymentsPage')
 const ConsoleTokenPricingPage = named(() => import('@/pages/console/b2c/TokenPricingPage'), 'TokenPricingPage')
 const ConsoleWalletsPage = named(() => import('@/pages/console/b2c/AdminWalletPage'), 'AdminWalletPage')
 const ConsolePackagesPage = named(() => import('@/pages/console/b2c/AdminPackagesPage'), 'AdminPackagesPage')
@@ -262,6 +264,8 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
       { path: 'communications', element: page(<ConsoleCommunicationsPage />), handle: { art: 'bubbles' } },
       { path: 'certificates', element: page(<ConsoleCertificatesPage />), handle: { art: 'guilloche' } },
       { path: 'companies', element: page(<ConsoleCompaniesPage />), handle: { art: 'contours' } },
+      { path: 'home-layout', element: page(<ConsoleHomeLayoutPage />), handle: { art: 'mosaic' } },
+      { path: 'course-payments', element: page(<ConsoleCoursePaymentsPage />), handle: { art: 'coins' } },
       { path: 'settings', element: page(<ConsoleSettingsPage />), handle: { art: 'dials' } },
       { path: 'audit', element: page(<ConsoleAuditPage />) },
       ...corporateConsoleRoutes,

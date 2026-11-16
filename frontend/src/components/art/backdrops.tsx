@@ -124,7 +124,7 @@ const Mosaic = memo(function Mosaic({ seed = 21 }: { seed?: number }) {
   )
 })
 
-const Waves = memo(function Waves({ from = 'var(--primary)', to = 'var(--chart-5)' }: { from?: string; to?: string }) {
+const Waves = memo(function Waves({ from = 'var(--primary)', to = 'var(--chart-5)', line = true }: { from?: string; to?: string; line?: boolean }) {
   const id = useId()
   const layers = [0, 1, 2, 3].map((i) => {
     const y = 330 + i * 70
@@ -148,7 +148,7 @@ const Waves = memo(function Waves({ from = 'var(--primary)', to = 'var(--chart-5
       {layers.map((d, i) => (
         <path key={i} d={d} fill={`url(#${id}w)`} fillOpacity={0.06 + i * 0.025} />
       ))}
-      <path d={layers[0]!.split(' V')[0]} fill="none" stroke={`url(#${id}w)`} strokeOpacity="0.45" strokeWidth="1.5" />
+      {line ? <path d={layers[0]!.split(' V')[0]} fill="none" stroke={`url(#${id}w)`} strokeOpacity="0.45" strokeWidth="1.5" /> : null}
     </Svg>
   )
 })
@@ -985,11 +985,11 @@ const Timetable = memo(function Timetable() {
  * The artwork for one page, placed behind its top area and faded into the page
  * background so content always reads clearly. Purely decorative (aria-hidden).
  */
-export function Backdrop({ variant, height = 560, className, from, to, fade = true, onDark, seed }: { variant: BackdropVariant; height?: number | string; className?: string; from?: string; to?: string; fade?: boolean; onDark?: boolean; seed?: number }) {
+export function Backdrop({ variant, height = 560, className, from, to, fade = true, onDark, seed, line }: { variant: BackdropVariant; height?: number | string; className?: string; from?: string; to?: string; fade?: boolean; onDark?: boolean; seed?: number; line?: boolean }) {
   const art = {
     constellation: <Constellation />,
     mosaic: <Mosaic seed={seed} />,
-    waves: <Waves from={from} to={to} />,
+    waves: <Waves from={from} to={to} line={line} />,
     path: <Path />,
     contours: <Contours />,
     blueprint: <Blueprint />,

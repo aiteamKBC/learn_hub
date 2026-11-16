@@ -146,9 +146,12 @@ export function PlayerPage() {
       ) : (
         <div className={cn('grid flex-1', sidebar && 'lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]')}>
           <main id="main" className="min-w-0">
-            {locked && p ? (
-              <LockedStage slug={route.slug} title={locked.title} prerequisiteKey={locked.prerequisite_key} prerequisiteTitle={locked.prerequisite_title} />
-            ) : <Stage lecture={lecture.data} loading={lecture.isLoading || !p} error={lecture.error} enrollmentId={lookup.enrollmentId} slug={route.slug} startAt={params.get('t') ? Number(params.get('t')) : undefined} onRetry={() => void lecture.refetch()} />}
+            {/* Centre the stage and cap its width so the video doesn't swallow the whole page. */}
+            <div className="mx-auto w-full max-w-5xl lg:px-6 lg:pt-6">
+              {locked && p ? (
+                <LockedStage slug={route.slug} title={locked.title} prerequisiteKey={locked.prerequisite_key} prerequisiteTitle={locked.prerequisite_title} />
+              ) : <Stage lecture={lecture.data} loading={lecture.isLoading || !p} error={lecture.error} enrollmentId={lookup.enrollmentId} slug={route.slug} startAt={params.get('t') ? Number(params.get('t')) : undefined} onRetry={() => void lecture.refetch()} />}
+            </div>
 
             {p && lecture.data ? (
               <>
@@ -291,7 +294,7 @@ function Stage({ lecture, loading, error, enrollmentId, slug, startAt, onRetry }
       </div>
     )
   }
-  if (loading || !lecture || !enrollmentId) return <Skeleton className="aspect-video w-full rounded-none lg:max-h-[70dvh]" />
+  if (loading || !lecture || !enrollmentId) return <Skeleton className="aspect-video w-full rounded-none lg:rounded-xl" />
   const props = { lecture, enrollmentId, slug }
   // keyed by lecture (and note time) so each lecture starts fresh: new player, new state
   const k = `${lecture.key}:${startAt ?? ''}`

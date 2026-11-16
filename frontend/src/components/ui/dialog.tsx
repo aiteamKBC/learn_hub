@@ -13,6 +13,7 @@ export function DialogContent({ title, description, children, className, side }:
     <D.Portal>
       <D.Overlay className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] data-[state=closed]:animate-fade-out data-[state=open]:animate-fade-in" />
       <D.Content
+        data-lenis-prevent
         className={cn(
           'fixed z-50 bg-surface shadow-lg focus:outline-none',
           side

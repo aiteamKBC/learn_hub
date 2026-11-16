@@ -170,6 +170,7 @@ export async function recoveryCodes(regenerate = false): Promise<string[]> {
 }
 
 export function useSignup() {
+  const qc = useQueryClient()
   return useMutation({
     mutationFn: async (v: { email: string; password: string }) => {
       const r = await call('POST', '/auth/signup', v)
@@ -177,6 +178,9 @@ export function useSignup() {
       if (r.status === 401 && r.data?.flows?.some((f) => f.id === 'verify_email')) return 'verify-email'
       raise(r)
     },
+    // when sign-up signs the person straight in (no email confirmation required), refetch
+    // "me" so the header swaps "Get started" for their profile avatar at once
+    onSuccess: (r) => (r === 'signed-in' ? qc.refetchQueries({ queryKey: ['me'], type: 'all' }) : undefined),
   })
 }
 

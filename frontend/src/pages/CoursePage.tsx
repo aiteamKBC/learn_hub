@@ -1,4 +1,4 @@
-import { Award, BarChart3, Check, ChevronDown, Clock, Coins, Crown, FileText, Globe, Heart, HelpCircle, Infinity as InfinityIcon, ListChecks, PlayCircle, Radio, RefreshCw, ShoppingCart, Smartphone, Users, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, Award, BarChart3, Check, ChevronDown, Clock, Coins, Crown, FileText, Globe, Heart, HelpCircle, Infinity as InfinityIcon, ListChecks, PlayCircle, Radio, RefreshCw, ShoppingCart, Smartphone, Users, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -388,6 +388,9 @@ export function CoursePage() {
   const { data: c, isLoading, error, refetch } = useCourse(slug)
   const { data: cats } = useCategories()
   const [preview, setPreview] = useState<{ key: string; title: string } | null>(null)
+  const navigate = useNavigate()
+  // Return to the previous page (e.g. the courses list); fall back to the catalogue.
+  const goBack = () => (window.history.length > 1 ? window.history.back() : navigate('/courses'))
   if (isLoading) return <CourseSkeleton />
   if (error || !c) return <ErrorState message={(error as Error)?.message} onRetry={() => void refetch()} />
   const firstPreview = c.sections.flatMap((s) => s.lectures).find((l) => l.is_preview && l.kind === 'video')
@@ -396,9 +399,12 @@ export function CoursePage() {
   return (
     <>
       <section className="relative isolate overflow-hidden border-b border-border bg-surface">
-        <Backdrop variant="waves" height="100%" fade={false} {...coverColors(c.category)} />
+        <Backdrop variant="waves" height="100%" fade={false} line={false} {...coverColors(c.category)} />
         <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_360px] lg:py-12">
           <div>
+            <Button variant="secondary" size="sm" onClick={goBack} className="mb-4">
+              <ArrowLeft /> Back
+            </Button>
             <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-[13px] text-muted">
               <Link to="/courses" className="hover:text-primary">Courses</Link>
               <span aria-hidden>/</span>
@@ -439,8 +445,11 @@ export function CoursePage() {
         </div>
       </section>
 
-      <div className="mx-auto grid max-w-7xl animate-reveal gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_360px]">
-        <div className="order-2 grid min-w-0 gap-10 lg:order-1">
+      <div className="relative isolate">
+        {/* Soft cream waves behind the rest of the page, so the content area isn't a flat colour. */}
+        <Backdrop variant="waves" height="100%" fade={false} line={false} />
+        <div className="relative mx-auto grid max-w-7xl animate-reveal gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_360px]">
+          <div className="order-2 grid min-w-0 gap-10 lg:order-1">
           {c.topics.length ? (
             <section className="rounded-lg border border-border bg-surface p-6">
               <h2 className="text-lg font-semibold tracking-tight">Topics covered</h2>
@@ -480,7 +489,8 @@ export function CoursePage() {
             <BuyBox course={c} onPreview={firstPreview ? () => setPreview({ key: firstPreview.key, title: firstPreview.title }) : undefined} />
             <TeamBuy courseId={c.id} title={c.title} />
           </div>
-        </aside>
+          </aside>
+        </div>
       </div>
       <PreviewDialog slug={c.slug} lecture={preview} onClose={() => setPreview(null)} />
     </>

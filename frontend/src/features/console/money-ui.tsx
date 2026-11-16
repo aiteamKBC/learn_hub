@@ -26,9 +26,17 @@ export function SearchBox({ value, onChange, label, placeholder, className }: { 
   return <Input icon={<Search />} value={value} onChange={(e) => onChange(e.target.value)} aria-label={label} placeholder={placeholder} className={cn('w-full', className)} type="search" />
 }
 
-/** The toolbar row above a table: wraps on phones, never scrolls the page sideways. */
+/**
+ * The toolbar row above a table: wraps on phones, never scrolls the page sideways.
+ * Filter controls (search box + selects) take the same pill radius so they match the
+ * page's pill buttons and each other — one size, one shape across every list.
+ */
 export function Toolbar({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap items-center gap-2 px-5 pt-4 pb-3 [&>*]:min-w-0">{children}</div>
+  return (
+    <div className="flex flex-wrap items-center gap-2 px-5 pt-4 pb-3 [&>*]:min-w-0 [&_input]:rounded-full [&_select]:rounded-full">
+      {children}
+    </div>
+  )
 }
 
 /** "12 Mar 2026, 14:27" in the reader's time zone. */

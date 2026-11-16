@@ -7,7 +7,6 @@ import { corporateConsoleNav } from '@/features/corporate/routes'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Link } from '@/lib/router'
-import { ConsoleSearch } from '@/features/console/ConsoleSearch'
 import { useNavCounts } from '@/features/console/api'
 
 type CountKey = 'approvals' | 'tickets_open' | 'reports_open' | 'payout_requests'
@@ -43,6 +42,7 @@ const consoleNav: NavSection[] = [
       { to: '/console/pricing', label: 'Pricing', Icon: Tags },
       { to: '/console/promotions', label: 'Promotions', Icon: BadgePercent },
       { to: '/console/commissions', label: 'Commissions', Icon: Percent },
+      { to: '/console/course-payments', label: 'Course payments', Icon: CreditCard },
       { to: '/console/payouts', label: 'Payouts', Icon: Wallet, badge: <NavCount k="payout_requests" label="payout requests waiting" /> },
       { to: '/console/reports', label: 'Reports', Icon: BarChart3 },
     ],
@@ -68,6 +68,7 @@ const consoleNav: NavSection[] = [
     title: 'Platform',
     items: [
       { to: '/console/companies', label: 'Companies', Icon: Building2 },
+      { to: '/console/home-layout', label: 'Home layout', Icon: LayoutDashboard },
       { to: '/console/settings', label: 'Settings', Icon: Settings },
       { to: '/console/audit', label: 'Audit log', Icon: History },
     ],
@@ -80,7 +81,7 @@ const consoleNav: NavSection[] = [
 export function ConsoleShell() {
   const { error } = useNavCounts()
   if (error instanceof ApiError && error.code === 'mfa_required') return <MfaRequired />
-  return <WorkspaceLayout area="Admin" sections={consoleNav} art="circuit" header={<ConsoleSearch />} />
+  return <WorkspaceLayout area="Admin" sections={consoleNav} art="circuit" />
 }
 
 /** Settings > Security can require 2-step sign-in for staff: until it is on, the console API

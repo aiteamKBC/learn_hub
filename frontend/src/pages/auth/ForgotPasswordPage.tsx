@@ -1,4 +1,4 @@
-import { MailCheck } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Mail, MailCheck, ShieldCheck } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -46,15 +46,16 @@ export function ForgotPasswordPage() {
 
   return (
     <AuthShell
-      title="Forgot your password?"
-      subtitle={
+      eyebrow="Account recovery"
+      title={
         <>
-          Enter your email and we'll send you a link to set a new one.{' '}
-          <Link to="/login" className="font-medium text-primary hover:underline">
-            Back to log in
-          </Link>
+          Forgot your
+          <br />
+          password<span className="text-primary">?</span>
         </>
       }
+      subtitle="Enter your email and we'll send you a secure link to reset your password."
+      gridClassName="lg:grid-cols-[72fr_28fr]"
     >
       <form onSubmit={submit} className="grid gap-4" noValidate>
         {err && !Object.keys(err.fields).length ? (
@@ -63,12 +64,26 @@ export function ForgotPasswordPage() {
           </p>
         ) : null}
         <Field label="Email" error={err?.fields.email}>
-          {(p) => <Input {...p} type="email" autoComplete="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />}
+          {(p) => <Input {...p} icon={<Mail />} type="email" autoComplete="email" placeholder="Email address" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />}
         </Field>
         <Button type="submit" size="lg" loading={request.isPending} disabled={!email.includes('@')} className="w-full">
-          Send reset link
+          Send reset link <ArrowRight className="size-4" />
         </Button>
       </form>
+
+      <Link to="/login" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline">
+        <ArrowLeft className="size-4" /> Back to log in
+      </Link>
+
+      <div className="mt-8 flex items-start gap-3 border-t border-border pt-6">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary-soft-text">
+          <ShieldCheck className="size-5" />
+        </span>
+        <div>
+          <p className="text-sm font-semibold text-text">Secure account recovery</p>
+          <p className="mt-0.5 text-[13px] text-muted">Your information stays private and protected.</p>
+        </div>
+      </div>
     </AuthShell>
   )
 }

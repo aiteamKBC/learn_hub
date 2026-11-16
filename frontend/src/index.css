@@ -3,31 +3,34 @@
    switches the whole app (see lib/theme.tsx). */
 @import 'tailwindcss';
 @import '@fontsource-variable/inter';
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #f8f7fc;
+  --background: #f9f8f6;
   --surface: #ffffff;
-  --surface-2: #f3f1fa; /* hover rows, subtle panels */
-  --border: #e6e3f0;
-  --border-strong: #d4cfe4;
-  --text: #17142b;
-  --text-muted: #635f7a;
-  --text-subtle: #8e8aa3;
+  --surface-2: #f3f1ec; /* hover rows, subtle panels (warm neutral) */
+  --border: #e8e4dd;
+  --border-strong: #d6d1c8;
+  --text: #1f262e;
+  --text-muted: #5f5a53;
+  --text-subtle: #908b82;
 
-  --primary: #7c3aed; /* LearnHub purple */
-  --primary-hover: #6d28d9;
-  --primary-soft: #f1ebfe;
-  --primary-soft-text: #5b21b6;
+  --primary: #ea802d; /* brand orange */
+  --primary-hover: #cf6f1f;
+  --primary-soft: #fbead9;
+  --primary-soft-text: #743219; /* deep brown */
   --on-primary: #ffffff;
-  --ring: #a78bfa;
+  --ring: #ea802d;
 
-  /* workspace sidebar (instructor, business, admin): deep navy as in the mockups */
-  --nav: #17133a;
-  --nav-hover: #241f52;
-  --nav-active: #7c3aed;
-  --nav-text: #c9c5e6;
+  /* workspace sidebar (instructor, business, admin): charcoal grey, orange active indicator */
+  --nav: #262d35;
+  --nav-hover: #343c45;
+  --nav-active: #343c45;
+  --nav-active-bar: #ea802d;
+  --nav-text: #f8f6f3;
+  --nav-text-muted: #a4a9ac;
   --nav-text-active: #ffffff;
 
   --success: #15803d;
@@ -39,39 +42,41 @@
   --info: #1d4ed8;
   --info-soft: #e8effd;
 
-  --chart-1: #7c3aed;
+  --chart-1: #ea802d;
   --chart-2: #22a06b;
   --chart-3: #e8a33d;
   --chart-4: #e5484d;
-  --chart-5: #3e8ef7;
+  --chart-5: #5b7fa6; /* muted slate blue: the one cool accent, harmonised with the warm scheme */
 
-  --shadow-sm: 0 1px 2px rgb(23 20 43 / 0.05);
-  --shadow: 0 1px 3px rgb(23 20 43 / 0.06), 0 6px 16px -6px rgb(23 20 43 / 0.08);
-  --shadow-lg: 0 12px 32px -8px rgb(23 20 43 / 0.18);
+  --shadow-sm: 0 1px 2px rgb(31 38 46 / 0.05);
+  --shadow: 0 1px 3px rgb(31 38 46 / 0.06), 0 6px 16px -6px rgb(31 38 46 / 0.08);
+  --shadow-lg: 0 12px 32px -8px rgb(31 38 46 / 0.18);
   color-scheme: light;
 }
 
 .dark {
-  --background: #0d0b16;
-  --surface: #15121f;
-  --surface-2: #1d1a2a;
-  --border: #2a2639;
-  --border-strong: #3a354d;
-  --text: #eeedf5;
-  --text-muted: #a8a4bd;
-  --text-subtle: #7d7993;
+  --background: #10141a;
+  --surface: #181d24;
+  --surface-2: #232a32;
+  --border: #2c333c;
+  --border-strong: #3c444f;
+  --text: #edf0f2;
+  --text-muted: #a4aab2;
+  --text-subtle: #7b828b;
 
-  --primary: #8b5cf6;
-  --primary-hover: #9d74f8;
-  --primary-soft: #2a1f4a;
-  --primary-soft-text: #c9b5fd;
+  --primary: #ef8c3e;
+  --primary-hover: #f29a52;
+  --primary-soft: #3a2817;
+  --primary-soft-text: #f0b483;
   --on-primary: #ffffff;
-  --ring: #8b5cf6;
+  --ring: #ef8c3e;
 
-  --nav: #100d24;
-  --nav-hover: #1c1840;
-  --nav-active: #7c3aed;
-  --nav-text: #b3aed4;
+  --nav: #20262d;
+  --nav-hover: #343c45;
+  --nav-active: #343c45;
+  --nav-active-bar: #ea802d;
+  --nav-text: #f8f6f3;
+  --nav-text-muted: #a4a9ac;
   --nav-text-active: #ffffff;
 
   --success: #4ade80;
@@ -83,11 +88,11 @@
   --info: #7aa7ff;
   --info-soft: #152340;
 
-  --chart-1: #9d74f8;
+  --chart-1: #ef8c3e;
   --chart-2: #3ccf8e;
   --chart-3: #f2b75b;
   --chart-4: #f2696d;
-  --chart-5: #6aa8ff;
+  --chart-5: #88a6cc; /* muted slate blue (dark), the one cool accent */
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
   --shadow: 0 1px 3px rgb(0 0 0 / 0.35), 0 6px 16px -6px rgb(0 0 0 / 0.4);
@@ -96,7 +101,7 @@
 }
 
 @theme inline {
-  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Poppins', 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   --color-background: var(--background);
   --color-surface: var(--surface);
@@ -115,7 +120,9 @@
   --color-nav: var(--nav);
   --color-nav-hover: var(--nav-hover);
   --color-nav-active: var(--nav-active);
+  --color-nav-active-bar: var(--nav-active-bar);
   --color-nav-text: var(--nav-text);
+  --color-nav-text-muted: var(--nav-text-muted);
   --color-nav-text-active: var(--nav-text-active);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
@@ -272,6 +279,12 @@
   }
   .scrollbar-none {
     scrollbar-width: none;
+  }
+}
+
+@keyframes star-spin {
+  to {
+    transform: translate(-50%, -50%) rotate(1turn);
   }
 }
 

@@ -94,7 +94,7 @@ export function VideoStage({ lecture, enrollmentId, onEnded, startAt }: StagePro
   if (!src) return <VideoPending lecture={lecture} enrollmentId={enrollmentId} />
   return (
     <>
-      <div className="relative aspect-video w-full overflow-hidden bg-black">
+      <div className="relative aspect-video w-full overflow-hidden bg-black lg:rounded-xl">
         <iframe
           ref={frame}
           src={src}

@@ -6,16 +6,18 @@ import { cn } from '@/lib/cn'
 
 // Courses without an uploaded image get a branded cover: a gradient per category and
 // its icon. Same course, same cover, every time.
+// Neutral covers: a calm grey → charcoal gradient from our palette (grey #a4a9ac,
+// charcoal #1f262e). Same family for every category; the icon marks the subject.
 const covers: Record<string, { from: string; to: string; Icon: LucideIcon }> = {
-  development: { from: '#7c3aed', to: '#4f46e5', Icon: Code2 },
-  business: { from: '#0f766e', to: '#0e9f6e', Icon: Briefcase },
-  design: { from: '#db2777', to: '#9333ea', Icon: Palette },
-  'it-software': { from: '#2563eb', to: '#0891b2', Icon: Server },
-  'health-safety': { from: '#ea580c', to: '#dc2626', Icon: ShieldCheck },
-  'care-compliance': { from: '#0891b2', to: '#2563eb', Icon: HeartPulse },
-  marketing: { from: '#f59e0b', to: '#ea580c', Icon: Megaphone },
+  development: { from: '#a4a9ac', to: '#2a333c', Icon: Code2 },
+  business: { from: '#a4a9ac', to: '#2a333c', Icon: Briefcase },
+  design: { from: '#a4a9ac', to: '#2a333c', Icon: Palette },
+  'it-software': { from: '#a4a9ac', to: '#2a333c', Icon: Server },
+  'health-safety': { from: '#a4a9ac', to: '#2a333c', Icon: ShieldCheck },
+  'care-compliance': { from: '#a4a9ac', to: '#2a333c', Icon: HeartPulse },
+  marketing: { from: '#a4a9ac', to: '#2a333c', Icon: Megaphone },
 }
-const fallback = { from: '#6d28d9', to: '#a21caf', Icon: Sparkles }
+const fallback = { from: '#a4a9ac', to: '#2a333c', Icon: Sparkles }
 
 /** The gradient a category uses (course covers, and the course page artwork). */
 // eslint-disable-next-line react/only-export-components

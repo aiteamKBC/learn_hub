@@ -1,10 +1,9 @@
 import { Award, Bell, BookOpen, ClipboardCheck, Compass, Heart, LifeBuoy, ReceiptText, Settings, Trophy } from 'lucide-react'
 import { Outlet } from 'react-router-dom'
 
-import { Backdrop } from '@/components/art/backdrops'
+import { DashboardBackdrop } from '@/components/art/dashboard-backdrop'
 import { useMe } from '@/features/identity/auth'
 import { cn } from '@/lib/cn'
-import { usePageArt } from '@/lib/page-art'
 import { NavLink } from '@/lib/router'
 
 const items = [
@@ -23,12 +22,11 @@ const items = [
 /** The learner's own area, inside the public header: light sidebar on desktop
  * (as in the mockups); on phones the public layout's bottom navigation takes over. */
 export function LearnerLayout() {
-  const art = usePageArt('path')
   const { data: me } = useMe()
   const inCompany = !!me?.memberships.length
   return (
-    <div className="relative isolate">
-      <Backdrop key={art} variant={art} height={420} className="animate-fade-in" />
+    <div className="relative isolate min-h-[calc(100dvh-4rem)]">
+      <DashboardBackdrop className="animate-fade-in" />
     <div className="relative mx-auto flex max-w-7xl gap-8 px-4 py-6 sm:px-6 lg:py-8">
       <aside className="hidden w-56 shrink-0 md:block">
         <nav aria-label="My learning" className="sticky top-24 grid gap-0.5">

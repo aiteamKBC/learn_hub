@@ -17,9 +17,9 @@ const SUB_FEATURES = [
   'Cancel any time: access lasts to the end of the period',
 ]
 
-/** Public pricing page: the three ways to pay for learning — the unlimited subscription,
- * one-off course bundles, and pay-as-you-go tokens. Each routes to the page that owns it. */
-export function PlansPage() {
+/** The three ways to pay for learning — the unlimited subscription, one-off course bundles,
+ * and pay-as-you-go tokens. Shared by the public /plans page and the home "plans" section. */
+export function PricingPlans() {
   const { data: me } = useMe()
   const { data: plans, isLoading } = usePlans()
   const navigate = useNavigate()
@@ -33,9 +33,7 @@ export function PlansPage() {
   const goAuthed = (path: string) => (me ? navigate(path) : navigate(`/login?next=${encodeURIComponent(path)}`))
 
   return (
-    <div className="relative isolate">
-      <Backdrop variant="ribbons" height={520} />
-      <div className="relative mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:py-16">
+    <div className="relative mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:py-16">
         <div className="mx-auto max-w-2xl animate-reveal text-center">
           <Badge tone="primary">Pricing</Badge>
           <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-5xl">Choose how you want to learn.</h1>
@@ -146,17 +144,28 @@ export function PlansPage() {
               ['What happens to courses I bought or unlocked?', 'Bundles and token unlocks stay yours for life, with or without a subscription.'],
               ['Do certificates expire when my plan ends?', 'No. Certificates you earned stay valid and can always be verified.'],
             ].map(([q, a]) => (
-              <details key={q} className="group rounded-lg border border-border bg-surface p-4 open:shadow-sm">
-                <summary className="flex cursor-pointer list-none items-center justify-between font-medium">
+              <details key={q} className="group rounded-xl border border-border bg-surface p-4 transition-colors duration-200 open:border-primary/40 open:shadow-sm hover:border-border-strong">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium">
                   {q}
-                  <Plus className="size-4 text-muted transition-transform group-open:rotate-45" />
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-surface-2 text-muted transition-all duration-300 ease-out group-open:rotate-45 group-open:border-primary/40 group-open:bg-primary-soft group-open:text-primary-soft-text">
+                    <Plus className="size-4" strokeWidth={2} />
+                  </span>
                 </summary>
                 <p className="mt-2 text-sm text-muted">{a}</p>
               </details>
             ))}
           </div>
         </section>
-      </div>
+    </div>
+  )
+}
+
+/** Public pricing page: the shared pricing block over the ribbons backdrop. */
+export function PlansPage() {
+  return (
+    <div className="relative isolate">
+      <Backdrop variant="ribbons" height={520} />
+      <PricingPlans />
     </div>
   )
 }

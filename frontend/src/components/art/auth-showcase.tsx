@@ -13,8 +13,8 @@ function Arcs() {
     <svg viewBox="0 0 600 900" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 size-full" aria-hidden>
       <defs>
         <radialGradient id={`${id}a`} cx="78%" cy="18%" r="60%">
-          <stop offset="0" stopColor="#a78bfa" stopOpacity="0.55" />
-          <stop offset="1" stopColor="#a78bfa" stopOpacity="0" />
+          <stop offset="0" stopColor="#f59542" stopOpacity="0.55" />
+          <stop offset="1" stopColor="#f59542" stopOpacity="0" />
         </radialGradient>
         <radialGradient id={`${id}b`} cx="10%" cy="95%" r="55%">
           <stop offset="0" stopColor="#ec4899" stopOpacity="0.35" />
@@ -93,7 +93,8 @@ function ComplianceRing() {
   )
 }
 
-const panel = 'relative h-full overflow-hidden bg-[linear-gradient(160deg,#1b0f44_0%,#2e1477_45%,#5b21b6_100%)] text-white'
+// Evidrise palette: charcoal #1f262e → burnt brown #743219 → muted orange (no purple).
+const panel = 'relative h-full overflow-hidden bg-[linear-gradient(160deg,#1f262e_0%,#2d1c12_46%,#743219_78%,#c25d10_100%)] text-white'
 
 /** Background only (the slim strip above the form on phones). */
 export function AuthBand() {
@@ -116,20 +117,20 @@ export function AuthShowcase() {
           <p className="mt-6 max-w-md text-[34px] leading-[1.15] font-semibold tracking-tight">
             Skills for you.
             <br />
-            <span className="bg-gradient-to-r from-violet-200 via-fuchsia-200 to-sky-200 bg-clip-text text-transparent">Compliance for your team.</span>
+            <span className="bg-gradient-to-r from-orange-200 via-amber-200 to-rose-200 bg-clip-text text-transparent">Compliance for your team.</span>
           </p>
         </div>
 
         {/* the product, floating */}
         <div className="relative mx-auto h-[360px] w-full max-w-[440px] [@media(max-height:780px)]:scale-[0.85]">
           <div className={`${glass} absolute top-0 left-0 w-[270px] -rotate-3 p-3 motion-safe:animate-[float_9s_ease-in-out_infinite]`}>
-            <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-xl bg-[linear-gradient(135deg,#7c3aed,#4f46e5)]">
+            <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-xl bg-[linear-gradient(135deg,#ef8a2b,#c2410c)]">
               <span className="absolute -right-6 -bottom-8 size-24 rounded-full bg-white/10" />
               <PlayCircle className="size-10 text-white/90" strokeWidth={1.5} />
             </div>
             <p className="mt-3 text-sm font-semibold">Python for Data Analysis</p>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/15">
-              <div className="h-full w-[68%] rounded-full bg-gradient-to-r from-violet-300 to-fuchsia-300" />
+              <div className="h-full w-[68%] rounded-full bg-gradient-to-r from-orange-300 to-amber-300" />
             </div>
             <p className="mt-1.5 text-[11px] text-white/70">68% complete · 12 lectures left</p>
           </div>

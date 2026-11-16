@@ -1,5 +1,48 @@
 # Questions for the user
 
+UI-1. **[UI] Home hero now uses a stock photograph — deviates from the "no stock photos" rule.**
+   Per an explicit user instruction (2026-11-14), the home hero (`pages/HomePage.tsx`, `Hero`) was rebuilt to
+   match the Evidrise/Readdy reference exactly, including its full-bleed laptop photograph
+   (`HERO_SRC`, hosted on `public.readdy.ai`). This knowingly breaks the CLAUDE.md/design rule that every screen
+   uses custom artwork and no stock photos. The "Featured courses" section (section 3, `FeaturedCourses`) likewise
+   uses warm editorial cover photos (`FEATURED_PHOTOS`, readdy.ai) as the card covers when a course has no uploaded
+   thumbnail — same deviation, same user sign-off.
+   Two further home sections carry PLACEHOLDER business numbers at the user's request (to be replaced when the
+   project is wired to real data): the **Offers/bundles** section (`BUNDLES` — fake prices £179/£238 and "Save 25%"
+   discounts; "See the bundle" links to /courses, no real bundle exists) and the **Why LearnHub** section
+   (`COHORT_STATS` — fake 12,400 learners / 38 countries / 94% / 4.8/5; `TEAMS` — placeholder client logos). These
+   break the "no hard-coded business numbers" rule knowingly. **Planner/client:** replace with real figures or remove. The user signed off and supplied the image URL. Also part of this
+   UI pass: brand `--primary` switched from purple to Evidrise orange (OKLCH) sitewide, body font set to Poppins,
+   and the public navbar made transparent-overlay on the home hero (solid once scrolled / on other pages).
+   **Planner:** confirm you want to keep the stock photo, or ask for a custom-artwork hero instead.
+
+UI-2. **[UI] "Get started" auth dialog has a role chooser the backend does not support.**
+   Per an explicit user instruction (2026-11-14/15), the public navbar now has a single **"Get started"** button
+   (shown when logged out) that opens a dialog with a real log-in / create-account card (`AuthTabs` in
+   `components/home/GetStarted.tsx`), built on the existing auth hooks (`useLogin`, `useSignup`,
+   `useMfaAuthenticate`) — the e-mail/password flow, MFA step and forgot-password link all work end to end with
+   **no backend change**. (It replaced the separate Log in / Sign up navbar buttons; the home hero's primary
+   button also opens the same dialog.) At the top it has a **role chooser (Student / Company / Coach / Admin)**
+   shared by both the log-in and sign-up tabs. This control is **VISUAL ONLY**: log in (e-mail + password) and
+   sign up (create account) are real, but the selected role is **not sent anywhere** — the backend assigns the
+   default role and has no `coach`/`admin`-at-signup concept. (Paying for a course and the admin's view of an
+   order's customer + payment + course details already exist — checkout at /cart→/checkout and
+   console → Sales & orders → Orders detail — so they were not rebuilt.) This knowingly breaks the "nothing fake ships" rule, kept at
+   the user's explicit request for the demo. **Planner/backend:** to make it real, the sign-up endpoint needs to
+   accept the intended account type. Until then the toggle is cosmetic.
+
+UI-3. **[UI] Two new admin-console screens are VISUAL ONLY (no backend).**
+   Built at the user's explicit request (2026-11-15) as placeholders:
+   - **Home page layout** (`/console/home-layout`, `pages/console/HomeLayoutPage.tsx`, nav: Platform → "Home layout"):
+     reorder / show-hide the marketing home sections and pick the default landing page. Nothing is persisted — there
+     is no layout-settings API, so changes reset on reload and do **not** affect the live home page.
+   - **Course payments** (`/console/course-payments`, `pages/console/CoursePaymentsPage.tsx`, nav: Money →
+     "Course payments"): a view of the checkout steps, payment methods and money rules with toggles. Not persisted;
+     the real payment config stays in Settings → Payment / Stripe.
+   Both carry a visible "preview only" banner. **Planner/backend:** expose a home-layout settings API and a
+   payment-config API to make these real, or remove them. The user also asked which sidebar items were redundant;
+   after review none were removed (all are distinct destinations), per the user's decision.
+
 0b. **[B2C-FE] Backend exposure needed to finish the in-player token unlock (deliverable 7).**
    The player outline (`PlayerOut.PlayerLecture`) exposes `key, title, kind, duration_sec, completed,
    position_sec, locked, prerequisite_key, prerequisite_title`. To offer per-lecture / per-material token
