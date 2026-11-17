@@ -2,6 +2,41 @@
 
 Maintained by Claude Code (`/status`) and read by the planner session. Newest milestone first.
 
+## Embedded course checkout — Stripe Payment Element (2026-11-17)
+
+Our own branded checkout page for a single-course "Buy now", replacing the jump to Stripe's
+hosted page. Additive: the hosted Checkout Session flow is untouched and still used by the
+cart and all other purchases.
+
+- **Backend (additive, no migrations):**
+  - `gateway.create_payment_intent` / `retrieve_payment_intent` (the only new Stripe calls).
+  - `services.create_order_intent` — prices the cart (same `price_cart`), builds the PENDING
+    order (shared `_build_pending_order`, also used by `create_order`), creates a PaymentIntent
+    and returns its `client_secret`. Free / 100%-coupon orders fulfil at once (no intent).
+  - Webhook `payment_intent.succeeded` → `fulfil_order` (idempotent, same amount/currency
+    checks). `sync_order_from_stripe` now also completes PaymentIntent orders (success-page
+    fallback when the webhook is late / no Stripe CLI locally).
+  - Endpoint `POST /api/v1/commerce/checkout/intent` (`CheckoutIntentOut`) returns the
+    client secret + the public key. `settings.STRIPE_PUBLISHABLE_KEY` added (public `pk_`,
+    safe for the browser; still `.env` only).
+  - Tests: `EmbeddedCheckoutTest` (3) — enrol only after the signed webhook, idempotent
+    retry, amount mismatch refused, free course needs no intent. Full `test_commerce` green.
+- **Frontend:**
+  - `lib/stripe.ts` loads Stripe.js from `js.stripe.com` (no npm dependency; card fields are
+    Stripe's iframes, never our server).
+  - `pages/shop/CheckoutPayPage.tsx` at `/checkout/pay/:slug`: course + order summary on the
+    left (our `CourseThumb` artwork, real course data, 30-day refund), the Stripe Payment
+    Element on the right, styled via the Appearance API to our tokens (light/dark). Falls back
+    to hosted checkout if the publishable key is not set. "Buy now" on a paid course routes here.
+  - `useCheckoutIntent` hook; `schema.d.ts` regenerated. `tsc -b` and `vite build` pass (the
+    page is a separate lazy chunk; main entry unchanged).
+- **Fixture repair (same B2C-03 pattern already applied to `core/tests/factories.py`):**
+  `test_commerce.CommerceBase.course()` priced the course *after* `submit`, which the publish
+  checklist now rejects; it now sets the price + `cash_price_tier` before submit and seeds one
+  live `TokenRate`. This had been failing every test in the file.
+- **USER MUST DO:** add `STRIPE_PUBLISHABLE_KEY=pk_…` (the sandbox's public key) to
+  `backend/.env`. Without it the page falls back to hosted Stripe (still works). See NEEDS-USER.
+
 ## Site-wide dark-mode native-control fix (2026-11-12)
 
 - Native form controls now inherit the active browser `color-scheme`; `select` option

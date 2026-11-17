@@ -26,7 +26,9 @@ export function LearnerLayout() {
   const inCompany = !!me?.memberships.length
   return (
     <div className="relative isolate min-h-[calc(100dvh-4rem)]">
-      <DashboardBackdrop className="animate-fade-in" />
+      {/* Fixed to the viewport so the warm artwork sits behind the frosted header too,
+          letting the nav bar blend into the background instead of being a white strip. */}
+      <DashboardBackdrop className="animate-fade-in fixed inset-0 -z-10" />
     <div className="relative mx-auto flex max-w-7xl gap-8 px-4 py-6 sm:px-6 lg:py-8">
       <aside className="hidden w-56 shrink-0 md:block">
         <nav aria-label="My learning" className="sticky top-24 grid gap-0.5">

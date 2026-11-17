@@ -8,6 +8,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 import { BlurText } from '@/components/art/blur-text'
 import { AuthTabs } from '@/components/home/GetStarted'
+import { HeroIntro } from '@/components/home/HeroIntro'
 import { Button } from '@/components/ui/button'
 import { CountUp } from '@/components/ui/count-up'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -73,10 +74,12 @@ function Hero() {
             </Button>
             <Dialog open={videoOpen} onOpenChange={setVideoOpen}>
               <DialogContent title="Watch the LearnHub intro" description="A short look at how LearnHub works." className="max-w-3xl">
-                {/* Placeholder until the real intro video is added — not shipped content. */}
-                <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-lg bg-surface-2 text-muted">
-                  <PlayCircle className="size-10 opacity-60" />
-                  <p className="text-sm">Video coming soon</p>
+                <div className="relative overflow-hidden rounded-lg bg-black">
+                  <video src="https://ik.imagekit.io/bmjbddbgyi/web%20(1).mp4?tr=w-1600,q-72" controls autoPlay playsInline className="aspect-video w-full" preload="metadata">
+                    Your browser cannot play this video.
+                  </video>
+                  {/* 40% charcoal shade over the clip. */}
+                  <div aria-hidden className="pointer-events-none absolute inset-0 bg-[rgba(31,38,46,0.4)]" />
                 </div>
               </DialogContent>
             </Dialog>
@@ -107,7 +110,7 @@ const categoryNotes: Record<string, string> = {
 function CategorySection() {
   const { data, isLoading } = useCategories()
   return (
-    <section id="categories" className="relative scroll-mt-20 overflow-hidden">
+    <section id="categories" className="relative scroll-mt-20 overflow-hidden bg-surface-2">
       {/* decorative concentric rings, top-right */}
       <svg aria-hidden className="pointer-events-none absolute -top-24 right-[-10%] h-[520px] w-[520px] text-primary/15" viewBox="0 0 520 520" fill="none">
         {[80, 140, 200, 258].map((r) => (
@@ -430,7 +433,7 @@ const TEAMS = ['Meridian Health', 'Northwind Labs', 'Banque Atlas', 'Kite Logist
 
 function WhyLearnHub() {
   return (
-    <section className="scroll-mt-20 border-t border-border bg-surface">
+    <section className="scroll-mt-20 border-t border-border bg-[#f6f4f0] dark:bg-surface-2">
       <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 py-16 lg:grid-cols-2 lg:gap-14 lg:py-20">
         <div>
           <p className="flex items-center gap-2 font-mono text-[11px] tracking-[0.26em] text-primary uppercase">
@@ -643,10 +646,11 @@ export function HomePage() {
 
   return (
     <>
+      <HeroIntro />
       <Hero />
       <CategorySection />
       <FeaturedCourses />
-      <section id="sales" className="scroll-mt-20">
+      <section id="sales" className="scroll-mt-20 bg-surface-2">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-16 lg:py-20">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-none">

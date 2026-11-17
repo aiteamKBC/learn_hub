@@ -89,6 +89,16 @@ def dispatch(event: dict) -> None:
         _invoice_paid(obj)
     elif kind == "invoice.payment_failed":
         _invoice_failed(obj)
+    elif kind == "payment_intent.succeeded" and meta.get("kind") == "order":
+        # embedded checkout (Payment Element): the order has a PaymentIntent, no Checkout
+        # Session. fulfil_order is idempotent and re-checks the amount, so a hosted order that
+        # also emits this event is simply enrolled once.
+        services.fulfil_order(
+            order_id=meta["id"],
+            payment_intent=obj.get("id") or "",
+            amount_minor=obj.get("amount_received") or obj.get("amount"),
+            currency=obj.get("currency") or "",
+        )
     elif kind == "charge.succeeded":
         _charge_succeeded(obj)
     # every other event type is stored and ignored, on purpose:
