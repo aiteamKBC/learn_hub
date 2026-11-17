@@ -99,6 +99,20 @@ export function useCheckout() {
   })
 }
 
+/** The embedded-checkout response (commerce.schemas.CheckoutIntentOut). Asserted here for the
+ * same reason as CheckoutResult above: the shared CheckoutIn body collides in the generated
+ * types with apps/corporate, so we send the body untyped and assert the true shape. */
+type CheckoutIntentResult = { order_id: string; status: string; client_secret: string | null; publishable_key: string; total_minor: number; currency: string }
+
+export function useCheckoutIntent() {
+  const refresh = useCommerceRefresh()
+  return useMutation({
+    mutationFn: (v: { courseIds: string[]; currency: string; coupon?: string }) =>
+      unwrap(api.POST('/api/v1/commerce/checkout/intent', { body: { course_ids: v.courseIds, currency: v.currency, coupon: v.coupon || null } as never })) as unknown as Promise<CheckoutIntentResult>,
+    onSuccess: () => refresh(),
+  })
+}
+
 /** The order on the thank-you page, re-checked until Stripe's webhook marks it paid. */
 export function useOrder(id: string | null) {
   return useQuery({

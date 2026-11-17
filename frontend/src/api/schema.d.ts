@@ -1347,17 +1347,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/commerce/wishlist/{course_id}": {
-        parameters: { query?: never; header?: never; path?: never; cookie?: never };
-        get?: never;
-        put: operations["apps_commerce_api_save_wishlist"];
-        post?: never;
-        delete: operations["apps_commerce_api_remove_wishlist"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/commerce/wishlist/{course_id}/toggle": {
         parameters: {
             query?: never;
@@ -1375,6 +1364,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/commerce/wishlist/{course_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Wishlist */
+        put: operations["apps_commerce_api_save_wishlist"];
+        post?: never;
+        /** Remove Wishlist */
+        delete: operations["apps_commerce_api_remove_wishlist"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/commerce/checkout": {
         parameters: {
             query?: never;
@@ -1386,6 +1393,27 @@ export interface paths {
         put?: never;
         /** Checkout */
         post: operations["apps_commerce_api_checkout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/checkout/intent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Checkout Intent
+         * @description Embedded checkout: create the order and a PaymentIntent, and hand the browser the
+         *     client_secret plus the public key so the Payment Element can render on our own page.
+         */
+        post: operations["apps_commerce_api_checkout_intent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3896,7 +3924,7 @@ export interface paths {
         put?: never;
         /**
          * Signature Upload
-         * @description A write-only link for a signature image (PNG or JPEG, up to 1 MB).
+         * @description A write-only link for a certificate image (PNG or JPEG, up to 8 MB).
          */
         post: operations["apps_platform_console_certificates_signature_upload"];
         delete?: never;
@@ -5825,9 +5853,18 @@ export interface paths {
         trace?: never;
     };
     "/api/v1/console/moderation/questions/{question_id}/answer": {
-        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         get?: never;
         put?: never;
+        /**
+         * Staff Answer
+         * @description Post a visible platform answer to a learner's course question.
+         */
         post: operations["apps_platform_console_moderation_staff_answer"];
         delete?: never;
         options?: never;
@@ -10003,6 +10040,24 @@ export interface components {
             /** Coupon */
             coupon?: string | null;
         };
+        /** CheckoutIntentOut */
+        CheckoutIntentOut: {
+            /**
+             * Order Id
+             * Format: uuid
+             */
+            order_id: string;
+            /** Status */
+            status: string;
+            /** Client Secret */
+            client_secret: string | null;
+            /** Publishable Key */
+            publishable_key: string;
+            /** Total Minor */
+            total_minor: number;
+            /** Currency */
+            currency: string;
+        };
         /** OrderItemOut */
         OrderItemOut: {
             /**
@@ -11234,9 +11289,15 @@ export interface components {
             preferred_intake: string;
             /** Preferred Delivery Mode */
             preferred_delivery_mode: string;
-            /** Company Message */
+            /**
+             * Company Message
+             * @default
+             */
             company_message: string;
-            /** Admin Reply */
+            /**
+             * Admin Reply
+             * @default
+             */
             admin_reply: string;
             /** Status */
             status: string;
@@ -11261,7 +11322,10 @@ export interface components {
              * @default
              */
             preferred_delivery_mode: string;
-            /** Company Message */
+            /**
+             * Company Message
+             * @default
+             */
             company_message: string;
         };
         /** CorporateOkOut */
@@ -13407,7 +13471,10 @@ export interface components {
              * @default true
              */
             show_instructor: boolean;
-            /** Artwork Image Url */
+            /**
+             * Artwork Image Url
+             * @default
+             */
             artwork_image_url: string;
         };
         /** ConsoleCertTemplateIn */
@@ -13425,7 +13492,8 @@ export interface components {
              *       "show_platform": true,
              *       "show_seal": true,
              *       "show_cpd": true,
-             *       "show_instructor": true
+             *       "show_instructor": true,
+             *       "artwork_image_url": ""
              *     }
              */
             layout: components["schemas"]["ConsoleCertLayoutIn"];
@@ -14903,6 +14971,7 @@ export interface components {
             admin_notes?: string | null;
             /** Status Label */
             status_label?: string | null;
+            /** Admin Reply */
             admin_reply?: string | null;
         };
         /** ConsoleCohortOut */
@@ -16192,6 +16261,19 @@ export interface components {
              * @default
              */
             reason: string;
+        };
+        /** ConsoleAnswerOut */
+        ConsoleAnswerOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /** ConsoleAnswerIn */
+        ConsoleAnswerIn: {
+            /** Body */
+            body: string;
         };
         /** ConsoleReportOut */
         ConsoleReportOut: {
@@ -21002,37 +21084,51 @@ export interface operations {
             };
         };
     };
+    apps_commerce_api_toggle_wishlist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WishlistToggleOut"];
+                };
+            };
+        };
+    };
     apps_commerce_api_save_wishlist: {
         parameters: {
             query?: never;
             header?: never;
-            path: { course_id: string };
+            path: {
+                course_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
+            /** @description OK */
             200: {
-                headers: { [name: string]: unknown };
-                content: { "application/json": components["schemas"]["WishlistToggleOut"] };
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WishlistToggleOut"];
+                };
             };
         };
     };
     apps_commerce_api_remove_wishlist: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: { course_id: string };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: { [name: string]: unknown };
-                content: { "application/json": components["schemas"]["WishlistToggleOut"] };
-            };
-        };
-    };
-    apps_commerce_api_toggle_wishlist: {
         parameters: {
             query?: never;
             header?: never;
@@ -21074,6 +21170,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CheckoutOut"];
+                };
+            };
+        };
+    };
+    apps_commerce_api_checkout_intent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckoutIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutIntentOut"];
                 };
             };
         };
@@ -27771,14 +27891,25 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path: { question_id: string };
+            path: {
+                question_id: string;
+            };
             cookie?: never;
         };
-        requestBody: { content: { "application/json": { body: string } } };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleAnswerIn"];
+            };
+        };
         responses: {
+            /** @description OK */
             200: {
-                headers: { [name: string]: unknown };
-                content: { "application/json": { id: string } };
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleAnswerOut"];
+                };
             };
         };
     };

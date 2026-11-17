@@ -11,7 +11,6 @@ import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { useCartCount } from '@/features/commerce/api'
 import { useMe } from '@/features/identity/auth'
 import { cn } from '@/lib/cn'
-import { skipHeroIntro } from '@/lib/hero-intro'
 import { useOn } from '@/lib/motion'
 import { scrollToAnchor, smoothScrollTo } from '@/lib/smooth-scroll'
 
@@ -105,7 +104,7 @@ export function PublicLayout() {
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2">
         Skip to content
       </a>
-      <header className={cn('vt-header sticky top-0 z-40 transition-colors duration-300', overlay ? 'border-b border-transparent bg-transparent text-white' : 'border-b border-border bg-surface/90 text-text backdrop-blur-md')}>
+      <header className={cn('vt-header sticky top-0 z-40 transition-colors duration-300', overlay ? 'border-b border-transparent bg-transparent text-white' : 'border-b border-border/60 bg-surface/60 text-text backdrop-blur-xl')}>
         <div className={cn('flex h-16 w-full items-center gap-3 px-4 sm:px-6 lg:px-10', overlay && '[&_button]:text-white [&_button:hover]:text-white')}>
           <div className="flex min-w-0 flex-1 items-center">
           <Link
@@ -145,12 +144,6 @@ export function PublicLayout() {
             {me ? <NotificationBell /> : null}
             {isLoading ? null : me ? (
               <UserMenu />
-            ) : isHome ? (
-              // Landing page: this slot is the hero intro's "Skip" control. It dismisses
-              // the intro video (if still playing) and returns to the hero at the top.
-              <Button size="sm" className="!text-on-primary sm:h-10 sm:px-4 sm:text-sm" onClick={() => { skipHeroIntro(); smoothScrollTo(0) }}>
-                Skip
-              </Button>
             ) : (
               <Dialog open={authOpen} onOpenChange={setAuthOpen}>
                 <DialogTrigger asChild>

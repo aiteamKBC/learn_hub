@@ -21,7 +21,7 @@ import { Link, useNavigate } from '@/lib/router'
 
 type Tab = 'login' | 'signup'
 
-const ROLES = ['Student', 'Company', 'Coach', 'Admin'] as const
+const ROLES = ['Student', 'Company', 'Instructor', 'Admin'] as const
 type Role = (typeof ROLES)[number]
 
 function LoginForm() {
@@ -33,6 +33,13 @@ function LoginForm() {
   const [step, setStep] = useState<'password' | 'code'>('password')
   const [code, setCode] = useState('')
   const err = login.error instanceof AuthError ? login.error : null
+  // Show a message for ANY failed sign-in. allauth usually returns an AuthError (with a
+  // field-level message, or a general one); anything else (network, unexpected) still gets
+  // a friendly fallback, so a wrong email/password never fails silently.
+  const generalError =
+    login.error && !(err && Object.keys(err.fields).length)
+      ? (err?.message ?? 'That email or password is not right. Please check and try again.')
+      : null
 
   if (step === 'code') {
     const codeErr = mfa.error instanceof AuthError ? mfa.error : null
@@ -67,9 +74,9 @@ function LoginForm() {
         login.mutate({ email, password }, { onSuccess: (r) => (r === 'mfa' ? setStep('code') : navigate('/learn', { replace: true })) })
       }}
     >
-      {err && !Object.keys(err.fields).length ? (
-        <p role="alert" className={cn('rounded-md px-3 py-2.5 text-sm', err.pendingVerification ? 'bg-info-soft text-info' : 'bg-danger-soft text-danger')}>
-          {err.message}
+      {generalError ? (
+        <p role="alert" className={cn('rounded-md px-3 py-2.5 text-sm', err?.pendingVerification ? 'bg-info-soft text-info' : 'bg-danger-soft text-danger')}>
+          {generalError}
         </p>
       ) : null}
       <Field label="Email" error={err?.fields.email}>

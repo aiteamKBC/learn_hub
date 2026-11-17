@@ -7,11 +7,11 @@ import { skipHeroIntro, useHeroIntroSkipped } from '@/lib/hero-intro'
 import { reducedMotion } from '@/lib/motion'
 
 /**
- * Public CDN copy of the intro clip, used as a fallback if the bundled file is missing.
- * The `tr=` transform makes ImageKit serve H.264/AVC — the raw upload is HEVC, which most
+ * The intro clip played full-bleed over the hero when the landing page first loads.
+ * The `tr=` transform makes ImageKit serve H.264/AVC — raw uploads are often HEVC, which most
  * browsers (Chrome, Firefox) cannot decode in a <video> tag, so it must not be used directly.
  */
-const INTRO_FALLBACK = 'https://ik.imagekit.io/pxbevvmgx/event%20website%20(1).mp4?tr=w-1600,q-72'
+const INTRO_VIDEO = 'https://ik.imagekit.io/bmjbddbgyi/web%20(1).mp4?tr=w-1600,q-72'
 
 /**
  * Full-bleed intro video that plays once when the landing page first loads, then fades away
@@ -105,20 +105,21 @@ export function HeroIntro() {
         onError={close}
         className={cn('absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-out', ready ? 'opacity-100' : 'opacity-0')}
       >
-        <source src="/hero-intro.mp4" type="video/mp4" />
-        <source src={INTRO_FALLBACK} type="video/mp4" />
+        <source src={INTRO_VIDEO} type="video/mp4" />
       </video>
 
+      {/* 40% charcoal shade over the clip. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[rgba(31,38,46,0.4)]" />
       {/* Soft veil so the Skip control stays legible over any frame of the clip. */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_80%_90%,rgba(31,38,46,0.55),transparent_55%)]" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_85%_10%,rgba(31,38,46,0.55),transparent_55%)]" />
 
       <Button
         size="lg"
         autoFocus
         onClick={close}
-        className="absolute right-4 bottom-4 rounded-full border border-white/25 bg-black/35 text-white shadow-lg backdrop-blur-md hover:bg-black/55 sm:right-6 sm:bottom-6"
+        className="absolute right-4 top-4 h-12 gap-2 rounded-full border border-white/25 bg-black/35 px-7 text-base text-white shadow-lg backdrop-blur-md hover:bg-black/55 sm:right-6 sm:top-6"
       >
-        Skip <SkipForward className="size-4" />
+        Skip <SkipForward className="size-5" />
       </Button>
     </div>
   )

@@ -192,12 +192,10 @@ def price_cart(*, user, course_ids: list, currency: str, coupon_code: str | None
     }
 
 
-@transaction.atomic
-def create_order(*, user, course_ids: list, currency: str, coupon_code: str | None = None) -> dict:
-    """Personal purchase of one or more courses. Returns {"order", "checkout_url"}
-    (checkout_url is None when the total is zero: the order is fulfilled at once)."""
-    priced = price_cart(user=user, course_ids=course_ids, currency=currency, coupon_code=coupon_code)
-    cur, courses, coupon, lines = priced["currency"], priced["courses"], priced["coupon"], priced["lines"]
+def _build_pending_order(*, user, priced: dict) -> Order:
+    """Create the PENDING order and its items from a priced cart. Shared by the hosted
+    checkout (`create_order`) and the embedded checkout (`create_order_intent`)."""
+    cur, coupon, lines = priced["currency"], priced["coupon"], priced["lines"]
     subtotal, total, rate = priced["subtotal"], priced["total"], priced["rate"]
     order = Order.objects.create(
         user=user,
@@ -225,6 +223,17 @@ def create_order(*, user, course_ids: list, currency: str, coupon_code: str | No
             for cid, lst, price in lines
         ]
     )
+    return order
+
+
+@transaction.atomic
+def create_order(*, user, course_ids: list, currency: str, coupon_code: str | None = None) -> dict:
+    """Personal purchase of one or more courses. Returns {"order", "checkout_url"}
+    (checkout_url is None when the total is zero: the order is fulfilled at once)."""
+    priced = price_cart(user=user, course_ids=course_ids, currency=currency, coupon_code=coupon_code)
+    cur, courses, lines = priced["currency"], priced["courses"], priced["lines"]
+    total = priced["total"]
+    order = _build_pending_order(user=user, priced=priced)
     if total == 0:
         fulfil_order(order_id=order.id)
         order.refresh_from_db()
@@ -253,6 +262,33 @@ def create_order(*, user, course_ids: list, currency: str, coupon_code: str | No
     Order.objects.filter(pk=order.pk).update(stripe_session_id=session["id"])
     order.stripe_session_id = session["id"]
     return {"order": order, "checkout_url": session["url"]}
+
+
+@transaction.atomic
+def create_order_intent(*, user, course_ids: list, currency: str, coupon_code: str | None = None) -> dict:
+    """Embedded checkout: the same priced order as `create_order`, paid on our own page with a
+    Stripe Payment Element. Returns {"order", "client_secret"} (client_secret is None when the
+    total is zero: the order is fulfilled at once). The order is still only marked paid by the
+    signed webhook (payment_intent.succeeded), with the same amount and currency checks."""
+    priced = price_cart(user=user, course_ids=course_ids, currency=currency, coupon_code=coupon_code)
+    cur, total = priced["currency"], priced["total"]
+    order = _build_pending_order(user=user, priced=priced)
+    if total == 0:
+        fulfil_order(order_id=order.id)
+        order.refresh_from_db()
+        return {"order": order, "client_secret": None}
+
+    intent = gateway.create_payment_intent(
+        amount=gateway.to_stripe_amount(total, cur.code, cur.exponent),
+        currency=cur.code,
+        metadata={"kind": "order", "id": str(order.id)},
+        customer_email=user.email,
+        idempotency_key=f"order-intent-{order.id}",
+        description=f"LearnHub order {order.id}",
+    )
+    Order.objects.filter(pk=order.pk).update(stripe_payment_intent_id=intent["id"])
+    order.stripe_payment_intent_id = intent["id"]
+    return {"order": order, "client_secret": intent["client_secret"]}
 
 
 @transaction.atomic
@@ -336,28 +372,40 @@ def _receipt(order: Order) -> None:
 
 def sync_order_from_stripe(order: Order) -> bool:
     """The thank-you page's fallback when the webhook is late or can't reach us (e.g. a
-    laptop without the Stripe CLI): ask Stripe about the order's Checkout Session and
-    fulfil it if it's paid. Same checks as the webhook; at most once per 5 s per order."""
-    if order.status != Order.Status.PENDING or not order.stripe_session_id:
+    laptop without the Stripe CLI): ask Stripe about the order's Checkout Session or
+    PaymentIntent and fulfil it if it's paid. Same checks as the webhook; at most once per
+    5 s per order."""
+    if order.status != Order.Status.PENDING:
+        return False
+    if not (order.stripe_session_id or order.stripe_payment_intent_id):
         return False
     if not cache.add(f"order-sync:{order.id}", 1, timeout=5):
         return False
     try:
-        s = gateway.retrieve_checkout_session(order.stripe_session_id)
+        if order.stripe_session_id:
+            s = gateway.retrieve_checkout_session(order.stripe_session_id)
+            paid = s.get("payment_status") == "paid"
+            payment_intent, amount, currency = s.get("payment_intent") or "", s.get("amount_total"), s.get("currency") or ""  # fmt: skip
+            meta = s.get("metadata") or {}
+        else:  # embedded checkout: a PaymentIntent with no Checkout Session
+            pi = gateway.retrieve_payment_intent(order.stripe_payment_intent_id)
+            paid = pi.get("status") == "succeeded"
+            payment_intent, amount, currency = pi.get("id") or "", pi.get("amount_received") or pi.get("amount"), pi.get("currency") or ""  # fmt: skip
+            meta = pi.get("metadata") or {}
     except Exception:  # Stripe down or not configured: the webhook still completes it later
-        log.warning("order %s: could not check its Checkout Session", order.id, exc_info=True)
+        log.warning("order %s: could not check its Stripe payment", order.id, exc_info=True)
         return False
-    meta = s.get("metadata") or {}
-    if s.get("payment_status") != "paid" or meta.get("kind") != "order" or meta.get("id") != str(order.id):
+    if not paid or meta.get("kind") != "order" or meta.get("id") != str(order.id):
         return False
     from core.tenancy import tenant_context
 
     try:
         with tenant_context(staff=True):  # the same platform context the webhook uses
-            fulfil_order(order_id=order.id, payment_intent=s.get("payment_intent") or "",
-                         amount_minor=s.get("amount_total"), currency=s.get("currency") or "")  # fmt: skip
+            fulfil_order(
+                order_id=order.id, payment_intent=payment_intent, amount_minor=amount, currency=currency
+            )
     except ServiceError:  # e.g. an amount mismatch: left for the webhook's error log to surface
-        log.warning("order %s: paid session refused", order.id, exc_info=True)
+        log.warning("order %s: paid payment refused", order.id, exc_info=True)
         return False
     return True
 

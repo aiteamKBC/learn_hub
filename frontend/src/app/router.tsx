@@ -27,6 +27,7 @@ const ForgotPasswordPage = named(() => import('@/pages/auth/ForgotPasswordPage')
 const ResetPasswordPage = named(() => import('@/pages/auth/ResetPasswordPage'), 'ResetPasswordPage')
 const CartPage = named(() => import('@/pages/shop/CartPage'), 'CartPage')
 const CheckoutSuccessPage = named(() => import('@/pages/shop/CheckoutSuccessPage'), 'CheckoutSuccessPage')
+const CheckoutPayPage = named(() => import('@/pages/shop/CheckoutPayPage'), 'CheckoutPayPage')
 const PlansPage = named(() => import('@/pages/shop/PlansPage'), 'PlansPage')
 const WishlistPage = named(() => import('@/pages/shop/WishlistPage'), 'WishlistPage')
 const OrdersPage = named(() => import('@/pages/shop/OrdersPage'), 'OrdersPage')
@@ -149,6 +150,7 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
       { path: '/verify', element: page(<VerifyPage />) },
       { path: '/verify/:code', element: page(<VerifyPage />) },
       { path: '/cart', element: <RequireAuth>{page(<CartPage />)}</RequireAuth> },
+      { path: '/checkout/pay/:slug', element: <RequireAuth>{page(<CheckoutPayPage />)}</RequireAuth> },
       { path: '/checkout/success', element: <RequireAuth>{page(<CheckoutSuccessPage />)}</RequireAuth> },
       {
         element: (

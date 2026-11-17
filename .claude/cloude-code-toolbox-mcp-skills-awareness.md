@@ -1,6 +1,6 @@
 # Claude Code ToolBox — MCP & Skills awareness
 
-_Generated: 2026-11-16T10:23:27.219Z_
+_Generated: 2026-11-17T10:08:11.345Z_
 
 ## How to use this report
 
@@ -34,6 +34,9 @@ _No active workspace servers in mcp.json._
 _None found (or no workspace open)._
 
 ### User-scoped
+
+- **frontend-design** — `C:\Users\hp\.claude\skills\frontend-design`
+  - Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one. Helps with aesthetic direction, typography, and making choices that don't read as templated defaults.
 
 - **skill-creator** — `C:\Users\hp\.claude\skills\skill-creator`
   - Create new skills, modify and improve existing skills. Use when users want to create a skill from scratch, edit, or optimize an existing skill.

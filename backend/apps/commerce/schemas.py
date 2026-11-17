@@ -52,6 +52,15 @@ class CheckoutOut(Schema):
     currency: str
 
 
+class CheckoutIntentOut(Schema):
+    order_id: UUID
+    status: str
+    client_secret: str | None  # None when nothing to pay (free / 100% coupon): already enrolled
+    publishable_key: str  # the public pk_... key; "" if payments are not configured for the browser
+    total_minor: int
+    currency: str
+
+
 class OrderItemOut(Schema):
     id: UUID
     course_id: UUID

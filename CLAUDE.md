@@ -106,6 +106,7 @@ Read before starting a milestone:
   - Have loading, empty and error states (`EmptyState`, `ErrorState`, `Skeleton`).
   - Be accessible: labels on inputs, `aria-*` on custom controls, keyboard reachable.
 - Writing: British English, short plain sentences, no jargon in the UI.
+- **Design/UX work** (new UI, visual or responsive changes, building from a screenshot): load and follow the `frontend-design` skill first. Treat any screenshot/reference the user supplies as the visual source of truth and reproduce it faithfully (layout, spacing, colour, type, sizing). Reuse the existing `components/ui/*`, `components/art/*` and CSS tokens; keep all functionality, routing, permissions and API wiring intact; make it work on desktop, tablet and phone, and keep it accessible; add no new dependencies. Don't substitute your own redesign for what was asked.
 
 ---
 
@@ -165,11 +166,14 @@ Sub-agents: `reviewer`, `e2e-tester`, `api-contract` (in `.claude/agents/`).
 
 
 
+
+
+
 <!-- cloude-code-toolbox:mcp-skills-awareness-begin -->
 
 ### MCP & Skills awareness (Claude Code ToolBox)
 
-_Last synced: 2026-11-16T10:23:27.238Z._
+_Last synced: 2026-11-17T10:08:13.052Z._
 
 - **Full report:** `.claude/cloude-code-toolbox-mcp-skills-awareness.md` in this workspace (auto-overwritten on each scan). Use it as ground truth for configured servers and skill folders.
 - **MCP:** For **live tools** in Claude Code, enable the matching server via `/mcp`. Servers are configured in `~/.claude.json` (user) and `.mcp.json` (project).
@@ -195,6 +199,8 @@ _No active workspace servers in mcp.json._
 _None found (or no workspace open)._
 
 #### User skills
+
+- **frontend-design** — `C:\Users\hp\.claude\skills\frontend-design` — Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one. Helps with aesthetic direction, typography, and making choices that don't read as templated defaults.
 
 - **skill-creator** — `C:\Users\hp\.claude\skills\skill-creator` — Create new skills, modify and improve existing skills. Use when users want to create a skill from scratch, edit, or optimize an existing skill.
 

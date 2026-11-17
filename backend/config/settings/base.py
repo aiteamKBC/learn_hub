@@ -339,6 +339,9 @@ TEST_RUNNER = "core.test_runner.NeonTestRunner"  # direct host + leftover-sessio
 # --- Money (decisions 9-10) ------------------------------------------------------
 # Keys come from the Stripe dashboard (Developers > API keys / Webhooks), .env only.
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+# The publishable key is public (pk_...): it is safe to send to the browser, where Stripe.js
+# needs it to render the embedded card fields (Payment Element). Still kept in .env, not code.
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 BASE_CURRENCY = "GBP"  # price tiers and reporting
 FX_DRIFT_REPRICE = 0.05  # re-price a tier in a currency only when FX moved it more than 5%
