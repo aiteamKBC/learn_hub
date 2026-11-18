@@ -26,6 +26,7 @@ from apps.commerce.models import (
     Promotion,
     StripeEvent,
     Subscription,
+    TokenRate,
 )
 from apps.identity.models import User
 from apps.learning.models import Enrollment
@@ -44,6 +45,14 @@ def fake_session(**kw):
     return {"id": f"cs_test_{kw['metadata']['id']}", "url": "https://checkout.stripe.test/pay"}
 
 
+def fake_intent(**kw):
+    return {
+        "id": f"pi_test_{kw['metadata']['id']}",
+        "client_secret": "pi_test_secret",
+        "status": "requires_payment_method",
+    }
+
+
 class CommerceBase(SchemaTransactionTestCase):
     extra_course_lecture = False
 
@@ -56,6 +65,9 @@ class CommerceBase(SchemaTransactionTestCase):
         with tenant_context(**self.STAFF):
             pricing.store_ecb_rates(*pricing.parse_ecb(ECB_XML))
             pricing.refresh_tier_amounts()
+            # A live token rate (what the console sets): paid courses derive a token price from
+            # it, so they pass the publish checklist. Without it submit() raises "not ready".
+            TokenRate.objects.create(tokens_per_gbp_minor=Decimal("1"), effective_from=timezone.now())
             self.tier5 = PriceTier.objects.get(name="Tier 5")  # £34.99
             self.python = self.course("python", tier=self.tier5)
             self.sql = self.course("sql", tier=PriceTier.objects.get(name="Tier 1"))
@@ -79,7 +91,13 @@ class CommerceBase(SchemaTransactionTestCase):
                 body="<p>y</p>",
                 token_price=1 if tier else None,
             )
+        # Price the course before publishing: the publish checklist now needs a cash/free
+        # decision, and a paid course needs a derivable token price (cash_price_tier x the live
+        # TokenRate from setUp), exactly like the real set_course_price path.
         CoursePrice.objects.create(course=c, tier=tier, is_free=free)
+        if tier and not free:
+            c.cash_price_tier = tier
+            c.save(update_fields=["cash_price_tier"])
         cat.submit(version=c.versions.get(), by=self.staff)
         c.refresh_from_db()
         return c
@@ -274,6 +292,61 @@ class CheckoutTest(CommerceBase):
         self.assertEqual(resp.status_code, 400)
         with tenant_context(**self.STAFF):
             self.assertFalse(StripeEvent.objects.exists())
+
+
+@mock.patch("apps.commerce.gateway.create_payment_intent", side_effect=fake_intent)
+class EmbeddedCheckoutTest(CommerceBase):
+    """The embedded checkout (Stripe Payment Element): an order paid by a PaymentIntent on our
+    own page, still fulfilled only by the signed payment_intent.succeeded webhook."""
+
+    def pi_event(self, order, *, event_id="evt_pi", amount=None, currency=None):
+        amt = order.total_minor if amount is None else amount
+        return {
+            "id": event_id,
+            "type": "payment_intent.succeeded",
+            "data": {
+                "object": {
+                    "id": order.stripe_payment_intent_id,
+                    "status": "succeeded",
+                    "amount": amt,
+                    "amount_received": amt,
+                    "currency": (currency or order.currency_id).lower(),
+                    "metadata": {"kind": "order", "id": str(order.id)},
+                }
+            },
+        }
+
+    def test_embedded_intent_enrols_only_after_signed_webhook(self, _intent):
+        with tenant_context(user_id=self.sara.id):
+            result = services.create_order_intent(user=self.sara, course_ids=[self.python.id], currency="GBP")
+            order = result["order"]
+            self.assertEqual(result["client_secret"], "pi_test_secret")
+            self.assertTrue(order.stripe_payment_intent_id.startswith("pi_test_"))
+            self.assertFalse(Enrollment.objects.filter(user=self.sara).exists())  # not before payment
+
+        self.assertEqual(self.deliver(self.pi_event(order)), "processed")
+        self.assertEqual(self.deliver(self.pi_event(order)), "duplicate")  # Stripe retry: enrol once
+        with tenant_context(user_id=self.sara.id):
+            order.refresh_from_db()
+            self.assertEqual(order.status, "paid")
+            self.assertEqual(Enrollment.objects.filter(user=self.sara, source="purchase").count(), 1)
+
+    def test_embedded_amount_mismatch_is_refused(self, _intent):
+        with tenant_context(user_id=self.sara.id):
+            order = services.create_order_intent(user=self.sara, course_ids=[self.python.id], currency="GBP")[
+                "order"
+            ]
+        with self.assertRaises(ServiceError), self.assertLogs("apps.commerce.webhooks", "ERROR"):
+            self.deliver(self.pi_event(order, amount=1))
+        with tenant_context(**self.STAFF):
+            self.assertEqual(Order.objects.get(pk=order.pk).status, "pending")
+
+    def test_embedded_free_course_needs_no_intent(self, intent):
+        with tenant_context(user_id=self.sara.id):
+            r = services.create_order_intent(user=self.sara, course_ids=[self.free.id], currency="GBP")
+            self.assertIsNone(r["client_secret"])
+            self.assertEqual(r["order"].status, "paid")
+        intent.assert_not_called()
 
 
 @mock.patch("apps.commerce.gateway.create_checkout_session", side_effect=fake_session)

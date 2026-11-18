@@ -111,14 +111,14 @@ export function AreaChart({ points, format, height = 220, label, color = 'var(--
 export type DonutSlice = { label: string; value: number; color: string; hint?: string }
 
 /** A ring split into slices with a legend (mockups 22, 20, 02). Fills in on view. */
-export function Donut({ slices, centre, centreLabel, format, size = 168 }: { slices: DonutSlice[]; centre: string; centreLabel: string; format: (v: number) => string; size?: number }) {
+export function Donut({ slices, centre, centreLabel, format, size = 148 }: { slices: DonutSlice[]; centre: string; centreLabel: string; format: (v: number) => string; size?: number }) {
   const [ref, seen] = useInView<HTMLDivElement>()
   const k = useFill(1, seen)
   const total = slices.reduce((s, x) => s + Math.max(0, x.value), 0)
   const r = 15.9155 // circumference 100
   let offset = 0
   return (
-    <div ref={ref} className="flex flex-wrap items-center gap-6">
+    <div ref={ref} className="flex flex-wrap items-center gap-x-6 gap-y-4">
       <div className="relative shrink-0" style={{ width: size, height: size }} role="img" aria-label={`${centreLabel}: ${centre}. ${slices.map((s) => `${s.label} ${format(s.value)}`).join(', ')}.`}>
         <svg viewBox="0 0 36 36" className="size-full -rotate-90" aria-hidden>
           <circle cx="18" cy="18" r={r} fill="none" stroke="var(--surface-2)" strokeWidth="4.2" />
@@ -136,13 +136,17 @@ export function Donut({ slices, centre, centreLabel, format, size = 168 }: { sli
           <span className="text-[11px] text-muted">{centreLabel}</span>
         </div>
       </div>
-      <ul className="grid min-w-0 flex-1 gap-2 text-sm">
+      {/* min-w-[190px]: when the card is too narrow to fit the legend beside the ring, it
+          wraps below (flex-wrap) instead of spilling past the card's edge. */}
+      <ul className="grid min-w-[190px] flex-1 gap-2 text-sm">
         {slices.map((s) => (
-          <li key={s.label} className="flex items-center gap-2">
+          <li key={s.label} className="flex items-center gap-2.5">
             <span className="size-2.5 shrink-0 rounded-sm" style={{ background: s.color }} aria-hidden />
             <span className="min-w-0 flex-1 truncate">{s.label}</span>
-            <span className="font-medium tabular">{format(s.value)}</span>
-            <span className="w-12 text-right text-xs text-muted tabular">{total ? `${Math.round((Math.max(0, s.value) / total) * 100)}%` : '0%'}</span>
+            <span className="flex shrink-0 items-baseline gap-1.5 tabular">
+              <span className="font-medium">{format(s.value)}</span>
+              <span className="text-xs text-muted">({total ? Math.round((Math.max(0, s.value) / total) * 100) : 0}%)</span>
+            </span>
           </li>
         ))}
       </ul>

@@ -15,7 +15,9 @@ export function DashboardBackdrop({ className }: { className?: string }) {
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${dashboardBg})`, backgroundAttachment: 'fixed' }}
       />
-      <div className="absolute inset-0 bg-transparent dark:bg-background/85" />
+      {/* Light mode: a near-white veil softens the warm artwork so the page leans white.
+          Dark mode: the bright artwork is toned right down instead. */}
+      <div className="absolute inset-0 bg-background/88 dark:bg-background/85" />
     </div>
   )
 }

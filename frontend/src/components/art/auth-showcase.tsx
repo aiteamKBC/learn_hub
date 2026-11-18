@@ -13,7 +13,7 @@ function Arcs() {
     <svg viewBox="0 0 600 900" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 size-full" aria-hidden>
       <defs>
         <radialGradient id={`${id}a`} cx="78%" cy="18%" r="60%">
-          <stop offset="0" stopColor="#f59542" stopOpacity="0.55" />
+          <stop offset="0" stopColor="#f59542" stopOpacity="0.36" />
           <stop offset="1" stopColor="#f59542" stopOpacity="0" />
         </radialGradient>
         <radialGradient id={`${id}b`} cx="10%" cy="95%" r="55%">
@@ -94,7 +94,7 @@ function ComplianceRing() {
 }
 
 // Evidrise palette: charcoal #1f262e → burnt brown #743219 → muted orange (no purple).
-const panel = 'relative h-full overflow-hidden bg-[linear-gradient(160deg,#1f262e_0%,#2d1c12_46%,#743219_78%,#c25d10_100%)] text-white'
+const panel = 'relative h-full overflow-hidden bg-[linear-gradient(160deg,#1f262e_0%,#281a12_50%,#5e2a16_82%,#9a4d14_100%)] text-white'
 
 /** Background only (the slim strip above the form on phones). */
 export function AuthBand() {

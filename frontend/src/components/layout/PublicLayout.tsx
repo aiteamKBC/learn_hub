@@ -52,7 +52,7 @@ function SearchBox({ className, autoFocus, overlay }: { className?: string; auto
   }
   return (
     <form role="search" onSubmit={submit} className={className}>
-      <Input icon={<Search />} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search for courses, topics or instructors" aria-label="Search courses" autoFocus={autoFocus} className={cn('rounded-full', overlay ? 'border-white/25 bg-white/10 text-white placeholder:text-white/60' : 'bg-surface-2/60')} />
+      <Input icon={<Search />} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search for courses, topics or instructors" aria-label="Search courses" autoFocus={autoFocus} className={cn('rounded-full', overlay ? 'border-white/25 bg-white/10 text-white placeholder:text-white/60' : 'bg-surface-2/80')} />
     </form>
   )
 }
@@ -104,7 +104,7 @@ export function PublicLayout() {
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2">
         Skip to content
       </a>
-      <header className={cn('vt-header sticky top-0 z-40 transition-colors duration-300', overlay ? 'border-b border-transparent bg-transparent text-white' : 'border-b border-border bg-surface/90 text-text backdrop-blur-md')}>
+      <header className={cn('vt-header sticky top-0 z-40 transition-colors duration-300', overlay ? 'border-b border-transparent bg-transparent text-white' : 'border-b border-border/60 bg-surface/60 text-text backdrop-blur-xl')}>
         <div className={cn('flex h-16 w-full items-center gap-3 px-4 sm:px-6 lg:px-10', overlay && '[&_button]:text-white [&_button:hover]:text-white')}>
           <div className="flex min-w-0 flex-1 items-center">
           <Link
@@ -144,13 +144,6 @@ export function PublicLayout() {
             {me ? <NotificationBell /> : null}
             {isLoading ? null : me ? (
               <UserMenu />
-            ) : isHome ? (
-              // Landing page: this slot is the hero intro's "Skip" control. The intro
-              // video is still to come; for now Skip jumps to the hero image at the top.
-              // When the video is added, wire Skip to hide it and reveal the image.
-              <Button size="sm" className="!text-on-primary sm:h-10 sm:px-4 sm:text-sm" onClick={() => smoothScrollTo(0)}>
-                Skip
-              </Button>
             ) : (
               <Dialog open={authOpen} onOpenChange={setAuthOpen}>
                 <DialogTrigger asChild>

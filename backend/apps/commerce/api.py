@@ -38,6 +38,7 @@ from .schemas import (
     CartCountOut,
     CartOut,
     CheckoutIn,
+    CheckoutIntentOut,
     CheckoutOut,
     CourseRef,
     CurrencyOut,
@@ -179,6 +180,19 @@ def checkout(request, body: CheckoutIn):
     order = result["order"]
     return {"order_id": order.id, "status": order.status, "checkout_url": result["checkout_url"],
             "total_minor": order.total_minor, "currency": order.currency_id}  # fmt: skip
+
+
+@router.post("/checkout/intent", response=CheckoutIntentOut, auth=session_auth)
+def checkout_intent(request, body: CheckoutIn):
+    """Embedded checkout: create the order and a PaymentIntent, and hand the browser the
+    client_secret plus the public key so the Payment Element can render on our own page."""
+    result = services.create_order_intent(
+        user=request.user, course_ids=body.course_ids, currency=body.currency.upper(), coupon_code=body.coupon
+    )
+    order = result["order"]
+    return {"order_id": order.id, "status": order.status, "client_secret": result["client_secret"],
+            "publishable_key": settings.STRIPE_PUBLISHABLE_KEY, "total_minor": order.total_minor,
+            "currency": order.currency_id}  # fmt: skip
 
 
 def _order_out(order: Order) -> dict:

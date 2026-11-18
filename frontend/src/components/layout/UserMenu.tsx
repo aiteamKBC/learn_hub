@@ -1,4 +1,4 @@
-import { Building2, Check, Coins, Crown, GraduationCap, Heart, LayoutDashboard, LogOut, Package, PenTool, ReceiptText, Shield, User } from 'lucide-react'
+import { Building2, Check, GraduationCap, LayoutDashboard, LogOut, PenTool, Shield, User } from 'lucide-react'
 
 import { toast } from 'sonner'
 
@@ -41,32 +41,7 @@ export function UserMenu({ onDark }: { onDark?: boolean }) {
             <GraduationCap /> My learning
           </Link>
         </MenuItem>
-        <MenuItem asChild>
-          <Link to="/wishlist">
-            <Heart /> Wishlist
-          </Link>
-        </MenuItem>
-        <MenuItem asChild>
-          <Link to="/account/orders">
-            <ReceiptText /> Purchase history
-          </Link>
-        </MenuItem>
         <MenuSeparator />
-        <MenuItem asChild>
-          <Link to="/wallet">
-            <Coins /> Token wallet
-          </Link>
-        </MenuItem>
-        <MenuItem asChild>
-          <Link to="/subscription">
-            <Crown /> Unlimited plan
-          </Link>
-        </MenuItem>
-        <MenuItem asChild>
-          <Link to="/packages">
-            <Package /> Packages
-          </Link>
-        </MenuItem>
         {manages.map((m) => (
           <MenuItem key={m.org_id} onSelect={() => (switchTo(m.org_id), navigate('/business'))}>
             <LayoutDashboard /> <span className="truncate">{m.name} dashboard</span>

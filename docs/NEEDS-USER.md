@@ -1,5 +1,12 @@
 # Questions for the user
 
+ENV-1. **[action] Add `STRIPE_PUBLISHABLE_KEY` to `backend/.env`.**
+   The new embedded checkout page (`/checkout/pay/:slug`, Stripe Payment Element) needs the
+   publishable key in the browser. It is the public `pk_…` key from the *same* Stripe sandbox
+   whose secret key is already configured (Stripe dashboard → Developers → API keys). It is safe
+   to expose. Until it is set, "Buy now" falls back to Stripe's hosted checkout page (still works).
+   Nothing to run — just add the line and restart the backend.
+
 UI-1. **[UI] Home hero now uses a stock photograph — deviates from the "no stock photos" rule.**
    Per an explicit user instruction (2026-11-14), the home hero (`pages/HomePage.tsx`, `Hero`) was rebuilt to
    match the Evidrise/Readdy reference exactly, including its full-bleed laptop photograph

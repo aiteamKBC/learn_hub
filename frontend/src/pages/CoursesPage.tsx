@@ -150,7 +150,8 @@ export function CoursesPage() {
 
   return (
     <div className="relative isolate">
-      <DashboardBackdrop className="animate-fade-in" />
+      {/* Fixed to the viewport so the artwork also sits behind the frosted header. */}
+      <DashboardBackdrop className="animate-fade-in fixed inset-0 -z-10" />
       <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-4 animate-reveal">
           <div>

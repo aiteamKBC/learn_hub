@@ -1,4 +1,4 @@
-import { BookOpen, Check, Coins, Download, GraduationCap, Inbox, MailPlus, MoreHorizontal, Pause, Pencil, Percent, Play, Search, Send, ShieldCheck, Wallet, X } from 'lucide-react'
+import { BookOpen, Check, Coins, Download, GraduationCap, Inbox, MailPlus, MoreHorizontal, Pause, Pencil, Play, Search, Send, ShieldCheck, Wallet, X } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
@@ -670,8 +670,8 @@ export function ConsoleInstructorsPage() {
                             <Td className="text-right tabular">{r.students.toLocaleString('en-GB')}</Td>
                             <Td className="text-right tabular">{gbp(r.earnings_gbp_minor)}</Td>
                             <Td className="text-right tabular">
-                              <span className="inline-flex items-center gap-1">
-                                {r.keeps_pct}%{r.fee_is_custom ? <Percent className="size-3 text-info" aria-label="own rate" /> : null}
+                              <span className="inline-flex items-center justify-end gap-1.5">
+                                {r.keeps_pct}%{r.fee_is_custom ? <Badge tone="info">Own rate</Badge> : null}
                               </span>
                             </Td>
                             <Td>
