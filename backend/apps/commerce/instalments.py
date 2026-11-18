@@ -437,7 +437,9 @@ def payment_status(purchase: CourseInstalmentPurchase) -> dict:
         "paid_minor": paid,
         "remaining_minor": max(0, purchase.total_minor - paid),
         "cancelled": purchase.cancelled_at is not None,
-        "payoff_requested_at": purchase.payoff_requested_at.isoformat() if purchase.payoff_requested_at else None,
+        "payoff_requested_at": purchase.payoff_requested_at.isoformat()
+        if purchase.payoff_requested_at
+        else None,
         "instalments": [
             {
                 "id": i.id,
@@ -446,7 +448,9 @@ def payment_status(purchase: CourseInstalmentPurchase) -> dict:
                 "amount_minor": i.amount_minor,
                 "status": i.status,
                 "retry_at": i.retry_at.isoformat() if i.retry_at else None,
-                "manual_payment_requested_at": i.manual_payment_requested_at.isoformat() if i.manual_payment_requested_at else None,
+                "manual_payment_requested_at": i.manual_payment_requested_at.isoformat()
+                if i.manual_payment_requested_at
+                else None,
             }
             for i in installments
         ],
