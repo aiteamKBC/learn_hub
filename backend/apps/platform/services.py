@@ -58,10 +58,14 @@ def public_settings() -> dict:
 
 
 # ---------------------------------------------------------------- entitlements
-def has_feature(feature: str, *, org_id=None, user_id=None, now=None) -> bool:
+def has_feature(
+    feature: str, *, org_id=None, user_id=None, now=None, exclude_source: str | None = None
+) -> bool:
     now = now or timezone.now()
     qs = Entitlement.objects.filter(feature=feature, starts_at__lte=now).exclude(ends_at__lte=now)
     qs = qs.filter(org_id=org_id) if org_id else qs.filter(user_id=user_id)
+    if exclude_source:
+        qs = qs.exclude(source=exclude_source)
     return qs.exists()
 
 

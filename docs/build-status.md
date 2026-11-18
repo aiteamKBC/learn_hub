@@ -592,3 +592,43 @@ sends `flush_now`. `tsc -b` clean.
 Full suite re-run was in progress at the time of writing; earlier targeted runs:
 conversion 18/18, unlock+wallet 24/24, console token pricing 22/22,
 console access + business API all green.
+
+## B2B Recorded staged instalments (2026-11-16)
+
+Implemented opt-in staged access for new B2B Recorded agreements. Admins configure named lesson stages and map scheduled agreement instalments to them. Employers can view the agreement total, settlement status and dates, plus each allocated learner's progress by stage. Learner lecture access is enforced server-side: confirmed payments release mapped stages, and full settlement releases the whole course. Existing agreements retain their prior behavior by default.
+
+The new `StageInstalment`, `SeatPurchaseStage`, and `StageLecture` records form a provider-neutral schedule and settlement contract. Admin payment requests update local ledger status only. A future payment integration may call the settlement function with a verified reference, amount and currency; this code does not create or send Stripe invoices, process invoice webhooks, collect payment, or run automatic retries. Partial settlements are represented as `partial_paid`; reports use confirmed installment amounts for cash received. Legacy `SeatInstalment`, `covers_months`, and `InstalmentCover` remain a separate time-based seat-coverage path and were not repurposed.
+
+Verification recorded during implementation:
+- A focused B2B staged-access run passed (3 tests, using `--keepdb`). This saved run predates the provider-neutral refactor, so it does not verify any invoice integration; the current `test_staged_payment_request_is_local_and_settlement_is_provider_neutral` covers the local request/settlement contract in source.
+- A broader B2B programme run was stopped after more than two minutes with four tests reached and no failure output; it is not counted as a pass.
+- The saved frontend typecheck, Ruff, format and migration dry-run logs reported success for that implementation snapshot. They were not rerun specifically for this documentation correction.
+
+The staged B2B source migrations (`corporate.0016_recorded_stage_instalments`, `0018_partial_staged_settlement`, and `0019_provider_neutral_stage_payments`) have been applied to the dev owner database in the approved session. They have not been applied to production.
+
+## B2C fixed course instalments (2026-11-16)
+
+- Admins can configure a separate fixed total and installment count per course. The system splits the total evenly in minor units, places any remainder on the final installment, and derives monthly due dates from the course schedule start date. Admins map installments to named lesson stages, configure retry policy for a later integration, choose the early-payment release rule, and decide whether and how existing or late-entering learners use the schedule.
+- The ledger supports learner status, cancellation, manual-payment requests and early-payoff requests. Cancellation stops future installments while preserving access to paid stages; refunds require manual review. Confirmed settlement is recorded through a provider-neutral contract. The current code does not collect card details or consent, create a checkout session, schedule or execute charges, run retries, or handle payment-provider callbacks. Learner UI states that payment integration is pending.
+- Existing valid cash, token and personal subscription grants retain precedence over staged access. The server checks mapped-stage access and the existing course access-duration rule remains in force.
+- Source migrations are `commerce.0011_b2c_course_instalments`, `engagement.0009_course_instalment_notice`, and `learning.0006_fixed_instalment_enrollment_source`. They have been applied to the dev owner database in the approved session; not to production.
+- Verification record: the focused B2C instalment suite passed 9 tests with `--keepdb --noinput`; `CommerceBase` pricing regression passed 1 test with the same flags. Ruff passed for `test_commerce.py` and `test_course_instalments.py`. Saved logs also show OpenAPI generation, Django check, frontend typecheck and build succeeded. The initial B2C Ruff run reported 11 issues; there is no saved clean Ruff result specifically for the provider-neutral B2C production modules. The separate Team Live follow-up suite passed 10 tests and included a personal-subscription access regression, not the B2C instalment ledger.
+
+
+## Personal subscription course access alignment (2026-11-17)
+
+- Personal unlimited subscriptions now include every published personal course marked `in_subscription`, regardless of legacy `PlanCourse` rows. Enrollment, catalog plan-access, and package ownership checks use the same rule. Existing plan-course rows remain untouched; no migration or database write was made.
+- The console course picker remains available for Team plans. For personal plans, the admin UI explains that course inclusion follows the course subscription setting and ignores saved course selections.
+- Course detail lists only currently active personal unlimited plans. Deactivated plans can still serve existing subscribers through their remaining subscription period.
+- Verification: focused subscription access test passed (1 test) with `--keepdb`; `python manage.py check` passed; Ruff check and format checks passed on the five changed Python files; frontend `tsc -b` passed.
+
+## Team subscription Live seat allowance (2026-11-17)
+
+- Team plans can optionally include a configured number of Live seats per billing period. An offered cohort consumes quota only when a company admin accepts it. Acceptance locks the subscription row and rechecks the period cap; requests and existing paid bookings do not consume this quota.
+- Companies without an active Team Live allowance retain the existing one-time Live checkout. A company with a configured allowance cannot use paid checkout as an overage path. Included bookings can name attendees, and company-approved cancellation restores quota. Postponement moves included seats to the replacement cohort while preserving the same subscription-period reservation.
+- Team subscription entitlements no longer add recorded marketplace courses to the company assignment library; manual business grants still do. Personal subscription course access was not changed.
+- Additive source migrations: commerce 0012_plan_live_seat_cap, commerce 0013_plan_live_seat_cap_effective_at, and corporate 0020_team_live_included_bookings. They have been applied to the dev owner database in the approved session; not to production.
+- Verification: seven focused tests passed with `--keepdb --noinput`, including concurrent cap enforcement, period reset, cancellation, postponement, paid-checkout bypass prevention, recorded-library exclusion, and existing personal unlimited access. Django system check, Ruff check, and migration dry-run passed. Frontend API type generation completed; typecheck/build results are listed in the handoff.
+- Final focused rerun: 8 tests passed, including the employer acceptance endpoint and remaining-quota response.
+- Follow-up migration commerce 0013 records when a Team Live cap takes effect. New and changed caps affect offers created from that timestamp onward; older offers retain their previous checkout option. Zero is rejected by the Admin API and UI, and an invalid zero value does not count as coverage.
+- Final PM-review verification: 10 focused tests passed, including zero-cap validation and preservation of offers created before a Team Live cap took effect.

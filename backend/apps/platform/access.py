@@ -96,12 +96,16 @@ def _legacy_enrollment_allows(user, course_id, now) -> bool:
     access window grants access even before the one-off backfill migration runs."""
     from apps.learning.models import Enrollment
 
-    qs = Enrollment.objects.filter(
-        user=user,
-        course_id=course_id,
-        org__isnull=True,
-        status__in=(Enrollment.Status.ACTIVE, Enrollment.Status.COMPLETED),
-    ).filter(Q(access_expires_at__isnull=True) | Q(access_expires_at__gt=now))
+    qs = (
+        Enrollment.objects.filter(
+            user=user,
+            course_id=course_id,
+            org__isnull=True,
+            status__in=(Enrollment.Status.ACTIVE, Enrollment.Status.COMPLETED),
+        )
+        .exclude(source=Enrollment.Source.INSTALMENT)
+        .filter(Q(access_expires_at__isnull=True) | Q(access_expires_at__gt=now))
+    )
     return qs.exists()
 
 
@@ -134,6 +138,52 @@ def _subscription_allows(user, course_id, now, *, scope: str = "", target_id=Non
         .exists()
     )
     return has_sub
+
+
+def has_staged_course_access(user, course_id, now=None) -> bool:
+    """A staged purchase can keep a course player enrolment addressable after an
+    older grant expires, while the resolver still gates every lecture by paid stage."""
+    from apps.learning.models import Enrollment
+
+    now = now or timezone.now()
+    return (
+        Enrollment.objects.filter(user=user, course_id=course_id, org__isnull=True)
+        .exclude(status=Enrollment.Status.SUPERSEDED)
+        .filter(
+            course__instalment_purchases__user=user,
+            course__instalment_purchases__org__isnull=True,
+            course__instalment_purchases__status__in=("active", "complete", "cancelled"),
+            course__instalment_purchases__instalments__status="paid",
+        )
+        .filter(
+            Q(course__instalment_purchases__access_expires_at__isnull=True)
+            | Q(course__instalment_purchases__access_expires_at__gt=now)
+        )
+        .exists()
+    )
+
+
+def staged_enrollment_ids(user, now=None):
+    """Personal enrolments retained in My Learning by a live staged purchase."""
+    from apps.commerce.models import CourseInstalmentPurchase
+    from apps.learning.models import Enrollment
+
+    now = now or timezone.now()
+    course_ids = (
+        CourseInstalmentPurchase.objects.filter(
+            user=user,
+            org__isnull=True,
+            status__in=("active", "complete", "cancelled"),
+            instalments__status="paid",
+        )
+        .filter(Q(access_expires_at__isnull=True) | Q(access_expires_at__gt=now))
+        .values("course_id")
+    )
+    return (
+        Enrollment.objects.filter(user=user, org__isnull=True, course_id__in=course_ids)
+        .exclude(status=Enrollment.Status.SUPERSEDED)
+        .values_list("id", flat=True)
+    )
 
 
 def _preview_allows(scope: str, target_id, lecture_hint=None) -> bool:
@@ -274,7 +324,16 @@ def resolve(user, scope: str, target_id, *, lecture_hint=None, request_id: str =
             request_id,
         )
 
-    # 6) free preview
+    # 6) fixed course instalments: paid mapped stages only, after independent cash,
+    # token, legacy-enrolment and subscription grants have had precedence.
+    if course_id is not None:
+        from apps.commerce.instalments import staged_access
+
+        staged = staged_access(user=user, course_id=course_id, scope=scope, target_id=target_id, now=now)
+        if staged is not None:
+            return _record(user, scope, target_id, staged, now, request_id)
+
+    # 7) free preview
     if _preview_allows(scope, target_id, lecture_hint=lecture_hint):
         return _record(
             user,

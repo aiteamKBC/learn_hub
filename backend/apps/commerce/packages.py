@@ -55,6 +55,7 @@ def owned_course_ids(user, course_ids: list) -> set:
                 user=user,
                 org__isnull=True,
                 plan__audience="personal",
+                plan__kind="unlimited_b2c",
                 status__in=["trialing", "active"],
             )
             .select_related("plan")

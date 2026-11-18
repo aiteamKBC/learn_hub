@@ -12,9 +12,9 @@ from unittest.mock import MagicMock, patch
 from django.utils import timezone
 
 from apps.catalog.models import Category, Course, CourseVersion
-from apps.commerce.models import CoursePrice, PriceTier
+from apps.commerce.models import CoursePrice, Plan, PriceTier, Subscription
 from apps.corporate.live import add_company_to_cohort, confirm_cohort, create_cohort
-from apps.corporate.models import CorporateOffering, SeatPurchase
+from apps.corporate.models import CohortCompany, CorporateOffering, SeatPurchase
 from apps.corporate.scheduling import add_session
 from apps.corporate.services import allocate_seat
 from apps.identity.models import User
@@ -94,6 +94,94 @@ class CompanyHttpTest(SchemaTransactionTestCase):
         response = self._post(f"/live-bookings/{booking_id}/checkout", {})
         self.assertEqual(response.status_code, 200, response.content)
         self.assertIn(f"paid_booking={booking_id}", mock_checkout.call_args.kwargs["success_url"])
+
+    @patch("apps.corporate.live_checkout.gateway.create_checkout_session")
+    def test_team_live_coverage_cannot_be_bypassed_with_paid_checkout(self, mock_checkout):
+        self._confirmed_booking()
+        with tenant_context(staff=True):
+            plan = Plan.objects.create(
+                code=f"http-live-{uuid.uuid4().hex[:8]}",
+                name="Live team",
+                audience="team",
+                interval="month",
+                live_seat_cap=4,
+                live_seat_cap_effective_at=timezone.now() - timedelta(days=1),
+            )
+            Subscription.objects.create(
+                user=self.admin,
+                org=self.org,
+                plan=plan,
+                currency_id="GBP",
+                status="active",
+                current_period_end=timezone.now() + timedelta(days=20),
+            )
+        booking_id = self._get("/live-bookings").json()[0]["id"]
+        response = self._post(f"/live-bookings/{booking_id}/checkout", {})
+        self.assertEqual(response.status_code, 409, response.content)
+        self.assertEqual(response.json()["error"]["code"], "team_live_included")
+        mock_checkout.assert_not_called()
+
+    def test_team_live_acceptance_endpoint_consumes_and_reports_quota(self):
+        self._confirmed_booking()
+        with tenant_context(staff=True):
+            plan = Plan.objects.create(
+                code=f"http-live-accept-{uuid.uuid4().hex[:8]}",
+                name="Live team",
+                audience="team",
+                interval="month",
+                live_seat_cap=5,
+                live_seat_cap_effective_at=timezone.now() - timedelta(days=1),
+            )
+            Subscription.objects.create(
+                user=self.admin,
+                org=self.org,
+                plan=plan,
+                currency_id="GBP",
+                status="active",
+                current_period_end=timezone.now() + timedelta(days=20),
+            )
+        booking = self._get("/live-bookings").json()[0]
+        self.assertEqual(booking["included_live_seats_remaining"], 5)
+        response = self._post(f"/live-bookings/{booking['id']}/accept-included", {})
+        self.assertEqual(response.status_code, 200, response.content)
+        updated = self._get("/live-bookings").json()[0]
+        self.assertEqual(updated["status"], "included")
+        self.assertEqual(updated["included_live_seats_remaining"], 2)
+
+    @patch("apps.corporate.live_checkout.gateway.create_checkout_session")
+    def test_offer_created_before_team_cap_keeps_one_time_checkout(self, mock_checkout):
+        old_cohort = self._confirmed_booking()
+        with tenant_context(staff=True):
+            old_booking = CohortCompany.objects.get(cohort=old_cohort, org=self.org)
+            CohortCompany.objects.filter(pk=old_booking.pk).update(
+                created_at=timezone.now() - timedelta(days=2)
+            )
+            plan = Plan.objects.create(
+                code=f"http-live-future-{uuid.uuid4().hex[:8]}",
+                name="Live team",
+                audience="team",
+                interval="month",
+                live_seat_cap=5,
+                live_seat_cap_effective_at=timezone.now() - timedelta(hours=1),
+            )
+            Subscription.objects.create(
+                user=self.admin,
+                org=self.org,
+                plan=plan,
+                currency_id="GBP",
+                status="active",
+                current_period_end=timezone.now() + timedelta(days=20),
+            )
+        new_cohort = self._confirmed_booking()
+        bookings = self._get("/live-bookings").json()
+        old_offer = next(b for b in bookings if b["cohort_id"] == str(old_cohort.id))
+        new_offer = next(b for b in bookings if b["cohort_id"] == str(new_cohort.id))
+        self.assertIsNone(old_offer["included_live_seats_remaining"])
+        self.assertEqual(new_offer["included_live_seats_remaining"], 5)
+        mock_checkout.return_value = {"id": "cs_old_offer", "url": "https://checkout.stripe.com/test"}
+        response = self._post(f"/live-bookings/{old_offer['id']}/checkout", {})
+        self.assertEqual(response.status_code, 200, response.content)
+        mock_checkout.assert_called_once()
 
     def test_dashboard_does_not_count_live_places_as_recorded_seats(self):
         with tenant_context(staff=True):

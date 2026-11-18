@@ -512,7 +512,7 @@ def accept(request, token: str):
 def _library(org_id):
     """Courses this company can assign: its own, the platform library, and marketplace
     courses included in business plans when the company has one."""
-    business = has_feature("business", org_id=org_id)
+    business = has_feature("business", org_id=org_id, exclude_source="subscription")
     rule = Q(owner_org_id=org_id) | Q(owner_org_id__isnull=True, ownership="platform")
     if business:
         rule |= Q(owner_org_id__isnull=True, in_business=True)

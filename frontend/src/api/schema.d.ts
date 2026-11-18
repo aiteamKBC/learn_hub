@@ -1832,6 +1832,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/commerce/instalments/offer/{course_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Offer */
+        get: operations["apps_commerce_instalment_api_offer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/instalments/courses/{course_id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start */
+        post: operations["apps_commerce_instalment_api_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/instalments/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mine */
+        get: operations["apps_commerce_instalment_api_mine"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/instalments/{purchase_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel */
+        post: operations["apps_commerce_instalment_api_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/instalments/{purchase_id}/payoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Payoff */
+        post: operations["apps_commerce_instalment_api_payoff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/instalments/{purchase_id}/instalments/{instalment_id}/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pay */
+        post: operations["apps_commerce_instalment_api_pay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/payouts/me": {
         parameters: {
             query?: never;
@@ -2391,6 +2493,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/corporate/purchases/{purchase_id}/stage-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Staged Purchase Summary */
+        get: operations["apps_corporate_api_staged_purchase_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/corporate/quotes": {
         parameters: {
             query?: never;
@@ -2488,6 +2607,23 @@ export interface paths {
         put?: never;
         /** Live Checkout */
         post: operations["apps_corporate_api_live_checkout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/live-bookings/{cc_id}/accept-included": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept Included Live Booking */
+        post: operations["apps_corporate_api_accept_included_live_booking"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4749,6 +4885,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/corporate/stage-instalment-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Stage Plan */
+        post: operations["apps_platform_console_corporate_agreements_create_stage_plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/corporate/purchases/{purchase_id}/plan": {
         parameters: {
             query?: never;
@@ -4758,6 +4911,23 @@ export interface paths {
         };
         /** Get Plan */
         get: operations["apps_platform_console_corporate_agreements_get_plan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/purchases/{purchase_id}/stage-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Stage Plan */
+        get: operations["apps_platform_console_corporate_agreements_get_stage_plan"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4777,6 +4947,23 @@ export interface paths {
         put?: never;
         /** Send Instalment */
         post: operations["apps_platform_console_corporate_agreements_send_instalment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/stage-instalments/{instalment_id}/request-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Stage Instalment Payment */
+        post: operations["apps_platform_console_corporate_agreements_request_stage_instalment_payment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5732,6 +5919,75 @@ export interface paths {
         put?: never;
         /** Reorder Categories */
         post: operations["apps_platform_console_courses_reorder_categories"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/courses/{course_id}/instalments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Course Instalments */
+        get: operations["apps_platform_console_course_instalments_course_instalments"];
+        /** Save Course Instalments */
+        put: operations["apps_platform_console_course_instalments_save_course_instalments"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/courses/{course_id}/instalments/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Course Instalment Content */
+        get: operations["apps_platform_console_course_instalments_course_instalment_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/courses/{course_id}/instalments/learners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Course Instalment Learners */
+        get: operations["apps_platform_console_course_instalments_course_instalment_learners"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/courses/{course_id}/instalments/learners/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Learner Eligibility */
+        put: operations["apps_platform_console_course_instalments_set_learner_eligibility"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -8834,6 +9090,8 @@ export interface components {
              * @default false
              */
             locked: boolean;
+            /** Locked Reason */
+            locked_reason?: string | null;
             /** Prerequisite Key */
             prerequisite_key?: string | null;
             /** Prerequisite Title */
@@ -10509,6 +10767,131 @@ export interface components {
             /** Customer Email */
             customer_email?: string | null;
         };
+        /** InstalmentOfferOut */
+        InstalmentOfferOut: {
+            /** Enabled */
+            enabled: boolean;
+            /** Currency */
+            currency: string;
+            /** Exponent */
+            exponent: number;
+            /** Total Minor */
+            total_minor: number;
+            /** Instalment Count */
+            instalment_count: number;
+            /** Schedule Start */
+            schedule_start: string;
+            /** Early Release */
+            early_release: string;
+            /** Existing Learner Allowed */
+            existing_learner_allowed: boolean;
+            /** Stages */
+            stages: components["schemas"]["InstalmentStageOut"][];
+            /** Payments */
+            payments: components["schemas"]["InstalmentOfferPaymentOut"][];
+        };
+        /** InstalmentOfferPaymentOut */
+        InstalmentOfferPaymentOut: {
+            /** Number */
+            number: number;
+            /** Due At */
+            due_at: string;
+            /** Amount Minor */
+            amount_minor: number;
+        };
+        /** InstalmentStageOut */
+        InstalmentStageOut: {
+            /** Title */
+            title: string;
+            /** Position */
+            position: number;
+            /** Release Month */
+            release_month: number;
+        };
+        /** InstalmentCheckoutOut */
+        InstalmentCheckoutOut: {
+            /**
+             * Purchase Id
+             * Format: uuid
+             */
+            purchase_id: string;
+            /** Status */
+            status: string;
+            /** Existing */
+            existing: boolean;
+        };
+        /** InstalmentPaymentOut */
+        InstalmentPaymentOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Status */
+            status: string;
+            /** Currency */
+            currency: string;
+            /** Currency Exponent */
+            currency_exponent: number;
+            /** Total Minor */
+            total_minor: number;
+            /** Paid Minor */
+            paid_minor: number;
+            /** Remaining Minor */
+            remaining_minor: number;
+            /** Cancelled */
+            cancelled: boolean;
+            /** Payoff Requested At */
+            payoff_requested_at: string | null;
+            /** Instalments */
+            instalments: components["schemas"]["InstalmentRowOut"][];
+        };
+        /** InstalmentRowOut */
+        InstalmentRowOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Number */
+            number: number;
+            /** Due At */
+            due_at: string;
+            /** Amount Minor */
+            amount_minor: number;
+            /** Status */
+            status: string;
+            /** Retry At */
+            retry_at: string | null;
+            /** Manual Payment Requested At */
+            manual_payment_requested_at: string | null;
+        };
+        /** InstalmentCancelOut */
+        InstalmentCancelOut: {
+            /** Ok */
+            ok: boolean;
+        };
+        /** InstalmentActionOut */
+        InstalmentActionOut: {
+            /**
+             * Purchase Id
+             * Format: uuid
+             */
+            purchase_id: string;
+            /** Status */
+            status: string;
+            /** Remaining Minor */
+            remaining_minor?: number | null;
+            /** Instalment Id */
+            instalment_id?: string | null;
+        };
         /** PayoutsBalanceOut */
         PayoutsBalanceOut: {
             /** Available */
@@ -11213,6 +11596,83 @@ export interface components {
             paid_at?: string | null;
             /** Created At */
             created_at: string;
+            /**
+             * Stage Access Enabled
+             * @default false
+             */
+            stage_access_enabled: boolean;
+        };
+        /** CorporateEmployeeStageOut */
+        CorporateEmployeeStageOut: {
+            /** Stage Id */
+            stage_id: string;
+            /** Title */
+            title: string;
+            /** Completed Lessons */
+            completed_lessons: number;
+            /** Total Lessons */
+            total_lessons: number;
+        };
+        /** CorporateEmployeeStageProgressOut */
+        CorporateEmployeeStageProgressOut: {
+            /** User Id */
+            user_id: string;
+            /** Name */
+            name: string;
+            /** Stages */
+            stages: components["schemas"]["CorporateEmployeeStageOut"][];
+        };
+        /** CorporateStageInstalmentOut */
+        CorporateStageInstalmentOut: {
+            /** Id */
+            id: string;
+            /** Sequence */
+            sequence: number;
+            /** Amount Minor */
+            amount_minor: number;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Status */
+            status: string;
+            /** Paid At */
+            paid_at?: string | null;
+            /** Payment Requested At */
+            payment_requested_at?: string | null;
+            /** Stages */
+            stages: components["schemas"]["CorporateStageOut"][];
+        };
+        /** CorporateStageOut */
+        CorporateStageOut: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Sequence */
+            sequence: number;
+            /** Lecture Count */
+            lecture_count: number;
+            /** Lectures */
+            lectures: string[];
+        };
+        /** CorporateStagePlanOut */
+        CorporateStagePlanOut: {
+            /** Purchase Id */
+            purchase_id: string;
+            /** Total Minor */
+            total_minor: number;
+            /** Paid Minor */
+            paid_minor: number;
+            /** Outstanding Minor */
+            outstanding_minor: number;
+            /** Currency */
+            currency: string;
+            /** Instalments */
+            instalments: components["schemas"]["CorporateStageInstalmentOut"][];
+            /** Employees */
+            employees: components["schemas"]["CorporateEmployeeStageProgressOut"][];
         };
         /** CorporateQuoteItemOut */
         CorporateQuoteItemOut: {
@@ -11385,6 +11845,8 @@ export interface components {
              * @default 0
              */
             attendee_count: number;
+            /** Included Live Seats Remaining */
+            included_live_seats_remaining?: number | null;
         };
         /** CompanyDashboardOut */
         CompanyDashboardOut: {
@@ -14620,6 +15082,49 @@ export interface components {
             /** Schedule */
             schedule: components["schemas"]["ConsoleInstalmentIn"][];
         };
+        /** ConsolePurchaseStageIn */
+        ConsolePurchaseStageIn: {
+            /** Title */
+            title: string;
+            /** Lecture Keys */
+            lecture_keys: string[];
+        };
+        /** ConsoleStageInstalmentIn */
+        ConsoleStageInstalmentIn: {
+            /** Amount Minor */
+            amount_minor: number;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Stages */
+            stages: components["schemas"]["ConsolePurchaseStageIn"][];
+        };
+        /** ConsoleStagePlanIn */
+        ConsoleStagePlanIn: {
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /**
+             * Offering Id
+             * Format: uuid
+             */
+            offering_id: string;
+            /**
+             * Buyer Id
+             * Format: uuid
+             */
+            buyer_id: string;
+            /** Quantity */
+            quantity: number;
+            /** Unit Price Minor */
+            unit_price_minor: number;
+            /** Schedule */
+            schedule: components["schemas"]["ConsoleStageInstalmentIn"][];
+        };
         /** ConsoleInstalmentOut */
         ConsoleInstalmentOut: {
             /**
@@ -14697,6 +15202,77 @@ export interface components {
             entitlement_status: string;
             /** Entitlement Paid Through */
             entitlement_paid_through?: string | null;
+        };
+        /** ConsoleStageInstalmentOut */
+        ConsoleStageInstalmentOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Sequence */
+            sequence: number;
+            /** Amount Minor */
+            amount_minor: number;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Status */
+            status: string;
+            /** Paid At */
+            paid_at?: string | null;
+            /** Payment Requested At */
+            payment_requested_at?: string | null;
+            /** Stages */
+            stages: components["schemas"]["ConsoleStageOut"][];
+        };
+        /** ConsoleStageOut */
+        ConsoleStageOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Sequence */
+            sequence: number;
+            /** Lecture Count */
+            lecture_count: number;
+            /** Lectures */
+            lectures: string[];
+        };
+        /** ConsoleStagedPlanOut */
+        ConsoleStagedPlanOut: {
+            /**
+             * Purchase Id
+             * Format: uuid
+             */
+            purchase_id: string;
+            /** Total Minor */
+            total_minor: number;
+            /** Paid Minor */
+            paid_minor: number;
+            /** Outstanding Minor */
+            outstanding_minor: number;
+            /** Currency */
+            currency: string;
+            /** Instalments */
+            instalments: components["schemas"]["ConsoleStageInstalmentOut"][];
+        };
+        /** ConsoleStagePaymentRequestOut */
+        ConsoleStagePaymentRequestOut: {
+            /** Ok */
+            ok: boolean;
+            /** Status */
+            status: string;
+            /**
+             * Payment Requested At
+             * Format: date-time
+             */
+            payment_requested_at: string;
         };
         /** ConsoleCoverOut */
         ConsoleCoverOut: {
@@ -15298,10 +15874,32 @@ export interface components {
             /** Access Months */
             access_months?: number | null;
             /**
+             * Instalments Enabled
+             * @default false
+             */
+            instalments_enabled: boolean;
+            /**
+             * Stages
+             * @default []
+             */
+            stages: components["schemas"]["ConsoleOfferingStageOut"][];
+            /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ConsoleOfferingStageOut */
+        ConsoleOfferingStageOut: {
+            /**
+             * Lecture Key
+             * Format: uuid
+             */
+            lecture_key: string;
+            /** Title */
+            title: string;
+            /** Position */
+            position: number;
         };
         /** ConsoleOfferingIn */
         ConsoleOfferingIn: {
@@ -15347,6 +15945,8 @@ export interface components {
             description?: string | null;
             /** Access Months */
             access_months?: number | null;
+            /** Instalments Enabled */
+            instalments_enabled?: boolean | null;
         };
         /** ConsoleSeatPurchaseOut */
         ConsoleSeatPurchaseOut: {
@@ -15400,6 +16000,11 @@ export interface components {
             agreement_months?: number | null;
             /** Programme Months */
             programme_months?: number | null;
+            /**
+             * Stage Access Enabled
+             * @default false
+             */
+            stage_access_enabled: boolean;
         };
         /** ConsoleSeatAllocationOut */
         ConsoleSeatAllocationOut: {
@@ -16020,6 +16625,119 @@ export interface components {
         ConsoleCategoryOrderIn: {
             /** Ids */
             ids: string[];
+        };
+        /** ConsoleB2CCoursePlanOut */
+        ConsoleB2CCoursePlanOut: {
+            /** Enabled */
+            enabled: boolean;
+            /** Currency */
+            currency?: string | null;
+            /** Total Minor */
+            total_minor?: number | null;
+            /** Instalment Count */
+            instalment_count?: number | null;
+            /** Schedule Start */
+            schedule_start?: string | null;
+            /** Early Release */
+            early_release?: string | null;
+            /** Retry Count */
+            retry_count?: number | null;
+            /** Retry Interval Days */
+            retry_interval_days?: number | null;
+            /** Stages */
+            stages: components["schemas"]["ConsoleB2CStageOut"][];
+        };
+        /** ConsoleB2CStageOut */
+        ConsoleB2CStageOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Position */
+            position: number;
+            /** Release Month */
+            release_month: number;
+            /** Lecture Keys */
+            lecture_keys: string[];
+            /** Instalment Numbers */
+            instalment_numbers: number[];
+        };
+        /** ConsoleB2CCoursePlanIn */
+        ConsoleB2CCoursePlanIn: {
+            /** Enabled */
+            enabled: boolean;
+            /** Currency */
+            currency: string;
+            /** Total Minor */
+            total_minor: number;
+            /** Instalment Count */
+            instalment_count: number;
+            /**
+             * Schedule Start
+             * Format: date
+             */
+            schedule_start: string;
+            /** Early Release */
+            early_release: string;
+            /** Retry Count */
+            retry_count?: number | null;
+            /** Retry Interval Days */
+            retry_interval_days?: number | null;
+            /** Stages */
+            stages: components["schemas"]["ConsoleB2CStageIn"][];
+        };
+        /** ConsoleB2CStageIn */
+        ConsoleB2CStageIn: {
+            /** Title */
+            title: string;
+            /** Release Month */
+            release_month: number;
+            /** Lecture Keys */
+            lecture_keys: string[];
+            /** Instalment Numbers */
+            instalment_numbers: number[];
+        };
+        /** ConsoleB2CLectureOut */
+        ConsoleB2CLectureOut: {
+            /**
+             * Lecture Key
+             * Format: uuid
+             */
+            lecture_key: string;
+            /** Title */
+            title: string;
+            /** Section */
+            section: string;
+            /** Kind */
+            kind: string;
+            /** Position */
+            position: number;
+        };
+        /** ConsoleB2CLearnerOut */
+        ConsoleB2CLearnerOut: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Full Name */
+            full_name: string;
+            /** Email */
+            email: string;
+            /** Eligible */
+            eligible: boolean;
+            /** Schedule Start */
+            schedule_start: string | null;
+        };
+        /** ConsoleB2CLearnerEligibilityIn */
+        ConsoleB2CLearnerEligibilityIn: {
+            /** Enabled */
+            enabled: boolean;
+            /** Schedule Start */
+            schedule_start?: string | null;
         };
         /** ConsoleApprovalCountsOut */
         ConsoleApprovalCountsOut: {
@@ -18335,6 +19053,8 @@ export interface components {
             trial_days: number;
             /** Min Seats */
             min_seats: number;
+            /** Live Seat Cap */
+            live_seat_cap: number | null;
             /** Renewal */
             renewal: string;
             /** Is Active */
@@ -18397,6 +19117,8 @@ export interface components {
              * @default 1
              */
             min_seats: number;
+            /** Live Seat Cap */
+            live_seat_cap?: number | null;
             /**
              * Renewal
              * @default automatic
@@ -18434,6 +19156,8 @@ export interface components {
             trial_days?: number | null;
             /** Min Seats */
             min_seats?: number | null;
+            /** Live Seat Cap */
+            live_seat_cap?: number | null;
             /** Renewal */
             renewal?: string | null;
         };
@@ -21762,6 +22486,137 @@ export interface operations {
             };
         };
     };
+    apps_commerce_instalment_api_offer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstalmentOfferOut"];
+                };
+            };
+        };
+    };
+    apps_commerce_instalment_api_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstalmentCheckoutOut"];
+                };
+            };
+        };
+    };
+    apps_commerce_instalment_api_mine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstalmentPaymentOut"][];
+                };
+            };
+        };
+    };
+    apps_commerce_instalment_api_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                purchase_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstalmentCancelOut"];
+                };
+            };
+        };
+    };
+    apps_commerce_instalment_api_payoff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                purchase_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstalmentActionOut"];
+                };
+            };
+        };
+    };
+    apps_commerce_instalment_api_pay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                purchase_id: string;
+                instalment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstalmentActionOut"];
+                };
+            };
+        };
+    };
     apps_payouts_api_my_payouts: {
         parameters: {
             query?: never;
@@ -22593,6 +23448,28 @@ export interface operations {
             };
         };
     };
+    apps_corporate_api_staged_purchase_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                purchase_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorporateStagePlanOut"];
+                };
+            };
+        };
+    };
     apps_corporate_api_list_quotes: {
         parameters: {
             query?: never;
@@ -22737,6 +23614,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CorporateCheckoutOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_accept_included_live_booking: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorporateOkOut"];
                 };
             };
         };
@@ -26125,6 +27024,30 @@ export interface operations {
             };
         };
     };
+    apps_platform_console_corporate_agreements_create_stage_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleStagePlanIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleInstalmentPlanCreatedOut"];
+                };
+            };
+        };
+    };
     apps_platform_console_corporate_agreements_get_plan: {
         parameters: {
             query?: never;
@@ -26147,6 +27070,28 @@ export interface operations {
             };
         };
     };
+    apps_platform_console_corporate_agreements_get_stage_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                purchase_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleStagedPlanOut"];
+                };
+            };
+        };
+    };
     apps_platform_console_corporate_agreements_send_instalment: {
         parameters: {
             query?: never;
@@ -26165,6 +27110,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_agreements_request_stage_instalment_payment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instalment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleStagePaymentRequestOut"];
                 };
             };
         };
@@ -27731,6 +28698,127 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ConsoleCategoryOrderIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_course_instalments_course_instalments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleB2CCoursePlanOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_course_instalments_save_course_instalments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleB2CCoursePlanIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleB2CCoursePlanOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_course_instalments_course_instalment_content: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleB2CLectureOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_course_instalments_course_instalment_learners: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleB2CLearnerOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_course_instalments_set_learner_eligibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleB2CLearnerEligibilityIn"];
             };
         };
         responses: {

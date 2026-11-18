@@ -38,6 +38,13 @@ export function usePurchases(poll = false, purchaseId?: string | null) {
     refetchInterval: (q) => (poll && q.state.data?.some((p) => p.status === 'pending' && (!purchaseId || p.id === purchaseId)) ? 4000 : false),
   })
 }
+export function useStagePlan(purchaseId?: string, enabled = true) {
+  return useQuery({
+    queryKey: key('stage-plan', purchaseId),
+    queryFn: () => unwrap(api.GET('/api/v1/corporate/purchases/{purchase_id}/stage-plan', { params: { path: { purchase_id: purchaseId! } } })),
+    enabled: !!purchaseId && enabled,
+  })
+}
 export function useQuotes(enabled = true) {
   return useQuery({ queryKey: key('quotes'), queryFn: () => unwrap(api.GET('/api/v1/corporate/quotes')), enabled })
 }
@@ -107,6 +114,14 @@ export function useLiveCheckout() {
   return useMutation({
     mutationFn: (ccId: string) => unwrap(api.POST('/api/v1/corporate/live-bookings/{cc_id}/checkout', { params: { path: { cc_id: ccId } } })),
     // a passed deadline closes the booking on the server: show that, not a stale offer
+    onSettled: () => qc.invalidateQueries({ queryKey: key('bookings') }),
+  })
+}
+
+export function useAcceptIncludedLiveBooking() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (ccId: string) => unwrap(api.POST('/api/v1/corporate/live-bookings/{cc_id}/accept-included', { params: { path: { cc_id: ccId } } })),
     onSettled: () => qc.invalidateQueries({ queryKey: key('bookings') }),
   })
 }
@@ -181,6 +196,7 @@ export const MODE_LABEL: Record<string, string> = { online: 'Online', in_person:
 
 export const PURCHASE_STATUS: Record<string, { label: string; tone: 'success' | 'warning' | 'danger' | 'neutral' | 'info' }> = {
   pending: { label: 'Waiting for payment', tone: 'warning' },
+  partial_paid: { label: 'Partly paid', tone: 'info' },
   paid: { label: 'Paid', tone: 'success' },
   refunded: { label: 'Refunded', tone: 'neutral' },
   partial: { label: 'Partly refunded', tone: 'info' },
@@ -193,6 +209,7 @@ export const BOOKING_STATUS: Record<string, { label: string; tone: 'success' | '
   interested: { label: 'Scheduling', tone: 'info' },
   offered: { label: 'Payment required', tone: 'warning' },
   pending_pay: { label: 'Payment in progress', tone: 'warning' },
+  included: { label: 'Included in Team plan', tone: 'success' },
   paid: { label: 'Paid', tone: 'success' },
   active: { label: 'In training', tone: 'primary' },
   completed: { label: 'Completed', tone: 'success' },

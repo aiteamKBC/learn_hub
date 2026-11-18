@@ -17,6 +17,7 @@ import {
   REQUEST_STATUS,
   type TrainingRequest,
   useAddAttendee,
+  useAcceptIncludedLiveBooking,
   useAttendees,
   useBookingSchedule,
   useCancelTrainingRequest,
@@ -34,9 +35,9 @@ import { relativeDate, shortDate } from '@/lib/format'
 import { Link } from '@/lib/router'
 
 const PAYABLE = ['offered', 'pending_pay']
-const NAMEABLE = ['paid', 'active']
+const NAMEABLE = ['included', 'paid', 'active']
 const LOCKED_COHORT = ['in_progress', 'completed', 'cancelled']
-const CHANGEABLE = ['offered', 'pending_pay', 'paid', 'active'] // what the server accepts requests for
+const CHANGEABLE = ['offered', 'pending_pay', 'included', 'paid', 'active'] // what the server accepts requests for
 
 /** Ask to move or cancel this booking (admins). Requests already sent for it are shown
  * with their status and a link to all requests; the same kind cannot be sent twice. */
@@ -206,7 +207,7 @@ function Attendees({ b, admin }: { b: LiveBooking; admin: boolean }) {
         </span>
       </div>
       <Progress value={b.approved_seats ? (taken / b.approved_seats) * 100 : 0} label={`${taken} of ${b.approved_seats} places named`} />
-      {!NAMEABLE.includes(b.status) ? <p className="text-sm text-muted">You can name your people once the booking is paid.</p> : null}
+      {!NAMEABLE.includes(b.status) ? <p className="text-sm text-muted">You can name your people once the places are included or paid.</p> : null}
       <QueryBlock query={q} rows={2}>
         {(rows) =>
           rows.length ? (
@@ -266,6 +267,27 @@ function Attendees({ b, admin }: { b: LiveBooking; admin: boolean }) {
 
 function PayButton({ b }: { b: LiveBooking }) {
   const pay = useLiveCheckout()
+  const included = useAcceptIncludedLiveBooking()
+  const hasTeamCap = b.included_live_seats_remaining != null
+  const canUseIncluded = hasTeamCap && b.included_live_seats_remaining! >= b.approved_seats
+  if (hasTeamCap) {
+    return (
+      <div className="grid gap-2">
+        <p className="text-sm text-muted">
+          {canUseIncluded
+            ? `${b.included_live_seats_remaining} included Live ${b.included_live_seats_remaining === 1 ? 'seat' : 'seats'} remain this billing period.`
+            : `This booking needs ${b.approved_seats} seats; ${b.included_live_seats_remaining} included seats remain. More seats are available after renewal.`}
+        </p>
+        <Button
+          disabled={!canUseIncluded}
+          loading={included.isPending}
+          onClick={() => included.mutate(b.id, { onSuccess: () => toast.success('Included Live places accepted.'), onError: (e) => toast.error((e as Error).message) })}
+        >
+          <CheckCircle2 /> Accept included places
+        </Button>
+      </div>
+    )
+  }
   return (
     <Button
       loading={pay.isPending}

@@ -1,4 +1,4 @@
-import { Award, Bell, Building2, ChevronRight, ClipboardCheck, KeyRound, LifeBuoy, ReceiptText, Trophy, User } from 'lucide-react'
+import { Award, Bell, Building2, ChevronRight, ClipboardCheck, CreditCard, KeyRound, LifeBuoy, ReceiptText, Trophy, User } from 'lucide-react'
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -27,6 +27,7 @@ const shortcuts = [
   { to: '/learn/achievements', label: 'Achievements', Icon: Trophy },
   { to: '/notifications', label: 'Notifications', Icon: Bell },
   { to: '/account/orders', label: 'Purchase history', Icon: ReceiptText },
+  { to: '/account/instalments', label: 'Course instalments', Icon: CreditCard },
   { to: '/support', label: 'Help & support', Icon: LifeBuoy },
 ]
 

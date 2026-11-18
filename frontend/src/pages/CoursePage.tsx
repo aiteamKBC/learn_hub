@@ -15,7 +15,7 @@ import { ErrorState, Rating } from '@/components/ui/misc'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCategories, useCourse, usePreview, useReviews } from '@/features/catalog/api'
-import { useAddToCart, useCheckout, usePlanEnroll } from '@/features/commerce/api'
+import { useAddToCart, useCheckout, useCourseInstalmentOffer, usePlanEnroll, useStartCourseInstalments } from '@/features/commerce/api'
 import { WishlistHeart } from '@/features/commerce/WishlistHeart'
 import { useAccess } from '@/features/b2c/api'
 import { UnlockButton } from '@/features/b2c/UnlockButton'
@@ -25,7 +25,7 @@ import { ReportButton } from '@/features/engagement/ReportButton'
 import { useMe } from '@/features/identity/auth'
 import { cn } from '@/lib/cn'
 import { useCurrency } from '@/lib/currency'
-import { count, duration, relativeDate, shortDate } from '@/lib/format'
+import { count, duration, money, relativeDate, shortDate } from '@/lib/format'
 import { Link, useNavigate } from '@/lib/router'
 
 const kindIcon: Record<string, LucideIcon> = { video: PlayCircle, article: FileText, quiz: HelpCircle, assignment: ListChecks, live_session: Radio, external_link: Globe }
@@ -232,6 +232,8 @@ function BuyBox({ course, onPreview }: { course: Detail; onPreview?: () => void 
   const addToCart = useAddToCart()
   const checkout = useCheckout()
   const planEnroll = usePlanEnroll()
+  const instalmentOffer = useCourseInstalmentOffer(course.id, !!me)
+  const startInstalments = useStartCourseInstalments()
   const free = !!course.price?.free
   // Resolver is the authority: if the person already has access (token unlock, package,
   // subscription, legacy purchase) we must not show a purchase prompt. Only ask the server
@@ -258,6 +260,13 @@ function BuyBox({ course, onPreview }: { course: Detail; onPreview?: () => void 
         onError: fail,
       },
     )
+  const beginInstalments = () => {
+    if (!me) return needLogin()
+    startInstalments.mutate(course.id, {
+      onSuccess: () => navigate('/account/instalments'),
+      onError: fail,
+    })
+  }
 
   return (
     <Card className="overflow-hidden shadow-lg">
@@ -350,6 +359,21 @@ function BuyBox({ course, onPreview }: { course: Detail; onPreview?: () => void 
         ) : (
           <p className="text-sm text-muted">This course is not sold on its own.</p>
         )}
+        {instalmentOffer.data?.enabled && (!alreadyHasAccess || instalmentOffer.data.existing_learner_allowed) && (!v.enrollment_id || instalmentOffer.data.existing_learner_allowed) ? (
+          <div className="mt-4 rounded-lg border border-border bg-surface-2/60 p-4">
+            <p className="font-semibold">Pay in fixed monthly instalments</p>
+            <p className="mt-1 text-sm text-muted">{instalmentOffer.data.instalment_count} payments totalling {money(instalmentOffer.data.total_minor, instalmentOffer.data.currency, instalmentOffer.data.exponent)}. This is a fixed course purchase, not a subscription.</p>
+            <ol className="mt-3 grid gap-1 text-xs text-muted">
+              {instalmentOffer.data.payments.map((payment) => (
+                <li key={payment.number} className="flex justify-between gap-3"><span>Payment {payment.number} · {shortDate(payment.due_at)}</span><span className="tabular">{money(payment.amount_minor, instalmentOffer.data.currency, instalmentOffer.data.exponent)}</span></li>
+              ))}
+            </ol>
+            <Button size="lg" variant="secondary" className="mt-3 w-full" loading={startInstalments.isPending} onClick={beginInstalments}>
+              Start fixed instalment plan
+            </Button>
+            <p className="mt-2 text-xs text-muted">Payments are not collected here yet. Paid stages become available after payment is confirmed.</p>
+          </div>
+        ) : null}
         <ul className="mt-5 grid gap-2.5 border-t border-border pt-5 text-sm">
           {[
             [PlayCircle, `${duration(course.total_duration_sec)} of content`],

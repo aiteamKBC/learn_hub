@@ -18,6 +18,7 @@ from . import (  # noqa: F401 - each module adds its routes to the shared router
     corporate_live,
     corporate_packages,
     corporate_reports,
+    course_instalments,
     courses,
     dashboard,
     moderation,

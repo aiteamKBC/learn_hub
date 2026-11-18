@@ -1,7 +1,7 @@
 /** Company agreements: seat inventory, agreed programme length, instalment plans (staff),
  * purchase files (staff and company owners/admins) and the employee's own programmes.
- * Payment is only ever confirmed by Stripe's signed webhook on the server; nothing here
- * marks anything paid. */
+ * Staged payment requests are recorded locally; only the provider-neutral settlement
+ * service marks them paid. Legacy agreement billing remains on its existing payment path. */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api, unwrap } from '@/api/client'
@@ -14,6 +14,8 @@ export type CnInventorySeat = S['ConsoleInventorySeatOut']
 export type CnPlan = S['ConsoleInstalmentPlanOut']
 export type CnInstalment = S['ConsoleInstalmentOut']
 export type CnPlanIn = S['ConsoleInstalmentPlanIn']
+export type CnStagePlan = S['ConsoleStagedPlanOut']
+export type CnStagePlanIn = S['ConsoleStagePlanIn']
 export type FileRow = S['ConsoleAttachmentOut'] | S['CorporateAttachmentOut']
 export type MyProgramme = S['MyProgrammeOut']
 type UploadTicket = { attachment_id: string; upload_url: string; method: string; headers: Record<string, string> }
@@ -37,6 +39,7 @@ export const PROGRAMME: Record<string, { label: string; tone: Tone }> = {
 }
 export const INSTALMENT: Record<string, { label: string; tone: Tone }> = {
   pending: { label: 'Not sent', tone: 'neutral' },
+  requested: { label: 'Payment requested', tone: 'info' },
   sent: { label: 'Invoice sent', tone: 'info' },
   paid: { label: 'Paid', tone: 'success' },
   failed: { label: 'Payment failed', tone: 'danger' },
@@ -84,18 +87,36 @@ export function useCnPlan(purchaseId?: string) {
     queryFn: () => unwrap(api.GET('/api/v1/console/corporate/purchases/{purchase_id}/plan', { params: { path: { purchase_id: purchaseId! } } })),
   })
 }
+export function useCnStagePlan(purchaseId?: string) {
+  return useQuery({
+    queryKey: cn('stage-plan', purchaseId),
+    enabled: Boolean(purchaseId),
+    queryFn: () => unwrap(api.GET('/api/v1/console/corporate/purchases/{purchase_id}/stage-plan', { params: { path: { purchase_id: purchaseId! } } })),
+  })
+}
 function usePlanChange() {
   const qc = useQueryClient()
-  return () => Promise.all(['plan', 'purchases', 'inventory'].map((g) => qc.invalidateQueries({ queryKey: cn(g) })))
+  return () => Promise.all(['plan', 'stage-plan', 'purchases', 'inventory'].map((g) => qc.invalidateQueries({ queryKey: cn(g) })))
 }
 export function useCnCreatePlan() {
   const done = usePlanChange()
   return useMutation({ mutationFn: (body: CnPlanIn) => unwrap(api.POST('/api/v1/console/corporate/instalment-plans', { body })), onSuccess: done })
 }
+export function useCnCreateStagePlan() {
+  const done = usePlanChange()
+  return useMutation({ mutationFn: (body: CnStagePlanIn) => unwrap(api.POST('/api/v1/console/corporate/stage-instalment-plans', { body })), onSuccess: done })
+}
 export function useCnSendInstalment() {
   const done = usePlanChange()
   return useMutation({
     mutationFn: (id: string) => unwrap(api.POST('/api/v1/console/corporate/instalments/{instalment_id}/send', { params: { path: { instalment_id: id } } })),
+    onSuccess: done,
+  })
+}
+export function useCnRequestStagePayment() {
+  const done = usePlanChange()
+  return useMutation({
+    mutationFn: (id: string) => unwrap(api.POST('/api/v1/console/corporate/stage-instalments/{instalment_id}/request-payment', { params: { path: { instalment_id: id } } })),
     onSuccess: done,
   })
 }

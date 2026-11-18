@@ -17,7 +17,7 @@ from core.errors import ServiceError
 from .models import CancellationRequest, CohortCompany, LiveAttendee, LiveCohort, SeatPurchase
 
 OPEN = (CancellationRequest.Status.SUBMITTED, CancellationRequest.Status.UNDER_REVIEW)
-REFUNDABLE_BOOKINGS = ("offered", "pending_pay", "paid", "active")
+REFUNDABLE_BOOKINGS = ("offered", "pending_pay", "included", "paid", "active")
 
 
 def _check_target(org_id, type, seat_purchase_id, cohort_company_id) -> None:
@@ -93,6 +93,28 @@ def review_cancellation(request, cancellation_id, *, approve: bool, admin_notes=
             status=400,
         )
 
+    if approve and cr.type == CancellationRequest.Type.COHORT_CANCEL and cr.cohort_company_id:
+        cc = (
+            CohortCompany.objects.select_for_update()
+            .select_related("cohort")
+            .filter(pk=cr.cohort_company_id)
+            .first()
+        )
+        if cc and cc.status == CohortCompany.Status.INCLUDED:
+            cc.status = CohortCompany.Status.CANCELLED
+            cc.included_seats = 0
+            cc.save(update_fields=["status", "included_seats", "updated_at"])
+            LiveAttendee.objects.filter(cohort_company=cc, status=LiveAttendee.Status.ACTIVE).update(
+                status=LiveAttendee.Status.REMOVED, removed_at=timezone.now(), updated_at=timezone.now()
+            )
+            cc.cohort.current_seats = (
+                CohortCompany.objects.filter(cohort=cc.cohort)
+                .exclude(status__in=[CohortCompany.Status.CANCELLED, CohortCompany.Status.WITHDRAWN])
+                .aggregate(total=Sum("approved_seats"))["total"]
+                or 0
+            )
+            cc.cohort.save(update_fields=["current_seats", "updated_at"])
+
     cr.status = CancellationRequest.Status.APPROVED if approve else CancellationRequest.Status.REJECTED
     cr.reviewed_by = request.user
     cr.reviewed_at = timezone.now()
@@ -142,8 +164,15 @@ def process_postponement(
         raise ServiceError("not_found", "The source booking or target cohort was not found.", status=404)
     if target.course_id != source.cohort.course_id:
         raise ServiceError("wrong_course", "The replacement cohort must be for the same course.", status=400)
-    if source.status not in (CohortCompany.Status.PAID, CohortCompany.Status.ACTIVE):
-        raise ServiceError("booking_not_paid", "Only paid live places can be postponed.", status=400)
+    included = source.status == CohortCompany.Status.INCLUDED
+    if source.status not in (
+        CohortCompany.Status.INCLUDED,
+        CohortCompany.Status.PAID,
+        CohortCompany.Status.ACTIVE,
+    ):
+        raise ServiceError(
+            "booking_not_paid", "Only included or paid live places can be postponed.", status=400
+        )
     if target.status not in (LiveCohort.Status.FORMING, LiveCohort.Status.CONFIRMED):
         raise ServiceError("cohort_not_open", "The replacement cohort is not accepting places.", status=400)
     if target.id == source.cohort_id:
@@ -161,28 +190,61 @@ def process_postponement(
         raise ServiceError(
             "different_purchase", "The company already has a different purchase in that cohort.", status=409
         )
+    if (
+        target_cc
+        and included
+        and (
+            target_cc.included_subscription_id not in (None, source.included_subscription_id)
+            or target_cc.included_period_end not in (None, source.included_period_end)
+            or target_cc.seat_purchase_id is not None
+        )
+    ):
+        raise ServiceError(
+            "different_purchase", "The company already has a different booking in that cohort.", status=409
+        )
     occupied = target.current_seats
     if occupied + seats > target.max_learners:
         raise ServiceError("cohort_full", "The replacement cohort does not have enough capacity.", status=409)
 
     source.approved_seats -= seats
+    if included:
+        source.included_seats = max(0, source.included_seats - seats)
     if source.approved_seats == 0:
         source.status = CohortCompany.Status.CANCELLED
-    source.save(update_fields=["approved_seats", "status", "updated_at"])
+    source.save(update_fields=["approved_seats", "included_seats", "status", "updated_at"])
 
     if target_cc is None:
         target_cc = CohortCompany.objects.create(
             org_id=source.org_id,
             cohort=target,
             seat_purchase_id=source.seat_purchase_id,
+            included_subscription_id=source.included_subscription_id if included else None,
+            included_period_end=source.included_period_end if included else None,
+            included_seats=seats if included else 0,
             approved_seats=seats,
-            status=CohortCompany.Status.PAID,
+            status=CohortCompany.Status.INCLUDED if included else CohortCompany.Status.PAID,
         )
     else:
         target_cc.approved_seats += seats
         target_cc.seat_purchase_id = target_cc.seat_purchase_id or source.seat_purchase_id
-        target_cc.status = CohortCompany.Status.PAID
-        target_cc.save(update_fields=["approved_seats", "seat_purchase", "status", "updated_at"])
+        if included:
+            target_cc.included_subscription_id = source.included_subscription_id
+            target_cc.included_period_end = source.included_period_end
+            target_cc.included_seats += seats
+            target_cc.status = CohortCompany.Status.INCLUDED
+        else:
+            target_cc.status = CohortCompany.Status.PAID
+        target_cc.save(
+            update_fields=[
+                "approved_seats",
+                "seat_purchase",
+                "included_subscription",
+                "included_period_end",
+                "included_seats",
+                "status",
+                "updated_at",
+            ]
+        )
 
     for cohort in (source.cohort, target):
         cohort.current_seats = (

@@ -20,19 +20,25 @@ import {
   PROGRAMME,
   type CnInstalment,
   type CnPlan,
+  type CnStagePlan,
+  type CnStagePlanIn,
   cnDownload,
   useCnCover,
   useCnCreatePlan,
+  useCnCreateStagePlan,
   useCnDeleteFile,
   useCnFiles,
   useCnInventory,
   useCnPlan,
+  useCnStagePlan,
   useCnSendInstalment,
+  useCnRequestStagePayment,
   useCnSetProgramme,
   useCnUncover,
   useCnUpload,
 } from '@/features/corporate/agreements'
 import { DELIVERY_LABEL } from '@/features/corporate/api'
+import { gbp } from '@/features/corporate/format'
 import { money } from '@/lib/format'
 import { type CnPurchase, useCnOfferings } from '@/features/corporate/console'
 import { FilesPanel } from '@/features/corporate/FilesPanel'
@@ -134,7 +140,11 @@ function CoverDialog({ inst, plan, onClose }: { inst: CnInstalment; plan: CnPlan
   )
 }
 
-function PlanPanel({ purchaseId }: { purchaseId: string }) {
+function PlanPanel({ purchaseId, stageAccess }: { purchaseId: string; stageAccess: boolean }) {
+  return stageAccess ? <StagePlanPanel purchaseId={purchaseId} /> : <LegacyPlanPanel purchaseId={purchaseId} />
+}
+
+function LegacyPlanPanel({ purchaseId }: { purchaseId: string }) {
   const q = useCnPlan(purchaseId)
   const send = useCnSendInstalment()
   const [choosing, setChoosing] = useState<string | null>(null)
@@ -217,6 +227,42 @@ function PlanPanel({ purchaseId }: { purchaseId: string }) {
   )
 }
 
+function StagePlanPanel({ purchaseId }: { purchaseId: string }) {
+  const q = useCnStagePlan(purchaseId)
+  const request = useCnRequestStagePayment()
+  return (
+    <QueryBlock query={q} rows={3}>
+      {(plan: CnStagePlan) => (
+        <div className="grid gap-4">
+          <div className="grid grid-cols-3 gap-2 text-center text-sm">
+            {([['Agreed total', plan.total_minor], ['Paid', plan.paid_minor], ['Still to pay', plan.outstanding_minor]] as const).map(([label, value]) => (
+              <div key={label} className="rounded-lg bg-surface-2 p-2"><p className="text-xs text-muted">{label}</p><p className="font-semibold tabular-nums">{money(value, plan.currency)}</p></div>
+            ))}
+          </div>
+          <ul className="stagger grid gap-2">
+            {plan.instalments.map((item) => (
+              <li key={item.id} className="grid gap-2 rounded-lg border border-border p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium">Instalment {item.sequence} · {money(item.amount_minor, plan.currency)}</span>
+                  <StatusBadge map={INSTALMENT} status={item.status} />
+                </div>
+                <p className="text-xs text-muted">Due {day(item.due_at)}{item.payment_requested_at ? ` · payment requested ${day(item.payment_requested_at)}` : ''}{item.paid_at ? ` · paid ${day(item.paid_at)}` : ''}</p>
+                <ul className="grid gap-1 text-xs text-muted">
+                  {item.stages.map((stage) => <li key={stage.id}><span className="font-medium text-foreground">{stage.sequence}. {stage.title}</span> · {stage.lecture_count} lessons</li>)}
+                </ul>
+                {item.status === 'pending' || item.status === 'failed' ? (
+                  <Button size="sm" variant="ghost" className="justify-self-start" loading={request.isPending && request.variables === item.id} onClick={() => request.mutate(item.id, { onSuccess: () => toast.success('Payment request recorded. Payment integration is pending.'), onError: err })}><Send /> Request payment</Button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted">Payment requests are recorded here; they are not sent or collected in this phase. Confirmed payments open only their mapped stages. Once every instalment is paid, the full course is open.</p>
+        </div>
+      )}
+    </QueryBlock>
+  )
+}
+
 /** Everything about one company agreement, shown in the purchase sheet. */
 export function AgreementSection({ p }: { p: CnPurchase }) {
   const files = useCnFiles(p.id)
@@ -228,7 +274,7 @@ export function AgreementSection({ p }: { p: CnPurchase }) {
         <Wallet className="size-4" /> {PLAN_LABEL[p.payment_plan] ?? p.payment_plan}
       </p>
       <ProgrammeLength p={p} />
-      <PlanPanel purchaseId={p.id} />
+      <PlanPanel purchaseId={p.id} stageAccess={p.stage_access_enabled} />
       <FilesPanel query={files} upload={upload} remove={remove} download={cnDownload} />
     </div>
   )
@@ -326,7 +372,7 @@ export function InstalmentPlanForm({ onClose }: { onClose: () => void }) {
                 <NativeSelect {...f} value={offeringId} onChange={(e) => setOfferingId(e.target.value)} required>
                   <option value="">Choose…</option>
                   {offerings.data
-                    ?.filter((o) => o.is_active && o.delivery_type === 'recorded')
+                    ?.filter((o) => o.is_active && o.delivery_type === 'recorded' && !o.instalments_enabled)
                     .map((o) => (
                       <option key={o.id} value={o.id}>
                         {o.course_title} ({DELIVERY_LABEL[o.delivery_type]})
@@ -376,6 +422,97 @@ export function InstalmentPlanForm({ onClose }: { onClose: () => void }) {
               Create plan
             </Button>
           </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------- new staged recorded agreement
+type StageDraft = { title: string; lecture_keys: string[] }
+type StagePaymentDraft = { amount: string; due: string; stages: StageDraft[] }
+
+export function StageInstalmentPlanForm({ onClose }: { onClose: () => void }) {
+  const [cq, setCq] = useState('')
+  const companies = useCompanies({ q: useDebounced(cq) })
+  const [orgId, setOrgId] = useState('')
+  const company = useCompany(orgId || undefined)
+  const offerings = useCnOfferings()
+  const create = useCnCreateStagePlan()
+  const [buyerId, setBuyerId] = useState('')
+  const [offeringId, setOfferingId] = useState('')
+  const [quantity, setQuantity] = useState(10)
+  const [price, setPrice] = useState('')
+  const [rows, setRows] = useState<StagePaymentDraft[]>([
+    { amount: '', due: '', stages: [{ title: '', lecture_keys: [] }] },
+    { amount: '', due: '', stages: [{ title: '', lecture_keys: [] }] },
+  ])
+  const offering = offerings.data?.find((o) => o.id === offeringId && o.instalments_enabled)
+  const unit = toMinor(price)
+  const total = unit != null ? unit * quantity : 0
+  const amounts = rows.map((r) => toMinor(r.amount))
+  const sum = amounts.reduce<number>((n, v) => n + (v ?? 0), 0)
+  const rowsOk = rows.every((r, i) => amounts[i] != null && amounts[i]! > 0 && r.due && r.stages.length > 0 && r.stages.every((s) => s.title.trim() && s.lecture_keys.length))
+  const datesOk = rows.every((r, i) => i === 0 || !r.due || !rows[i - 1].due || r.due >= rows[i - 1].due)
+  const valid = !!orgId && !!buyerId && !!offering && quantity >= 1 && !!unit && unit > 0 && rowsOk && datesOk && sum === total
+  const setRow = (n: number, patch: Partial<StagePaymentDraft>) => setRows(rows.map((r, i) => i === n ? { ...r, ...patch } : r))
+  const setStage = (rowN: number, stageN: number, patch: Partial<StageDraft>) => setRow(rowN, { stages: rows[rowN]!.stages.map((s, i) => i === stageN ? { ...s, ...patch } : s) })
+  const split = () => {
+    if (!total) return
+    const each = Math.floor(total / rows.length)
+    setRows(rows.map((r, i) => ({ ...r, amount: toMajor(i === rows.length - 1 ? total - each * (rows.length - 1) : each) })))
+  }
+  const save = (e: FormEvent) => {
+    e.preventDefault()
+    if (!valid) return
+    const body: CnStagePlanIn = {
+      org_id: orgId,
+      offering_id: offeringId,
+      buyer_id: buyerId,
+      quantity,
+      unit_price_minor: unit!,
+      schedule: rows.map((r, i) => ({ amount_minor: amounts[i]!, due_at: new Date(`${r.due}T09:00:00Z`).toISOString(), stages: r.stages })),
+    }
+    create.mutate(body, { onSuccess: () => (toast.success('Staged agreement created'), onClose()), onError: err })
+  }
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent title="New staged recorded agreement" description="The company commits to the full recorded-course price. Each fixed payment instalment opens the course stages you map to it after confirmation." className="sm:max-w-3xl">
+        <form onSubmit={save} className="grid gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Search companies">{(p) => <Input {...p} value={cq} onChange={(e) => setCq(e.target.value)} placeholder="Type a company name" />}</Field>
+            <Field label="Company">{(p) => <NativeSelect {...p} value={orgId} onChange={(e) => (setOrgId(e.target.value), setBuyerId(''))} required><option value="">Choose…</option>{companies.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</NativeSelect>}</Field>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Company billing contact">{(p) => <NativeSelect {...p} value={buyerId} onChange={(e) => setBuyerId(e.target.value)} required disabled={!company.data}><option value="">Choose…</option>{company.data?.admins.map((a) => <option key={a.user_id} value={a.user_id}>{a.name || a.email}</option>)}</NativeSelect>}</Field>
+            <Field label="Recorded course">{(p) => <NativeSelect {...p} value={offeringId} onChange={(e) => setOfferingId(e.target.value)} required><option value="">Choose…</option>{offerings.data?.filter((o) => o.is_active && o.delivery_type === 'recorded' && o.instalments_enabled).map((o) => <option key={o.id} value={o.id}>{o.course_title} · {gbp(o.gbp_minor)} per seat</option>)}</NativeSelect>}</Field>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Seats">{(p) => <Input {...p} type="number" min={1} value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 0)} />}</Field>
+            <Field label="Price per seat (£)">{(p) => <Input {...p} inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Enter agreed price" />}</Field>
+          </div>
+          <fieldset className="grid gap-3">
+            <legend className="flex w-full items-center justify-between text-sm font-medium">Fixed payment schedule <Button type="button" size="sm" variant="ghost" onClick={split} disabled={!total}>Split evenly</Button></legend>
+            {rows.map((row, rowN) => (
+              <div key={rowN} className="grid gap-3 rounded-lg border border-border p-3">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                  <Input aria-label={`Instalment ${rowN + 1} amount in pounds`} inputMode="decimal" placeholder="£ amount" value={row.amount} onChange={(e) => setRow(rowN, { amount: e.target.value })} />
+                  <Input aria-label={`Instalment ${rowN + 1} due date`} type="date" value={row.due} onChange={(e) => setRow(rowN, { due: e.target.value })} />
+                  <Button type="button" variant="ghost" size="icon" aria-label={`Remove instalment ${rowN + 1}`} disabled={rows.length <= 2} onClick={() => setRows(rows.filter((_, i) => i !== rowN))}><Trash2 /></Button>
+                </div>
+                {row.stages.map((stage, stageN) => (
+                  <div key={stageN} className="grid gap-2 rounded-md bg-surface-2 p-3">
+                    <div className="flex items-center gap-2"><Input aria-label={`Instalment ${rowN + 1} stage ${stageN + 1} name`} placeholder={`Stage ${stageN + 1} name`} value={stage.title} onChange={(e) => setStage(rowN, stageN, { title: e.target.value })} /><Button type="button" size="icon" variant="ghost" aria-label="Remove stage" disabled={row.stages.length <= 1} onClick={() => setRow(rowN, { stages: row.stages.filter((_, i) => i !== stageN) })}><Trash2 /></Button></div>
+                    <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">{offering?.stages.map((lecture) => <label key={lecture.lecture_key} className="flex items-center gap-2 text-xs"><input type="checkbox" checked={stage.lecture_keys.includes(lecture.lecture_key)} onChange={(e) => setStage(rowN, stageN, { lecture_keys: e.target.checked ? [...stage.lecture_keys, lecture.lecture_key] : stage.lecture_keys.filter((k) => k !== lecture.lecture_key) })} /><span>{lecture.title}</span></label>)}</div>
+                  </div>
+                ))}
+                <Button type="button" size="sm" variant="secondary" className="justify-self-start" onClick={() => setRow(rowN, { stages: [...row.stages, { title: '', lecture_keys: [] }] })}><Plus /> Add stage to this instalment</Button>
+              </div>
+            ))}
+            <Button type="button" size="sm" variant="secondary" className="justify-self-start" disabled={rows.length >= 24} onClick={() => setRows([...rows, { amount: '', due: '', stages: [{ title: '', lecture_keys: [] }] }])}><Plus /> Add instalment</Button>
+          </fieldset>
+          <p className={`text-sm ${sum === total ? 'text-muted' : 'text-danger'}`} role="status">Instalments £{toMajor(sum)} of £{toMajor(total)}{sum !== total ? ' — they must add up exactly to the total.' : '.'}{!datesOk ? ' Due dates must be in order.' : ''}</p>
+          <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={onClose}>Cancel</Button><Button type="submit" loading={create.isPending} disabled={!valid}>Create agreement</Button></div>
         </form>
       </DialogContent>
     </Dialog>

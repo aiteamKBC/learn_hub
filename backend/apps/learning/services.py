@@ -66,9 +66,14 @@ def _live_lecture(enrollment: Enrollment, lecture_key) -> Lecture:
 
 
 def _check_access(enrollment: Enrollment) -> None:
-    if enrollment.status not in (Enrollment.Status.ACTIVE, Enrollment.Status.COMPLETED):
+    staged = False
+    if enrollment.org_id is None:
+        from apps.platform.access import has_staged_course_access
+
+        staged = has_staged_course_access(enrollment.user, enrollment.course_id)
+    if enrollment.status not in (Enrollment.Status.ACTIVE, Enrollment.Status.COMPLETED) and not staged:
         raise ServiceError("no_access", "This enrolment is not active.", status=403)
-    if enrollment.access_expires_at and enrollment.access_expires_at < timezone.now():
+    if enrollment.access_expires_at and enrollment.access_expires_at < timezone.now() and not staged:
         raise ServiceError("access_expired", "Access to this course has ended.", status=403)
 
 

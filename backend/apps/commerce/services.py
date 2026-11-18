@@ -35,7 +35,6 @@ from .models import (
     OrderItem,
     Payment,
     Plan,
-    PlanCourse,
     PlanPrice,
     Promotion,
     PromotionRedemption,
@@ -655,15 +654,13 @@ def subscription_notice(sub: Subscription, what: str, *, date=None) -> None:
     notify([sub.user_id], f"subscription_{what}", ctx, url="/account", dedupe=dedupe)
 
 
-def plan_courses(plan: Plan) -> set | None:
-    """The course ids a plan includes; None = every course marked `in_subscription`."""
-    ids = set(PlanCourse.objects.filter(plan=plan).values_list("course_id", flat=True))
-    return ids or None
-
-
 def plan_covers(plan: Plan, course: Course) -> bool:
-    included = plan_courses(plan)
-    return course.in_subscription if included is None else course.id in included
+    """Personal unlimited plans include every course explicitly marked for subscription."""
+    return (
+        plan.audience == Plan.Audience.PERSONAL
+        and plan.kind == Plan.Kind.UNLIMITED_B2C
+        and course.in_subscription
+    )
 
 
 def enrol_with_plan(*, user, course: Course) -> Enrollment:
@@ -673,6 +670,7 @@ def enrol_with_plan(*, user, course: Course) -> Enrollment:
             user=user,
             org__isnull=True,
             plan__audience=Plan.Audience.PERSONAL,
+            plan__kind=Plan.Kind.UNLIMITED_B2C,
             status__in=["trialing", "active"],
         )
         .order_by("-current_period_end")

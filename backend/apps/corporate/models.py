@@ -22,6 +22,7 @@ class CorporateOffering(BaseModel):
     # Programme length, from each employee's first session (recorded: first lesson
     # opened). Gives the completion date only; it never locks lessons. NULL = not set.
     access_months = models.PositiveIntegerField(null=True, blank=True)
+    instalments_enabled = models.BooleanField(default=False)
     description = models.TextField(blank=True)
 
     class Meta:
@@ -75,6 +76,7 @@ class QuoteItem(TenantModel):
 class SeatPurchase(TenantModel):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending payment"
+        PARTIAL_PAID = "partial_paid", "Partly paid"
         PAID = "paid", "Paid"
         REFUNDED = "refunded", "Fully refunded"
         PARTIAL = "partial", "Partially refunded"
@@ -99,6 +101,7 @@ class SeatPurchase(TenantModel):
     # Agreed programme length for this company's agreement; overrides the package's
     # default (offering.access_months). NULL = use the package default.
     programme_months = models.PositiveIntegerField(null=True, blank=True)
+    stage_access_enabled = models.BooleanField(default=False)
     stripe_session_id = models.CharField(max_length=255, blank=True)
     stripe_invoice_id = models.CharField(max_length=255, blank=True)
     payment_intent = models.CharField(max_length=255, blank=True)
@@ -211,6 +214,67 @@ class InstalmentCover(TenantModel):
             models.UniqueConstraint(fields=["instalment", "allocation"], name="uq_instalment_cover"),
         ]
         indexes = [models.Index(fields=["org", "allocation"], name="ix_cover_allocation")]
+
+
+class StageInstalment(TenantModel):
+    """A fixed payment schedule for a staged recorded-course agreement."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Not sent yet"
+        REQUESTED = "requested", "Payment requested"
+        SENT = "sent", "Invoice sent"
+        PAID = "paid", "Paid"
+        FAILED = "failed", "Payment failed"
+        VOID = "void", "Cancelled"
+
+    seat_purchase = models.ForeignKey(
+        SeatPurchase, on_delete=models.PROTECT, related_name="stage_instalments"
+    )
+    sequence = models.PositiveIntegerField()
+    amount_minor = models.IntegerField()
+    currency = models.CharField(max_length=3)
+    due_at = models.DateTimeField()
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    stripe_invoice_id = models.CharField(max_length=255, blank=True)
+    invoice_attempt = models.PositiveIntegerField(default=0)
+    payment_requested_at = models.DateTimeField(null=True, blank=True)
+    payment_reference = models.CharField(max_length=255, blank=True, unique=True, null=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "stage_instalments")
+        constraints = [
+            models.UniqueConstraint(fields=["seat_purchase", "sequence"], name="uq_stage_instalment_sequence")
+        ]
+        indexes = [models.Index(fields=["org", "seat_purchase", "status"], name="ix_stage_inst_purchase")]
+
+
+class SeatPurchaseStage(TenantModel):
+    """A named curriculum stage on one new staged agreement, assigned to one payment."""
+
+    seat_purchase = models.ForeignKey(SeatPurchase, on_delete=models.PROTECT, related_name="stages")
+    instalment = models.ForeignKey(StageInstalment, on_delete=models.PROTECT, related_name="stages")
+    title = models.CharField(max_length=120)
+    sequence = models.PositiveIntegerField()
+
+    class Meta:
+        db_table = table(SCHEMA, "seat_purchase_stages")
+        constraints = [
+            models.UniqueConstraint(fields=["seat_purchase", "sequence"], name="uq_purchase_stage_sequence")
+        ]
+        indexes = [models.Index(fields=["org", "seat_purchase"], name="ix_purchase_stages")]
+
+
+class StageLecture(TenantModel):
+    """Stable curriculum lecture keys grouped inside an agreement stage."""
+
+    stage = models.ForeignKey(SeatPurchaseStage, on_delete=models.PROTECT, related_name="lectures")
+    lecture_key = models.UUIDField()
+
+    class Meta:
+        db_table = table(SCHEMA, "stage_lectures")
+        constraints = [models.UniqueConstraint(fields=["stage", "lecture_key"], name="uq_stage_lecture")]
+        indexes = [models.Index(fields=["org", "lecture_key"], name="ix_stage_lecture_key")]
 
 
 class PurchaseAttachment(TenantModel):
@@ -332,6 +396,7 @@ class CohortCompany(TenantModel):
         INTERESTED = "interested", "Interest registered"
         OFFERED = "offered", "Cohort offered to company"
         PENDING_PAY = "pending_pay", "Awaiting payment"
+        INCLUDED = "included", "Included in Team subscription"
         PAID = "paid", "Payment confirmed"
         ACTIVE = "active", "Learners enrolled"
         COMPLETED = "completed", "Cohort completed"
@@ -353,6 +418,15 @@ class CohortCompany(TenantModel):
         blank=True,
         related_name="+",
     )
+    included_subscription = models.ForeignKey(
+        "commerce.Subscription",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="included_live_bookings",
+    )
+    included_period_end = models.DateTimeField(null=True, blank=True)
+    included_seats = models.PositiveIntegerField(default=0)
     approved_seats = models.PositiveIntegerField(default=0)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.INTERESTED)
     payment_deadline = models.DateTimeField(null=True, blank=True)
@@ -361,6 +435,12 @@ class CohortCompany(TenantModel):
         db_table = table(SCHEMA, "cohort_companies")
         constraints = [
             models.UniqueConstraint(fields=["cohort", "org"], name="uq_cohort_company"),
+        ]
+        indexes = [
+            models.Index(
+                fields=["included_subscription", "included_period_end", "status"],
+                name="ix_cc_inc_period_status",
+            ),
         ]
 
 

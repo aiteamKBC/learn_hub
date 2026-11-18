@@ -4,10 +4,12 @@ import uuid
 
 from django.utils import timezone
 
-from apps.commerce.models import Plan, PlanPrice, Subscription
+from apps.commerce.models import Plan, PlanCourse, PlanPrice, Subscription
+from apps.commerce.services import enrol_with_plan, plan_covers
 from apps.commerce.subscriptions import get_active_subscription, list_unlimited_plans
 from apps.identity.models import User
 from apps.platform.access import resolve
+from core.errors import ServiceError
 from core.tenancy import tenant_context
 from core.tests.base import SchemaTransactionTestCase
 
@@ -113,6 +115,24 @@ class UnlimitedSubscriptionTest(SchemaTransactionTestCase):
             d = resolve(self.user, "course", self.course.id)
         self.assertTrue(d.allowed)
         self.assertEqual(d.reason_code, "subscription")
+
+    def test_personal_plan_uses_course_flag_even_when_explicit_plan_courses_exist(self):
+        with tenant_context(staff=True):
+            self._subscribe()
+            PlanCourse.objects.create(plan=self.plan, course=self.course_excluded)
+
+        with tenant_context(user_id=str(self.user.id), staff=True):
+            self.assertTrue(plan_covers(self.plan, self.course))
+            self.assertFalse(plan_covers(self.plan, self.course_excluded))
+            decision = resolve(self.user, "course", self.course.id)
+            self.assertTrue(decision.allowed)
+            self.assertEqual(decision.reason_code, "subscription")
+            excluded_decision = resolve(self.user, "course", self.course_excluded.id)
+            self.assertFalse(excluded_decision.allowed)
+            enrollment = enrol_with_plan(user=self.user, course=self.course)
+            self.assertEqual(enrollment.source, "subscription")
+            with self.assertRaises(ServiceError):
+                enrol_with_plan(user=self.user, course=self.course_excluded)
 
     def test_active_sub_grants_lecture_access(self):
         with tenant_context(staff=True):

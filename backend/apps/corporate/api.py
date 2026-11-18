@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 from pydantic import Field
 
@@ -57,6 +58,49 @@ class PurchaseOut(Schema):
     status: str
     paid_at: str | None = None
     created_at: str
+    stage_access_enabled: bool = False
+
+
+class CorporateStageOut(Schema):
+    id: str
+    title: str
+    sequence: int
+    lecture_count: int
+    lectures: list[str]
+
+
+class CorporateStageInstalmentOut(Schema):
+    id: str
+    sequence: int
+    amount_minor: int
+    due_at: datetime
+    status: str
+    paid_at: datetime | None = None
+    payment_requested_at: datetime | None = None
+    stages: list[CorporateStageOut]
+
+
+class CorporateEmployeeStageOut(Schema):
+    stage_id: str
+    title: str
+    completed_lessons: int
+    total_lessons: int
+
+
+class CorporateEmployeeStageProgressOut(Schema):
+    user_id: str
+    name: str
+    stages: list[CorporateEmployeeStageOut]
+
+
+class CorporateStagePlanOut(Schema):
+    purchase_id: str
+    total_minor: int
+    paid_minor: int
+    outstanding_minor: int
+    currency: str
+    instalments: list[CorporateStageInstalmentOut]
+    employees: list[CorporateEmployeeStageProgressOut]
 
 
 class CorporateQuoteItemOut(Schema):
@@ -171,11 +215,27 @@ def list_purchases(request):
             "currency": p.currency,
             "total_minor": p.total_minor,
             "status": p.status,
+            "stage_access_enabled": p.stage_access_enabled,
             "paid_at": p.paid_at.isoformat() if p.paid_at else None,
             "created_at": p.created_at.isoformat(),
         }
         for p in qs
     ]
+
+
+@router.get("/purchases/{purchase_id}/stage-plan", response=CorporateStagePlanOut)
+def staged_purchase_summary(request, purchase_id: str):
+    scope = org_scope(request, OrgRole.MANAGER)
+    from .models import SeatPurchase
+    from .stage_instalments import employer_summary
+
+    purchase = get_object_or_404(
+        SeatPurchase.objects.select_related("offering"),
+        pk=purchase_id,
+        org_id=scope.org_id,
+        stage_access_enabled=True,
+    )
+    return employer_summary(purchase)
 
 
 # ---------------------------------------------------------------- quotes
@@ -352,6 +412,7 @@ class LiveBookingOut(Schema):
     unit_price_minor: int | None = None
     total_minor: int | None = None
     attendee_count: int = 0
+    included_live_seats_remaining: int | None = None
 
 
 @router.get("/live-bookings", response=list[LiveBookingOut])
@@ -359,7 +420,10 @@ def list_live_bookings(request):
     scope = org_scope(request, OrgRole.MANAGER)
     from django.db.models import Count, Q
 
+    from .live import live_subscription_coverage
     from .models import CohortCompany, CorporateOffering, LiveAttendee
+
+    coverage = live_subscription_coverage(scope.org_id)
 
     qs = list(
         CohortCompany.objects.filter(org_id=scope.org_id)
@@ -383,6 +447,12 @@ def list_live_bookings(request):
 
     out = []
     for cc in qs:
+        booking_coverage = (
+            live_subscription_coverage(scope.org_id, booking_created_at=cc.created_at, snapshot=coverage)
+            if coverage
+            else None
+        )
+        remaining = booking_coverage["remaining"] if booking_coverage else None
         unit, total = _price(cc)
         c = cc.cohort
         out.append(
@@ -403,6 +473,7 @@ def list_live_bookings(request):
                 "unit_price_minor": unit,
                 "total_minor": total,
                 "attendee_count": cc.n_att,
+                "included_live_seats_remaining": remaining,
             }
         )
     return out
@@ -427,6 +498,15 @@ def live_checkout(request, cc_id: str):
     from .live_checkout import create_live_checkout
 
     return create_live_checkout(request, cc_id)
+
+
+@router.post("/live-bookings/{cc_id}/accept-included", response=CorporateOkOut)
+def accept_included_live_booking(request, cc_id: str):
+    scope = org_scope(request, OrgRole.ADMIN)
+    from .live import accept_included_live_booking as accept_included
+
+    accept_included(request, org_id=scope.org_id, cohort_company_id=cc_id)
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------- company dashboard / reports

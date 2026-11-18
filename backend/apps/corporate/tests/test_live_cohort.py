@@ -1,13 +1,17 @@
 """B2B-03 tests: live training requests, cohort lifecycle, scheduling."""
 
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from unittest.mock import MagicMock
 
+from django.db import close_old_connections
 from django.utils import timezone
 
 from apps.catalog.models import Category, Course, CourseVersion
-from apps.commerce.models import PriceTier
+from apps.commerce.models import Plan, PriceTier, Subscription
 from apps.corporate.live import (
+    accept_included_live_booking,
     add_company_to_cohort,
     cancel_request,
     confirm_cohort,
@@ -235,3 +239,111 @@ class LiveCohortTest(SchemaTransactionTestCase):
         with tenant_context(staff=True):
             cc = CohortCompany.objects.get(cohort=cohort, org=self.org)
         self.assertEqual(cc.status, "offered")
+
+    def test_team_live_quota_acceptance_serializes_cap_across_offers(self):
+        with tenant_context(staff=True):
+            plan = Plan.objects.create(
+                code=f"live-team-{uuid.uuid4().hex[:8]}",
+                name="Live team",
+                audience="team",
+                interval="month",
+                live_seat_cap=3,
+                live_seat_cap_effective_at=timezone.now() - timezone.timedelta(minutes=1),
+            )
+            subscription = Subscription.objects.create(
+                user=self.admin_user,
+                org=self.org,
+                plan=plan,
+                currency_id="GBP",
+                status="active",
+                current_period_end=timezone.now() + timezone.timedelta(days=20),
+            )
+            bookings = []
+            for _ in range(2):
+                cohort = create_cohort(
+                    self._request(), course_id=self.course.id, delivery_mode="online", max_learners=10
+                )
+                add_session(
+                    self._request(),
+                    cohort.id,
+                    sequence=1,
+                    scheduled_at=timezone.now() + timezone.timedelta(days=2),
+                    duration_min=60,
+                )
+                add_company_to_cohort(self._request(), cohort.id, self.org.id, 2)
+                confirm_cohort(self._request(), cohort.id)
+                bookings.append(CohortCompany.objects.get(cohort=cohort, org=self.org))
+
+            accepted = accept_included_live_booking(
+                self._request(self.admin_user), org_id=self.org.id, cohort_company_id=bookings[0].id
+            )
+            self.assertEqual(accepted.status, CohortCompany.Status.INCLUDED)
+            self.assertEqual(accepted.included_subscription_id, subscription.id)
+            self.assertEqual(accepted.included_seats, 2)
+            with self.assertRaises(ServiceError) as cm:
+                accept_included_live_booking(
+                    self._request(self.admin_user), org_id=self.org.id, cohort_company_id=bookings[1].id
+                )
+            self.assertEqual(cm.exception.code, "live_seat_cap_reached")
+
+            # A new period snapshot resets usage for the same subscription.
+            subscription.current_period_end += timezone.timedelta(days=30)
+            subscription.save(update_fields=["current_period_end", "updated_at"])
+            accepted_next = accept_included_live_booking(
+                self._request(self.admin_user), org_id=self.org.id, cohort_company_id=bookings[1].id
+            )
+            self.assertEqual(accepted_next.included_period_end, subscription.current_period_end)
+
+    def test_parallel_team_acceptances_cannot_overrun_cap(self):
+        with tenant_context(staff=True):
+            plan = Plan.objects.create(
+                code=f"live-race-{uuid.uuid4().hex[:8]}",
+                name="Live team",
+                audience="team",
+                interval="month",
+                live_seat_cap=2,
+                live_seat_cap_effective_at=timezone.now() - timezone.timedelta(minutes=1),
+            )
+            Subscription.objects.create(
+                user=self.admin_user,
+                org=self.org,
+                plan=plan,
+                currency_id="GBP",
+                status="active",
+                current_period_end=timezone.now() + timezone.timedelta(days=20),
+            )
+            bookings = []
+            for _ in range(2):
+                cohort = create_cohort(
+                    self._request(), course_id=self.course.id, delivery_mode="online", max_learners=10
+                )
+                add_session(
+                    self._request(),
+                    cohort.id,
+                    sequence=1,
+                    scheduled_at=timezone.now() + timezone.timedelta(days=2),
+                    duration_min=60,
+                )
+                add_company_to_cohort(self._request(), cohort.id, self.org.id, 2)
+                confirm_cohort(self._request(), cohort.id)
+                bookings.append(CohortCompany.objects.get(cohort=cohort, org=self.org))
+
+        start = Barrier(2)
+
+        def accept(cc_id):
+            close_old_connections()
+            try:
+                with tenant_context(staff=True):
+                    start.wait(timeout=10)
+                    accept_included_live_booking(
+                        self._request(self.admin_user), org_id=self.org.id, cohort_company_id=cc_id
+                    )
+                return "accepted"
+            except ServiceError as exc:
+                return exc.code
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(accept, [b.id for b in bookings]))
+        self.assertCountEqual(results, ["accepted", "live_seat_cap_reached"])

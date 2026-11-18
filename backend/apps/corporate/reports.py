@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from django.db.models import Count, Sum
+from django.db.models import Count, Min, Q, Subquery, Sum
 from django.db.models.functions import TruncDate
 
 from .models import (
@@ -20,15 +20,19 @@ from .models import (
     SeatPurchase,
     Session,
     SessionAttendance,
+    StageInstalment,
     TrainingRequest,
 )
 
 
 def company_dashboard(org_id) -> dict:
     paid_purchases = SeatPurchase.objects.filter(org_id=org_id, status="paid")
+    seat_purchases = SeatPurchase.objects.filter(org_id=org_id).filter(
+        Q(status="paid") | Q(stage_access_enabled=True, status=SeatPurchase.Status.PARTIAL_PAID)
+    )
     # Live places are tracked through cohort bookings, not the recorded-seat
     # inventory shown on the company dashboard and Seats page.
-    recorded_purchases = paid_purchases.filter(offering__delivery_type="recorded")
+    recorded_purchases = seat_purchases.filter(offering__delivery_type="recorded")
     total_seats = recorded_purchases.aggregate(t=Sum("quantity"))["t"] or 0
     active_allocs = SeatAllocation.objects.filter(
         org_id=org_id,
@@ -38,7 +42,7 @@ def company_dashboard(org_id) -> dict:
     live_bookings = CohortCompany.objects.filter(org_id=org_id).exclude(
         status__in=["cancelled", "withdrawn"],
     )
-    active_cohorts = live_bookings.filter(status__in=["paid", "active"]).count()
+    active_cohorts = live_bookings.filter(status__in=["included", "paid", "active"]).count()
     pending_requests = TrainingRequest.objects.filter(
         org_id=org_id,
         status__in=["submitted", "under_review"],
@@ -50,7 +54,17 @@ def company_dashboard(org_id) -> dict:
         "seats_available": max(0, total_seats - active_allocs),
         "active_cohorts": active_cohorts,
         "pending_requests": pending_requests,
-        "total_spend_minor": paid_purchases.aggregate(s=Sum("total_minor"))["s"] or 0,
+        "total_spend_minor": (
+            paid_purchases.filter(stage_access_enabled=False).aggregate(s=Sum("total_minor"))["s"] or 0
+        )
+        + (
+            StageInstalment.objects.filter(
+                seat_purchase__org_id=org_id,
+                seat_purchase__stage_access_enabled=True,
+                status=StageInstalment.Status.PAID,
+            ).aggregate(s=Sum("amount_minor"))["s"]
+            or 0
+        ),
     }
 
 
@@ -112,11 +126,34 @@ def company_attendance_summary(org_id, cohort_id=None) -> list[dict]:
 def admin_overview(start: datetime, end: datetime) -> dict:
     period_purchases = SeatPurchase.objects.filter(
         status="paid",
+        stage_access_enabled=False,
         paid_at__gte=start,
         paid_at__lt=end,
     )
-    revenue = period_purchases.aggregate(r=Sum("total_minor"))["r"] or 0
-    seats_sold = period_purchases.aggregate(s=Sum("quantity"))["s"] or 0
+    staged_payments = StageInstalment.objects.filter(
+        seat_purchase__stage_access_enabled=True,
+        status=StageInstalment.Status.PAID,
+        paid_at__gte=start,
+        paid_at__lt=end,
+    )
+    revenue = (period_purchases.aggregate(r=Sum("total_minor"))["r"] or 0) + (
+        staged_payments.aggregate(r=Sum("amount_minor"))["r"] or 0
+    )
+    first_paid_purchase_ids = (
+        StageInstalment.objects.filter(
+            seat_purchase__stage_access_enabled=True, status=StageInstalment.Status.PAID
+        )
+        .values("seat_purchase_id")
+        .annotate(first_paid=Min("paid_at"))
+        .filter(first_paid__gte=start, first_paid__lt=end)
+        .values("seat_purchase_id")
+    )
+    seats_sold = (period_purchases.aggregate(s=Sum("quantity"))["s"] or 0) + (
+        SeatPurchase.objects.filter(pk__in=Subquery(first_paid_purchase_ids)).aggregate(s=Sum("quantity"))[
+            "s"
+        ]
+        or 0
+    )
 
     allocations_made = AllocationEvent.objects.filter(
         action="allocated",
@@ -145,26 +182,89 @@ def admin_overview(start: datetime, end: datetime) -> dict:
 
 
 def admin_revenue_series(start: datetime, end: datetime) -> list[dict]:
-    return list(
-        SeatPurchase.objects.filter(status="paid", paid_at__gte=start, paid_at__lt=end)
+    legacy_rows = list(
+        SeatPurchase.objects.filter(
+            status="paid", stage_access_enabled=False, paid_at__gte=start, paid_at__lt=end
+        )
         .annotate(day=TruncDate("paid_at"))
         .values("day")
         .annotate(revenue=Sum("total_minor"), seats=Sum("quantity"))
         .order_by("day")
     )
+    revenue_by_day = {row["day"]: row for row in legacy_rows}
+    for row in (
+        StageInstalment.objects.filter(
+            seat_purchase__stage_access_enabled=True,
+            status=StageInstalment.Status.PAID,
+            paid_at__gte=start,
+            paid_at__lt=end,
+        )
+        .annotate(day=TruncDate("paid_at"))
+        .values("day")
+        .annotate(revenue=Sum("amount_minor"))
+    ):
+        target = revenue_by_day.setdefault(row["day"], {"day": row["day"], "revenue": 0, "seats": 0})
+        target["revenue"] += row["revenue"] or 0
+    for row in (
+        StageInstalment.objects.filter(
+            seat_purchase__stage_access_enabled=True, status=StageInstalment.Status.PAID
+        )
+        .values("seat_purchase_id")
+        .annotate(first_paid=Min("paid_at"))
+        .filter(first_paid__gte=start, first_paid__lt=end)
+        .annotate(day=TruncDate("first_paid"))
+        .values("day")
+        .annotate(seats=Sum("seat_purchase__quantity"))
+    ):
+        target = revenue_by_day.setdefault(row["day"], {"day": row["day"], "revenue": 0, "seats": 0})
+        target["seats"] += row["seats"] or 0
+    return sorted(revenue_by_day.values(), key=lambda row: row["day"])
 
 
 def admin_company_rankings(limit=20) -> list[dict]:
-    return list(
-        SeatPurchase.objects.filter(status="paid")
+    legacy_rows = list(
+        SeatPurchase.objects.filter(status="paid", stage_access_enabled=False)
         .values("org_id", "org__name")
         .annotate(
             total_spend=Sum("total_minor"),
             total_seats=Sum("quantity"),
             purchase_count=Count("id"),
         )
-        .order_by("-total_spend")[:limit]
     )
+    by_org = {row["org_id"]: row for row in legacy_rows}
+    staged = (
+        StageInstalment.objects.filter(
+            seat_purchase__stage_access_enabled=True, status=StageInstalment.Status.PAID
+        )
+        .values("seat_purchase__org_id", "seat_purchase__org__name")
+        .annotate(total_spend=Sum("amount_minor"))
+    )
+    for row in staged:
+        org_id = row["seat_purchase__org_id"]
+        target = by_org.setdefault(
+            org_id,
+            {
+                "org_id": org_id,
+                "org__name": row["seat_purchase__org__name"],
+                "total_spend": 0,
+                "total_seats": 0,
+                "purchase_count": 0,
+            },
+        )
+        target["total_spend"] += row["total_spend"] or 0
+    first_paid = (
+        StageInstalment.objects.filter(
+            seat_purchase__stage_access_enabled=True, status=StageInstalment.Status.PAID
+        )
+        .values("seat_purchase_id")
+        .annotate(first_paid=Min("paid_at"))
+        .values("seat_purchase_id")
+    )
+    for row in SeatPurchase.objects.filter(pk__in=Subquery(first_paid)).values("org_id", "quantity"):
+        target = by_org[row["org_id"]]
+        target["total_seats"] += row["quantity"]
+        target["purchase_count"] += 1
+    return sorted(by_org.values(), key=lambda row: row["total_spend"], reverse=True)[:limit]
 
 
 def tutor_cohort_learners(tutor_user_id, cohort_id) -> list[dict]:

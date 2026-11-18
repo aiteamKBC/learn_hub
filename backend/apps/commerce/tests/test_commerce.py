@@ -54,6 +54,8 @@ def fake_intent(**kw):
 
 
 class CommerceBase(SchemaTransactionTestCase):
+    extra_course_lecture = False
+
     def setUp(self):
         self.staff = User.objects.create_user("staff@learnhub-demo.com", "x", is_staff=True)
         self.teacher = User.objects.create_user("teacher@learnhub-demo.com", "x", full_name="Tom Teacher")
@@ -74,7 +76,21 @@ class CommerceBase(SchemaTransactionTestCase):
     def course(self, slug, tier=None, free=False):
         c = cat.create_course(title=f"Course {slug}", slug=slug, ownership="platform", created_by=self.staff)
         sec = cat.add_section(version=c.versions.get(), title="Basics")
-        cat.add_lecture(section=sec, kind="article", title="Read", body="<p>x</p>")
+        cat.add_lecture(
+            section=sec,
+            kind="article",
+            title="Read",
+            body="<p>x</p>",
+            token_price=1 if tier else None,
+        )
+        if self.extra_course_lecture:
+            cat.add_lecture(
+                section=sec,
+                kind="article",
+                title="Practice",
+                body="<p>y</p>",
+                token_price=1 if tier else None,
+            )
         # Price the course before publishing: the publish checklist now needs a cash/free
         # decision, and a paid course needs a derivable token price (cash_price_tier x the live
         # TokenRate from setUp), exactly like the real set_course_price path.

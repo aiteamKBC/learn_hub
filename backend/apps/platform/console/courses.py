@@ -291,7 +291,7 @@ def _course(course_id) -> Course:
 @router.get("/courses/{uuid:course_id}", response=ConsoleCourseDetailOut)
 def course_detail(request, course_id: UUID):
     staff(request)
-    from apps.commerce.models import CoursePrice, OrderItem, Plan, PlanCourse, PriceTier
+    from apps.commerce.models import CoursePrice, OrderItem, Plan, PriceTier
     from apps.learning.models import Enrollment
 
     c = _course(course_id)
@@ -312,12 +312,11 @@ def course_detail(request, course_id: UUID):
         sales=Count("id"), revenue=Sum("gbp_gross_minor", filter=Q(refunded_at__isnull=True)),
         refunds=Count("id", filter=Q(refunded_at__isnull=False)),
     )  # fmt: skip
-    linked = PlanCourse.objects.filter(course=c).values_list("plan_id", flat=True)
-    # a plan with no course list includes every course marked in_subscription
-    open_plans = Plan.objects.filter(is_active=True, audience="personal").exclude(
-        pk__in=PlanCourse.objects.values("plan_id")
+    plans = (
+        list(Plan.objects.filter(audience="personal", kind="unlimited_b2c", is_active=True))
+        if c.in_subscription
+        else []
     )
-    plans = list(Plan.objects.filter(pk__in=linked)) + (list(open_plans) if c.in_subscription else [])
     template = certificates.template_for(c)
     versions = list(c.versions.order_by("-number").values(
         "id", "number", "status", "is_major_change", "change_summary", "submitted_at", "reviewed_at",

@@ -207,8 +207,15 @@ def create_invoice(
 
 
 def add_invoice_item(
-    *, invoice_id: str, description: str, amount: int, currency: str, quantity: int = 1
+    *,
+    invoice_id: str,
+    description: str,
+    amount: int,
+    currency: str,
+    quantity: int = 1,
+    idempotency_key: str | None = None,
 ) -> str:
+    options = {"idempotency_key": idempotency_key} if idempotency_key else None
     item = _client().v1.invoice_items.create(
         params={
             "invoice": invoice_id,
@@ -216,7 +223,8 @@ def add_invoice_item(
             "unit_amount": amount,
             "currency": currency.lower(),
             "quantity": quantity,
-        }
+        },
+        options=options,
     )
     return item.id
 
@@ -226,9 +234,15 @@ def finalize_invoice(invoice_id: str) -> dict:
     return {"id": inv.id, "status": inv.status, "hosted_invoice_url": inv.hosted_invoice_url or ""}
 
 
-def send_invoice(invoice_id: str) -> dict:
-    inv = _client().v1.invoices.send_invoice(invoice_id)
+def send_invoice(invoice_id: str, *, idempotency_key: str | None = None) -> dict:
+    options = {"idempotency_key": idempotency_key} if idempotency_key else None
+    inv = _client().v1.invoices.send_invoice(invoice_id, options=options)
     return {"id": inv.id, "status": inv.status, "hosted_invoice_url": inv.hosted_invoice_url or ""}
+
+
+def retrieve_invoice(invoice_id: str) -> dict:
+    inv = _client().v1.invoices.retrieve(invoice_id)
+    return {"id": inv.id, "status": inv.status}
 
 
 def void_invoice(invoice_id: str) -> None:

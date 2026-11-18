@@ -40,6 +40,7 @@ class Enrollment(MixedTenantModel):
         SUBSCRIPTION = "subscription", "Subscription"
         ORGANIZATION = "organization", "Assigned by company"
         ADMIN_GRANT = "admin_grant", "Granted by staff"
+        INSTALMENT = "instalment", "Fixed instalment purchase"
 
     class Status(models.TextChoices):
         ACTIVE = "active", "Active"

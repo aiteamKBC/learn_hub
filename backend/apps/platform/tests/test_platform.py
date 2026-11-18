@@ -5,17 +5,26 @@ import hashlib
 import hmac
 import json
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest import mock
 
 from django.db import DatabaseError, connection, transaction
 from django.test import override_settings
 from django.utils import timezone
+from pydantic import ValidationError
 
 from apps.catalog import services as cat
-from apps.catalog.models import VideoLibrary
+from apps.catalog.models import Category, Course, CourseVersion, VideoLibrary
+from apps.commerce.models import Plan, PlanPrice
 from apps.identity.models import User
 from apps.org import services as org_services
 from apps.platform import outbox, services
+from apps.platform.console.subscriptions import (
+    ConsolePlanIn,
+    ConsolePlanStatusIn,
+    duplicate_plan,
+    plan_status,
+)
 from apps.platform.models import Entitlement, OutboxEvent, WebhookEvent
 from core.tenancy import tenant_context
 from core.tests.base import SchemaTransactionTestCase
@@ -98,6 +107,42 @@ class AuditTest(PlatformBase):
 
 
 class EntitlementsTest(PlatformBase):
+    def test_team_live_cap_must_be_positive(self):
+        with self.assertRaises(ValidationError):
+            ConsolePlanIn(name="Team", code="team", audience="team", live_seat_cap=0)
+
+    def test_duplicated_and_activated_team_plan_get_live_cap_effective_date(self):
+        request = SimpleNamespace(user=self.staff, platform_staff=True, META={"REMOTE_ADDR": "127.0.0.1"})
+        with tenant_context(**self.STAFF):
+            source = Plan.objects.create(
+                code="team-cap-source",
+                name="Team source",
+                audience="team",
+                interval="month",
+                live_seat_cap=4,
+            )
+            duplicate_id = duplicate_plan(request, source.id)["id"]
+            duplicate = Plan.objects.get(pk=duplicate_id)
+            self.assertEqual(duplicate.live_seat_cap, 4)
+            self.assertIsNotNone(duplicate.live_seat_cap_effective_at)
+
+            plan = Plan.objects.create(
+                code="team-cap-activate",
+                name="Team activate",
+                audience="team",
+                interval="month",
+                live_seat_cap=2,
+                is_active=False,
+            )
+            PlanPrice.objects.create(
+                plan=plan, currency_id="GBP", amount_minor=1000, stripe_price_id="price_team_cap_test"
+            )
+            self.assertIsNone(plan.live_seat_cap_effective_at)
+            plan_status(request, plan.id, ConsolePlanStatusIn(is_active=True))
+            plan.refresh_from_db()
+        self.assertTrue(plan.is_active)
+        self.assertIsNotNone(plan.live_seat_cap_effective_at)
+
     def test_sync_from_subscription_and_holder_visibility(self):
         sub_id = "0195c0de-0000-7000-8000-0000000000aa"
         end = timezone.now() + timedelta(days=30)
@@ -116,6 +161,44 @@ class EntitlementsTest(PlatformBase):
         with tenant_context(org_id=self.acme.id, user_id=self.hr.id):
             self.assertFalse(services.has_feature("business", org_id=self.acme.id))
             self.assertEqual(Entitlement.objects.count(), 1)  # updated in place, not duplicated
+
+    def test_team_subscription_does_not_grant_recorded_company_library(self):
+        from apps.org.api import _library
+
+        with tenant_context(**self.STAFF):
+            category = Category.objects.create(slug="team-live-only", name="Team Live only")
+            course = Course.objects.create(
+                ownership="instructor",
+                status="published",
+                created_by=self.staff,
+                category=category,
+                slug="team-live-only-course",
+                title="Team Live only course",
+                in_business=True,
+            )
+            version = CourseVersion.objects.create(course=course, number=1, status="published")
+            course.live_version = version
+            course.save(update_fields=["live_version"])
+        services.sync_entitlement(
+            feature="business",
+            source="subscription",
+            source_ref="0195c0de-0000-7000-8000-0000000000bb",
+            active=True,
+            ends_at=timezone.now() + timedelta(days=30),
+            org_id=self.acme.id,
+        )
+        with tenant_context(org_id=self.acme.id, user_id=self.hr.id):
+            self.assertTrue(services.has_feature("business", org_id=self.acme.id))
+            self.assertFalse(
+                services.has_feature("business", org_id=self.acme.id, exclude_source="subscription")
+            )
+            self.assertFalse(_library(self.acme.id).filter(pk=course.id).exists())
+        with tenant_context(**self.STAFF):
+            Entitlement.objects.create(
+                feature="business", source="grant", org=self.acme, starts_at=timezone.now()
+            )
+        with tenant_context(org_id=self.acme.id, user_id=self.hr.id):
+            self.assertTrue(_library(self.acme.id).filter(pk=course.id).exists())
 
 
 @override_settings(BUNNY_STREAM={"READONLY_KEY": SECRET})
