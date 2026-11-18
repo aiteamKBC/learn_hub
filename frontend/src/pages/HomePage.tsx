@@ -3,11 +3,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { useLocation } from 'react-router-dom'
 
-import { gsap } from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
-
+import heroEagle from '@/assets/brand/hero-eagle.png'
 import { BlurText } from '@/components/art/blur-text'
-import { AuthTabs } from '@/components/home/GetStarted'
 import { HeroIntro } from '@/components/home/HeroIntro'
 import { Button } from '@/components/ui/button'
 import { CountUp } from '@/components/ui/count-up'
@@ -23,15 +20,14 @@ import { Link } from '@/lib/router'
 
 const categoryIcons: Record<string, LucideIcon> = { code: Code2, briefcase: Briefcase, palette: Palette, server: Server, 'shield-check': ShieldCheck, 'heart-pulse': HeartPulse, megaphone: Megaphone }
 
-/** Evidrise-style full-bleed hero. Image used with the user's explicit sign-off (see docs/NEEDS-USER.md). */
-const HERO_SRC = 'https://jokdxsdbxorzciulkdyl.supabase.co/storage/v1/object/public/images/d2bf3230f8d24f5bb5ed7a6a696f7ca2.png'
+/** Evidrise-style full-bleed hero. Custom LearnHub artwork supplied by the user. */
+const HERO_SRC = heroEagle
 const NOTEWORTHY_BG =
   'https://readdy.ai/api/search-image?query=Abstract%20layered%20paper%20ridges%20in%20warm%20sand%20cream%20and%20soft%20clay%20tones%20flowing%20like%20rolling%20dunes%2C%20gentle%20side%20light%20creating%20calm%20shadows%2C%20minimal%20editorial%20art%20direction%20with%20airy%20negative%20space%20and%20smooth%20gradient%20transitions&width=1600&height=900&seq=newnoteworthy-bg-2026-c3&orientation=landscape'
 const FEATURED_BG = NOTEWORTHY_BG
 
 function Hero() {
   const [ready, setReady] = useState(false)
-  const [authOpen, setAuthOpen] = useState(false)
   const [videoOpen, setVideoOpen] = useState(false)
   useEffect(() => {
     const t = window.setTimeout(() => setReady(true), 80)
@@ -41,8 +37,8 @@ function Hero() {
     <section id="hero" aria-label="LearnHub" className="relative -mt-[calc(4rem+1px)] h-[calc(100svh+1px)] min-h-[600px] w-full overflow-hidden bg-[#1f262e]">
       <img
         src={HERO_SRC}
-        width={1784}
-        height={1006}
+        width={1717}
+        height={916}
         alt=""
         fetchPriority="high"
         decoding="async"
@@ -62,13 +58,10 @@ function Hero() {
           <p className="mt-5 max-w-[440px] text-[13.5px] leading-relaxed text-white/80 md:text-[15px]">High-quality courses from industry experts, with certificates your whole team can keep up with — buy what you need, or subscribe for everything.</p>
           <div className="mt-6 flex flex-wrap items-center gap-2.5 md:mt-8">
             <StarBorder>
-              <Button size="lg" className="min-w-[9.5rem] rounded-full" onClick={() => setAuthOpen(true)}>Log in</Button>
+              <Button size="lg" className="min-w-[9.5rem] rounded-full" asChild>
+                <Link to="/courses">View courses</Link>
+              </Button>
             </StarBorder>
-            <Dialog open={authOpen} onOpenChange={setAuthOpen}>
-              <DialogContent title="Welcome to LearnHub" description="Log in or create an account to get started." className="max-w-[460px]">
-                <AuthTabs />
-              </DialogContent>
-            </Dialog>
             <Button size="lg" className="min-w-[9.5rem] rounded-full border border-white/30 bg-white/10 text-white hover:bg-white/20" onClick={() => setVideoOpen(true)}>
               <PlayCircle className="size-4 text-primary" /> Watch video
             </Button>
@@ -526,7 +519,7 @@ function Instructors() {
       itemNoun="instructor"
       maxWidth="max-w-5xl"
       cardWidth="w-[264px] sm:w-[300px]"
-      stageHeight="h-[500px] sm:h-[548px]"
+      stageHeight="h-[452px] sm:h-[484px]"
       slides={people.map((p) => ({ key: p.name, label: p.name, content: <InstructorCard p={p} /> }))}
     />
   )
@@ -593,8 +586,8 @@ function Offers() {
       interactive
       fill
       maxWidth="max-w-5xl"
-      cardWidth="w-[300px] sm:w-[340px]"
-      stageHeight="h-[544px] sm:h-[560px]"
+      cardWidth="w-[320px] sm:w-[396px]"
+      stageHeight="h-[560px] sm:h-[580px]"
       slides={bundles.map(({ b, pair, index }) => ({ key: b.title, label: b.title, content: <BundleCard b={b} pair={pair} index={index} /> }))}
     />
   )
@@ -759,7 +752,11 @@ function FeaturedCourses() {
           </div>
         </div>
 
-        <div className="mt-8 flex flex-wrap gap-2" role="tablist" aria-label="Filter courses by category">
+        <div
+          className="mt-8 inline-flex max-w-full flex-wrap items-center gap-1 rounded-full border border-border bg-white/85 p-1 shadow-sm backdrop-blur-sm dark:bg-white/10"
+          role="tablist"
+          aria-label="Filter courses by category"
+        >
           {tabs.map((t) => (
             <button
               key={t.slug}
@@ -767,7 +764,10 @@ function FeaturedCourses() {
               role="tab"
               aria-selected={active === t.slug}
               onClick={() => setActive(t.slug)}
-              className={cn('rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors', active === t.slug ? 'bg-primary text-on-primary' : 'border border-border bg-surface text-muted hover:text-text')}
+              className={cn(
+                'rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors duration-200',
+                active === t.slug ? 'bg-primary text-on-primary shadow-sm' : 'text-muted hover:text-text',
+              )}
             >
               {t.name}
             </button>
@@ -789,7 +789,7 @@ function FeaturedCourses() {
 }
 
 export function HomePage() {
-  const fresh = useCourses({ sort: 'newest', limit: 4 })
+  const fresh = useCourses({ sort: 'newest', limit: 3 })
   const { hash } = useLocation()
 
   // Arriving at /#section from another page: scroll once the (async) section has
@@ -798,29 +798,6 @@ export function HomePage() {
     if (!hash) return
     return scrollToAnchor(hash.slice(1))
   }, [hash])
-
-  // Reveal each section with a soft rise as it scrolls into view (GSAP ScrollTrigger).
-  useEffect(() => {
-    if (reducedMotion()) return
-    gsap.registerPlugin(ScrollTrigger)
-    const ctx = gsap.context(() => {
-      gsap.utils.toArray<HTMLElement>('main > section').forEach((s, i) => {
-        if (i === 0) return // leave the hero (it has its own entrance)
-        gsap.from(s, {
-          opacity: 0,
-          y: 48,
-          duration: 0.85,
-          ease: 'power2.out',
-          scrollTrigger: { trigger: s, start: 'top 85%', once: true },
-        })
-      })
-    })
-    const t = setTimeout(() => ScrollTrigger.refresh(), 400)
-    return () => {
-      clearTimeout(t)
-      ctx.revert()
-    }
-  }, [])
 
   return (
     <>
@@ -851,24 +828,56 @@ export function HomePage() {
           </div>
         </div>
       </section>
-      <section id="new" className="relative scroll-mt-20 overflow-hidden">
-        <img
-          src={NOTEWORTHY_BG}
-          alt=""
-          aria-hidden
-          width={1600}
-          height={900}
-          className="pointer-events-none absolute inset-0 size-full object-cover object-center"
-        />
-        <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/90 via-background/70 to-background/95 dark:from-background/92 dark:via-background/80 dark:to-background/96" />
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 py-12">
-          <div className="mb-6 text-center">
-            <h2 className="text-2xl font-semibold tracking-tight text-text">New and noteworthy</h2>
-            <p className="mt-1 text-sm text-muted">The latest courses, just published.</p>
+      <section id="new" className="relative scroll-mt-20 overflow-hidden bg-[#1f262e]">
+        {/* Decorative artwork: a ring frame on the left, a glowing sun on the right, and
+            flowing orange light-trails sweeping across the base. */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+          {/* Left — concentric ring frame, with a dashed orange hint at its core. */}
+          <svg viewBox="0 0 440 440" fill="none" className="absolute top-1/2 -left-28 hidden h-[360px] w-[360px] -translate-y-1/2 sm:block lg:h-[440px] lg:w-[440px]">
+            <circle cx="220" cy="220" r="214" className="stroke-white/[0.05]" strokeWidth="1.5" />
+            <circle cx="220" cy="220" r="170" className="stroke-white/[0.07]" strokeWidth="1.5" />
+            <circle cx="220" cy="220" r="126" className="stroke-white/[0.09]" strokeWidth="1.5" />
+            <circle cx="220" cy="220" r="82" className="stroke-primary/45" strokeWidth="1.5" strokeDasharray="3 10" />
+          </svg>
+          {/* Right — a soft warm glow spilling from the top-right corner. */}
+          <div className="absolute -top-28 -right-28 size-[460px] rounded-full bg-primary/25 blur-[130px]" />
+          <div className="absolute -top-10 right-10 hidden size-[240px] rounded-full bg-primary/15 blur-[90px] sm:block" />
+          {/* Bottom — subtle, elegant swells with an orange rim-light that flares brightest
+              at a single node on the lower-left, then fades gently to the right. */}
+          <svg viewBox="0 0 1440 440" preserveAspectRatio="xMidYMax slice" fill="none" className="absolute inset-x-0 bottom-0 h-[62%] w-full">
+            <defs>
+              <linearGradient id="nw-rim" x1="0" y1="0" x2="1440" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stopColor="var(--color-primary)" stopOpacity="0" />
+                <stop offset="0.07" stopColor="var(--color-primary)" stopOpacity="0.14" />
+                <stop offset="0.18" stopColor="var(--color-primary)" stopOpacity="0.55" />
+                <stop offset="0.30" stopColor="var(--color-primary)" stopOpacity="0.95" />
+                <stop offset="0.43" stopColor="var(--color-primary)" stopOpacity="0.26" />
+                <stop offset="0.60" stopColor="var(--color-primary)" stopOpacity="0.07" />
+                <stop offset="0.82" stopColor="var(--color-primary)" stopOpacity="0.18" />
+                <stop offset="0.95" stopColor="var(--color-primary)" stopOpacity="0.05" />
+                <stop offset="1" stopColor="var(--color-primary)" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {/* layered swells — furthest (faint sheen) to front (darkest) */}
+            <path d="M-20 300 C 200 268 380 258 500 282 C 640 310 740 344 860 342 C 1020 340 1160 312 1300 302 C 1380 296 1420 304 1460 308 L1460 440 L-20 440 Z" fill="#273039" opacity="0.5" />
+            <path d="M-20 318 C 190 288 370 278 490 302 C 630 328 730 360 850 358 C 1010 356 1150 330 1290 320 C 1372 315 1416 322 1460 326 L1460 440 L-20 440 Z" fill="#1b222b" />
+            <path d="M-20 336 C 180 306 360 296 476 318 C 610 344 710 374 828 372 C 988 370 1128 344 1268 336 C 1356 330 1414 338 1460 342 L1460 440 L-20 440 Z" fill="#11161c" />
+            {/* orange rim-light on the front crest: wide blurred glow, then a crisp bright line */}
+            <path d="M-20 336 C 180 306 360 296 476 318 C 610 344 710 374 828 372 C 988 370 1128 344 1268 336 C 1356 330 1414 338 1460 342" stroke="url(#nw-rim)" strokeWidth="7" strokeLinecap="round" style={{ filter: 'blur(6px)' }} />
+            <path d="M-20 336 C 180 306 360 296 476 318 C 610 344 710 374 828 372 C 988 370 1128 344 1268 336 C 1356 330 1414 338 1460 342" stroke="url(#nw-rim)" strokeWidth="1.4" strokeLinecap="round" />
+            {/* single bright node on the lower-left crest */}
+            <circle cx="452" cy="314" r="10" fill="var(--color-primary)" opacity="0.8" style={{ filter: 'blur(7px)' }} />
+            <circle cx="452" cy="314" r="3" fill="#ffd9b0" opacity="0.9" style={{ filter: 'blur(1.5px)' }} />
+          </svg>
+        </div>
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 py-16 lg:py-24">
+          <div className="mb-8 text-center">
+            <h2 className="text-[clamp(30px,5vw,44px)] font-semibold tracking-tight text-white">New and noteworthy</h2>
+            <p className="mt-1 text-sm text-white/70">The latest courses, just published.</p>
           </div>
-          <div className={cn('grid gap-5 sm:grid-cols-2 lg:grid-cols-4', fresh.data && 'stagger')}>
+          <div className={cn('grid gap-5 sm:grid-cols-2 lg:grid-cols-3', fresh.data && 'stagger')}>
             {fresh.isLoading || !fresh.data
-              ? Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-[380px] rounded-2xl" />)
+              ? Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-[380px] rounded-2xl" />)
               : fresh.data.items.map((c, i) => <FeaturedCourseCard key={c.id} course={c} index={i} />)}
           </div>
         </div>

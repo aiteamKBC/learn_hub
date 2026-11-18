@@ -47,16 +47,18 @@ export function PackagesPage() {
         ) : error ? (
           <ErrorState message="We couldn't load the bundles." onRetry={() => void refetch()} />
         ) : !data?.length ? (
-          <EmptyState
-            icon={<Package />}
-            title="No bundles available"
-            body="There aren't any course bundles right now. You can still unlock courses with tokens or subscribe."
-            action={
-              <Button asChild>
-                <Link to="/courses">Browse courses</Link>
-              </Button>
-            }
-          />
+          <Card className="animate-reveal">
+            <EmptyState
+              icon={<Package />}
+              title="No bundles available"
+              body="There aren't any course bundles right now. You can still unlock courses with tokens or subscribe."
+              action={
+                <Button asChild>
+                  <Link to="/courses">Browse courses</Link>
+                </Button>
+              }
+            />
+          </Card>
         ) : (
           <div className="stagger grid gap-5 md:grid-cols-2">
             {data.map((pkg) => (

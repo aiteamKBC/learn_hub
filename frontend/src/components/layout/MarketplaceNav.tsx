@@ -93,7 +93,7 @@ export function MarketplaceNav() {
             <UserMenu />
           ) : (
             <Button size="sm" className="!text-on-primary sm:h-10 sm:px-4 sm:text-sm" asChild>
-              <Link to="/login">Get started</Link>
+              <Link to="/login">Log in</Link>
             </Button>
           )}
         </div>

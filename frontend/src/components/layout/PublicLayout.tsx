@@ -148,7 +148,7 @@ export function PublicLayout() {
               <Dialog open={authOpen} onOpenChange={setAuthOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" className="!text-on-primary sm:h-10 sm:px-4 sm:text-sm">
-                    Get started
+                    Log in
                   </Button>
                 </DialogTrigger>
                 <DialogContent title="Welcome to LearnHub" description="Log in or create an account to get started." className="max-w-[460px]">
