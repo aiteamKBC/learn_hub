@@ -5,7 +5,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Backdrop } from '@/components/art/backdrops'
 import { Button } from '@/components/ui/button'
 import { Logo } from '@/components/ui/logo'
-import { useLogout, useMe } from '@/features/identity/auth'
+import { useAuthSessionSync, useLogout, useMe } from '@/features/identity/auth'
 import { usePublicSettings, useSiteBanner } from '@/features/platform/api'
 import { setDatePrefs } from '@/lib/format'
 import { Link } from '@/lib/router'
@@ -117,6 +117,7 @@ function SiteBanner() {
  * catalogue needs sign-in when guest browsing is off). The API enforces both too.
  */
 export function SiteRoot() {
+  useAuthSessionSync()
   const { settings } = usePublicSettings()
   const { data: me, isLoading } = useMe()
   const { pathname, search } = useLocation()

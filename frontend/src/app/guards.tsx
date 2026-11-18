@@ -23,6 +23,13 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   return children
 }
 
+/** Visitor-only pages such as log in. Signed-in people return to the public home. */
+export function RequireGuest({ children }: { children: ReactNode }) {
+  const { data: me, isLoading, isFetching } = useMe()
+  if (isLoading || (!me && isFetching)) return <PageSpinner />
+  return me ? <Navigate to="/" replace /> : children
+}
+
 /** Company pages: needs a company you manage to be selected. The server checks again;
  * this only avoids showing a page that would fail. */
 export function RequireManager({ children }: { children: ReactNode }) {
