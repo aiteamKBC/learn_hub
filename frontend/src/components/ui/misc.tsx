@@ -1,6 +1,7 @@
 import { AlertTriangle, Star } from 'lucide-react'
 import type { ReactNode } from 'react'
 
+import { LearnerHeader } from '@/components/layout/learner-header'
 import { cn } from '@/lib/cn'
 
 import { Button } from './button'
@@ -9,14 +10,16 @@ import { Card } from './card'
 
 export function PageHeader({ title, description, actions, back }: { title: ReactNode; description?: ReactNode; actions?: ReactNode; back?: ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-      <div className="min-w-0">
-        {back}
-        <h1 className="text-2xl font-semibold tracking-tight text-text sm:text-[26px]">{title}</h1>
-        {description ? <p className="mt-1 text-sm text-muted">{description}</p> : null}
+    <LearnerHeader>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          {back}
+          <h1 className="text-2xl font-semibold tracking-tight text-text sm:text-[26px]">{title}</h1>
+          {description ? <p className="mt-1 text-sm text-muted">{description}</p> : null}
+        </div>
+        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
-    </div>
+    </LearnerHeader>
   )
 }
 

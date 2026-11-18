@@ -52,7 +52,7 @@ function SearchBox({ className, autoFocus, overlay }: { className?: string; auto
   }
   return (
     <form role="search" onSubmit={submit} className={className}>
-      <Input icon={<Search />} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search for courses, topics or instructors" aria-label="Search courses" autoFocus={autoFocus} className={cn('rounded-full', overlay ? 'border-white/25 bg-white/10 text-white placeholder:text-white/60' : 'bg-surface-2/60')} />
+      <Input icon={<Search />} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search for courses, topics or instructors" aria-label="Search courses" autoFocus={autoFocus} className={cn('rounded-full', overlay ? 'border-white/25 bg-white/10 text-white placeholder:text-white/60' : 'bg-surface-2/80')} />
     </form>
   )
 }

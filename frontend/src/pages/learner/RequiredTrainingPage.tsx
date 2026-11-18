@@ -18,37 +18,38 @@ function Company({ orgId, name }: { orgId: string; name: string }) {
   const items = [...(q.data ?? [])].sort((a, b) => ORDER.indexOf(a.status as StatusKey) - ORDER.indexOf(b.status as StatusKey))
   const done = items.filter((i) => ['compliant', 'exempt'].includes(i.status)).length
   return (
-    <section className="mb-8">
-      <div className="mb-3 flex items-center gap-2">
-        <Building2 className="size-4 text-muted" />
-        <h2 className="text-base font-semibold">{name}</h2>
-        {q.data ? (
-          <span className="text-sm text-muted tabular">
-            · {done} of {items.length} up to date
-          </span>
-        ) : null}
-      </div>
-      {q.error ? (
-        <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />
-      ) : q.isLoading ? (
-        <div className="grid gap-3">
-          {[0, 1].map((i) => (
-            <Skeleton key={i} className="h-20 rounded-xl" />
-          ))}
+    <section className="mb-6">
+      <Card>
+        <div className="flex items-center gap-2 border-b border-border px-5 py-4">
+          <Building2 className="size-4 text-muted" />
+          <h2 className="text-base font-semibold">{name}</h2>
+          {q.data ? (
+            <span className="text-sm text-muted tabular">
+              · {done} of {items.length} up to date
+            </span>
+          ) : null}
         </div>
-      ) : !items.length ? (
-        <Card>
+        {q.error ? (
+          <div className="p-5">
+            <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />
+          </div>
+        ) : q.isLoading ? (
+          <div className="grid gap-3 p-5">
+            {[0, 1].map((i) => (
+              <Skeleton key={i} className="h-16 rounded-xl" />
+            ))}
+          </div>
+        ) : !items.length ? (
           <EmptyState icon={<ClipboardCheck />} title="Nothing required right now" body={`${name} hasn't assigned you any mandatory training.`} />
-        </Card>
-      ) : (
-        <ul className="stagger grid gap-3">
-          {items.map((r) => {
-            const s = STATUS[r.status as StatusKey] ?? STATUS.not_started
-            const finished = r.status === 'compliant' || r.status === 'exempt'
-            return (
-              <li key={r.status_id} className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 shadow-sm sm:flex-row sm:items-center">
-                <span className="hidden h-12 w-1.5 shrink-0 rounded-full sm:block" style={{ background: s.color }} aria-hidden />
-                <div className="min-w-0 flex-1">
+        ) : (
+          <ul className="stagger divide-y divide-border">
+            {items.map((r) => {
+              const s = STATUS[r.status as StatusKey] ?? STATUS.not_started
+              const finished = r.status === 'compliant' || r.status === 'exempt'
+              return (
+                <li key={r.status_id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
+                  <span className="hidden h-12 w-1.5 shrink-0 rounded-full sm:block" style={{ background: s.color }} aria-hidden />
+                  <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium">{r.requirement}</p>
                     <Badge tone={s.tone}>{s.label}</Badge>
@@ -74,8 +75,9 @@ function Company({ orgId, name }: { orgId: string; name: string }) {
               </li>
             )
           })}
-        </ul>
-      )}
+          </ul>
+        )}
+      </Card>
     </section>
   )
 }

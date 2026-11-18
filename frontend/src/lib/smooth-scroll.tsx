@@ -17,6 +17,16 @@ gsap.registerPlugin(ScrollTrigger)
 // Module singleton so links/anchors can scroll through Lenis (falls back to native).
 let lenis: Lenis | null = null
 
+/** Jump to the top of the page at once (no animation) — used on navigation so a new
+ * route opens at its top. Goes through Lenis when it's running, else native. */
+export function scrollToTopInstant() {
+  if (lenis) {
+    lenis.scrollTo(0, { immediate: true })
+    return
+  }
+  window.scrollTo(0, 0)
+}
+
 /** Smooth-scroll to an element (or the top), honouring the sticky header offset. */
 export function smoothScrollTo(target: Element | number, offset = -72) {
   if (lenis) {
