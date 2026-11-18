@@ -5,6 +5,7 @@ import { useLocation } from 'react-router-dom'
 
 import heroEagle from '@/assets/brand/hero-eagle.png'
 import { BlurText } from '@/components/art/blur-text'
+import { AuthTabs } from '@/components/home/GetStarted'
 import { HeroIntro } from '@/components/home/HeroIntro'
 import { Button } from '@/components/ui/button'
 import { CountUp } from '@/components/ui/count-up'
@@ -12,6 +13,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StarBorder } from '@/components/ui/star-border'
 import { type CourseCardData, useCategories, useCourses, usePlans } from '@/features/catalog/api'
+import { useMe } from '@/features/identity/auth'
 import { cn } from '@/lib/cn'
 import { duration, money } from '@/lib/format'
 import { reducedMotion } from '@/lib/motion'
@@ -29,6 +31,8 @@ const FEATURED_BG = NOTEWORTHY_BG
 function Hero() {
   const [ready, setReady] = useState(false)
   const [videoOpen, setVideoOpen] = useState(false)
+  const [authOpen, setAuthOpen] = useState(false)
+  const { data: me, isLoading: isLoadingMe } = useMe()
   useEffect(() => {
     const t = window.setTimeout(() => setReady(true), 80)
     return () => window.clearTimeout(t)
@@ -57,11 +61,18 @@ function Hero() {
           </h1>
           <p className="mt-5 max-w-[440px] text-[13.5px] leading-relaxed text-white/80 md:text-[15px]">High-quality courses from industry experts, with certificates your whole team can keep up with — buy what you need, or subscribe for everything.</p>
           <div className="mt-6 flex flex-wrap items-center gap-2.5 md:mt-8">
-            <StarBorder>
-              <Button size="lg" className="min-w-[9.5rem] rounded-full" asChild>
-                <Link to="/courses">View courses</Link>
-              </Button>
-            </StarBorder>
+            {!isLoadingMe && !me ? (
+              <>
+                <StarBorder>
+                  <Button size="lg" className="min-w-[9.5rem] rounded-full" onClick={() => setAuthOpen(true)}>Log in</Button>
+                </StarBorder>
+                <Dialog open={authOpen} onOpenChange={setAuthOpen}>
+                  <DialogContent title="Welcome to LearnHub" description="Log in or create an account to get started." className="max-w-[460px]">
+                    <AuthTabs />
+                  </DialogContent>
+                </Dialog>
+              </>
+            ) : null}
             <Button size="lg" className="min-w-[9.5rem] rounded-full border border-white/30 bg-white/10 text-white hover:bg-white/20" onClick={() => setVideoOpen(true)}>
               <PlayCircle className="size-4 text-primary" /> Watch video
             </Button>

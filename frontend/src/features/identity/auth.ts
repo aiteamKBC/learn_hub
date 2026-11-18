@@ -1,11 +1,15 @@
 /** Sign-in through django-allauth's headless API (browser client: session cookie + CSRF).
  * https://docs.allauth.org/en/latest/headless/openapi-specification/ */
+import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { ApiError, api, csrfToken, unwrap } from '@/api/client'
 import { forgetInvite } from '@/lib/next'
 
 const BASE = '/_allauth/browser/v1'
+const AUTH_CHANNEL = 'learnhub-auth'
+const SIGNED_OUT_EVENT = 'signed-out'
+const AUTH_STORAGE_KEY = 'learnhub:auth-event'
 
 type AllauthResponse = {
   status: number
@@ -42,6 +46,49 @@ export function useMe() {
     },
     staleTime: 5 * 60_000,
   })
+}
+
+/** Keep every open tab honest when one tab signs out. Cookies are shared, but React
+ * Query's in-memory user cache is not, so the other tabs must clear theirs too. */
+export function useAuthSessionSync() {
+  const qc = useQueryClient()
+
+  useEffect(() => {
+    const signedOutElsewhere = () => {
+      forgetInvite()
+      qc.clear()
+      window.location.assign('/')
+    }
+    const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(AUTH_CHANNEL)
+    const onMessage = (event: MessageEvent<string>) => {
+      if (event.data === SIGNED_OUT_EVENT) signedOutElsewhere()
+    }
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === AUTH_STORAGE_KEY && event.newValue === SIGNED_OUT_EVENT) signedOutElsewhere()
+    }
+    channel?.addEventListener('message', onMessage)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      channel?.removeEventListener('message', onMessage)
+      channel?.close()
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [qc])
+}
+
+function announceSignOut() {
+  if (typeof BroadcastChannel !== 'undefined') {
+    const channel = new BroadcastChannel(AUTH_CHANNEL)
+    channel.postMessage(SIGNED_OUT_EVENT)
+    channel.close()
+  }
+  // Covers browsers where BroadcastChannel is unavailable.
+  try {
+    localStorage.setItem(AUTH_STORAGE_KEY, SIGNED_OUT_EVENT)
+    localStorage.removeItem(AUTH_STORAGE_KEY)
+  } catch {
+    // Storage can be disabled; BroadcastChannel above is still enough in modern browsers.
+  }
 }
 
 export function useAuthConfig() {
@@ -244,6 +291,7 @@ export function useLogout() {
       // an invitation waiting in this browser belongs to whoever was signed in
       forgetInvite()
       qc.clear()
+      announceSignOut()
       // A full reload to the home page guarantees a clean logged-out state with no stale,
       // user-scoped cache lingering (a client-side navigate can leave the UI showing the
       // old session until the next manual refresh).

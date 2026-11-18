@@ -10,7 +10,7 @@ import { type NavSection, WorkspaceLayout } from '@/components/layout/WorkspaceL
 import { corporateBusinessNav, corporateBusinessRoutes, corporateConsoleRoutes, corporateLearnerRoutes } from '@/features/corporate/routes'
 import { NotFoundPage } from '@/pages/StatusPages'
 
-import { PageSpinner, RequireAuth, RequireManager, RequireRole } from './guards'
+import { PageSpinner, RequireAuth, RequireGuest, RequireManager, RequireRole } from './guards'
 
 // Every page is its own chunk: visitors download the marketplace only.
 const named = <K extends string>(load: () => Promise<Record<K, React.ComponentType>>, name: K) =>
@@ -187,8 +187,8 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
   },
   // the player is full-screen: its own header, no site footer
   { path: '/learn/:slug/*', element: <RequireAuth>{page(<PlayerPage />)}</RequireAuth> },
-  { path: '/login', element: page(<LoginPage />) },
-  { path: '/signup', element: page(<SignupPage />) },
+  { path: '/login', element: <RequireGuest>{page(<LoginPage />)}</RequireGuest> },
+  { path: '/signup', element: <RequireGuest>{page(<SignupPage />)}</RequireGuest> },
   { path: '/account/verify-email/:key', element: page(<VerifyEmailPage />) },
   { path: '/account/password/reset', element: page(<ForgotPasswordPage />) },
   { path: '/account/password/reset/key/:key', element: page(<ResetPasswordPage />) },
