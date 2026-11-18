@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
 import { Field, Textarea } from '@/components/ui/input'
-import { EmptyState, ErrorState } from '@/components/ui/misc'
+import { EmptyState, ErrorState, PageHeader } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useOrders, useRefund } from '@/features/commerce/api'
 import { money, shortDate } from '@/lib/format'
@@ -28,21 +28,20 @@ export function OrdersPage() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-tight sm:text-[26px]">Purchase history</h1>
-      <p className="mt-1 text-sm text-muted">Receipts for courses you bought. Refunds are possible within 30 days.</p>
+      <PageHeader title="Purchase history" description="Receipts for courses you bought. Refunds are possible within 30 days." />
       {error ? (
         <ErrorState message={(error as Error).message} onRetry={() => void refetch()} />
       ) : isLoading ? (
-        <div className="mt-6 grid gap-3">
+        <div className="grid gap-3">
           <Skeleton className="h-40 rounded-lg" />
           <Skeleton className="h-40 rounded-lg" />
         </div>
       ) : !orders.length ? (
-        <Card className="mt-6 animate-reveal">
+        <Card className="animate-reveal">
           <EmptyState icon={<ReceiptText />} title="No purchases yet" body="Courses you buy will show up here with their receipts." action={<Button asChild><Link to="/courses">Browse courses</Link></Button>} />
         </Card>
       ) : (
-        <ul className="stagger mt-6 grid gap-4">
+        <ul className="stagger grid gap-4">
           {orders.map((o) => {
             const s = STATUS[o.status] ?? { label: o.status, tone: 'neutral' as const }
             return (

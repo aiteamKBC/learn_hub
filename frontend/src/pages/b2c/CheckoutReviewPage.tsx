@@ -4,7 +4,6 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import { toast } from 'sonner'
 
-import { Backdrop } from '@/components/art/backdrops'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody } from '@/components/ui/card'
 import { Input, NativeSelect } from '@/components/ui/input'
@@ -42,24 +41,21 @@ export function CheckoutReviewPage() {
   if (!item) return null
 
   return (
-    <div className="relative isolate min-h-[70vh]">
-      <Backdrop variant="ribbons" height={520} />
-      <div className="relative mx-auto max-w-2xl px-4 py-8 sm:px-6">
-        <PageHeader
-          title="Review your purchase"
-          description="Check the details and confirm to proceed to payment."
-          back={
-            <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-              <ArrowLeft className="mr-1 size-4" /> Back
-            </Button>
-          }
-        />
-        <div className="mt-6 space-y-5">
-          <ItemSummary item={item} />
-          <BuyerForm item={item} />
-        </div>
+    <>
+      <PageHeader
+        title="Review your purchase"
+        description="Check the details and confirm to proceed to payment."
+        back={
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+            <ArrowLeft className="mr-1 size-4" /> Back
+          </Button>
+        }
+      />
+      <div className="mx-auto max-w-2xl space-y-5">
+        <ItemSummary item={item} />
+        <BuyerForm item={item} />
       </div>
-    </div>
+    </>
   )
 }
 

@@ -1,5 +1,5 @@
-import { ArrowRight, ArrowUpRight, Briefcase, CheckCircle2, Clock, Code2, HeartPulse, Megaphone, Palette, PlayCircle, Server, ShieldCheck, Sparkles, Star, type LucideIcon } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { ArrowRight, ArrowUpRight, Briefcase, CheckCircle2, ChevronLeft, ChevronRight, Clock, Code2, HeartPulse, Megaphone, Palette, PlayCircle, Server, ShieldCheck, Sparkles, Star, type LucideIcon } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { useLocation } from 'react-router-dom'
 
@@ -141,7 +141,7 @@ function CategorySection() {
             : data.slice(0, 6).map((c) => {
                 const Icon = categoryIcons[c.icon] ?? Sparkles
                 return (
-                  <Link key={c.id} to={`/courses?category=${c.slug}`} className="group relative flex flex-col rounded-2xl border border-border bg-gradient-to-br from-surface to-primary-soft/40 p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow">
+                  <Link key={c.id} to={`/courses?category=${c.slug}`} className="group relative flex flex-col rounded-2xl border border-border bg-gradient-to-br from-surface to-primary-soft/40 p-6 shadow-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0">
                     <span className="flex size-11 items-center justify-center rounded-xl bg-primary-soft text-primary-soft-text">
                       <Icon className="size-5" />
                     </span>
@@ -227,7 +227,7 @@ function Membership() {
 
         <div className="mt-10 grid gap-5 lg:grid-cols-3">
           {tiers.map((t) => (
-            <article key={t.name} className={cn('relative flex flex-col rounded-2xl p-6 shadow-lg', t.featured ? 'bg-[#2a333c] ring-1 ring-primary/50' : 'bg-white text-text')}>
+            <article key={t.name} className={cn('relative flex flex-col rounded-2xl p-6 shadow-lg transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-xl motion-reduce:transition-none motion-reduce:hover:translate-y-0', t.featured ? 'bg-[#2a333c] ring-1 ring-primary/50 hover:ring-primary/70' : 'bg-white text-text')}>
               {t.badge ? <span className="absolute top-5 right-5 rounded-full bg-primary px-2.5 py-1 font-mono text-[10px] tracking-[0.1em] text-on-primary uppercase">{t.badge}</span> : null}
               <h3 className={cn('text-base font-semibold', t.featured ? 'text-white' : 'text-text')}>{t.name}</h3>
               <p className={cn('mt-1 text-sm', t.featured ? 'text-white/60' : 'text-muted')}>{t.tagline}</p>
@@ -292,10 +292,198 @@ function InstructorCard({ p }: { p: Faculty }) {
   )
 }
 
+/** Reduced-motion / fallback view: the original staggered 3-column arrangement. */
+function InstructorGrid({ people }: { people: Faculty[] }) {
+  const col1 = [people[0], people[3]].filter(Boolean)
+  const centre = [people[2]].filter(Boolean)
+  const col3 = [people[1], people[4]].filter(Boolean)
+  return (
+    <div className="grid gap-5 lg:grid-cols-3 lg:gap-7">
+      <div className="flex flex-col gap-6">
+        {col1.map((p) => (
+          <InstructorCard key={p.name} p={p} />
+        ))}
+      </div>
+      <div className="flex flex-col justify-center gap-6">
+        {centre.map((p) => (
+          <InstructorCard key={p.name} p={p} />
+        ))}
+      </div>
+      <div className="flex flex-col gap-6">
+        {col3.map((p) => (
+          <InstructorCard key={p.name} p={p} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+type Slide = { key: string; label: string; content: ReactNode }
+
+/**
+ * Generic 3D cover-flow carousel. The active slide faces front and centre;
+ * neighbours recede and rotate away in 3D. Navigate with the arrows, the dots,
+ * arrow keys, a swipe, or by tapping a side slide. When `interactive` is set the
+ * off-centre slides are made `inert` (so their own links/buttons stay out of the
+ * tab order and can't be clicked by mistake) and a full-card tap target simply
+ * brings them forward; the centred slide is live and fully usable. Callers fall
+ * back to a plain grid under reduced motion.
+ */
+function Coverflow({
+  slides,
+  label,
+  itemNoun,
+  cardWidth,
+  stageHeight,
+  maxWidth = 'max-w-5xl',
+  interactive = false,
+  fill = false,
+}: {
+  slides: Slide[]
+  label: string
+  itemNoun: string
+  cardWidth: string
+  stageHeight: string
+  maxWidth?: string
+  interactive?: boolean
+  fill?: boolean
+}) {
+  const count = slides.length
+  const [active, setActive] = useState(0)
+  const stageRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  const drag = useRef<{ x: number; moved: boolean } | null>(null)
+  const suppressClick = useRef(false)
+
+  // Track the stage width so card spacing scales with the available room (no fixed px breakpoints).
+  useEffect(() => {
+    const el = stageRef.current
+    if (!el) return
+    setWidth(el.clientWidth)
+    const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const go = (dir: number) => setActive((a) => (a + dir + count) % count)
+  const gap = Math.max(Math.min(width * 0.25, 240), 100)
+  const maxVisible = width && width < 560 ? 1 : 2
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    drag.current = { x: e.clientX, moved: false }
+  }
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (drag.current && Math.abs(e.clientX - drag.current.x) > 8) drag.current.moved = true
+  }
+  const onPointerUp = (e: React.PointerEvent) => {
+    const d = drag.current
+    drag.current = null
+    if (!d) return
+    const dx = e.clientX - d.x
+    if (d.moved && Math.abs(dx) > 45) {
+      suppressClick.current = true
+      go(dx < 0 ? 1 : -1)
+    } else {
+      suppressClick.current = false
+    }
+  }
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1) } else if (e.key === 'ArrowRight') { e.preventDefault(); go(1) } else if (e.key === 'Home') { e.preventDefault(); setActive(0) } else if (e.key === 'End') { e.preventDefault(); setActive(count - 1) }
+  }
+  const bringForward = (i: number) => {
+    if (suppressClick.current) { suppressClick.current = false; return }
+    setActive(i)
+  }
+
+  return (
+    <div className={cn('mx-auto', maxWidth)}>
+      <div
+        role="group"
+        aria-roledescription="carousel"
+        aria-label={label}
+        tabIndex={0}
+        onKeyDown={onKeyDown}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={() => (drag.current = null)}
+        className="relative touch-pan-y overflow-hidden rounded-3xl outline-none select-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      >
+        <div ref={stageRef} className={cn('relative [perspective:1400px]', stageHeight)}>
+          <div className="absolute inset-0 [transform-style:preserve-3d]">
+            {slides.map((s, i) => {
+              let offset = i - active
+              if (offset > count / 2) offset -= count
+              if (offset < -count / 2) offset += count
+              const abs = Math.abs(offset)
+              const sign = Math.sign(offset)
+              const hidden = abs > maxVisible
+              const isActive = offset === 0
+              return (
+                <div
+                  key={s.key}
+                  aria-hidden={!isActive}
+                  onClick={!interactive && !isActive ? () => bringForward(i) : undefined}
+                  style={{
+                    transform: `translateX(calc(-50% + ${offset * gap}px)) translateZ(${-abs * 170}px) rotateY(${-sign * 36}deg) scale(${Math.max(1 - abs * 0.12, 0.72)})`,
+                    opacity: hidden ? 0 : 1 - abs * 0.22,
+                    zIndex: 100 - abs,
+                    pointerEvents: hidden ? 'none' : 'auto',
+                  }}
+                  className={cn(
+                    'absolute top-0 left-1/2 transition-[transform,opacity] duration-500 ease-out will-change-transform motion-reduce:transition-none',
+                    cardWidth,
+                    fill && 'h-full',
+                    isActive ? 'cursor-default' : 'cursor-pointer',
+                  )}
+                >
+                  <div
+                    inert={interactive && !isActive ? true : undefined}
+                    className={cn('rounded-[20px] transition-shadow duration-500', fill && 'h-full', isActive && 'shadow-[0_28px_60px_-28px_rgba(31,38,46,0.55)]')}
+                  >
+                    {s.content}
+                  </div>
+                  {interactive && !isActive ? (
+                    <button type="button" aria-label={`Show ${s.label}`} onClick={() => bringForward(i)} className="absolute inset-0 rounded-[20px]" />
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Controls: arrows + position dots. */}
+      <div className="mt-6 flex items-center justify-center gap-4">
+        <button type="button" onClick={() => go(-1)} aria-label={`Previous ${itemNoun}`} className="flex size-10 items-center justify-center rounded-full border border-border bg-surface text-text shadow-sm transition-all duration-200 hover:border-primary/40 hover:text-primary active:scale-95 motion-reduce:transition-none">
+          <ChevronLeft className="size-5" />
+        </button>
+        <div className="flex items-center gap-2">
+          {slides.map((s, i) => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => setActive(i)}
+              aria-label={`Show ${s.label}`}
+              aria-current={i === active}
+              className={cn('h-2 rounded-full transition-all duration-300 motion-reduce:transition-none', i === active ? 'w-6 bg-primary' : 'w-2 bg-border hover:bg-primary/40')}
+            />
+          ))}
+        </div>
+        <button type="button" onClick={() => go(1)} aria-label={`Next ${itemNoun}`} className="flex size-10 items-center justify-center rounded-full border border-border bg-surface text-text shadow-sm transition-all duration-200 hover:border-primary/40 hover:text-primary active:scale-95 motion-reduce:transition-none">
+          <ChevronRight className="size-5" />
+        </button>
+      </div>
+      <p aria-live="polite" className="sr-only">
+        {slides[active]?.label}, {itemNoun} {active + 1} of {count}
+      </p>
+    </div>
+  )
+}
+
 /** Instructors, derived from the real course feed; portrait photos are placeholders. */
 function Instructors() {
   const { data, isLoading } = useCourses({ limit: 50 })
-  const gridRef = useRef<HTMLDivElement>(null)
   const people: Faculty[] = (() => {
     const map = new Map<string, { name: string; courses: number; learners: number; cats: Record<string, number> }>()
     for (const c of data?.items ?? []) {
@@ -318,27 +506,6 @@ function Instructors() {
         photo: INSTRUCTOR_PHOTOS[i % INSTRUCTOR_PHOTOS.length],
       }))
   })()
-  const count = people.length
-
-  // Cards rise in with a gentle stagger as the grid scrolls into view. Driven by
-  // ScrollTrigger (same mechanism as the section reveal), so cards are never left
-  // hidden if it can't run — reduced motion simply shows them in place.
-  useEffect(() => {
-    const grid = gridRef.current
-    if (!grid || count === 0 || reducedMotion()) return
-    gsap.registerPlugin(ScrollTrigger)
-    const ctx = gsap.context(() => {
-      gsap.from('[data-card]', {
-        opacity: 0,
-        y: 28,
-        duration: 0.6,
-        ease: 'power2.out',
-        stagger: 0.09,
-        scrollTrigger: { trigger: grid, start: 'top 85%', once: true },
-      })
-    }, grid)
-    return () => ctx.revert()
-  }, [count])
 
   if (isLoading) {
     return (
@@ -350,28 +517,18 @@ function Instructors() {
     )
   }
 
-  // Staggered 3-column arrangement: side columns stacked, centre column vertically centred.
-  const col1 = [people[0], people[3]].filter(Boolean)
-  const centre = [people[2]].filter(Boolean)
-  const col3 = [people[1], people[4]].filter(Boolean)
+  if (people.length === 0) return null
+  // The 3D cover-flow is the default; reduced motion keeps the calmer grid.
+  if (reducedMotion()) return <InstructorGrid people={people} />
   return (
-    <div ref={gridRef} className="grid gap-5 lg:grid-cols-3 lg:gap-7">
-      <div className="flex flex-col gap-6">
-        {col1.map((p) => (
-          <InstructorCard key={p.name} p={p} />
-        ))}
-      </div>
-      <div className="flex flex-col justify-center gap-6">
-        {centre.map((p) => (
-          <InstructorCard key={p.name} p={p} />
-        ))}
-      </div>
-      <div className="flex flex-col gap-6">
-        {col3.map((p) => (
-          <InstructorCard key={p.name} p={p} />
-        ))}
-      </div>
-    </div>
+    <Coverflow
+      label="Instructors"
+      itemNoun="instructor"
+      maxWidth="max-w-5xl"
+      cardWidth="w-[264px] sm:w-[300px]"
+      stageHeight="h-[500px] sm:h-[548px]"
+      slides={people.map((p) => ({ key: p.name, label: p.name, content: <InstructorCard p={p} /> }))}
+    />
   )
 }
 
@@ -382,43 +539,64 @@ const BUNDLES = [
   { title: 'Team-ready pack', note: "Everything a new hire needs in their first month, bundled together.", save: 'Save 26%', price: '£199', was: '£268' },
 ]
 
+/** A single bundle card — same content in the grid and the cover-flow. */
+function BundleCard({ b, pair, index }: { b: (typeof BUNDLES)[number]; pair: CourseCardData[]; index: number }) {
+  return (
+    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+      <div className="relative aspect-[16/9] overflow-hidden bg-surface-2">
+        <img src={FEATURED_PHOTOS[(index + 2) % FEATURED_PHOTOS.length]} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover object-center" />
+        <span className="absolute top-3 left-3 rounded-full bg-primary/90 px-2.5 py-1 font-mono text-[10px] tracking-[0.1em] text-on-primary uppercase shadow-sm">{b.save}</span>
+      </div>
+      <div className="flex flex-1 flex-col p-5">
+        <h3 className="text-base font-semibold tracking-tight text-text">{b.title}</h3>
+        <p className="mt-1.5 text-sm leading-relaxed text-muted">{b.note}</p>
+        <ul className="mt-4 grid gap-2 text-sm">
+          {(pair.length ? pair.map((c) => c.title) : ['Two complementary courses']).map((t) => (
+            <li key={t} className="flex items-center gap-2 text-text">
+              <CheckCircle2 className="size-4 shrink-0 text-primary" /> <span className="truncate">{t}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-auto flex items-baseline gap-2 pt-4">
+          <span className="text-2xl font-bold tracking-tight text-text tabular">{b.price}</span>
+          <span className="text-sm text-subtle line-through tabular">{b.was}</span>
+        </div>
+        <Button className="mt-4 w-full rounded-full" asChild>
+          <Link to="/courses">
+            See the bundle <ArrowRight className="size-4" />
+          </Link>
+        </Button>
+      </div>
+    </article>
+  )
+}
+
 function Offers() {
   const { data } = useCourses({ sort: 'popular', limit: 6 })
   const courses = data?.items ?? []
+  const bundles = BUNDLES.map((b, i) => ({ b, index: i, pair: [courses[i * 2], courses[i * 2 + 1]].filter(Boolean) }))
+
+  // The 3D cover-flow is the default; reduced motion keeps the calmer grid.
+  if (reducedMotion()) {
+    return (
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {bundles.map(({ b, pair, index }) => (
+          <BundleCard key={b.title} b={b} pair={pair} index={index} />
+        ))}
+      </div>
+    )
+  }
   return (
-    <div className="grid gap-5 stagger sm:grid-cols-2 lg:grid-cols-3">
-      {BUNDLES.map((b, i) => {
-        const pair = [courses[i * 2], courses[i * 2 + 1]].filter(Boolean)
-        return (
-          <article key={b.title} className="flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg">
-            <div className="relative aspect-[16/9] overflow-hidden bg-surface-2">
-              <img src={FEATURED_PHOTOS[(i + 2) % FEATURED_PHOTOS.length]} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover object-center" />
-              <span className="absolute top-3 left-3 rounded-full bg-primary/90 px-2.5 py-1 font-mono text-[10px] tracking-[0.1em] text-on-primary uppercase shadow-sm">{b.save}</span>
-            </div>
-            <div className="flex flex-1 flex-col p-5">
-              <h3 className="text-base font-semibold tracking-tight text-text">{b.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-muted">{b.note}</p>
-              <ul className="mt-4 grid gap-2 text-sm">
-                {(pair.length ? pair.map((c) => c.title) : ['Two complementary courses']).map((t) => (
-                  <li key={t} className="flex items-center gap-2 text-text">
-                    <CheckCircle2 className="size-4 shrink-0 text-primary" /> <span className="truncate">{t}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-2xl font-bold tracking-tight text-text tabular">{b.price}</span>
-                <span className="text-sm text-subtle line-through tabular">{b.was}</span>
-              </div>
-              <Button className="mt-4 w-full rounded-full" asChild>
-                <Link to="/courses">
-                  See the bundle <ArrowRight className="size-4" />
-                </Link>
-              </Button>
-            </div>
-          </article>
-        )
-      })}
-    </div>
+    <Coverflow
+      label="Course bundles"
+      itemNoun="bundle"
+      interactive
+      fill
+      maxWidth="max-w-5xl"
+      cardWidth="w-[300px] sm:w-[340px]"
+      stageHeight="h-[544px] sm:h-[560px]"
+      slides={bundles.map(({ b, pair, index }) => ({ key: b.title, label: b.title, content: <BundleCard b={b} pair={pair} index={index} /> }))}
+    />
   )
 }
 
@@ -499,7 +677,7 @@ function FeaturedCourseCard({ course, index }: { course: CourseCardData; index: 
   const instructor = course.instructors[0]
   const cover = course.thumbnail_url || FEATURED_PHOTOS[index % FEATURED_PHOTOS.length]
   return (
-    <Link to={`/courses/${course.slug}`} className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg">
+    <Link to={`/courses/${course.slug}`} className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg motion-reduce:transition-none motion-reduce:hover:translate-y-0">
       <div className="aspect-[16/10] overflow-hidden bg-surface-2">
         <img src={cover} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover object-center transition-transform duration-500 ease-out group-hover:scale-[1.03]" />
       </div>
@@ -684,7 +862,7 @@ export function HomePage() {
         />
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/90 via-background/70 to-background/95 dark:from-background/92 dark:via-background/80 dark:to-background/96" />
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 py-12">
-          <div className="mb-6">
+          <div className="mb-6 text-center">
             <h2 className="text-2xl font-semibold tracking-tight text-text">New and noteworthy</h2>
             <p className="mt-1 text-sm text-muted">The latest courses, just published.</p>
           </div>
@@ -698,14 +876,14 @@ export function HomePage() {
       <WhyLearnHub />
       <section id="instructors" className="scroll-mt-20 bg-[#faeee0] dark:bg-surface-2/40">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-16 lg:py-20">
-          <div className="max-w-none">
-            <p className="flex items-center gap-2 font-mono text-[11px] tracking-[0.26em] text-primary uppercase">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="flex items-center justify-center gap-2 font-mono text-[11px] tracking-[0.26em] text-primary uppercase">
               <span className="size-1.5 rounded-full bg-primary" /> Instructors
             </p>
             <h2 className="mt-4 text-[clamp(30px,5vw,44px)] leading-[1.05] font-bold tracking-tight text-text">
               Taught by people who <span className="text-primary">ship it.</span>
             </h2>
-            <p className="mt-4 text-muted">No career trainers. Every course is led by a practitioner still working in the field, reviewed by a second pair of eyes.</p>
+            <p className="mx-auto mt-4 max-w-md text-muted">No career trainers. Every course is led by a practitioner still working in the field, reviewed by a second pair of eyes.</p>
           </div>
           <div className="mt-12">
             <Instructors />

@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { EmptyState, ErrorState } from '@/components/ui/misc'
+import { EmptyState, ErrorState, PageHeader } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CourseRow } from '@/features/catalog/CourseRow'
 import { useAddToCart, useRemoveWishlist, useWishlist } from '@/features/commerce/api'
@@ -16,21 +16,20 @@ export function WishlistPage() {
   const fail = (e: unknown) => toast.error((e as Error).message)
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-tight sm:text-[26px]">Wishlist</h1>
-      <p className="mt-1 text-sm text-muted">Courses you saved for later.</p>
+      <PageHeader title="Wishlist" description="Courses you saved for later." />
       {error ? (
         <ErrorState message={(error as Error).message} onRetry={() => void refetch()} />
       ) : isLoading || !data ? (
-        <div className="mt-6 grid gap-3">
+        <div className="grid gap-3">
           <Skeleton className="h-36 rounded-lg" />
           <Skeleton className="h-36 rounded-lg" />
         </div>
       ) : !data.items.length ? (
-        <Card className="mt-6 animate-reveal">
+        <Card className="animate-reveal">
           <EmptyState icon={<Heart />} title="Nothing saved yet" body="Tap the heart on any course to keep it here." action={<Button asChild><Link to="/courses">Browse courses</Link></Button>} />
         </Card>
       ) : (
-        <ul className="stagger mt-6 grid gap-3">
+        <ul className="stagger grid gap-3">
           {data.items.map((c) => (
             <li key={c.id}>
               <CourseRow

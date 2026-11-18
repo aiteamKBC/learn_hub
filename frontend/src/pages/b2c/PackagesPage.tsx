@@ -1,7 +1,6 @@
 import { BookOpen, Check, Info, Package } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { Backdrop } from '@/components/art/backdrops'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody } from '@/components/ui/card'
 import { EmptyState, ErrorState, PageHeader } from '@/components/ui/misc'
@@ -37,10 +36,8 @@ export function PackagesPage() {
   }
 
   return (
-    <div className="relative isolate min-h-[70vh]">
-      <Backdrop variant="ribbons" height={520} />
-      <div className="relative mx-auto max-w-5xl px-4 py-8 sm:px-6">
-        <PageHeader title="Course bundles" description="Buy a themed set of courses together, in one payment." />
+    <>
+      <PageHeader title="Course bundles" description="Buy a themed set of courses together, in one payment." />
 
         {isLoading ? (
           <div className="grid gap-4 md:grid-cols-2">
@@ -112,7 +109,6 @@ export function PackagesPage() {
             ))}
           </div>
         )}
-      </div>
-    </div>
+    </>
   )
 }
