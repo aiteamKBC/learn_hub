@@ -2,7 +2,6 @@ import { CheckCircle2, Clock, Coins, PlayCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-import { Backdrop } from '@/components/art/backdrops'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { CountUp } from '@/components/ui/count-up'
@@ -48,10 +47,8 @@ export function TokenResultPage() {
   }, [credited])
 
   return (
-    <div className="relative isolate min-h-[70vh]">
-      <Backdrop variant="coins" height={520} />
-      <div className="relative mx-auto max-w-2xl px-4 py-14 sm:px-6">
-        {credited ? (
+    <div className="mx-auto max-w-2xl py-6">
+      {credited ? (
           <Card className="animate-reveal overflow-hidden p-8 text-center shadow-lg">
             <span className="mx-auto flex size-16 animate-pop items-center justify-center rounded-full bg-success-soft text-success">
               <CheckCircle2 className="size-9" />
@@ -100,9 +97,8 @@ export function TokenResultPage() {
             {baseline == null ? (
               <p className="mt-4 text-xs text-muted">Tip: open your wallet to see your current balance.</p>
             ) : null}
-          </Card>
-        )}
-      </div>
+        </Card>
+      )}
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { Award, BadgePercent, ShieldCheck, BarChart3, BookOpen, Building2, Coins
 
 import { ApiError } from '@/api/client'
 import { Backdrop } from '@/components/art/backdrops'
+import { MarketplaceNav } from '@/components/layout/MarketplaceNav'
 import { type NavSection, WorkspaceLayout } from '@/components/layout/WorkspaceLayout'
 import { corporateConsoleNav } from '@/features/corporate/routes'
 import { Button } from '@/components/ui/button'
@@ -81,7 +82,7 @@ const consoleNav: NavSection[] = [
 export function ConsoleShell() {
   const { error } = useNavCounts()
   if (error instanceof ApiError && error.code === 'mfa_required') return <MfaRequired />
-  return <WorkspaceLayout area="Admin" sections={consoleNav} art="circuit" />
+  return <WorkspaceLayout area="Admin" sections={consoleNav} art="circuit" topBar={<MarketplaceNav />} />
 }
 
 /** Settings > Security can require 2-step sign-in for staff: until it is on, the console API

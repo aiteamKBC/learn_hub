@@ -123,7 +123,9 @@ def entitlement(alloc: SeatAllocation, sp: SeatPurchase, left_at: datetime | Non
     if sp.stage_access_enabled:
         from .models import StageInstalment
 
-        payments = list(StageInstalment.objects.filter(seat_purchase=sp).exclude(status=StageInstalment.Status.VOID))
+        payments = list(
+            StageInstalment.objects.filter(seat_purchase=sp).exclude(status=StageInstalment.Status.VOID)
+        )
         paid = sum(p.status == StageInstalment.Status.PAID for p in payments)
         if payments and paid == len(payments):
             return {"status": "paid_in_full", "paid_through": None}
@@ -160,7 +162,11 @@ def apply_paid_access(alloc: SeatAllocation, sp: SeatPurchase) -> None:
     """
     from apps.learning.models import Enrollment
 
-    if not alloc.enrollment_id or sp.stage_access_enabled or sp.payment_plan != SeatPurchase.PaymentPlan.INSTALMENTS:
+    if (
+        not alloc.enrollment_id
+        or sp.stage_access_enabled
+        or sp.payment_plan != SeatPurchase.PaymentPlan.INSTALMENTS
+    ):
         return
     ent = seat_entitlement(alloc, sp)
     if ent["status"] == "paid_in_full":

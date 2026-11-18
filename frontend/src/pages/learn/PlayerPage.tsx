@@ -4,6 +4,7 @@ import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Backdrop } from '@/components/art/backdrops'
+import { DashboardBackdrop } from '@/components/art/dashboard-backdrop'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Logo } from '@/components/ui/logo'
@@ -103,7 +104,10 @@ export function PlayerPage() {
   const error = lookup.error ?? player.error
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
+    <div className="relative flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
+      {/* Warm dashboard artwork behind the whole player, so the page matches the rest
+          of the learner area instead of a flat background. */}
+      <DashboardBackdrop className="fixed inset-0 -z-10" />
       <header className="sticky top-0 z-40 flex h-14 items-center gap-2 bg-nav px-2 text-white sm:gap-3 sm:px-4">
         <Button variant="ghost" size="icon-sm" asChild className="text-nav-text hover:bg-nav-hover hover:text-white">
           <Link to="/learn" aria-label="Back to my learning">
@@ -144,10 +148,14 @@ export function PlayerPage() {
           <ErrorState message={error.message} onRetry={() => void (lookup.refetch(), player.refetch())} />
         </div>
       ) : (
-        <div className={cn('grid flex-1', sidebar && 'lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]')}>
-          <main id="main" className="min-w-0">
-            {/* Centre the stage and cap its width so the video doesn't swallow the whole page. */}
-            <div className="mx-auto w-full max-w-5xl lg:px-6 lg:pt-6">
+        <div className={cn('grid flex-1 lg:h-[calc(100dvh-3.5rem)] lg:overflow-hidden', sidebar && 'lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]')}>
+          {/* On desktop the main column scrolls on its own (contained to the viewport height)
+              instead of growing the whole page, so short lectures don't leave a long empty tail. */}
+          <main id="main" className="min-w-0 lg:overflow-y-auto" data-lenis-prevent>
+            {/* Centre the stage and cap its width so the video doesn't swallow the whole page.
+                Match the lecture bar / tabs width (max-w-5xl) so nothing below is narrower than
+                the video, and drop it a little below the sticky header instead of touching it. */}
+            <div className="mx-auto w-full max-w-5xl pt-4 lg:px-6 lg:pt-20">
               {locked && p ? (
                 <LockedStage slug={route.slug} title={locked.title} prerequisiteKey={locked.prerequisite_key} prerequisiteTitle={locked.prerequisite_title} reason={locked.locked_reason} />
               ) : <Stage lecture={lecture.data} loading={lecture.isLoading || !p} error={lecture.error} enrollmentId={lookup.enrollmentId} slug={route.slug} startAt={params.get('t') ? Number(params.get('t')) : undefined} onRetry={() => void lecture.refetch()} />}
@@ -156,9 +164,8 @@ export function PlayerPage() {
             {p && lecture.data ? (
               <>
                 <LectureBar lecture={lecture.data} slug={route.slug} />
-                <div className="relative isolate">
-                  <Backdrop variant="orbit" height={320} className="opacity-60" />
-                  <Tabs value={tab} onValueChange={(v) => setTab(v)} className="relative mx-auto max-w-4xl px-4 pt-2 pb-16 sm:px-6">
+                <div className="relative">
+                  <Tabs value={tab} onValueChange={(v) => setTab(v)} className="relative mx-auto max-w-5xl px-4 pt-2 pb-16 sm:px-6">
                     <TabsList>
                       <TabsTrigger value="content" className="lg:hidden">
                         <ListTree /> Content
@@ -212,7 +219,7 @@ export function PlayerPage() {
                   <h2 className="text-sm font-semibold">Course content</h2>
                   {p ? <span className="text-xs text-muted tabular">{Math.round(p.progress_pct)}% complete</span> : null}
                 </div>
-                <div className="flex-1 overflow-y-auto overscroll-contain">
+                <div className="flex-1 overflow-y-auto overscroll-contain" data-lenis-prevent>
                   {p ? (
                     <Curriculum player={p} current={key} />
                   ) : (
@@ -332,8 +339,8 @@ function Stage({ lecture, loading, error, enrollmentId, slug, startAt, onRetry }
 function LectureBar({ lecture, slug }: { lecture: Lecture; slug: string }) {
   const { Icon, label } = kindOf(lecture.kind)
   return (
-    <div className="border-b border-border bg-surface">
-      <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-3 sm:px-6">
+    <div>
+      <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:px-6">
         <div className="min-w-0 flex-1">
           {lecture.kind === 'video' ? <p className="truncate text-[15px] font-semibold">{lecture.title}</p> : null}
           <p className="flex items-center gap-1.5 text-xs text-muted">

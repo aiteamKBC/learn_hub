@@ -1,5 +1,6 @@
-import { Heart, Lock, ShoppingCart, Tag, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Heart, Lock, ShoppingCart, Tag, Trash2, X } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
+import { useNavigate as useRouterNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Backdrop } from '@/components/art/backdrops'
@@ -27,6 +28,8 @@ export function CartPage() {
   const { data: currencies } = useCurrencies()
   const { setCurrency } = useCurrency()
   const navigate = useNavigate()
+  const routerNavigate = useRouterNavigate()
+  const goBack = () => (window.history.length > 1 ? routerNavigate(-1) : navigate('/courses'))
   const popular = useCourses({ sort: 'popular', limit: 4 })
 
   const apply = (e: FormEvent) => {
@@ -50,6 +53,9 @@ export function CartPage() {
     <div className="relative isolate">
       <Backdrop variant="mosaic" seed={44} height={340} />
       <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        <Button variant="ghost" size="sm" className="-ml-2 mb-3 text-muted" onClick={goBack}>
+          <ArrowLeft className="mr-1 size-4" /> Back
+        </Button>
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Your cart</h1>
         {error ? (
           <ErrorState message={(error as Error).message} onRetry={() => void refetch()} />

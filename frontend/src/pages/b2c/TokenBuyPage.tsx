@@ -2,7 +2,6 @@ import { Coins, Info, Wallet } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { Backdrop } from '@/components/art/backdrops'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -29,29 +28,26 @@ export function TokenBuyPage() {
   const goReview = (item: ReviewItem) => navigate('/checkout/review', { state: item })
 
   return (
-    <div className="relative isolate min-h-[70vh]">
-      <Backdrop variant="coins" height={520} />
-      <div className="relative mx-auto max-w-5xl px-4 py-8 sm:px-6">
-        <PageHeader
-          title="Buy tokens"
-          description="Top up your wallet, then spend tokens to unlock exactly what you want."
-          back={
-            <Button variant="ghost" size="sm" asChild>
-              <a href="/wallet">← Wallet</a>
-            </Button>
-          }
-          actions={
-            balance.data ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1.5 text-sm font-medium text-primary-soft-text">
-                <Wallet className="size-4" /> {count(balance.data.balance)} tokens
-              </span>
-            ) : null
-          }
-        />
-        <Packs onReview={goReview} />
-        <CustomTopUp onReview={goReview} />
-      </div>
-    </div>
+    <>
+      <PageHeader
+        title="Buy tokens"
+        description="Top up your wallet, then spend tokens to unlock exactly what you want."
+        back={
+          <Button variant="ghost" size="sm" asChild>
+            <a href="/wallet">← Wallet</a>
+          </Button>
+        }
+        actions={
+          balance.data ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1.5 text-sm font-medium text-primary-soft-text">
+              <Wallet className="size-4" /> {count(balance.data.balance)} tokens
+            </span>
+          ) : null
+        }
+      />
+      <Packs onReview={goReview} />
+      <CustomTopUp onReview={goReview} />
+    </>
   )
 }
 

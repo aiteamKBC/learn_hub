@@ -4,12 +4,13 @@ import { useLocation, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Backdrop } from '@/components/art/backdrops'
+import { DashboardBackdrop } from '@/components/art/dashboard-backdrop'
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { coverColors, CourseThumb } from '@/components/ui/course-thumb'
+import { CourseThumb } from '@/components/ui/course-thumb'
 import { ErrorState, Rating } from '@/components/ui/misc'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -328,7 +329,7 @@ function BuyBox({ course, onPreview }: { course: Detail; onPreview?: () => void 
                 <ShoppingCart /> {v.in_cart ? 'Go to cart' : 'Add to cart'}
               </Button>
             </div>
-            <Button size="lg" variant="soft" className="mt-2 w-full" loading={checkout.isPending} onClick={() => (me ? buyNow() : needLogin())}>
+            <Button size="lg" variant="soft" className="mt-2 w-full" onClick={() => (me ? navigate(`/checkout/pay/${course.slug}`) : needLogin())}>
               Buy now
             </Button>
             <p className="mt-3 text-center text-xs text-muted">30-day refund policy · secure checkout by Stripe</p>
@@ -396,11 +397,14 @@ function BuyBox({ course, onPreview }: { course: Detail; onPreview?: () => void 
 
 function CourseSkeleton() {
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-      <Skeleton className="h-4 w-40" />
-      <Skeleton className="mt-4 h-10 w-2/3" />
-      <Skeleton className="mt-3 h-5 w-1/2" />
-      <Skeleton className="mt-10 h-72 w-full lg:w-2/3" />
+    <div className="relative isolate">
+      <DashboardBackdrop className="fixed inset-0 -z-10" />
+      <div className="relative mx-auto max-w-7xl px-4 py-10 sm:px-6">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="mt-4 h-10 w-2/3" />
+        <Skeleton className="mt-3 h-5 w-1/2" />
+        <Skeleton className="mt-10 h-72 w-full lg:w-2/3" />
+      </div>
     </div>
   )
 }
@@ -419,9 +423,10 @@ export function CoursePage() {
   const catSlug = cats?.find((x) => x.name === c.category)?.slug
 
   return (
-    <>
-      <section className="relative isolate overflow-hidden border-b border-border bg-surface">
-        <Backdrop variant="waves" height="100%" fade={false} line={false} {...coverColors(c.category)} />
+    <div className="relative isolate">
+      {/* The shared learner/workspace artwork, fixed behind the whole page (same as "My learning"). */}
+      <DashboardBackdrop className="animate-fade-in fixed inset-0 -z-10" />
+      <section className="relative overflow-hidden">
         <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_360px] lg:py-12">
           <div>
             <Button variant="secondary" size="sm" onClick={goBack} className="mb-4">
@@ -467,9 +472,7 @@ export function CoursePage() {
         </div>
       </section>
 
-      <div className="relative isolate">
-        {/* Soft cream waves behind the rest of the page, so the content area isn't a flat colour. */}
-        <Backdrop variant="waves" height="100%" fade={false} line={false} />
+      <div className="relative">
         <div className="relative mx-auto grid max-w-7xl animate-reveal gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_360px]">
           <div className="order-2 grid min-w-0 gap-10 lg:order-1">
           {c.topics.length ? (
@@ -515,6 +518,6 @@ export function CoursePage() {
         </div>
       </div>
       <PreviewDialog slug={c.slug} lecture={preview} onClose={() => setPreview(null)} />
-    </>
+    </div>
   )
 }

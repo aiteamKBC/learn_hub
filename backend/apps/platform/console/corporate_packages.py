@@ -318,7 +318,11 @@ def update_offering(request, offering_id: UUID, body: ConsoleOfferingPatch):
         raise Http404
     if offering.delivery_type == CorporateOffering.DeliveryType.RECORDED:
         from core.errors import ServiceError
-        if any(getattr(body, k) is not None for k in ("price_tier_id", "is_active", "custom_quote_enabled", "description", "access_months")):
+
+        if any(
+            getattr(body, k) is not None
+            for k in ("price_tier_id", "is_active", "custom_quote_enabled", "description", "access_months")
+        ):
             raise ServiceError(
                 "recorded_price_managed_globally",
                 "Recorded courses use the same price for learners and company seats. Set the course price in Pricing.",
@@ -328,7 +332,13 @@ def update_offering(request, offering_id: UUID, body: ConsoleOfferingPatch):
             raise ServiceError("no_changes", "Choose whether instalments are enabled.", status=400)
         offering.instalments_enabled = body.instalments_enabled
         offering.save(update_fields=["instalments_enabled", "updated_at"])
-        audit_request(request, "offering_updated", "corporate_offering", offering.id, {"instalments_enabled": body.instalments_enabled})
+        audit_request(
+            request,
+            "offering_updated",
+            "corporate_offering",
+            offering.id,
+            {"instalments_enabled": body.instalments_enabled},
+        )
         return {"ok": True}
     changes = {}
     if body.price_tier_id is not None:

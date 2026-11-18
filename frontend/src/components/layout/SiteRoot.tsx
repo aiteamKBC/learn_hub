@@ -9,7 +9,7 @@ import { useAuthSessionSync, useLogout, useMe } from '@/features/identity/auth'
 import { usePublicSettings, useSiteBanner } from '@/features/platform/api'
 import { setDatePrefs } from '@/lib/format'
 import { Link } from '@/lib/router'
-import { SmoothScroll } from '@/lib/smooth-scroll'
+import { scrollToTopInstant, SmoothScroll } from '@/lib/smooth-scroll'
 
 // Pages a visitor can open while guest browsing is off are sign-in pages only; the
 // catalogue sends them to log in (the API refuses it too).
@@ -120,8 +120,13 @@ export function SiteRoot() {
   useAuthSessionSync()
   const { settings } = usePublicSettings()
   const { data: me, isLoading } = useMe()
-  const { pathname, search } = useLocation()
+  const { pathname, search, hash } = useLocation()
   useBranding(settings['general.platform_name'], settings['general.favicon_url'])
+  // Open each new route at its top. Skip when the URL carries an anchor (#section),
+  // which has its own smooth-scroll handling.
+  useEffect(() => {
+    if (!hash) scrollToTopInstant()
+  }, [pathname, hash])
   // date format, time zone and language for every page (set during render so the first paint uses them)
   setDatePrefs(settings['general.date_format'], settings['general.time_zone'])
   const lang = settings['general.default_language']

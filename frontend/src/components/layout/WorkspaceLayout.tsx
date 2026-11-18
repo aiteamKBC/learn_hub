@@ -77,20 +77,30 @@ export type WorkspaceSearch = { placeholder: string; to: (q: string) => string }
 
 /** Instructor, business and admin areas: navy sidebar on desktop, hamburger drawer on
  * phones (approved navigation decision). `art` is the area's default artwork; a page can
- * choose its own with `handle: { art }` in its route. */
-export function WorkspaceLayout({ area, sections, header, search, style }: { area: string; sections: NavSection[]; header?: ReactNode; art?: BackdropVariant; search?: WorkspaceSearch; style?: CSSProperties }) {
+ * choose its own with `handle: { art }` in its route. `topBar` is an optional full-width row
+ * above the whole frame (e.g. the marketplace nav on the admin console); the sidebar and header
+ * then stick just below it. */
+export function WorkspaceLayout({ area, sections, header, search, topBar, style }: { area: string; sections: NavSection[]; header?: ReactNode; art?: BackdropVariant; search?: WorkspaceSearch; topBar?: ReactNode; style?: CSSProperties }) {
   const [open, setOpen] = useState(false)
+  const hasTop = !!topBar
+  const headerContent = header ?? (search ? <HeaderSearch {...search} /> : null)
+  // With a top bar the controls move to the marketplace nav; if there's no search/header
+  // either, the header has only the mobile hamburger left, so it hides on desktop.
+  const headerEmptyOnDesktop = hasTop && !headerContent
 
-  return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[264px_1fr]" style={style}>
+  const body = (
+    <>
       <div className="hidden bg-nav lg:block">
-        <aside className="vt-sidebar sticky top-0 flex h-dvh flex-col">
-          {/* logo sits in a light strip aligned with the header: part of the top navbar */}
-          <div className="flex h-16 shrink-0 items-center border-b border-border bg-background px-5">
-            <Link to="/" aria-label="Home">
-              <Logo />
-            </Link>
-          </div>
+        <aside className={cn('vt-sidebar sticky flex flex-col', hasTop ? 'top-16 h-[calc(100dvh-4rem)]' : 'top-0 h-dvh')}>
+          {/* without a top bar, the logo sits in a light strip aligned with the header; with one,
+              the top bar already carries the logo, so the nav starts straight under it */}
+          {hasTop ? null : (
+            <div className="flex h-16 shrink-0 items-center border-b border-border bg-background px-5">
+              <Link to="/" aria-label="Home">
+                <Logo />
+              </Link>
+            </div>
+          )}
           <div className="min-h-0 flex-1">
             <SideNav sections={sections} area={area} />
           </div>
@@ -114,21 +124,41 @@ export function WorkspaceLayout({ area, sections, header, search, style }: { are
 
       <div className="relative isolate flex min-h-dvh min-w-0 flex-col">
         <DashboardBackdrop className="animate-fade-in" />
-        <header className="vt-header sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-border bg-background/90 px-4 backdrop-blur-md sm:px-6">
+        {/* With a top bar (admin console) the theme toggle, bell and user menu already live in
+            the marketplace nav, so this header drops them to avoid a duplicate strip; when it
+            would then be empty it only stays on mobile, where it carries the sidebar hamburger. */}
+        <header className={cn('vt-header sticky z-30 flex h-16 items-center gap-2 border-b border-border bg-background/90 px-4 backdrop-blur-md sm:px-6', hasTop ? 'top-16' : 'top-0', headerEmptyOnDesktop && 'lg:hidden')}>
           <Button variant="ghost" size="icon" className="-ml-2 lg:hidden" aria-label="Open menu" onClick={() => setOpen(true)}>
             <MenuIcon />
           </Button>
-          <div className="hidden min-w-0 max-w-sm flex-1 sm:block">{header ?? (search ? <HeaderSearch {...search} /> : null)}</div>
-          <div className="ml-auto flex items-center gap-1">
-            <ThemeToggle />
-            <NotificationBell />
-            <UserMenu />
-          </div>
+          <div className="hidden min-w-0 max-w-sm flex-1 sm:block">{headerContent}</div>
+          {hasTop ? null : (
+            <div className="ml-auto flex items-center gap-1">
+              <ThemeToggle />
+              <NotificationBell />
+              <UserMenu />
+            </div>
+          )}
         </header>
         <main id="main" className="relative mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <Outlet />
         </main>
       </div>
+    </>
+  )
+
+  if (hasTop) {
+    return (
+      <div className="flex min-h-dvh flex-col" style={style}>
+        {topBar}
+        <div className="flex-1 lg:grid lg:grid-cols-[264px_1fr]">{body}</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-dvh lg:grid lg:grid-cols-[264px_1fr]" style={style}>
+      {body}
     </div>
   )
 }

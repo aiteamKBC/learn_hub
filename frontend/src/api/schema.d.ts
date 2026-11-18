@@ -1399,6 +1399,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/commerce/checkout/intent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Checkout Intent
+         * @description Embedded checkout: create the order and a PaymentIntent, and hand the browser the
+         *     client_secret plus the public key so the Payment Element can render on our own page.
+         */
+        post: operations["apps_commerce_api_checkout_intent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/commerce/orders": {
         parameters: {
             query?: never;
@@ -10276,6 +10297,24 @@ export interface components {
             currency: string;
             /** Coupon */
             coupon?: string | null;
+        };
+        /** CheckoutIntentOut */
+        CheckoutIntentOut: {
+            /**
+             * Order Id
+             * Format: uuid
+             */
+            order_id: string;
+            /** Status */
+            status: string;
+            /** Client Secret */
+            client_secret: string | null;
+            /** Publishable Key */
+            publishable_key: string;
+            /** Total Minor */
+            total_minor: number;
+            /** Currency */
+            currency: string;
         };
         /** OrderItemOut */
         OrderItemOut: {
@@ -21855,6 +21894,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CheckoutOut"];
+                };
+            };
+        };
+    };
+    apps_commerce_api_checkout_intent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckoutIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutIntentOut"];
                 };
             };
         };

@@ -1,7 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Coins, Gift, Plus, ReceiptText, RefreshCw } from 'lucide-react'
 
-import { Backdrop } from '@/components/art/backdrops'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody } from '@/components/ui/card'
@@ -21,25 +20,23 @@ export function WalletPage() {
   const refresh = () => qc.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith('b2c-wallet') })
 
   return (
-    <div className="relative isolate min-h-[70vh]">
-      <Backdrop variant="coins" height={520} />
-      <div className="relative mx-auto max-w-5xl px-4 py-8 sm:px-6">
-        <PageHeader
-          title="Your token wallet"
-          description="Spend tokens to unlock lectures, materials or whole courses. Prices are set by LearnHub and shown before you confirm."
-          actions={
-            <div className="flex gap-2">
-              <Button variant="ghost" size="icon" onClick={refresh} aria-label="Refresh wallet">
-                <RefreshCw />
-              </Button>
-              <Button asChild>
-                <Link to="/wallet/buy">
-                  <Plus /> Buy tokens
-                </Link>
-              </Button>
-            </div>
-          }
-        />
+    <>
+      <PageHeader
+        title="Your token wallet"
+        description="Spend tokens to unlock lectures, materials or whole courses. Prices are set by LearnHub and shown before you confirm."
+        actions={
+          <div className="flex gap-2">
+            <Button variant="ghost" size="icon" onClick={refresh} aria-label="Refresh wallet">
+              <RefreshCw />
+            </Button>
+            <Button asChild>
+              <Link to="/wallet/buy">
+                <Plus /> Buy tokens
+              </Link>
+            </Button>
+          </div>
+        }
+      />
 
         {balance.isLoading ? (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -97,8 +94,7 @@ export function WalletPage() {
             </Tabs>
           </>
         )}
-      </div>
-    </div>
+    </>
   )
 }
 

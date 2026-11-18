@@ -1,6 +1,6 @@
 import { ArrowRight, Check, CheckCircle2, Coins, Infinity as InfinityIcon, Package, Plus } from 'lucide-react'
 
-import { Backdrop } from '@/components/art/backdrops'
+import { DashboardBackdrop } from '@/components/art/dashboard-backdrop'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -16,6 +16,11 @@ const SUB_FEATURES = [
   'New included courses added every month',
   'Cancel any time: access lasts to the end of the period',
 ]
+
+// Glassmorphic aura lift: a card rises a touch on hover with a soft primary-tinted
+// glow. Pure transform + shadow, so nothing around it shifts. Stilled for reduced motion.
+const CARD_HOVER =
+  'transition-[transform,box-shadow] duration-300 ease-out will-change-transform hover:-translate-y-2 hover:shadow-[0_26px_55px_-18px_color-mix(in_oklab,var(--color-primary)_45%,transparent)] motion-reduce:transform-none motion-reduce:transition-none'
 
 /** The three ways to pay for learning — the unlimited subscription, one-off course bundles,
  * and pay-as-you-go tokens. Shared by the public /plans page and the home "plans" section. */
@@ -41,8 +46,28 @@ export function PricingPlans() {
         </div>
 
         <div className="stagger mt-12 grid items-stretch gap-6 lg:grid-cols-3">
-          {/* 1) Subscription — the headline option */}
-          <Card className="relative flex flex-col p-7 ring-2 ring-primary">
+          {/* 1) Course bundles */}
+          <Card className={`flex flex-col p-7 ${CARD_HOVER}`}>
+            <span className="flex size-11 items-center justify-center rounded-xl bg-primary-soft text-primary-soft-text">
+              <Package className="size-6" />
+            </span>
+            <h2 className="mt-5 text-xl font-semibold">Packages</h2>
+            <p className="mt-1 text-sm text-muted">Hand-picked sets of courses for one price.</p>
+            <p className="mt-5 text-lg font-semibold text-text">Buy once, keep for life</p>
+            <ul className="mt-6 grid gap-2.5 text-sm">
+              <li className="flex gap-2.5"><Check className="mt-0.5 size-4 shrink-0 text-success" /> A themed group of courses together</li>
+              <li className="flex gap-2.5"><Check className="mt-0.5 size-4 shrink-0 text-success" /> Cheaper than buying each one</li>
+              <li className="flex gap-2.5"><Check className="mt-0.5 size-4 shrink-0 text-success" /> Yours forever, no renewal</li>
+            </ul>
+            <div className="mt-auto pt-7">
+              <Button size="lg" variant="secondary" className="w-full" onClick={() => goAuthed('/packages')}>
+                Browse packages <ArrowRight />
+              </Button>
+            </div>
+          </Card>
+
+          {/* 2) Subscription — the headline option, centred */}
+          <Card className={`relative flex flex-col p-7 ring-2 ring-primary ${CARD_HOVER}`}>
             <Badge tone="primary" className="absolute -top-3 right-6">Most popular</Badge>
             <span className="flex size-11 items-center justify-center rounded-xl bg-primary-soft text-primary-soft-text">
               <InfinityIcon className="size-6" />
@@ -86,28 +111,8 @@ export function PricingPlans() {
             </div>
           </Card>
 
-          {/* 2) Course bundles */}
-          <Card className="flex flex-col p-7">
-            <span className="flex size-11 items-center justify-center rounded-xl bg-primary-soft text-primary-soft-text">
-              <Package className="size-6" />
-            </span>
-            <h2 className="mt-5 text-xl font-semibold">Packages</h2>
-            <p className="mt-1 text-sm text-muted">Hand-picked sets of courses for one price.</p>
-            <p className="mt-5 text-lg font-semibold text-text">Buy once, keep for life</p>
-            <ul className="mt-6 grid gap-2.5 text-sm">
-              <li className="flex gap-2.5"><Check className="mt-0.5 size-4 shrink-0 text-success" /> A themed group of courses together</li>
-              <li className="flex gap-2.5"><Check className="mt-0.5 size-4 shrink-0 text-success" /> Cheaper than buying each one</li>
-              <li className="flex gap-2.5"><Check className="mt-0.5 size-4 shrink-0 text-success" /> Yours forever, no renewal</li>
-            </ul>
-            <div className="mt-auto pt-7">
-              <Button size="lg" variant="secondary" className="w-full" onClick={() => goAuthed('/packages')}>
-                Browse packages <ArrowRight />
-              </Button>
-            </div>
-          </Card>
-
           {/* 3) Tokens — pay as you go */}
-          <Card className="flex flex-col p-7">
+          <Card className={`flex flex-col p-7 ${CARD_HOVER}`}>
             <span className="flex size-11 items-center justify-center rounded-xl bg-primary-soft text-primary-soft-text">
               <Coins className="size-6" />
             </span>
@@ -144,7 +149,7 @@ export function PricingPlans() {
               ['What happens to courses I bought or unlocked?', 'Bundles and token unlocks stay yours for life, with or without a subscription.'],
               ['Do certificates expire when my plan ends?', 'No. Certificates you earned stay valid and can always be verified.'],
             ].map(([q, a]) => (
-              <details key={q} className="group rounded-xl border border-border bg-surface p-4 transition-colors duration-200 open:border-primary/40 open:shadow-sm hover:border-border-strong">
+              <details key={q} className="group rounded-xl border border-border-strong bg-surface p-4 shadow-sm transition-colors duration-200 open:border-primary/50 open:shadow hover:border-primary/40">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium">
                   {q}
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-surface-2 text-muted transition-all duration-300 ease-out group-open:rotate-45 group-open:border-primary/40 group-open:bg-primary-soft group-open:text-primary-soft-text">
@@ -160,11 +165,11 @@ export function PricingPlans() {
   )
 }
 
-/** Public pricing page: the shared pricing block over the ribbons backdrop. */
+/** Public pricing page: the shared pricing block over the dashboard backdrop. */
 export function PlansPage() {
   return (
     <div className="relative isolate">
-      <Backdrop variant="ribbons" height={520} />
+      <DashboardBackdrop className="animate-fade-in fixed inset-0 -z-10" />
       <PricingPlans />
     </div>
   )

@@ -62,6 +62,35 @@ def create_checkout_session(
     return {"id": session.id, "url": session.url}
 
 
+def create_payment_intent(
+    *, amount: int, currency: str, metadata: dict, idempotency_key: str,
+    customer_email: str = "", description: str = "",
+) -> dict:  # fmt: skip
+    """A PaymentIntent for the embedded checkout (Stripe Payment Element on our own page).
+    `automatic_payment_methods` lets Stripe offer whatever is enabled on the account (card,
+    wallets, Revolut Pay, …). The browser confirms it with the returned client_secret; the
+    card itself never reaches our server."""
+    params: dict = {
+        "amount": amount,
+        "currency": currency.lower(),
+        "metadata": metadata,
+        "automatic_payment_methods": {"enabled": True},
+    }
+    if customer_email:
+        params["receipt_email"] = customer_email
+    if description:
+        params["description"] = description[:1000]
+    pi = _client().v1.payment_intents.create(params=params, options={"idempotency_key": idempotency_key})
+    return {"id": pi.id, "client_secret": pi.client_secret, "status": pi.status}
+
+
+def retrieve_payment_intent(pi_id: str) -> dict:
+    pi = _client().v1.payment_intents.retrieve(pi_id)
+    return {"id": pi.id, "status": pi.status, "amount": pi.amount,
+            "amount_received": pi.amount_received, "currency": pi.currency or "",
+            "metadata": dict(pi.metadata or {})}  # fmt: skip
+
+
 def retrieve_checkout_session(session_id: str) -> dict:
     s = _client().v1.checkout.sessions.retrieve(session_id)
     return {"id": s.id, "payment_status": s.payment_status, "payment_intent": s.payment_intent or "",
