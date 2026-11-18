@@ -56,6 +56,16 @@ def _create_live_checkout(request, cohort_company_id) -> dict:
     if cc.status not in (CohortCompany.Status.OFFERED, CohortCompany.Status.PENDING_PAY):
         raise ServiceError("not_payable", "This placement is not awaiting payment.", status=400)
 
+    from .live import live_subscription_coverage
+
+    coverage = live_subscription_coverage(org_id, booking_created_at=cc.created_at)
+    if coverage is not None:
+        raise ServiceError(
+            "team_live_included",
+            "This company has a Team Live seat allowance. Accept the booking with included seats instead of paying for it.",
+            status=409,
+        )
+
     cohort = cc.cohort
     if cohort.status not in (LiveCohort.Status.CONFIRMED, LiveCohort.Status.PENDING_PAY):
         raise ServiceError("cohort_not_confirmed", "Cohort schedule is not confirmed yet.", status=400)

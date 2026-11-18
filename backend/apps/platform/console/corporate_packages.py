@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from django.db.models import Count, Q
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from ninja import Field, Schema
 
@@ -38,6 +39,13 @@ class ConsoleOfferingPatch(Schema):
     custom_quote_enabled: bool | None = None
     description: str | None = None
     access_months: int | None = Field(None, ge=0, le=120)  # 0 = no end date
+    instalments_enabled: bool | None = None
+
+
+class ConsoleOfferingStageOut(Schema):
+    lecture_key: UUID
+    title: str
+    position: int
 
 
 class ConsoleOfferingOut(Schema):
@@ -52,6 +60,8 @@ class ConsoleOfferingOut(Schema):
     custom_quote_enabled: bool
     description: str
     access_months: int | None = None
+    instalments_enabled: bool = False
+    stages: list[ConsoleOfferingStageOut] = []
     created_at: datetime
 
 
@@ -75,6 +85,7 @@ class ConsoleSeatPurchaseOut(Schema):
     payment_plan: str
     agreement_months: int | None = None  # this company's agreed programme length
     programme_months: int | None = None  # in force: the agreement, else the package default
+    stage_access_enabled: bool = False
 
 
 class ConsoleSeatAllocationOut(Schema):
@@ -187,6 +198,10 @@ def list_offerings(request, active_only: bool = False, limit: int = 50, offset: 
             "access_months": old_recorded.get(price.course_id).access_months
             if price.course_id in old_recorded
             else None,
+            "instalments_enabled": old_recorded.get(price.course_id).instalments_enabled
+            if price.course_id in old_recorded
+            else False,
+            "stages": _course_stages(price.course),
             "created_at": price.created_at,
         }
         for price in prices
@@ -206,6 +221,8 @@ def list_offerings(request, active_only: bool = False, limit: int = 50, offset: 
             "custom_quote_enabled": o.custom_quote_enabled,
             "description": o.description,
             "access_months": o.access_months,
+            "instalments_enabled": o.instalments_enabled,
+            "stages": _course_stages(o.course),
             "created_at": o.created_at,
         }
         for o in live
@@ -219,6 +236,18 @@ def _check_price(tier):
         from core.errors import ServiceError
 
         raise ServiceError("price_required", "Choose a price above zero for this option.", status=400)
+
+
+def _course_stages(course):
+    if not course.live_version_id:
+        return []
+    from apps.catalog.models import Lecture
+
+    return list(
+        Lecture.objects.filter(version_id=course.live_version_id)
+        .order_by("section__position", "position")
+        .values("lecture_key", "title", "position")
+    )
 
 
 def _check_single_active(course_id, delivery_type):
@@ -280,15 +309,27 @@ def create_offering(request, body: ConsoleOfferingIn):
 @router.patch("/corporate/offerings/{offering_id}", response=ConsoleOkOut)
 def update_offering(request, offering_id: UUID, body: ConsoleOfferingPatch):
     staff(request)
-    offering = get_object_or_404(CorporateOffering, pk=offering_id)
+    offering = CorporateOffering.objects.filter(pk=offering_id).first()
+    if offering is None and body.instalments_enabled is not None:
+        from apps.corporate.offerings import ensure_recorded_offering
+
+        offering, _ = ensure_recorded_offering(offering_id)
+    if offering is None:
+        raise Http404
     if offering.delivery_type == CorporateOffering.DeliveryType.RECORDED:
         from core.errors import ServiceError
-
-        raise ServiceError(
-            "recorded_price_managed_globally",
-            "Recorded courses use the same price for learners and company seats. Set the course price in Pricing.",
-            status=400,
-        )
+        if any(getattr(body, k) is not None for k in ("price_tier_id", "is_active", "custom_quote_enabled", "description", "access_months")):
+            raise ServiceError(
+                "recorded_price_managed_globally",
+                "Recorded courses use the same price for learners and company seats. Set the course price in Pricing.",
+                status=400,
+            )
+        if body.instalments_enabled is None:
+            raise ServiceError("no_changes", "Choose whether instalments are enabled.", status=400)
+        offering.instalments_enabled = body.instalments_enabled
+        offering.save(update_fields=["instalments_enabled", "updated_at"])
+        audit_request(request, "offering_updated", "corporate_offering", offering.id, {"instalments_enabled": body.instalments_enabled})
+        return {"ok": True}
     changes = {}
     if body.price_tier_id is not None:
         from apps.commerce.models import PriceTier
@@ -310,6 +351,9 @@ def update_offering(request, offering_id: UUID, body: ConsoleOfferingPatch):
     if body.access_months is not None:  # used the next time an end date is worked out; stored dates stay
         offering.access_months = body.access_months or None
         changes["access_months"] = offering.access_months
+    if body.instalments_enabled is not None:
+        offering.instalments_enabled = body.instalments_enabled
+        changes["instalments_enabled"] = body.instalments_enabled
     offering.save()
     audit_request(request, "offering_updated", "corporate_offering", offering.id, changes)
     return {"ok": True}
@@ -357,6 +401,7 @@ def list_purchases(
             "paid_at": p.paid_at,
             "created_at": p.created_at,
             "payment_plan": p.payment_plan,
+            "stage_access_enabled": p.stage_access_enabled,
             "agreement_months": p.programme_months,
             "programme_months": p.programme_months or p.offering.access_months,
         }

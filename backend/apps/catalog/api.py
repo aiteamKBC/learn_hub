@@ -128,7 +128,11 @@ def _plan_covers(user, course) -> bool:
 
     sub = (
         Subscription.objects.filter(
-            user=user, org__isnull=True, plan__audience="personal", status__in=["trialing", "active"]
+            user=user,
+            org__isnull=True,
+            plan__audience="personal",
+            plan__kind="unlimited_b2c",
+            status__in=["trialing", "active"],
         )
         .select_related("plan")
         .order_by("-current_period_end")

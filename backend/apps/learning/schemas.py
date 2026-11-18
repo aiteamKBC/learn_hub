@@ -43,6 +43,7 @@ class PlayerLecture(Schema):
     completed: bool
     position_sec: int
     locked: bool = False  # the prerequisite lesson isn't finished yet
+    locked_reason: str | None = None  # prerequisite | payment
     prerequisite_key: UUID | None = None
     prerequisite_title: str | None = None
 

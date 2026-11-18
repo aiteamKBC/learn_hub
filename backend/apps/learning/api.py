@@ -54,9 +54,12 @@ def _mine(request, enrollment_id) -> Enrollment:
     e = get_object_or_404(
         Enrollment.objects.select_related("course__live_version"), pk=enrollment_id, user=request.user
     )
-    if e.status not in LIVE:
+    from apps.platform.access import has_staged_course_access
+
+    staged = e.org_id is None and has_staged_course_access(request.user, e.course_id)
+    if e.status not in LIVE and not staged:
         raise ServiceError("no_access", "This enrolment is not active.", status=403)
-    if e.access_expires_at and e.access_expires_at < timezone.now():
+    if e.access_expires_at and e.access_expires_at < timezone.now() and not staged:
         raise ServiceError("access_expired", "Your access to this course has ended.", status=403)
     return e
 
@@ -99,9 +102,16 @@ def _check_unlocked(e: Enrollment, lec: Lecture) -> None:
             if not done:
                 raise ServiceError("locked", f"Finish “{before.title}” first.", status=403)
 
-    # 2) content-access resolver. Company (B2B) enrolments bypass the B2C resolver:
-    #    their access is controlled by the org assignment itself, unchanged.
+    # 2) B2B staged agreement gate. Legacy company seats keep assignment-based access;
+    #    opted-in staged agreements expose only the paid, mapped curriculum stages.
     if e.org_id is not None:
+        if e.source == Enrollment.Source.ORGANIZATION:
+            from apps.corporate.stage_instalments import lecture_allowed
+
+            if not lecture_allowed(e, lec.lecture_key):
+                raise ServiceError(
+                    "stage_payment_required", "This course stage is not available yet.", status=403
+                )
         return
     from apps.platform import access as _access
 
@@ -123,8 +133,12 @@ def my_courses(
     enrolment behind a course page or player URL (bought and assigned may both exist: the
     most recently used comes first)."""
     limit = max(1, min(limit, 60))
+    from apps.platform.access import staged_enrollment_ids
+
     qs = (
-        Enrollment.objects.filter(user=request.user, status__in=LIVE)
+        Enrollment.objects.filter(user=request.user)
+        .filter(Q(status__in=LIVE) | Q(pk__in=staged_enrollment_ids(request.user)))
+        .distinct()
         .annotate(seen=Coalesce("last_accessed_at", "enrolled_at"))
         .select_related("course", "org")
         .prefetch_related(
@@ -178,6 +192,12 @@ def player(request, enrollment_id: str):
     }
     tree = curriculum(e.course.live_version)
     titles = {lec.lecture_key: lec.title for s in tree for lec in s.lectures.all()}
+    lecture_keys = list(titles)
+    stage_locked = set()
+    if e.org_id is not None and e.source == Enrollment.Source.ORGANIZATION:
+        from apps.corporate.stage_instalments import locked_lecture_keys
+
+        stage_locked = locked_lecture_keys(e, lecture_keys)
 
     def finished(key):
         return bool(done.get(key) and done[key].completed_at)
@@ -191,7 +211,8 @@ def player(request, enrollment_id: str):
              "completed": finished(lec.lecture_key),
              "position_sec": done[lec.lecture_key].last_position_sec if lec.lecture_key in done else 0,
              "prerequisite_key": prereq(lec), "prerequisite_title": titles.get(prereq(lec)),
-             "locked": bool(prereq(lec)) and not finished(prereq(lec))}
+             "locked": (bool(prereq(lec)) and not finished(prereq(lec))) or lec.lecture_key in stage_locked,
+             "locked_reason": "prerequisite" if prereq(lec) and not finished(prereq(lec)) else "payment" if lec.lecture_key in stage_locked else None}
             for lec in s.lectures.all()]}
         for s in tree
     ]  # fmt: skip

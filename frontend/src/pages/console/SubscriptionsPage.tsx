@@ -43,7 +43,9 @@ type Tab = (typeof TABS)[number]
 const COLORS = ['var(--chart-1)', 'var(--chart-5)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)']
 const cycle = (i: string) => (i === 'year' ? 'Yearly' : 'Monthly')
 const gbpPrice = (p: ConsolePlan) => p.prices.find((x) => x.currency === 'GBP')
-const included = (p: ConsolePlan) => (p.included_courses === null ? `All marked (${p.all_courses})` : `${p.included_courses} course${p.included_courses === 1 ? '' : 's'}`)
+const included = (p: ConsolePlan) => p.audience === 'personal'
+  ? `All marked (${p.all_courses})`
+  : p.included_courses === null ? `All marked (${p.all_courses})` : `${p.included_courses} course${p.included_courses === 1 ? '' : 's'}`
 
 function RenewalBadge({ renewal }: { renewal: string }) {
   return renewal === 'manual' ? (
@@ -160,6 +162,7 @@ function PlanSheet({ onEdit }: { onEdit: (p: ConsolePlan) => void }) {
               <InfoRow label="Audience">{p.audience === 'team' ? 'Companies (per seat)' : 'One person'}</InfoRow>
               <InfoRow label="Free trial">{p.trial_days ? `${p.trial_days} days` : 'None'}</InfoRow>
               <InfoRow label="Minimum seats">{p.min_seats}</InfoRow>
+              {p.audience === 'team' ? <InfoRow label="Included Live seats per billing period">{p.live_seat_cap ?? 'Not included'}</InfoRow> : null}
             </TabsContent>
           </Tabs>
           <section aria-label="Plan actions" className="grid gap-2 sm:grid-cols-3">
@@ -246,10 +249,12 @@ function CoursePicker({ value, onChange }: { value: string[]; onChange: (ids: st
 }
 
 function PlanCourses({ plan }: { plan: ConsolePlan }) {
-  const q = usePlanCourses(plan.id)
+  const q = usePlanCourses(plan.audience === 'team' ? plan.id : '')
   const save = useSetPlanCourses(plan.id)
   const [editing, setEditing] = useState(false)
   const [ids, setIds] = useState<string[]>([])
+  if (plan.audience === 'personal')
+    return <p className="text-[13px] text-muted">Personal unlimited plans include every course marked for subscription. Course selections do not override the course setting.</p>
   if (q.error) return <ErrorState message={(q.error as Error).message} onRetry={() => void q.refetch()} />
   if (!q.data) return <Skeleton className="h-40" />
   if (editing)
@@ -330,7 +335,7 @@ function PlanForm({ plan, onDone }: { plan: ConsolePlan | null; onDone: (id?: st
   const update = useUpdatePlan(plan?.id ?? '')
   const [v, setV] = useState({
     name: plan?.name ?? '', code: plan?.code ?? '', description: plan?.description ?? '', audience: plan?.audience ?? 'personal',
-    interval: plan?.interval ?? 'month', trial_days: String(plan?.trial_days ?? 0), min_seats: String(plan?.min_seats ?? 1), renewal: plan?.renewal ?? 'automatic', price: '',
+    interval: plan?.interval ?? 'month', trial_days: String(plan?.trial_days ?? 0), min_seats: String(plan?.min_seats ?? 1), live_seat_cap: plan?.live_seat_cap == null ? '' : String(plan.live_seat_cap), renewal: plan?.renewal ?? 'automatic', price: '',
   })
   const [courses, setCourses] = useState<string[]>([])
   const [error, setError] = useState<string>()
@@ -342,16 +347,18 @@ function PlanForm({ plan, onDone }: { plan: ConsolePlan | null; onDone: (id?: st
     const seats = Number(v.min_seats)
     if (!Number.isInteger(trial) || trial < 0 || trial > 90) return setError('A free trial is 0 to 90 days.')
     if (!Number.isInteger(seats) || seats < 1) return setError('Minimum seats is at least 1.')
+    const liveCap = v.audience === 'team' && v.live_seat_cap.trim() ? Number(v.live_seat_cap) : null
+    if (liveCap !== null && (!Number.isInteger(liveCap) || liveCap < 1)) return setError('Included Live seats must be at least one or left blank.')
     const fail = (err: unknown) => setError((err as Error).message)
     if (plan) {
-      update.mutate({ name: v.name.trim(), description: v.description.trim(), trial_days: trial, min_seats: seats, renewal: v.renewal }, { onSuccess: () => (toast.success('Plan saved.'), onDone()), onError: fail })
+      update.mutate({ name: v.name.trim(), description: v.description.trim(), trial_days: trial, min_seats: seats, live_seat_cap: liveCap, renewal: v.renewal }, { onSuccess: () => (toast.success('Plan saved.'), onDone()), onError: fail })
       return
     }
     const minor = toMinor(v.price)
     if (minor === null || minor < 1) return setError('Enter the price in pounds, for example 19.99.')
     const body: PlanInput = {
-      name: v.name.trim(), code: v.code, description: v.description.trim(), audience: v.audience, interval: v.interval, trial_days: trial, min_seats: seats, renewal: v.renewal,
-      prices: [{ currency: 'GBP', amount_minor: minor, stripe_price_id: '', create_stripe_price: true }], course_ids: courses,
+      name: v.name.trim(), code: v.code, description: v.description.trim(), audience: v.audience, interval: v.interval, trial_days: trial, min_seats: seats, live_seat_cap: liveCap, renewal: v.renewal,
+      prices: [{ currency: 'GBP', amount_minor: minor, stripe_price_id: '', create_stripe_price: true }], course_ids: v.audience === 'team' ? courses : [],
     }
     create.mutate(body, { onSuccess: (r) => (toast.success('Plan created with a Stripe test price.'), onDone(r.id)), onError: fail })
   }
@@ -371,18 +378,27 @@ function PlanForm({ plan, onDone }: { plan: ConsolePlan | null; onDone: (id?: st
         <Field label="Free trial (days)">{(p) => <Input {...p} inputMode="numeric" value={v.trial_days} onChange={set('trial_days')} />}</Field>
         <Field label="Minimum seats">{(p) => <Input {...p} inputMode="numeric" value={v.min_seats} onChange={set('min_seats')} />}</Field>
       </div>
+      {v.audience === 'team' ? (
+        <Field label="Included Live seats per billing period" hint="Leave blank if Live training is not included. Included bookings use this cap until the subscription renews; unused seats do not carry forward.">
+          {(p) => <Input {...p} inputMode="numeric" min={1} value={v.live_seat_cap} onChange={set('live_seat_cap')} />}
+        </Field>
+      ) : null}
       {!plan ? (
         <>
           <Field label={v.audience === 'team' ? 'Price per seat (GBP)' : 'Price (GBP)'} hint="A Stripe test price is created. Add other currencies after saving.">
             {(p) => <Input {...p} required inputMode="decimal" placeholder="19.99" value={v.price} onChange={set('price')} />}
           </Field>
-          <div className="grid gap-1.5">
-            <span className="text-sm font-medium">Included courses</span>
-            <CoursePicker value={courses} onChange={setCourses} />
-          </div>
+          {v.audience === 'team' ? (
+            <div className="grid gap-1.5">
+              <span className="text-sm font-medium">Included courses</span>
+              <CoursePicker value={courses} onChange={setCourses} />
+            </div>
+          ) : (
+            <p className="text-[13px] text-muted">Personal unlimited plans include every course marked for subscription. Course selections do not override the course setting.</p>
+          )}
         </>
       ) : (
-        <p className="text-[13px] text-muted">Change prices and included courses from the plan’s panel.</p>
+        <p className="text-[13px] text-muted">{plan.audience === 'team' ? 'Change prices and included courses from the plan’s panel.' : 'Change prices from the plan panel. Course access follows the course subscription setting.'}</p>
       )}
       {error ? <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p> : null}
       <div className="flex flex-wrap justify-end gap-2">

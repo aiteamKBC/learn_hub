@@ -149,7 +149,7 @@ export function PlayerPage() {
             {/* Centre the stage and cap its width so the video doesn't swallow the whole page. */}
             <div className="mx-auto w-full max-w-5xl lg:px-6 lg:pt-6">
               {locked && p ? (
-                <LockedStage slug={route.slug} title={locked.title} prerequisiteKey={locked.prerequisite_key} prerequisiteTitle={locked.prerequisite_title} />
+                <LockedStage slug={route.slug} title={locked.title} prerequisiteKey={locked.prerequisite_key} prerequisiteTitle={locked.prerequisite_title} reason={locked.locked_reason} />
               ) : <Stage lecture={lecture.data} loading={lecture.isLoading || !p} error={lecture.error} enrollmentId={lookup.enrollmentId} slug={route.slug} startAt={params.get('t') ? Number(params.get('t')) : undefined} onRetry={() => void lecture.refetch()} />}
             </div>
 
@@ -269,13 +269,13 @@ export function PlayerPage() {
 }
 
 /** A lesson whose prerequisite isn't complete: say which one, and link to it. */
-function LockedStage({ slug, title, prerequisiteKey, prerequisiteTitle }: { slug: string; title: string; prerequisiteKey?: string | null; prerequisiteTitle?: string | null }) {
+function LockedStage({ slug, title, prerequisiteKey, prerequisiteTitle, reason }: { slug: string; title: string; prerequisiteKey?: string | null; prerequisiteTitle?: string | null; reason?: string | null }) {
   return (
     <div className="animate-reveal border-b border-border">
       <EmptyState
         icon={<Lock />}
         title={`“${title}” is locked`}
-        body={prerequisiteTitle ? `Finish “${prerequisiteTitle}” first, then come back here.` : 'Finish the earlier lesson first.'}
+        body={reason === 'payment' ? 'Your company agreement unlocks this stage when its mapped instalment is paid.' : prerequisiteTitle ? `Finish “${prerequisiteTitle}” first, then come back here.` : 'Finish the earlier lesson first.'}
         action={prerequisiteKey ? (
           <Button asChild>
             <Link to={lectureUrl(slug, prerequisiteKey)}>Go to “{prerequisiteTitle}”</Link>

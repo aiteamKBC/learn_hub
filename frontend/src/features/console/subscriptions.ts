@@ -18,7 +18,7 @@ const fetchEvents = (kind: string, cursor?: string) => unwrap(api.GET('/api/v1/c
 export type ConsoleSubEvent = Awaited<ReturnType<typeof fetchEvents>>['items'][number]
 
 export type PlanPriceInput = { currency: string; amount_minor: number; stripe_price_id: string; create_stripe_price: boolean }
-export type PlanInput = { name: string; code: string; description: string; audience: string; interval: string; trial_days: number; min_seats: number; renewal: string; prices: PlanPriceInput[]; course_ids: string[] }
+export type PlanInput = { name: string; code: string; description: string; audience: string; interval: string; trial_days: number; min_seats: number; live_seat_cap: number | null; renewal: string; prices: PlanPriceInput[]; course_ids: string[] }
 
 export const EVENT_LABEL: Record<string, string> = { created: 'Started', upgraded: 'Upgraded', downgraded: 'Downgraded', seats_changed: 'Seats changed', renewed: 'Renewed', cancelled: 'Cancelled', payment_failed: 'Payment failed' }
 export const SUB_STATUSES: Record<string, string> = { active: 'Active', trialing: 'Trial', past_due: 'Past due', canceled: 'Cancelled', unpaid: 'Unpaid' }
@@ -73,7 +73,7 @@ export function useCreatePlan() {
 export function useUpdatePlan(id: string) {
   const done = useInvalidatePlans()
   return useMutation({
-    mutationFn: (body: { name?: string; description?: string; trial_days?: number; min_seats?: number; renewal?: string }) =>
+    mutationFn: (body: { name?: string; description?: string; trial_days?: number; min_seats?: number; live_seat_cap?: number | null; renewal?: string }) =>
       unwrap(api.PATCH('/api/v1/console/plans/{plan_id}', { params: { path: { plan_id: id } }, body })),
     onSuccess: done,
   })

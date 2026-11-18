@@ -141,6 +141,7 @@ class ConsolePlanOut(Schema):
     interval: str
     trial_days: int
     min_seats: int
+    live_seat_cap: int | None
     renewal: str
     is_active: bool
     prices: list[ConsolePlanPriceOut]
@@ -165,6 +166,7 @@ def _plans_out(plans) -> list[dict]:
                                    owner_org_id__isnull=True).count()  # fmt: skip
     return [{"id": p.id, "code": p.code, "name": p.name, "description": p.description, "audience": p.audience,
              "interval": p.interval, "trial_days": p.trial_days, "min_seats": p.min_seats, "renewal": p.renewal,
+             "live_seat_cap": p.live_seat_cap if p.audience == Plan.Audience.TEAM else None,
              "is_active": p.is_active,
              "prices": [{"currency": x.currency_id, "exponent": exp.get(x.currency_id, 2), "amount_minor": x.amount_minor,
                          "stripe_price_id": x.stripe_price_id} for x in p.prices.all()],
@@ -193,6 +195,7 @@ class ConsolePlanIn(Schema):
     interval: str = Field("month", pattern="^(month|year)$")
     trial_days: int = Field(0, ge=0, le=90)
     min_seats: int = Field(1, ge=1, le=10000)
+    live_seat_cap: int | None = Field(None, ge=1)
     renewal: str = Field("automatic", pattern="^(automatic|manual)$")
     prices: list[ConsolePlanPriceIn] = Field(default_factory=list, max_length=40)
     course_ids: list[UUID] = Field(default_factory=list, max_length=2000)
@@ -203,6 +206,7 @@ class ConsolePlanPatch(Schema):
     description: str | None = Field(None, max_length=300)
     trial_days: int | None = Field(None, ge=0, le=90)
     min_seats: int | None = Field(None, ge=1, le=10000)
+    live_seat_cap: int | None = Field(None, ge=1)
     renewal: str | None = Field(None, pattern="^(automatic|manual)$")
 
 
@@ -243,11 +247,15 @@ def _set_courses(plan: Plan, course_ids: list) -> int:
 @transaction.atomic
 def create_plan(request, body: ConsolePlanIn):
     staff(request)
+    if body.audience != Plan.Audience.TEAM and body.live_seat_cap is not None:
+        raise ServiceError("live_seat_cap_team_only", "Included Live seats can only be set on Team plans.")
     if Plan.objects.filter(code=body.code).exists():
         raise ServiceError("code_taken", "Another plan already uses this code.")
     plan = Plan.objects.create(
         code=body.code, name=html.plain(body.name, 80), description=html.plain(body.description, 300),
         audience=body.audience, interval=body.interval, trial_days=body.trial_days, min_seats=body.min_seats,
+        live_seat_cap=body.live_seat_cap if body.audience == Plan.Audience.TEAM else None,
+        live_seat_cap_effective_at=timezone.now() if body.audience == Plan.Audience.TEAM and body.live_seat_cap else None,
         renewal=body.renewal,
     )  # fmt: skip
     for p in body.prices:
@@ -261,7 +269,18 @@ def create_plan(request, body: ConsolePlanIn):
 def update_plan(request, plan_id: UUID, body: ConsolePlanPatch):
     staff(request)
     plan = get_object_or_404(Plan, pk=plan_id)
+    provided = body.dict(exclude_unset=True)
     changes = body.dict(exclude_unset=True, exclude_none=True)
+    if "live_seat_cap" in provided:
+        if plan.audience != Plan.Audience.TEAM and provided["live_seat_cap"] is not None:
+            raise ServiceError(
+                "live_seat_cap_team_only", "Included Live seats can only be set on Team plans."
+            )
+        changes["live_seat_cap"] = provided["live_seat_cap"]
+        if provided["live_seat_cap"] is None:
+            changes["live_seat_cap_effective_at"] = None
+        elif provided["live_seat_cap"] != plan.live_seat_cap or plan.live_seat_cap_effective_at is None:
+            changes["live_seat_cap_effective_at"] = timezone.now()
     for k in ("name", "description"):
         if k in changes:
             changes[k] = html.plain(changes[k], 80 if k == "name" else 300)
@@ -286,7 +305,15 @@ def plan_status(request, plan_id: UUID, body: ConsolePlanStatusIn):
         raise ServiceError("reason_required", "Say why the plan is being deactivated.")
     if body.is_active and not plan.prices.exclude(stripe_price_id="").exists():
         raise ServiceError("no_price", "Add a price with a Stripe price before activating this plan.")
-    Plan.objects.filter(pk=plan.pk).update(is_active=body.is_active, updated_at=timezone.now())
+    changes = {"is_active": body.is_active, "updated_at": timezone.now()}
+    if (
+        body.is_active
+        and plan.audience == Plan.Audience.TEAM
+        and plan.live_seat_cap
+        and plan.live_seat_cap_effective_at is None
+    ):
+        changes["live_seat_cap_effective_at"] = timezone.now()
+    Plan.objects.filter(pk=plan.pk).update(**changes)
     audit_request(request, "plan.activate" if body.is_active else "plan.deactivate", "plan", plan_id,
                   {"reason": html.plain(body.reason, 300)})  # fmt: skip
     return {"ok": True}
@@ -305,6 +332,8 @@ def duplicate_plan(request, plan_id: UUID):
     plan = Plan.objects.create(
         code=code, name=f"{src.name} (copy)"[:80], description=src.description, audience=src.audience,
         interval=src.interval, trial_days=src.trial_days, min_seats=src.min_seats, renewal=src.renewal,
+        live_seat_cap=src.live_seat_cap if src.audience == Plan.Audience.TEAM else None,
+        live_seat_cap_effective_at=timezone.now() if src.audience == Plan.Audience.TEAM and src.live_seat_cap else None,
         is_active=False,
     )  # fmt: skip
     PlanPrice.objects.bulk_create(

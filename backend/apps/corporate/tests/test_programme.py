@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 from django.utils import timezone
 
-from apps.catalog.models import Category, Course, CourseVersion
-from apps.commerce.models import PriceTier
+from apps.catalog.models import Category, Course, CourseVersion, Lecture, Section
+from apps.commerce.models import CoursePrice, PriceTier
 from apps.corporate.instalments import cover_seats, create_instalment_purchase, instalment_paid
 from apps.corporate.models import (
     CorporateOffering,
@@ -18,6 +18,8 @@ from apps.corporate.models import (
 )
 from apps.corporate.programme import on_lesson_opened, programme_end
 from apps.corporate.services import allocate_seat
+from apps.corporate.stage_instalments import create_stage_purchase
+from apps.corporate.stage_instalments import instalment_paid as stage_instalment_paid
 from apps.identity.models import User
 from apps.learning.models import Enrollment
 from apps.learning.services import _check_access
@@ -63,9 +65,28 @@ class ProgrammeTest(SchemaTransactionTestCase):
             v = CourseVersion.objects.create(course=course, number=1, status="published")
             course.live_version = v
             course.save(update_fields=["live_version"])
+            section = Section.objects.create(version=v, title="Course stages", position=1)
+            self.lecture_keys = [uuid.uuid4(), uuid.uuid4()]
+            self.lectures = [
+                Lecture.objects.create(
+                    version=v,
+                    section=section,
+                    lecture_key=key,
+                    kind="article",
+                    title=f"Lesson {i}",
+                    position=i,
+                )
+                for i, key in enumerate(self.lecture_keys, start=1)
+            ]
             tier = PriceTier.objects.create(name=f"ProgTier-{tag}", gbp_minor=12000, sort_order=0)
+            CoursePrice.objects.create(course=course, tier=tier, is_free=False)
             self.offering = CorporateOffering.objects.create(
-                course=course, delivery_type="recorded", price_tier=tier, is_active=True, access_months=12
+                course=course,
+                delivery_type="recorded",
+                price_tier=tier,
+                is_active=True,
+                access_months=12,
+                instalments_enabled=True,
             )
 
     def _request(self):
@@ -392,3 +413,128 @@ class ProgrammeTest(SchemaTransactionTestCase):
         self.assertEqual(short.exception.code, "bad_schedule")
         self.assertEqual(no_period.exception.code, "bad_schedule")
         self.assertEqual(outsider.exception.code, "buyer_not_member")
+
+    def test_staged_agreement_unlocks_mapped_stages_then_entire_course(self):
+        from apps.corporate.models import StageInstalment
+        from apps.learning.api import _check_unlocked
+
+        with tenant_context(staff=True):
+            sp = create_stage_purchase(
+                self._request(),
+                org_id=self.org.id,
+                offering_id=self.offering.course_id,
+                buyer_id=self.ann.id,
+                quantity=1,
+                unit_price_minor=12000,
+                schedule=[
+                    {
+                        "amount_minor": 6000,
+                        "due_at": JAN_1,
+                        "stages": [{"title": "Month 1", "lecture_keys": [self.lecture_keys[0]]}],
+                    },
+                    {
+                        "amount_minor": 6000,
+                        "due_at": APR_1,
+                        "stages": [{"title": "Month 2", "lecture_keys": [self.lecture_keys[1]]}],
+                    },
+                ],
+            )
+            payments = list(StageInstalment.objects.filter(seat_purchase=sp).order_by("sequence"))
+            first_id, second_id = payments[0].id, payments[1].id
+
+        with tenant_context(staff=True):
+            stage_instalment_paid(
+                instalment_id=first_id,
+                payment_reference="company-payment-stage-1",
+                amount_minor=6000,
+                currency="GBP",
+            )
+            sp.refresh_from_db()
+            self.assertEqual(sp.status, SeatPurchase.Status.PARTIAL_PAID)
+            from apps.corporate.reports import (
+                admin_company_rankings,
+                admin_overview,
+                admin_revenue_series,
+                company_dashboard,
+            )
+            from apps.corporate.services import seat_inventory
+
+            self.assertEqual(seat_inventory(self.org.id, sp.offering_id)[str(sp.offering_id)]["available"], 1)
+            from apps.platform.console.corporate_agreements import _groups
+
+            admin_group = next(row for row in _groups(self.org.id) if row["offering_id"] == sp.offering_id)
+            self.assertEqual((admin_group["purchased"], admin_group["available"]), (1, 1))
+            report_start, report_end = timezone.now() - timedelta(days=1), timezone.now() + timedelta(days=1)
+            dashboard = company_dashboard(self.org.id)
+            self.assertEqual(dashboard["total_seats_purchased"], 1)
+            self.assertEqual(dashboard["total_spend_minor"], 6000)
+            admin = admin_overview(report_start, report_end)
+            self.assertEqual(admin["revenue_minor"], 6000)
+            self.assertEqual(admin["seats_sold"], 1)
+            series = admin_revenue_series(report_start, report_end)
+            self.assertEqual(sum(row["revenue"] for row in series), 6000)
+            self.assertEqual(sum(row["seats"] for row in series), 1)
+            ranking = next(row for row in admin_company_rankings() if row["org_id"] == self.org.id)
+            self.assertEqual(ranking["total_spend"], 6000)
+            self.assertEqual(ranking["total_seats"], 1)
+        with tenant_context(org_id=self.org.id, user_id=self.staff.id, staff=True):
+            alloc = allocate_seat(self._request(), sp.id, self.ann.id)
+        with tenant_context(org_id=self.org.id, user_id=self.ann.id):
+            enrollment = Enrollment.objects.get(pk=alloc.enrollment_id)
+            self.assertIsNone(enrollment.access_expires_at)
+            _check_unlocked(enrollment, self.lectures[0])
+            with self.assertRaises(ServiceError) as locked:
+                _check_unlocked(enrollment, self.lectures[1])
+            self.assertEqual(locked.exception.code, "stage_payment_required")
+
+        with tenant_context(staff=True):
+            stage_instalment_paid(
+                instalment_id=second_id,
+                payment_reference="company-payment-stage-2",
+                amount_minor=6000,
+                currency="GBP",
+            )
+        with tenant_context(org_id=self.org.id, user_id=self.ann.id):
+            enrollment.refresh_from_db()
+            _check_unlocked(enrollment, self.lectures[0])
+            _check_unlocked(enrollment, self.lectures[1])
+        with tenant_context(staff=True):
+            sp.refresh_from_db()
+            self.assertEqual(sp.status, SeatPurchase.Status.PAID)
+            self.assertEqual(company_dashboard(self.org.id)["total_spend_minor"], 12000)
+
+    def test_staged_payment_request_is_local_and_settlement_is_provider_neutral(self):
+        from apps.corporate.models import StageInstalment
+        from apps.corporate.stage_instalments import instalment_failed, request_payment
+
+        with tenant_context(staff=True):
+            sp = create_stage_purchase(
+                self._request(),
+                org_id=self.org.id,
+                offering_id=self.offering.course_id,
+                buyer_id=self.ann.id,
+                quantity=1,
+                unit_price_minor=12000,
+                schedule=[
+                    {
+                        "amount_minor": 6000,
+                        "due_at": JAN_1,
+                        "stages": [{"title": "Month 1", "lecture_keys": [self.lecture_keys[0]]}],
+                    },
+                    {
+                        "amount_minor": 6000,
+                        "due_at": APR_1,
+                        "stages": [{"title": "Month 2", "lecture_keys": [self.lecture_keys[1]]}],
+                    },
+                ],
+            )
+            instalment = StageInstalment.objects.get(seat_purchase=sp, sequence=1)
+            request = request_payment(self._request(), instalment.id)
+            instalment.refresh_from_db()
+            self.assertEqual(request["status"], StageInstalment.Status.REQUESTED)
+            self.assertEqual(instalment.status, StageInstalment.Status.REQUESTED)
+            self.assertIsNotNone(instalment.payment_requested_at)
+            self.assertFalse(instalment.stripe_invoice_id)
+            instalment_failed(instalment_id=instalment.id)
+            instalment.refresh_from_db()
+            self.assertEqual(instalment.status, StageInstalment.Status.FAILED)

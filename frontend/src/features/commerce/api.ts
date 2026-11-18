@@ -14,6 +14,54 @@ export function useCurrencies() {
   return useQuery({ queryKey: ['currencies'], queryFn: () => unwrap(api.GET('/api/v1/commerce/currencies')), staleTime: 30 * 60_000 })
 }
 
+export function useCourseInstalmentOffer(courseId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['course-instalment-offer', courseId],
+    queryFn: () => unwrap(api.GET('/api/v1/commerce/instalments/offer/{course_id}', { params: { path: { course_id: courseId } }, headers: PERSONAL })),
+    enabled: !!courseId && enabled,
+  })
+}
+
+export function useStartCourseInstalments() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (courseId: string) => unwrap(api.POST('/api/v1/commerce/instalments/courses/{course_id}/start', { params: { path: { course_id: courseId } }, headers: PERSONAL })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['course-instalments'] }),
+  })
+}
+
+export function useMyCourseInstalments() {
+  return useQuery({
+    queryKey: ['course-instalments'],
+    queryFn: () => unwrap(api.GET('/api/v1/commerce/instalments/mine', { headers: PERSONAL })),
+    refetchInterval: false,
+  })
+}
+
+export function useCancelCourseInstalments() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => unwrap(api.POST('/api/v1/commerce/instalments/{purchase_id}/cancel', { params: { path: { purchase_id: id } }, headers: PERSONAL })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['course-instalments'] }),
+  })
+}
+
+export function useCourseInstalmentPayoff() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => unwrap(api.POST('/api/v1/commerce/instalments/{purchase_id}/payoff', { params: { path: { purchase_id: id } }, headers: PERSONAL })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['course-instalments'] }),
+  })
+}
+
+export function usePayCourseInstalment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ purchaseId, instalmentId }: { purchaseId: string; instalmentId: string }) => unwrap(api.POST('/api/v1/commerce/instalments/{purchase_id}/instalments/{instalment_id}/pay', { params: { path: { purchase_id: purchaseId, instalment_id: instalmentId } }, headers: PERSONAL })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['course-instalments'] }),
+  })
+}
+
 export function useCartCount() {
   const { data: me } = useMe()
   return useQuery({ queryKey: ['cart-count'], queryFn: () => unwrap(api.GET('/api/v1/commerce/cart/count')), enabled: !!me, staleTime: 60_000 })

@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404
 from ninja import Field, Schema
 
@@ -62,7 +62,10 @@ class ConsoleInventoryOut(Schema):
 
 
 def _groups(org_id) -> list[dict]:
-    paid = SeatPurchase.objects.filter(status__in=["paid", "partial"])
+    paid = SeatPurchase.objects.filter(
+        Q(status__in=["paid", "partial"])
+        | Q(status=SeatPurchase.Status.PARTIAL_PAID, stage_access_enabled=True)
+    )
     if org_id:
         paid = paid.filter(org_id=org_id)
     bought = {
@@ -268,6 +271,60 @@ class ConsoleInstalmentPlanOut(Schema):
     seats: list[ConsoleInstalmentSeatOut]
 
 
+class ConsolePurchaseStageIn(Schema):
+    title: str = Field(..., min_length=1, max_length=120)
+    lecture_keys: list[UUID] = Field(..., min_length=1, max_length=500)
+
+
+class ConsoleStageInstalmentIn(Schema):
+    amount_minor: int = Field(..., ge=1)
+    due_at: datetime
+    stages: list[ConsolePurchaseStageIn] = Field(..., min_length=1, max_length=100)
+
+
+class ConsoleStagePlanIn(Schema):
+    org_id: UUID
+    offering_id: UUID
+    buyer_id: UUID
+    quantity: int = Field(..., ge=1, le=10000)
+    unit_price_minor: int = Field(..., ge=1)
+    schedule: list[ConsoleStageInstalmentIn] = Field(..., min_length=2, max_length=24)
+
+
+class ConsoleStageOut(Schema):
+    id: UUID
+    title: str
+    sequence: int
+    lecture_count: int
+    lectures: list[UUID]
+
+
+class ConsoleStageInstalmentOut(Schema):
+    id: UUID
+    sequence: int
+    amount_minor: int
+    due_at: datetime
+    status: str
+    paid_at: datetime | None = None
+    payment_requested_at: datetime | None = None
+    stages: list[ConsoleStageOut]
+
+
+class ConsoleStagePaymentRequestOut(Schema):
+    ok: bool
+    status: str
+    payment_requested_at: datetime
+
+
+class ConsoleStagedPlanOut(Schema):
+    purchase_id: UUID
+    total_minor: int
+    paid_minor: int
+    outstanding_minor: int
+    currency: str
+    instalments: list[ConsoleStageInstalmentOut]
+
+
 class ConsoleCoverIn(Schema):
     allocation_ids: list[UUID] = Field(..., min_length=1, max_length=SEAT_LIMIT)
 
@@ -294,6 +351,23 @@ def create_plan(request, body: ConsoleInstalmentPlanIn):
     return {"purchase_id": sp.id}
 
 
+@router.post("/corporate/stage-instalment-plans", response=ConsoleInstalmentPlanCreatedOut)
+def create_stage_plan(request, body: ConsoleStagePlanIn):
+    staff(request)
+    from apps.corporate.stage_instalments import create_stage_purchase
+
+    sp = create_stage_purchase(
+        request,
+        org_id=body.org_id,
+        offering_id=body.offering_id,
+        buyer_id=body.buyer_id,
+        quantity=body.quantity,
+        unit_price_minor=body.unit_price_minor,
+        schedule=[s.dict() for s in body.schedule],
+    )
+    return {"purchase_id": sp.id}
+
+
 @router.get("/corporate/purchases/{purchase_id}/plan", response=ConsoleInstalmentPlanOut)
 def get_plan(request, purchase_id: UUID):
     staff(request)
@@ -301,11 +375,33 @@ def get_plan(request, purchase_id: UUID):
     return instalments.plan_summary(sp)
 
 
+@router.get("/corporate/purchases/{purchase_id}/stage-plan", response=ConsoleStagedPlanOut)
+def get_stage_plan(request, purchase_id: UUID):
+    staff(request)
+    from apps.corporate.stage_instalments import summary
+
+    sp = get_object_or_404(
+        SeatPurchase.objects.select_related("offering"), pk=purchase_id, stage_access_enabled=True
+    )
+    return summary(sp)
+
+
 @router.post("/corporate/instalments/{instalment_id}/send", response=ConsoleOkOut)
 def send_instalment(request, instalment_id: UUID):
     staff(request)
     instalments.send_instalment_invoice(request, instalment_id)
     return {"ok": True}
+
+
+@router.post(
+    "/corporate/stage-instalments/{instalment_id}/request-payment",
+    response=ConsoleStagePaymentRequestOut,
+)
+def request_stage_instalment_payment(request, instalment_id: UUID):
+    staff(request)
+    from apps.corporate.stage_instalments import request_payment
+
+    return request_payment(request, instalment_id)
 
 
 @router.post("/corporate/instalments/{instalment_id}/cover", response=ConsoleCoverOut)

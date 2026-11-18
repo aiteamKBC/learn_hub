@@ -15,6 +15,7 @@ import { Checkbox, Switch } from '@/components/ui/switch'
 import { Table, Td, Th, Tr } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSetCourseTemplate, useCertTemplates } from '@/features/console/certificates'
+import { CourseInstalments } from '@/pages/console/CourseInstalments'
 import {
   type BulkAction,
   type ConsoleCategory,
@@ -125,14 +126,32 @@ function CategoryPicker({ open, onOpenChange, count, onPick, loading }: { open: 
 // ---------------------------------------------------------------- course detail panel
 const LANG_FALLBACK: Record<string, string> = { en: 'English (UK)' }
 
+type AccessUnit = 'days' | 'months' | 'years'
+
+const ACCESS_UNIT_DAYS: Record<AccessUnit, number> = { days: 1, months: 30, years: 365 }
+
+function accessDurationParts(accessDays: number | null): { value: string; unit: AccessUnit } {
+  if (!accessDays) return { value: '', unit: 'days' }
+  if (accessDays % 365 === 0) return { value: String(accessDays / 365), unit: 'years' }
+  if (accessDays % 30 === 0) return { value: String(accessDays / 30), unit: 'months' }
+  return { value: String(accessDays), unit: 'days' }
+}
+
+function accessDurationLabel(accessDays: number | null) {
+  if (!accessDays) return 'Lifetime access'
+  const { value, unit } = accessDurationParts(accessDays)
+  const label = Number(value) === 1 ? unit.slice(0, -1) : unit
+  return `${value} ${label}`
+}
+
 function PricingAccess({ d, languages }: { d: ConsoleCourseDetail; languages: { value: string; label: string }[] }) {
   const update = useUpdateCourse(d.id)
   const price = useSetCoursePrice(d.id)
   const cats = useConsoleCategories()
   const templates = useCertTemplates()
   const setTemplate = useSetCourseTemplate()
-  const [days, setDays] = useState(d.access_days ? String(d.access_days) : '')
-  useEffect(() => setDays(d.access_days ? String(d.access_days) : ''), [d.access_days])
+  const [accessDuration, setAccessDuration] = useState(() => accessDurationParts(d.access_days))
+  useEffect(() => setAccessDuration(accessDurationParts(d.access_days)), [d.access_days])
   const save = (body: Parameters<typeof update.mutate>[0], msg = 'Saved') => update.mutate(body, { onSuccess: () => toast.success(msg), onError: (e) => toast.error((e as Error).message) })
   const sold = d.ownership !== 'organization'
   return (
@@ -172,12 +191,39 @@ function PricingAccess({ d, languages }: { d: ConsoleCourseDetail; languages: { 
         <span className="text-sm font-medium">Access duration</span>
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant={d.access_days ? 'secondary' : 'soft'} onClick={() => save({ lifetime_access: true }, 'Lifetime access')}>Lifetime access</Button>
-          <form className="flex items-center gap-2" onSubmit={(e) => (e.preventDefault(), Number(days) >= 1 && save({ access_days: Number(days) }, 'Access duration saved'))}>
-            <Input type="number" min={1} max={3650} value={days} onChange={(e) => setDays(e.target.value)} className="w-24" aria-label="Access in days" placeholder="Days" />
-            <Button size="sm" type="submit" variant="secondary" disabled={!days}>Set days</Button>
+          <form
+            className="flex flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const value = Number(accessDuration.value)
+              const days = value * ACCESS_UNIT_DAYS[accessDuration.unit]
+              if (Number.isInteger(value) && value >= 1 && days <= 3650) save({ access_days: days }, 'Access duration saved')
+            }}
+          >
+            <Input
+              type="number"
+              min={1}
+              max={Math.floor(3650 / ACCESS_UNIT_DAYS[accessDuration.unit])}
+              value={accessDuration.value}
+              onChange={(e) => setAccessDuration((current) => ({ ...current, value: e.target.value }))}
+              className="w-24"
+              aria-label="Access duration"
+              placeholder="Duration"
+            />
+            <NativeSelect
+              value={accessDuration.unit}
+              onChange={(e) => setAccessDuration((current) => ({ ...current, unit: e.target.value as AccessUnit }))}
+              className="h-9 w-28"
+              aria-label="Access duration unit"
+            >
+              <option value="days">Days</option>
+              <option value="months">Months</option>
+              <option value="years">Years</option>
+            </NativeSelect>
+            <Button size="sm" type="submit" variant="secondary" disabled={!accessDuration.value}>Set duration</Button>
           </form>
         </div>
-        <p className="text-[12.5px] text-muted">New buyers get {d.access_days ? `${d.access_days} days` : 'lifetime'} access. People who already have it keep what they had.</p>
+        <p className="text-[12.5px] text-muted">New buyers get {d.access_days ? accessDurationLabel(d.access_days).toLowerCase() : 'lifetime'} access. People who already have it keep what they had.</p>
       </div>
       <label className="flex items-center justify-between gap-3 text-sm">
         <span>Included in personal subscriptions<span className="block text-[12.5px] text-muted">{d.plans.length ? `Plans: ${d.plans.map((p) => p.name).join(', ')}` : 'In no plan at the moment.'}</span></span>
@@ -196,6 +242,7 @@ function PricingAccess({ d, languages }: { d: ConsoleCourseDetail; languages: { 
           </NativeSelect>
         )}
       </Field>
+      {sold ? <CourseInstalments courseId={d.id} /> : null}
     </div>
   )
 }
@@ -248,7 +295,7 @@ function CourseDetail({ id, languages, onClose }: { id: string; languages: { val
             <InfoRow label="Category">{d.category ?? 'None'}</InfoRow>
             <InfoRow label="Price">{priceText(d)}</InfoRow>
             <InfoRow label="Subscription inclusion">{d.in_subscription ? 'Included in subscriptions' : 'Not included'}</InfoRow>
-            <InfoRow label="Access duration">{d.access_days ? `${d.access_days} days` : 'Lifetime access'}</InfoRow>
+            <InfoRow label="Access duration">{accessDurationLabel(d.access_days)}</InfoRow>
             <InfoRow label="Language">{langLabel}</InfoRow>
             <InfoRow label="Status">
               <NativeSelect

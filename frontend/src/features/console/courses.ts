@@ -1,6 +1,7 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api, unwrap } from '@/api/client'
+import type { components } from '@/api/schema'
 
 // Console > Courses (mockup 45). Keys start with ['console', 'courses', …]; categories
 // under ['console', 'categories'].
@@ -89,6 +90,49 @@ export function useSetCoursePrice(id: string) {
   return useMutation({
     mutationFn: (b: { free: boolean; tier_id?: string | null }) => unwrap(api.PUT('/api/v1/console/courses/{course_id}/price', { params: { path: { course_id: id } }, body: { free: b.free, tier_id: b.tier_id ?? null } })),
     onSuccess: done,
+  })
+}
+
+export function useCourseInstalmentPlan(id: string) {
+  return useQuery({
+    queryKey: ['console', 'course-instalments', id],
+    queryFn: () => unwrap(api.GET('/api/v1/console/courses/{course_id}/instalments', { params: { path: { course_id: id } } })),
+    enabled: !!id,
+  })
+}
+
+export function useCourseInstalmentContent(id: string) {
+  return useQuery({
+    queryKey: ['console', 'course-instalment-content', id],
+    queryFn: () => unwrap(api.GET('/api/v1/console/courses/{course_id}/instalments/content', { params: { path: { course_id: id } } })),
+    enabled: !!id,
+  })
+}
+
+export function useCourseInstalmentLearners(id: string, q = '') {
+  return useQuery({
+    queryKey: ['console', 'course-instalment-learners', id, q],
+    queryFn: () => unwrap(api.GET('/api/v1/console/courses/{course_id}/instalments/learners', { params: { path: { course_id: id }, query: { q: q || undefined } } })),
+    enabled: !!id,
+  })
+}
+
+export function useSaveCourseInstalments(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: components['schemas']['ConsoleB2CCoursePlanIn']) => unwrap(api.PUT('/api/v1/console/courses/{course_id}/instalments', { params: { path: { course_id: id } }, body })),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['console', 'course-instalments', id] })
+      void qc.invalidateQueries({ queryKey: ['course-instalment-offer', id] })
+    },
+  })
+}
+
+export function useSetCourseInstalmentEligibility(courseId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId, enabled, scheduleStart }: { userId: string; enabled: boolean; scheduleStart?: string | null }) => unwrap(api.PUT('/api/v1/console/courses/{course_id}/instalments/learners/{user_id}', { params: { path: { course_id: courseId, user_id: userId } }, body: { enabled, schedule_start: scheduleStart ?? null } })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['console', 'course-instalment-learners', courseId] }),
   })
 }
 

@@ -1,5 +1,5 @@
 import { Armchair, CheckCircle2, ExternalLink, FileText, Loader2, Package, Paperclip, Receipt, ShoppingBag, Undo2, UserPlus } from 'lucide-react'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
@@ -9,7 +9,8 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { companyDownload, useCompanyDeleteFile, useCompanyFiles, useCompanyUpload } from '@/features/corporate/agreements'
 import { FilesPanel } from '@/features/corporate/FilesPanel'
 import { Table, Td, Th, Tr } from '@/components/ui/table'
-import { CANCEL_STATUS, DELIVERY_LABEL, PURCHASE_STATUS, QUOTE_STATUS, useCancellations, usePurchases, useQuotes } from '@/features/corporate/api'
+import { CANCEL_STATUS, DELIVERY_LABEL, PURCHASE_STATUS, QUOTE_STATUS, useCancellations, usePurchases, useQuotes, useStagePlan } from '@/features/corporate/api'
+import { INSTALMENT } from '@/features/corporate/agreements'
 import { gbp } from '@/features/corporate/format'
 import { QueryBlock, StatusBadge } from '@/features/corporate/ui'
 import { useIsOrgAdmin } from '@/features/org/api'
@@ -81,6 +82,7 @@ export function Purchases({ back = false, purchaseId, onRefund, onShowRequests }
   const requests = useCancellations(isAdmin)
   const openFor = new Map((requests.data ?? []).filter((r) => r.type === 'recorded_refund' && r.seat_purchase_id).map((r) => [r.seat_purchase_id!, r]))
   const [filesFor, setFilesFor] = useState<{ id: string; title: string } | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(null)
   return (
     <>
       <Card>
@@ -100,12 +102,14 @@ export function Purchases({ back = false, purchaseId, onRefund, onShowRequests }
                     <Th className="text-right">Total</Th>
                     <Th>Status</Th>
                     <Th className="hidden sm:table-cell">Date</Th>
+                    <Th>Plan</Th>
                     {isAdmin ? <Th className="text-right">Actions</Th> : null}
                   </tr>
                 </thead>
                 <tbody className="stagger">
                   {rows.map((p) => (
-                    <Tr key={p.id}>
+                    <Fragment key={p.id}>
+                    <Tr>
                       <Td className="max-w-[14rem] truncate font-medium">{p.course_title}</Td>
                       <Td className="hidden text-muted md:table-cell">{DELIVERY_LABEL[p.delivery_type] ?? p.delivery_type}</Td>
                       <Td className="text-right tabular-nums">{p.quantity}</Td>
@@ -114,6 +118,7 @@ export function Purchases({ back = false, purchaseId, onRefund, onShowRequests }
                         <StatusBadge map={PURCHASE_STATUS} status={p.status} />
                       </Td>
                       <Td className="hidden whitespace-nowrap text-muted sm:table-cell">{shortDate(p.paid_at ?? p.created_at)}</Td>
+                      <Td>{p.stage_access_enabled ? <Button size="sm" variant="ghost" aria-expanded={expanded === p.id} onClick={() => setExpanded(expanded === p.id ? null : p.id)}>{expanded === p.id ? 'Hide plan' : 'Payment plan'}</Button> : <span className="text-muted">—</span>}</Td>
                       {isAdmin ? (
                         <Td className="text-right">
                           <span className="inline-flex flex-wrap items-center justify-end gap-1">
@@ -140,6 +145,8 @@ export function Purchases({ back = false, purchaseId, onRefund, onShowRequests }
                         </Td>
                       ) : null}
                     </Tr>
+                    {p.stage_access_enabled && expanded === p.id ? <Tr><Td colSpan={isAdmin ? 8 : 7}><StagePlanDetails purchaseId={p.id} /></Td></Tr> : null}
+                    </Fragment>
                   ))}
                 </tbody>
               </Table>
@@ -149,6 +156,49 @@ export function Purchases({ back = false, purchaseId, onRefund, onShowRequests }
       </Card>
       {filesFor ? <PurchaseFiles id={filesFor.id} title={filesFor.title} onClose={() => setFilesFor(null)} /> : null}
     </>
+  )
+}
+
+function StagePlanDetails({ purchaseId }: { purchaseId: string }) {
+  const q = useStagePlan(purchaseId)
+  return (
+    <QueryBlock query={q} rows={2}>
+      {(plan) => (
+        <div className="grid gap-5 py-2">
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Card className="p-3"><p className="text-xs text-muted">Agreed total</p><p className="font-semibold">{gbp(plan.total_minor)}</p></Card>
+            <Card className="p-3"><p className="text-xs text-muted">Paid</p><p className="font-semibold">{gbp(plan.paid_minor)}</p></Card>
+            <Card className="p-3"><p className="text-xs text-muted">Outstanding</p><p className="font-semibold">{gbp(plan.outstanding_minor)}</p></Card>
+          </div>
+          <div className="grid gap-2">
+            <h3 className="text-sm font-semibold">Instalments</h3>
+            <p className="text-xs text-muted">Payment requests are recorded for the payment integration. A payment is confirmed here only after verified settlement.</p>
+            {plan.instalments.map((i) => (
+              <div key={i.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3 text-sm">
+                <span>Instalment {i.sequence} · {gbp(i.amount_minor)}</span>
+                <span className="flex items-center gap-2"><span className="text-muted">Due {shortDate(i.due_at)}{i.payment_requested_at ? ` · request ${shortDate(i.payment_requested_at)}` : ''}</span><StatusBadge map={INSTALMENT} status={i.status} /></span>
+              </div>
+            ))}
+          </div>
+          <div className="grid gap-2">
+            <h3 className="text-sm font-semibold">Employee progress by course stage</h3>
+            {plan.employees.length ? plan.employees.map((employee) => (
+              <div key={employee.user_id} className="grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-[minmax(9rem,1fr)_3fr]">
+                <p className="truncate text-sm font-medium">{employee.name}</p>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {employee.stages.map((stage) => (
+                    <div key={stage.stage_id} className="rounded-md bg-surface-2 p-2 text-xs">
+                      <p className="font-medium">{stage.title}</p>
+                      <p className="text-muted">{stage.completed_lessons} of {stage.total_lessons} lessons complete</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )) : <p className="text-sm text-muted">Give seats to employees to see their stage progress.</p>}
+          </div>
+        </div>
+      )}
+    </QueryBlock>
   )
 }
 

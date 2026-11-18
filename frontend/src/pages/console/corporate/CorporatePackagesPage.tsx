@@ -33,7 +33,7 @@ import {
   useCnVoidQuote,
 } from '@/features/corporate/console'
 import { gbp } from '@/features/corporate/format'
-import { AgreementSection, InstalmentPlanForm, InventoryTab } from './AgreementPanels'
+import { AgreementSection, InstalmentPlanForm, InventoryTab, StageInstalmentPlanForm } from './AgreementPanels'
 import { QueryBlock, StatusBadge } from '@/features/corporate/ui'
 import { useDebounced } from '@/features/org/ui'
 
@@ -127,10 +127,11 @@ function Offerings() {
   const update = useCnUpdateOffering()
   const [form, setForm] = useState<{ o: CnOffering | null } | null>(null)
   return (
-    <Card>
-      <CardHeader title="Live course offers" description="Choose which courses companies can request as live training. Recorded course prices come from the shared course catalogue." action={<Button size="sm" onClick={() => setForm({ o: null })}><Plus /> Add live course</Button>} />
-      <div className="mt-3">
-        <QueryBlock query={{ ...q, data: q.data?.filter((o) => o.delivery_type === 'live') }} empty={{ icon: <Package />, title: 'No live courses offered', body: 'Add a live course so company admins can request a group.' }}>
+    <div className="grid gap-5">
+      <Card>
+        <CardHeader title="Live course offers" description="Choose which courses companies can request as live training. Recorded course prices come from the shared course catalogue." action={<Button size="sm" onClick={() => setForm({ o: null })}><Plus /> Add live course</Button>} />
+        <div className="mt-3">
+          <QueryBlock query={{ ...q, data: q.data?.filter((o) => o.delivery_type === 'live') }} empty={{ icon: <Package />, title: 'No live courses offered', body: 'Add a live course so company admins can request a group.' }}>
           {(rows) => (
             <Table>
               <thead>
@@ -165,10 +166,32 @@ function Offerings() {
               </tbody>
             </Table>
           )}
-        </QueryBlock>
-      </div>
+          </QueryBlock>
+        </div>
+      </Card>
+      <Card>
+        <CardHeader title="Recorded course instalments" description="Recorded prices remain the shared course price. Enable fixed invoice instalments for new company agreements and map each payment to named course stages." />
+        <div className="mt-3">
+          <QueryBlock query={{ ...q, data: q.data?.filter((o) => o.delivery_type === 'recorded') }} empty={{ icon: <Package />, title: 'No recorded courses on sale', body: 'Published, paid courses appear here from the shared catalogue.' }}>
+            {(rows) => (
+              <Table>
+                <thead><tr><Th>Course</Th><Th className="text-right">Price per seat</Th><Th>Instalments for new agreements</Th></tr></thead>
+                <tbody className="stagger">
+                  {rows.map((o) => (
+                    <Tr key={o.id}>
+                      <Td className="max-w-[18rem] truncate font-medium">{o.course_title}</Td>
+                      <Td className="text-right tabular-nums">{gbp(o.gbp_minor)}</Td>
+                      <Td><Switch checked={o.instalments_enabled} aria-label={`${o.course_title} instalments enabled`} onCheckedChange={(v) => update.mutate({ id: o.id, instalments_enabled: v }, { onSuccess: () => toast.success(v ? 'Instalments enabled for new agreements' : 'Instalments disabled for new agreements'), onError: err })} /></Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </QueryBlock>
+        </div>
+      </Card>
       {form ? <OfferingForm key={form.o?.id ?? 'new'} open onOpenChange={(o) => !o && setForm(null)} offering={form.o} /> : null}
-    </Card>
+    </div>
   )
 }
 
@@ -265,19 +288,17 @@ function PurchaseDetail({ p, onClose }: { p: CnPurchase; onClose: () => void }) 
 function Purchases() {
   const [status, setStatus] = useState('')
   const q = useCnPurchases(status)
+  const offerings = useCnOfferings()
   const [openId, setOpenId] = useParam('purchase')
   const open = q.data?.find((p) => p.id === openId)
   const [planning, setPlanning] = useState(false)
+  const [stagePlanning, setStagePlanning] = useState(false)
   return (
     <Card>
       <CardHeader
         title="Seat purchases"
         description="Every company purchase, recorded and live"
-        action={
-          <Button size="sm" onClick={() => setPlanning(true)}>
-            <Plus /> New instalment plan
-          </Button>
-        }
+        action={<div className="flex flex-wrap gap-2">{offerings.data?.some((o) => o.delivery_type === 'recorded' && o.instalments_enabled) ? <Button size="sm" onClick={() => setStagePlanning(true)}><Plus /> New staged agreement</Button> : null}<Button size="sm" variant="secondary" onClick={() => setPlanning(true)}><Plus /> Legacy time-based plan</Button></div>}
       />
       <Toolbar>
         <NativeSelect aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)} className="w-48">
@@ -326,6 +347,7 @@ function Purchases() {
       </QueryBlock>
       {open ? <PurchaseDetail p={open} onClose={() => setOpenId('')} /> : null}
       {planning ? <InstalmentPlanForm onClose={() => setPlanning(false)} /> : null}
+      {stagePlanning ? <StageInstalmentPlanForm onClose={() => setStagePlanning(false)} /> : null}
     </Card>
   )
 }

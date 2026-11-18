@@ -30,6 +30,7 @@ const CheckoutSuccessPage = named(() => import('@/pages/shop/CheckoutSuccessPage
 const PlansPage = named(() => import('@/pages/shop/PlansPage'), 'PlansPage')
 const WishlistPage = named(() => import('@/pages/shop/WishlistPage'), 'WishlistPage')
 const OrdersPage = named(() => import('@/pages/shop/OrdersPage'), 'OrdersPage')
+const CourseInstalmentsPage = named(() => import('@/pages/shop/CourseInstalmentsPage'), 'CourseInstalmentsPage')
 const PlayerPage = named(() => import('@/pages/learn/PlayerPage'), 'PlayerPage')
 const CertificatesPage = named(() => import('@/pages/learner/CertificatesPage'), 'CertificatesPage')
 const AchievementsPage = named(() => import('@/pages/learner/AchievementsPage'), 'AchievementsPage')
@@ -164,6 +165,7 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
           { path: '/notifications', element: page(<NotificationsPage />), handle: { art: 'signal' } },
           { path: '/wishlist', element: page(<WishlistPage />) },
           { path: '/account/orders', element: page(<OrdersPage />), handle: { art: 'ribbons' } },
+          { path: '/account/instalments', element: page(<CourseInstalmentsPage />), handle: { art: 'ribbons' } },
           { path: '/wallet', element: page(<WalletPage />), handle: { art: 'coins' } },
           { path: '/wallet/buy', element: page(<TokenBuyPage />), handle: { art: 'coins' } },
           { path: '/wallet/result', element: page(<TokenResultPage />), handle: { art: 'coins' } },

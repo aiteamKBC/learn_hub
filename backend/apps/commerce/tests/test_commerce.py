@@ -45,6 +45,8 @@ def fake_session(**kw):
 
 
 class CommerceBase(SchemaTransactionTestCase):
+    extra_course_lecture = False
+
     def setUp(self):
         self.staff = User.objects.create_user("staff@learnhub-demo.com", "x", is_staff=True)
         self.teacher = User.objects.create_user("teacher@learnhub-demo.com", "x", full_name="Tom Teacher")
@@ -62,9 +64,23 @@ class CommerceBase(SchemaTransactionTestCase):
     def course(self, slug, tier=None, free=False):
         c = cat.create_course(title=f"Course {slug}", slug=slug, ownership="platform", created_by=self.staff)
         sec = cat.add_section(version=c.versions.get(), title="Basics")
-        cat.add_lecture(section=sec, kind="article", title="Read", body="<p>x</p>")
-        cat.submit(version=c.versions.get(), by=self.staff)
+        cat.add_lecture(
+            section=sec,
+            kind="article",
+            title="Read",
+            body="<p>x</p>",
+            token_price=1 if tier else None,
+        )
+        if self.extra_course_lecture:
+            cat.add_lecture(
+                section=sec,
+                kind="article",
+                title="Practice",
+                body="<p>y</p>",
+                token_price=1 if tier else None,
+            )
         CoursePrice.objects.create(course=c, tier=tier, is_free=free)
+        cat.submit(version=c.versions.get(), by=self.staff)
         c.refresh_from_db()
         return c
 

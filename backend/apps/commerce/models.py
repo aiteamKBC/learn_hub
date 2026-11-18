@@ -246,6 +246,8 @@ class Plan(BaseModel):
     interval = models.CharField(max_length=5, choices=Interval.choices)
     trial_days = models.PositiveSmallIntegerField(default=0)
     min_seats = models.PositiveSmallIntegerField(default=1)
+    live_seat_cap = models.PositiveIntegerField(null=True, blank=True, default=None)
+    live_seat_cap_effective_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     renewal = models.CharField(
         max_length=10, choices=[("automatic", "Automatic"), ("manual", "Manual")], default="automatic"
@@ -941,3 +943,141 @@ class CashPackageCourse(BaseModel):
         constraints = [
             models.UniqueConstraint(fields=["package", "course"], name="uq_cpkg_course"),
         ]
+
+
+# ======================================================================= fixed B2C course instalments
+class CourseInstalmentPlan(BaseModel):
+    """A fixed, finite personal course purchase. This is not a Stripe subscription."""
+
+    class EarlyRelease(models.TextChoices):
+        IMMEDIATE = "immediate", "Release mapped stages when paid"
+        SCHEDULED = "scheduled", "Wait for each mapped stage date"
+
+    course = models.ForeignKey("catalog.Course", on_delete=models.CASCADE, related_name="instalment_plans")
+    revision = models.PositiveSmallIntegerField(default=1)
+    currency = currency_fk()
+    total_minor = models.PositiveIntegerField()
+    instalment_count = models.PositiveSmallIntegerField()
+    schedule_start = models.DateField()
+    early_release = models.CharField(max_length=12, choices=EarlyRelease.choices)
+    retry_count = models.PositiveSmallIntegerField(null=True, blank=True)
+    retry_interval_days = models.PositiveSmallIntegerField(null=True, blank=True)
+    enabled = models.BooleanField(default=False)
+    is_current = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "course_instalment_plans")
+        constraints = [models.UniqueConstraint(fields=["course", "revision"], name="uq_ciplan_revision")]
+
+
+class CourseInstalmentStage(BaseModel):
+    plan = models.ForeignKey(CourseInstalmentPlan, on_delete=models.CASCADE, related_name="stages")
+    title = models.CharField(max_length=120)
+    position = models.PositiveSmallIntegerField()
+    release_month = models.PositiveSmallIntegerField()
+    lecture_keys = models.JSONField(default=list)
+    instalment_numbers = models.JSONField(default=list)
+
+    class Meta:
+        db_table = table(SCHEMA, "course_instalment_stages")
+        constraints = [models.UniqueConstraint(fields=["plan", "position"], name="uq_cistage_position")]
+
+
+class CourseInstalmentPurchase(MixedTenantModel):
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        COMPLETE = "complete", "Complete"
+        CANCELLED = "cancelled", "Cancelled"
+
+    plan = models.ForeignKey(CourseInstalmentPlan, on_delete=models.PROTECT, related_name="purchases")
+    course = models.ForeignKey(
+        "catalog.Course", on_delete=models.PROTECT, related_name="instalment_purchases"
+    )
+    currency = currency_fk()
+    total_minor = models.PositiveIntegerField()
+    instalment_count = models.PositiveSmallIntegerField()
+    schedule_start = models.DateField()
+    early_release = models.CharField(max_length=12, choices=CourseInstalmentPlan.EarlyRelease.choices)
+    retry_count = models.PositiveSmallIntegerField()
+    retry_interval_days = models.PositiveSmallIntegerField()
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.ACTIVE)
+    access_expires_at = models.DateTimeField(null=True, blank=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    late_start = models.DateField(null=True, blank=True)
+    existing_learner_rule = models.BooleanField(default=False)
+    payoff_payment_reference = models.CharField(max_length=128, blank=True, null=True, unique=True)
+    payoff_requested_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "course_instalment_purchases")
+        indexes = [models.Index(fields=["user", "course", "status"], name="ix_cip_user_course")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "course"],
+                condition=Q(status__in=["active", "complete"]),
+                name="uq_cip_live_user_course",
+            )
+        ]
+
+
+class CourseInstalmentEligibility(MixedTenantModel):
+    """Admin approval for an existing learner to opt in without revoking current grants."""
+
+    course = models.ForeignKey(
+        "catalog.Course", on_delete=models.CASCADE, related_name="instalment_eligibilities"
+    )
+    schedule_start = models.DateField(null=True, blank=True)
+    enabled = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "course_instalment_eligibilities")
+        constraints = [
+            models.UniqueConstraint(fields=["user", "course"], name="uq_cieligibility_user_course")
+        ]
+
+
+class CourseInstalment(MixedTenantModel):
+    class Status(models.TextChoices):
+        DUE = "due", "Due"
+        PROCESSING = "processing", "Processing"
+        PAID = "paid", "Paid"
+        RETRY = "retry", "Retry scheduled"
+        MANUAL = "manual", "Manual payment required"
+        CANCELLED = "cancelled", "Cancelled"
+
+    purchase = models.ForeignKey(
+        CourseInstalmentPurchase, on_delete=models.CASCADE, related_name="instalments"
+    )
+    number = models.PositiveSmallIntegerField()
+    due_at = models.DateField()
+    amount_minor = models.PositiveIntegerField()
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.DUE)
+    retry_attempts = models.PositiveSmallIntegerField(default=0)
+    retry_at = models.DateField(null=True, blank=True)
+    payment_reference = models.CharField(max_length=128, blank=True, unique=True, null=True)
+    manual_payment_requested_at = models.DateTimeField(null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "course_instalments")
+        constraints = [models.UniqueConstraint(fields=["purchase", "number"], name="uq_cinst_number")]
+
+
+class CourseInstalmentFailure(MixedTenantModel):
+    """Provider-neutral failure-event idempotency ledger for later payment adapters."""
+
+    instalment = models.ForeignKey(CourseInstalment, on_delete=models.CASCADE, related_name="failure_events")
+    failure_reference = models.CharField(max_length=128, unique=True)
+    manual_payment = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = table(SCHEMA, "course_instalment_failures")
+
+
+class CourseInstalmentStagePayment(MixedTenantModel):
+    instalment = models.ForeignKey(CourseInstalment, on_delete=models.CASCADE, related_name="stages")
+    stage = models.ForeignKey(CourseInstalmentStage, on_delete=models.PROTECT, related_name="payments")
+
+    class Meta:
+        db_table = table(SCHEMA, "course_instalment_stage_payments")
+        constraints = [models.UniqueConstraint(fields=["instalment", "stage"], name="uq_cinst_stage")]

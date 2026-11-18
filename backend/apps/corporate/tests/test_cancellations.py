@@ -3,10 +3,11 @@
 import uuid
 from unittest.mock import MagicMock, patch
 
+from django.db.models import Sum
 from django.utils import timezone
 
 from apps.catalog.models import Category, Course, CourseVersion
-from apps.commerce.models import PriceTier
+from apps.commerce.models import Plan, PriceTier, Subscription
 from apps.corporate.cancellations import (
     process_postponement,
     process_refund,
@@ -19,6 +20,7 @@ from apps.corporate.models import (
     CancellationRequest,
     CohortCompany,
     CorporateOffering,
+    LiveAttendee,
     LiveCohort,
     SeatPurchase,
 )
@@ -293,6 +295,143 @@ class CancellationTest(SchemaTransactionTestCase):
         self.assertEqual(source.approved_seats, 2)
         self.assertEqual(target_cohort.current_seats, 1)
         self.assertEqual(target_company.approved_seats, 1)
+
+    def test_included_cancellation_restores_team_live_quota(self):
+        with tenant_context(staff=True):
+            plan = Plan.objects.create(
+                code=f"cancel-live-{uuid.uuid4().hex[:8]}",
+                name="Live team",
+                audience="team",
+                interval="month",
+                live_seat_cap=2,
+                live_seat_cap_effective_at=timezone.now() - timezone.timedelta(minutes=1),
+            )
+            subscription = Subscription.objects.create(
+                user=self.admin_user,
+                org=self.org,
+                plan=plan,
+                currency_id="GBP",
+                status="active",
+                current_period_end=timezone.now() + timezone.timedelta(days=20),
+            )
+            cohort = LiveCohort.objects.create(
+                course=self.course,
+                title="Included",
+                status="confirmed",
+                delivery_mode="online",
+                min_learners=1,
+                max_learners=10,
+                current_seats=2,
+            )
+            booking = CohortCompany.objects.create(
+                org=self.org,
+                cohort=cohort,
+                approved_seats=2,
+                status=CohortCompany.Status.INCLUDED,
+                included_subscription=subscription,
+                included_period_end=subscription.current_period_end,
+                included_seats=2,
+            )
+            attendee = LiveAttendee.objects.create(
+                org=self.org,
+                cohort_company=booking,
+                cohort=cohort,
+                user=self.employee,
+                added_by=self.admin_user,
+            )
+            cancellation = submit_cancellation(
+                self._request(self.admin_user),
+                type="cohort_cancel",
+                reason="No longer needed",
+                cohort_company_id=booking.id,
+            )
+            review_cancellation(self._request(), str(cancellation.id), approve=True)
+            booking.refresh_from_db()
+            cohort.refresh_from_db()
+            attendee.refresh_from_db()
+            used = (
+                CohortCompany.objects.filter(
+                    included_subscription=subscription, included_period_end=subscription.current_period_end
+                )
+                .exclude(status__in=[CohortCompany.Status.CANCELLED, CohortCompany.Status.WITHDRAWN])
+                .aggregate(total=Sum("included_seats"))["total"]
+                or 0
+            )
+        self.assertEqual(booking.status, CohortCompany.Status.CANCELLED)
+        self.assertEqual(cohort.current_seats, 0)
+        self.assertEqual(attendee.status, LiveAttendee.Status.REMOVED)
+        self.assertEqual(used, 0)
+
+    def test_included_postponement_transfers_quota_reservation(self):
+        with tenant_context(staff=True):
+            plan = Plan.objects.create(
+                code=f"postpone-live-{uuid.uuid4().hex[:8]}",
+                name="Live team",
+                audience="team",
+                interval="month",
+                live_seat_cap=3,
+                live_seat_cap_effective_at=timezone.now() - timezone.timedelta(minutes=1),
+            )
+            subscription = Subscription.objects.create(
+                user=self.admin_user,
+                org=self.org,
+                plan=plan,
+                currency_id="GBP",
+                status="active",
+                current_period_end=timezone.now() + timezone.timedelta(days=20),
+            )
+            source_cohort = LiveCohort.objects.create(
+                course=self.course,
+                title="Current",
+                status="confirmed",
+                delivery_mode="online",
+                min_learners=1,
+                max_learners=10,
+                current_seats=3,
+            )
+            target_cohort = LiveCohort.objects.create(
+                course=self.course,
+                title="Next",
+                status="forming",
+                delivery_mode="online",
+                min_learners=1,
+                max_learners=10,
+            )
+            source = CohortCompany.objects.create(
+                org=self.org,
+                cohort=source_cohort,
+                approved_seats=3,
+                status=CohortCompany.Status.INCLUDED,
+                included_subscription=subscription,
+                included_period_end=subscription.current_period_end,
+                included_seats=3,
+            )
+            request = submit_cancellation(
+                self._request(self.admin_user),
+                type="postponement",
+                reason="Move unused seats",
+                cohort_company_id=source.id,
+            )
+            process_postponement(
+                self._request(),
+                str(request.id),
+                target_cohort_id=target_cohort.id,
+                seats=2,
+            )
+            source.refresh_from_db()
+            target = CohortCompany.objects.get(cohort=target_cohort, org=self.org)
+            used = (
+                CohortCompany.objects.filter(
+                    included_subscription=subscription, included_period_end=subscription.current_period_end
+                )
+                .exclude(status__in=[CohortCompany.Status.CANCELLED, CohortCompany.Status.WITHDRAWN])
+                .aggregate(total=Sum("included_seats"))["total"]
+                or 0
+            )
+        self.assertEqual(source.included_seats, 1)
+        self.assertEqual(target.status, CohortCompany.Status.INCLUDED)
+        self.assertEqual(target.included_seats, 2)
+        self.assertEqual(used, 3)
 
 
 class DeparturePolicyTest(SchemaTransactionTestCase):

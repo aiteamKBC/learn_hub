@@ -12,6 +12,147 @@ from core.errors import ServiceError
 from .models import CohortCompany, LiveCohort, TrainingRequest
 
 
+def live_subscription_coverage(org_id, *, booking_created_at=None, now=None, snapshot=None):
+    """Return current Team Live quota and usage, or None when no quota applies."""
+    if snapshot is not None:
+        if booking_created_at is not None and booking_created_at < snapshot["effective_at"]:
+            return None
+        return snapshot
+
+    from apps.commerce.models import Plan, Subscription
+
+    now = now or timezone.now()
+    qs = Subscription.objects.filter(
+        org_id=org_id,
+        plan__audience=Plan.Audience.TEAM,
+        plan__live_seat_cap__gt=0,
+        plan__live_seat_cap_effective_at__isnull=False,
+        status__in=[
+            Subscription.Status.ACTIVE,
+            Subscription.Status.TRIALING,
+            Subscription.Status.PAST_DUE,
+        ],
+        current_period_end__gt=now,
+    ).select_related("plan")
+    if booking_created_at is not None:
+        qs = qs.filter(plan__live_seat_cap_effective_at__lte=booking_created_at)
+    subscription = qs.order_by("-current_period_end", "-created_at").first()
+    if subscription is None:
+        return None
+    used = (
+        CohortCompany.objects.filter(
+            included_subscription=subscription,
+            included_period_end=subscription.current_period_end,
+        )
+        .exclude(status__in=[CohortCompany.Status.CANCELLED, CohortCompany.Status.WITHDRAWN])
+        .aggregate(total=Sum("included_seats"))["total"]
+        or 0
+    )
+    return {
+        "subscription": subscription,
+        "period_end": subscription.current_period_end,
+        "effective_at": subscription.plan.live_seat_cap_effective_at,
+        "cap": subscription.plan.live_seat_cap,
+        "used": used,
+        "remaining": max(0, subscription.plan.live_seat_cap - used),
+    }
+
+
+@transaction.atomic
+def accept_included_live_booking(request, *, org_id, cohort_company_id):
+    """Accept an offered booking against the current Team subscription quota.
+
+    Locking the eligible subscription serializes acceptances across cohorts for the
+    same subscription, so parallel requests cannot exceed the cap.
+    """
+    from apps.commerce.models import Plan, Subscription
+
+    cc = CohortCompany.objects.select_for_update().filter(pk=cohort_company_id, org_id=org_id).first()
+    if cc is None:
+        raise ServiceError("not_found", "Booking not found.", status=404)
+    if cc.status != CohortCompany.Status.OFFERED:
+        raise ServiceError(
+            "booking_not_offered", "This booking is no longer awaiting a response.", status=409
+        )
+    if cc.cohort.status not in (LiveCohort.Status.CONFIRMED, LiveCohort.Status.PENDING_PAY):
+        raise ServiceError("cohort_not_confirmed", "The cohort is not ready to accept bookings.", status=409)
+
+    now = timezone.now()
+    subscription_id = (
+        Subscription.objects.filter(
+            org_id=org_id,
+            plan__audience=Plan.Audience.TEAM,
+            plan__live_seat_cap__gt=0,
+            plan__live_seat_cap_effective_at__lte=cc.created_at,
+            status__in=[
+                Subscription.Status.ACTIVE,
+                Subscription.Status.TRIALING,
+                Subscription.Status.PAST_DUE,
+            ],
+            current_period_end__gt=now,
+        )
+        .order_by("-current_period_end", "-created_at")
+        .values_list("id", flat=True)
+        .first()
+    )
+    subscription = (
+        Subscription.objects.select_for_update().filter(pk=subscription_id, org_id=org_id).first()
+        if subscription_id
+        else None
+    )
+    if (
+        subscription is None
+        or subscription.status
+        not in (Subscription.Status.ACTIVE, Subscription.Status.TRIALING, Subscription.Status.PAST_DUE)
+        or subscription.current_period_end is None
+        or subscription.current_period_end <= now
+        or subscription.plan.audience != Plan.Audience.TEAM
+        or subscription.plan.live_seat_cap is None
+        or subscription.plan.live_seat_cap < 1
+        or subscription.plan.live_seat_cap_effective_at is None
+        or subscription.plan.live_seat_cap_effective_at > cc.created_at
+    ):
+        raise ServiceError("no_live_coverage", "There is no active Team Live seat allowance.", status=409)
+    used = (
+        CohortCompany.objects.filter(
+            included_subscription=subscription,
+            included_period_end=subscription.current_period_end,
+        )
+        .exclude(status__in=[CohortCompany.Status.CANCELLED, CohortCompany.Status.WITHDRAWN])
+        .aggregate(total=Sum("included_seats"))["total"]
+        or 0
+    )
+    remaining = subscription.plan.live_seat_cap - used
+    if cc.approved_seats > remaining:
+        raise ServiceError(
+            "live_seat_cap_reached",
+            f"This booking needs {cc.approved_seats} seats; {max(0, remaining)} included seats remain until renewal.",
+            status=409,
+        )
+
+    cc.status = CohortCompany.Status.INCLUDED
+    cc.included_subscription = subscription
+    cc.included_period_end = subscription.current_period_end
+    cc.included_seats = cc.approved_seats
+    cc.save(
+        update_fields=[
+            "status",
+            "included_subscription",
+            "included_period_end",
+            "included_seats",
+            "updated_at",
+        ]
+    )
+    audit_request(
+        request,
+        "live_booking_included",
+        "cohort_company",
+        cc.id,
+        data={"subscription_id": str(subscription.id), "seats": cc.included_seats},
+    )
+    return cc
+
+
 @transaction.atomic
 def submit_request(
     request, course_id, seats: int, preferred_intake="", preferred_delivery="", company_message=""
@@ -144,7 +285,7 @@ def remove_company_from_cohort(request, cohort_id, org_id) -> None:
     cc = CohortCompany.objects.filter(cohort_id=cohort_id, org_id=org_id).first()
     if cc is None:
         raise ServiceError("not_in_cohort", "Company is not in this cohort.", status=404)
-    if cc.status in ("paid", "active", "completed"):
+    if cc.status in ("included", "paid", "active", "completed"):
         raise ServiceError("cannot_remove", "Cannot remove a paid/active company.", status=400)
 
     cc.status = CohortCompany.Status.WITHDRAWN

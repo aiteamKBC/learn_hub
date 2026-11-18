@@ -21,7 +21,7 @@ from core.errors import ServiceError
 from .models import CohortCompany, LiveAttendee, LiveCohort, Session
 
 JOIN_OPENS_BEFORE = timedelta(minutes=15)
-NAMEABLE = (CohortCompany.Status.PAID, CohortCompany.Status.ACTIVE)
+NAMEABLE = (CohortCompany.Status.INCLUDED, CohortCompany.Status.PAID, CohortCompany.Status.ACTIVE)
 CHANGEABLE_COHORT = (LiveCohort.Status.CONFIRMED, LiveCohort.Status.PENDING_PAY)
 
 
@@ -61,7 +61,9 @@ def add_attendee(request, *, org_id, cohort_company_id, user_id) -> LiveAttendee
     if cc is None:
         raise ServiceError("not_found", "Booking not found.", status=404)
     if cc.status not in NAMEABLE:
-        raise ServiceError("not_paid", "You can name attendees once the booking is paid.", status=400)
+        raise ServiceError(
+            "not_paid", "You can name attendees once the booking is included or paid.", status=400
+        )
     if cc.cohort.status not in (*CHANGEABLE_COHORT, LiveCohort.Status.FORMING):
         raise ServiceError(
             "cohort_started", "This training has started or ended. Ask us to make changes.", status=400
@@ -72,7 +74,7 @@ def add_attendee(request, *, org_id, cohort_company_id, user_id) -> LiveAttendee
     if active.filter(user_id=user_id).exists():
         raise ServiceError("already_attending", "This person is already attending.", status=409)
     if active.count() >= cc.approved_seats:
-        raise ServiceError("no_places_left", "All paid places are taken.", status=409)
+        raise ServiceError("no_places_left", "All approved places are taken.", status=409)
     if LiveAttendee.objects.filter(
         cohort=cc.cohort, user_id=user_id, status=LiveAttendee.Status.ACTIVE
     ).exists():
