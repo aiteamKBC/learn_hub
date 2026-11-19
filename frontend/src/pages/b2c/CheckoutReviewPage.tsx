@@ -2,7 +2,7 @@ import { ArrowLeft, Coins, Crown, Mail, MapPin, Package, Phone, ShieldCheck } fr
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardBody } from '@/components/ui/card'

@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronRight, Clock, Hourglass, ListChecks, RotateCcw, Trophy, X, XCircle } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

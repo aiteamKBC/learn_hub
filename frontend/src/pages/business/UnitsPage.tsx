@@ -1,7 +1,7 @@
 import { Archive, Briefcase, Building2, ClipboardCheck, Globe2, Hash, MapPin, MoreHorizontal, Network, Pencil, Plus, UserCog, Users, X } from 'lucide-react'
 import { type FormEvent, type ReactNode, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'

@@ -1,6 +1,6 @@
 import { Clock, Pencil, X } from 'lucide-react'
 import { useId, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/input'

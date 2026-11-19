@@ -1,6 +1,6 @@
 import { Archive, ArrowDown, ArrowUp, BarChart3, BookOpen, Clock, Copy, ExternalLink, Eye, EyeOff, FileText, FolderTree, History, LayoutList, MoreHorizontal, Pencil, Plus, Send, Star, Tag, Trash2, Undo2, Users } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

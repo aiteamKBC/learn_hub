@@ -2,8 +2,10 @@
  * https://docs.allauth.org/en/latest/headless/openapi-specification/ */
 import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 
 import { ApiError, api, csrfToken, unwrap } from '@/api/client'
+import { authAlert, closeAuthAlert } from '@/lib/auth-alert'
 import { forgetInvite } from '@/lib/next'
 
 const BASE = '/_allauth/browser/v1'
@@ -134,8 +136,18 @@ export function useLogin() {
     },
     // refetch even when no screen is showing the user yet (the sign-in page), so the
     // next page already knows who is signed in
-    onSuccess: (r) => (r === 'signed-in' ? qc.refetchQueries({ queryKey: ['me'], type: 'all' }) : undefined),
+    onSuccess: async (r) => {
+      if (r !== 'signed-in') return
+      await qc.refetchQueries({ queryKey: ['me'], type: 'all' })
+      welcome(qc.getQueryData<{ full_name?: string } | null>(['me']))
+    },
   })
+}
+
+/** The "you're in" popup after any sign-in (password, or the 2-step code). */
+function welcome(me?: { full_name?: string } | null) {
+  const first = me?.full_name?.trim().split(/\s+/)[0]
+  authAlert({ kind: 'success', title: first ? `Welcome back, ${first}` : 'Welcome back', text: 'You are signed in.', autoClose: 1800 })
 }
 
 /** Second step of sign-in: a 6-digit code from the app, or one of the recovery codes. */
@@ -146,7 +158,10 @@ export function useMfaAuthenticate() {
       const r = await call('POST', '/auth/2fa/authenticate', { code })
       if (r.status !== 200) raise(r)
     },
-    onSuccess: () => qc.refetchQueries({ queryKey: ['me'], type: 'all' }),
+    onSuccess: async () => {
+      await qc.refetchQueries({ queryKey: ['me'], type: 'all' })
+      welcome(qc.getQueryData<{ full_name?: string } | null>(['me']))
+    },
   })
 }
 
@@ -285,17 +300,23 @@ export function useVerifyEmail() {
 
 export function useLogout() {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   return useMutation({
+    // feedback straight away: the request itself can take a moment
+    onMutate: () => authAlert({ kind: 'loading', title: 'Signing you out…' }),
     mutationFn: () => call('DELETE', '/auth/session'),
-    onSettled: () => {
+    onSettled: (_r, error) => {
       // an invitation waiting in this browser belongs to whoever was signed in
       forgetInvite()
-      qc.clear()
       announceSignOut()
-      // A full reload to the home page guarantees a clean logged-out state with no stale,
-      // user-scoped cache lingering (a client-side navigate can leave the UI showing the
-      // old session until the next manual refresh).
-      window.location.assign('/')
+      // Was a full page reload, which re-downloaded the whole app (seconds in dev). Now:
+      // drop every user-scoped query, state plainly that nobody is signed in (so no screen
+      // can keep showing the old session), and go home inside the app.
+      qc.clear()
+      qc.setQueryData(['me'], null)
+      navigate('/', { replace: true })
+      if (error) closeAuthAlert()
+      else authAlert({ kind: 'signed-out', title: 'You are signed out', text: 'See you again soon.', autoClose: 1800 })
     },
   })
 }

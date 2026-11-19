@@ -1,6 +1,6 @@
 import { CalendarClock, CheckCircle2, FileUp, Hourglass, Link2, Paperclip, RotateCcw, Send, Trophy, X } from 'lucide-react'
 import { useRef, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

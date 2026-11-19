@@ -209,7 +209,7 @@ function Membership() {
             </h2>
             <p className="mt-4 text-primary-soft-text">Start free. Move up when you want the graded work, the critique sessions and the certificate.</p>
           </div>
-          <div role="group" aria-label="Billing period" className="relative inline-flex shrink-0 rounded-full border border-text/25 bg-white/85 p-1 text-sm shadow-sm backdrop-blur-sm">
+          <div role="group" aria-label="Billing period" className="relative inline-flex shrink-0 rounded-full border border-border bg-surface/85 p-1 text-sm shadow-sm backdrop-blur-sm">
             {/* Sliding highlight: moves between the two slots, honouring reduced motion via the global setting. */}
             <span aria-hidden className={cn('pointer-events-none absolute top-1 bottom-1 left-1 w-24 rounded-full bg-primary shadow-[0_6px_16px_-6px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-out motion-reduce:transition-none', yearly && 'translate-x-full')} />
             {[
@@ -221,7 +221,7 @@ function Membership() {
                 type="button"
                 onClick={() => setYearly(o.k)}
                 aria-pressed={yearly === o.k}
-                className={cn('relative z-10 w-24 rounded-full px-4 py-1.5 text-center font-medium transition-colors duration-200', yearly === o.k ? 'text-on-primary' : 'text-text/60 hover:text-text')}
+                className={cn('relative z-10 w-24 rounded-full px-4 py-1.5 text-center font-medium transition-colors duration-200', yearly === o.k ? 'text-on-primary' : 'text-muted hover:text-text')}
               >
                 {o.label}
               </button>
@@ -231,7 +231,7 @@ function Membership() {
 
         <div className="mt-10 grid gap-5 lg:grid-cols-3">
           {tiers.map((t) => (
-            <article key={t.name} className={cn('relative flex flex-col rounded-2xl p-6 shadow-lg transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-xl motion-reduce:transition-none motion-reduce:hover:translate-y-0', t.featured ? 'bg-[#2a333c] ring-1 ring-primary/50 hover:ring-primary/70' : 'bg-white text-text')}>
+            <article key={t.name} className={cn('relative flex flex-col rounded-2xl p-6 shadow-lg transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-xl motion-reduce:transition-none motion-reduce:hover:translate-y-0', t.featured ? 'bg-[#2a333c] ring-1 ring-primary/50 hover:ring-primary/70' : 'border border-border bg-surface text-text')}>
               {t.badge ? <span className="absolute top-5 right-5 rounded-full bg-primary px-2.5 py-1 font-mono text-[10px] tracking-[0.1em] text-on-primary uppercase">{t.badge}</span> : null}
               <h3 className={cn('text-base font-semibold', t.featured ? 'text-white' : 'text-text')}>{t.name}</h3>
               <p className={cn('mt-1 text-sm', t.featured ? 'text-white/60' : 'text-muted')}>{t.tagline}</p>

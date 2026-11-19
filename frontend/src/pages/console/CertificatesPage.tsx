@@ -1,6 +1,6 @@
 import { Award, BadgeCheck, CalendarClock, CheckCircle2, Copy, Download, ExternalLink, Eye, FileBadge, MoreHorizontal, Pencil, Plus, Settings2, ShieldCheck, Star, Upload, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

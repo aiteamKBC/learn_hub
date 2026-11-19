@@ -5,18 +5,20 @@ import { useMe } from '@/features/identity/auth'
 import { useWorkspace } from '@/features/identity/workspace'
 import { useCurrency } from '@/lib/currency'
 
-export type CourseFilters = { q?: string; category?: string; level?: string; price?: 'free' | 'paid'; rating?: number; sort?: string; limit?: number }
+export type SearchIn = 'courses' | 'instructors' | 'topics'
+export type CourseFilters = { q?: string; search_in?: SearchIn; category?: string; level?: string; price?: 'free' | 'paid'; rating?: number; sort?: string; limit?: number }
 
 export function useCategories() {
   return useQuery({ queryKey: ['categories'], queryFn: () => unwrap(api.GET('/api/v1/catalog/categories')), staleTime: 10 * 60_000 })
 }
 
-export function useCourses(filters: CourseFilters = {}) {
+export function useCourses(filters: CourseFilters = {}, enabled = true, keepPrevious = true) {
   const { code } = useCurrency()
   return useQuery({
     queryKey: ['courses', filters, code],
+    enabled,
     queryFn: () => unwrap(api.GET('/api/v1/catalog/courses', { params: { query: { ...filters, currency: code } } })),
-    placeholderData: keepPreviousData,
+    placeholderData: keepPrevious ? keepPreviousData : undefined,
   })
 }
 

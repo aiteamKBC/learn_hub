@@ -1,7 +1,7 @@
 import { AlertTriangle, BadgeCheck, CalendarClock, Check, CircleDollarSign, Clock, CreditCard, History, Inbox, Landmark, MoreHorizontal, Play, Settings, ShieldCheck, Wallet, X } from 'lucide-react'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

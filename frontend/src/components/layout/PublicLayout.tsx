@@ -1,11 +1,10 @@
 import { Mail, Search, ShoppingCart } from 'lucide-react'
-import { type FormEvent, useCallback, useEffect, useState } from 'react'
-import { Outlet, useLocation, useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 
 import { AuthTabs } from '@/components/home/GetStarted'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Logo } from '@/components/ui/logo'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { useCartCount } from '@/features/commerce/api'
@@ -17,6 +16,7 @@ import { scrollToAnchor, smoothScrollTo } from '@/lib/smooth-scroll'
 import { BottomNav } from './BottomNav'
 import { CurrencyMenu } from './CurrencyMenu'
 import { NotificationBell } from './NotificationBell'
+import { SearchBox } from './SearchBox'
 import { UserMenu } from './UserMenu'
 import { Link, NavLink, useNavigate } from '@/lib/router'
 
@@ -39,21 +39,6 @@ function CartButton() {
         ) : null}
       </Link>
     </Button>
-  )
-}
-
-function SearchBox({ className, autoFocus, overlay }: { className?: string; autoFocus?: boolean; overlay?: boolean }) {
-  const [params] = useSearchParams()
-  const [q, setQ] = useState(params.get('q') ?? '')
-  const navigate = useNavigate()
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    navigate(q.trim() ? `/courses?q=${encodeURIComponent(q.trim())}` : '/courses')
-  }
-  return (
-    <form role="search" onSubmit={submit} className={className}>
-      <Input icon={<Search />} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search for courses, topics or instructors" aria-label="Search courses" autoFocus={autoFocus} className={cn('rounded-full', overlay ? 'border-white/25 bg-white/10 text-white placeholder:text-white/60' : 'bg-surface-2/80')} />
-    </form>
   )
 }
 
@@ -136,11 +121,14 @@ export function PublicLayout() {
             <Button variant="ghost" size="icon" className="md:hidden" aria-label="Search" onClick={() => setSearchOpen((v) => !v)}>
               <Search />
             </Button>
-            <span className="hidden sm:inline-flex">
-              <CurrencyMenu />
-            </span>
+            {/* signed out: only the theme and "Log in"; currency and cart come after signing in */}
+            {me ? (
+              <span className="hidden sm:inline-flex">
+                <CurrencyMenu />
+              </span>
+            ) : null}
             <ThemeToggle />
-            <CartButton />
+            {me ? <CartButton /> : null}
             {me ? <NotificationBell /> : null}
             {isLoading ? null : me ? (
               <UserMenu />

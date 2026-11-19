@@ -1,19 +1,18 @@
 import { Search, ShoppingCart } from 'lucide-react'
-import { type FormEvent, useCallback, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useCallback, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Logo } from '@/components/ui/logo'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { useCartCount } from '@/features/commerce/api'
 import { useMe } from '@/features/identity/auth'
 import { cn } from '@/lib/cn'
 import { useOn } from '@/lib/motion'
-import { Link, NavLink, useNavigate } from '@/lib/router'
+import { Link, NavLink } from '@/lib/router'
 
 import { CurrencyMenu } from './CurrencyMenu'
 import { NotificationBell } from './NotificationBell'
+import { SearchBox } from './SearchBox'
 import { UserMenu } from './UserMenu'
 
 /** The cart icon with its live count; bounces when a course is added (same as the marketplace). */
@@ -33,21 +32,6 @@ function CartButton() {
         ) : null}
       </Link>
     </Button>
-  )
-}
-
-function SearchBox({ className, autoFocus }: { className?: string; autoFocus?: boolean }) {
-  const [params] = useSearchParams()
-  const [q, setQ] = useState(params.get('q') ?? '')
-  const navigate = useNavigate()
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    navigate(q.trim() ? `/courses?q=${encodeURIComponent(q.trim())}` : '/courses')
-  }
-  return (
-    <form role="search" onSubmit={submit} className={className}>
-      <Input icon={<Search />} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search for courses, topics or instructors" aria-label="Search courses" autoFocus={autoFocus} className="rounded-full bg-surface-2/80" />
-    </form>
   )
 }
 

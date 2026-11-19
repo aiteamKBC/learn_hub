@@ -1,7 +1,7 @@
 import { ArrowLeft, BadgeCheck, CheckCircle2, MessageSquare, MessagesSquare, Send } from 'lucide-react'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'

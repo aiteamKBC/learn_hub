@@ -1,6 +1,6 @@
 import { CheckCircle2, Download, ExternalLink, FileText, Link2, RotateCcw, Save } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { ApiError } from '@/api/client'
 import { Avatar } from '@/components/ui/avatar'

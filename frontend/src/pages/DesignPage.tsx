@@ -1,6 +1,6 @@
 import { AlertOctagon, Award, BookOpen, Download, Heart, MoreHorizontal, Plus, Search, Settings, Trash2, TrendingUp, Users } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Backdrop } from '@/components/art/backdrops'
 import { Avatar } from '@/components/ui/avatar'

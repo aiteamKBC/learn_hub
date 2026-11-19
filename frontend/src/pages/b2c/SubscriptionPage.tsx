@@ -1,7 +1,7 @@
 import { CalendarClock, Check, Crown, Infinity as InfinityIcon, Info, Settings2 } from 'lucide-react'
 import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

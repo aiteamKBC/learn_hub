@@ -1,5 +1,5 @@
 import { Heart, ShoppingCart } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -7,11 +7,13 @@ import { EmptyState, ErrorState, PageHeader } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CourseRow } from '@/features/catalog/CourseRow'
 import { useAddToCart, useRemoveWishlist, useWishlist } from '@/features/commerce/api'
-import { Link } from '@/lib/router'
+import { Link, useNavigate } from '@/lib/router'
+import { authAlert } from '@/lib/auth-alert'
 
 export function WishlistPage() {
   const { data, isLoading, error, refetch } = useWishlist()
   const add = useAddToCart()
+  const navigate = useNavigate()
   const remove = useRemoveWishlist()
   const fail = (e: unknown) => toast.error((e as Error).message)
   return (
@@ -36,7 +38,7 @@ export function WishlistPage() {
                 course={c}
                 actions={
                   <>
-                    {c.price && !c.price.free ? <Button size="sm" loading={add.isPending && add.variables === c.id} onClick={() => add.mutate(c.id, { onSuccess: () => toast.success('Added to your cart'), onError: fail })}>
+                    {c.price && !c.price.free ? <Button size="sm" loading={add.isPending && add.variables === c.id} onClick={() => add.mutate(c.id, { onSuccess: () => authAlert({ kind: 'cart', title: 'Added to your cart', text: c.title, autoClose: 3500, action: { label: 'View cart', onClick: () => navigate('/cart') } }), onError: fail })}>
                       <ShoppingCart /> Add to cart
                     </Button> : <Button size="sm" asChild><Link to={`/courses/${c.slug}`}>View course</Link></Button>}
                     <Button size="sm" variant="ghost" loading={remove.isPending && remove.variables === c.id} onClick={() => remove.mutate(c.id, { onSuccess: () => toast.success('Removed from your wishlist'), onError: fail })}>

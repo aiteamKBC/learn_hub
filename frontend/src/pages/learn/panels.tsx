@@ -1,6 +1,6 @@
 import { ArrowBigUp, ArrowLeft, BadgeCheck, CheckCircle2, Megaphone, MessageSquarePlus, MessagesSquare, NotebookPen, Pencil, Search, Star, Trash2 } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'

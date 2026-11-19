@@ -1,7 +1,7 @@
 import { Undo2 } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'

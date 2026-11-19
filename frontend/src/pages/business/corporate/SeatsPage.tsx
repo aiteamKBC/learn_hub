@@ -1,7 +1,7 @@
 import { Armchair, LifeBuoy, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'

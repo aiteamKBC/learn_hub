@@ -1,5 +1,5 @@
 import { CheckCircle2, ChevronRight, ClipboardList, Download, ExternalLink, FileText, ListChecks, PlayCircle, Radio } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
 import { type Lecture, useCompleteLecture } from '@/features/learning/api'

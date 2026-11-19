@@ -1,7 +1,7 @@
 import { CalendarRange, Download } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { csrfToken } from '@/api/client'
 import { Badge } from '@/components/ui/badge'

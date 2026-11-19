@@ -1,6 +1,6 @@
 import { BarChart3, Coins, CreditCard, Download, ExternalLink, FileText, Receipt, RotateCcw, ShoppingCart, TrendingUp, Undo2, User, Wallet } from 'lucide-react'
 import { useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'

@@ -1,6 +1,6 @@
 import { CheckCircle2, Clock, Headphones, Inbox, Loader2, Lock, Paperclip, Plus, Search, Send, StickyNote, Timer, UserCheck, X } from 'lucide-react'
 import { useRef, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +14,7 @@ import { Table, Td, Th, Tr } from '@/components/ui/table'
 import { openTicketFile, PRIORITIES, TICKET_CATEGORIES, TICKET_STATUSES, type ConsoleTicketRow, uploadTicketFile, useConsoleTicket, useCreateTicket, useStaffReply, useTicketKpis, useTickets, useUpdateTicket } from '@/features/console/comms'
 import { DetailSheet, LoadMore, StatusPill, useParam } from '@/features/console/ui'
 import { useDebounced } from '@/features/org/ui'
+import { authAlert } from '@/lib/auth-alert'
 import { cn } from '@/lib/cn'
 import { relativeDate } from '@/lib/format'
 import { RichText } from '@/pages/studio/builder/curriculum/RichText'
@@ -65,7 +66,7 @@ function CreateTicketDialog({ open, onOpenChange, onCreated }: { open: boolean; 
             e.preventDefault()
             create.mutate(v, {
               onSuccess: (r) => {
-                toast.success('Ticket created')
+                authAlert({ kind: 'success', title: 'Ticket created', text: 'The person has been told and can reply from Help.', autoClose: 2500 })
                 onOpenChange(false)
                 setV({ user_email: '', subject: '', category: 'account', priority: 'normal', body: '' })
                 onCreated(r.id)

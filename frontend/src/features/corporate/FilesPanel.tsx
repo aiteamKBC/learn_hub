@@ -1,6 +1,6 @@
 import { Download, File as FileIcon, FileArchive, FileImage, FileText, Paperclip, Trash2, Upload as UploadIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'

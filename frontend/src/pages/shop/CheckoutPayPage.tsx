@@ -1,6 +1,6 @@
 import { ArrowLeft, BarChart3, Check, Clock, CreditCard, Headphones, Lock, PlayCircle, RefreshCw, ShieldCheck } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { DashboardBackdrop } from '@/components/art/dashboard-backdrop'
 import { Button } from '@/components/ui/button'

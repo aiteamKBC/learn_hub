@@ -1,6 +1,6 @@
 import { ArrowLeftRight, BarChart3, BookOpen, CalendarClock, ChevronRight, Copy, CreditCard, Crown, Globe, PauseCircle, Pencil, PlayCircle, Plus, Receipt, RefreshCw, Repeat, Settings2, Users } from 'lucide-react'
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
