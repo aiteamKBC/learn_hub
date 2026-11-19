@@ -41,7 +41,7 @@ export function PricingPlans() {
     <div className="relative mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:py-16">
         <div className="mx-auto max-w-2xl animate-reveal text-center">
           <Badge tone="primary">Pricing</Badge>
-          <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-5xl">Choose how you want to learn.</h1>
+          <h1 className="mt-4 text-2xl font-bold tracking-tight sm:text-5xl">Choose how you want to learn.</h1>
           <p className="mt-4 text-lg text-muted">Subscribe for everything, grab a course bundle, or pay as you go with tokens — whatever suits you.</p>
         </div>
 

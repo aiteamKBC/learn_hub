@@ -62,6 +62,7 @@ function PaymentPanel({ course }: { course: Detail }) {
   const [ready, setReady] = useState(false)
   const [hasWallets, setHasWallets] = useState(false)
   const [unconfigured, setUnconfigured] = useState(false)
+  const [timedOut, setTimedOut] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -70,6 +71,9 @@ function PaymentPanel({ course }: { course: Detail }) {
     started.current = true
     const created: StripeElement[] = []
     let cancelled = false
+    // If the embedded element never loads (Stripe.js blocked by an extension/network, or a slow
+    // response), stop waiting on a blank skeleton and offer the hosted-checkout fallback instead.
+    const slowTimer = setTimeout(() => !cancelled && setTimedOut(true), 12000)
     const returnUrl = (id: string) => `${window.location.origin}/checkout/success?order=${id}`
     void (async () => {
       try {
@@ -84,6 +88,7 @@ function PaymentPanel({ course }: { course: Detail }) {
           return
         }
         if (!res.publishable_key) {
+          clearTimeout(slowTimer)
           setUnconfigured(true)
           return
         }
@@ -108,15 +113,32 @@ function PaymentPanel({ course }: { course: Detail }) {
           layout: { type: 'accordion', radios: true, spacedAccordionItems: true },
           defaultValues: { billingDetails: { email: me?.email } },
         })
-        payment.on('ready', () => !cancelled && setReady(true))
+        payment.on('ready', () => {
+          if (cancelled) return
+          clearTimeout(slowTimer)
+          setTimedOut(false)
+          setReady(true)
+        })
+        // Stripe fires this (instead of 'ready') when the element can't render — e.g. a
+        // key/secret account mismatch or a test/live mix-up. Surface it instead of sitting
+        // on the skeleton forever, and offer the hosted-checkout fallback below.
+        payment.on('loaderror', (e) => {
+          if (cancelled) return
+          clearTimeout(slowTimer)
+          setError(e?.error?.message || 'The payment form could not load. Please try again.')
+        })
         created.push(payment)
         if (mountRef.current) payment.mount(mountRef.current)
       } catch (e) {
-        if (!cancelled) setError((e as Error).message)
+        if (!cancelled) {
+          clearTimeout(slowTimer)
+          setError((e as Error).message)
+        }
       }
     })()
     return () => {
       cancelled = true
+      clearTimeout(slowTimer)
       for (const el of created) {
         try {
           el.destroy()
@@ -188,7 +210,14 @@ function PaymentPanel({ course }: { course: Detail }) {
 
       <p className="mt-5 text-sm font-medium">Payment method</p>
       <div className="relative mt-2 min-h-[160px]">
-        {ready ? null : (
+        {ready ? null : timedOut ? (
+          <div className="rounded-xl border border-border bg-surface-2/40 p-4 text-sm">
+            <p className="text-muted">The card form is taking too long to load — it may be blocked by a browser extension or your network. You can still pay on our secure payment page.</p>
+            <Button size="lg" className="mt-3 w-full" loading={hostedCheckout.isPending} onClick={continueHosted}>
+              <Lock /> Continue to secure checkout
+            </Button>
+          </div>
+        ) : (
           <div className="absolute inset-0 grid content-start gap-3" aria-hidden>
             <Skeleton className="h-12 rounded-lg" />
             <Skeleton className="h-12 rounded-lg" />
@@ -197,9 +226,11 @@ function PaymentPanel({ course }: { course: Detail }) {
         <div ref={mountRef} className={ready ? 'animate-reveal' : 'opacity-0'} />
       </div>
 
-      <Button size="lg" className="mt-5 w-full" loading={submitting} disabled={!ready} onClick={pay}>
-        <Lock /> Pay {total != null ? money(total, currency, exponent) : ''}
-      </Button>
+      {timedOut && !ready ? null : (
+        <Button size="lg" className="mt-5 w-full" loading={submitting} disabled={!ready} onClick={pay}>
+          <Lock /> Pay {total != null ? money(total, currency, exponent) : ''}
+        </Button>
+      )}
       <p className="mt-3 text-center text-xs text-muted">
         Powered by Stripe · <a href="https://stripe.com/legal" className="hover:text-text">Terms</a> ·{' '}
         <a href="https://stripe.com/privacy" className="hover:text-text">Privacy</a>
@@ -320,7 +351,7 @@ export function CheckoutPayPage() {
           <ErrorState message="This course isn't sold on its own." onRetry={() => navigate(`/courses/${slug}`)} />
         ) : (
           <>
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-4xl">
               Complete your <span className="text-primary">purchase</span>
             </h1>
             <p className="mt-2 text-muted">Get full access to the course and start learning today.</p>

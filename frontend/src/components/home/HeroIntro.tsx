@@ -8,10 +8,9 @@ import { reducedMotion } from '@/lib/motion'
 
 /**
  * The intro clip played full-bleed over the hero when the landing page first loads.
- * The `tr=` transform makes ImageKit serve H.264/AVC — raw uploads are often HEVC, which most
- * browsers (Chrome, Firefox) cannot decode in a <video> tag, so it must not be used directly.
+ * Served as the original WebM (no ImageKit re-encode) so the full clip plays.
  */
-const INTRO_VIDEO = 'https://ik.imagekit.io/bmjbddbgyi/web%20(1).mp4?tr=w-1600,q-72'
+const INTRO_VIDEO = 'https://ik.imagekit.io/bmjbddbgyi/evidrise-reveal-v8.webm'
 
 /**
  * Full-bleed intro video that plays once when the landing page first loads, then fades away
@@ -19,11 +18,14 @@ const INTRO_VIDEO = 'https://ik.imagekit.io/bmjbddbgyi/web%20(1).mp4?tr=w-1600,q
  * the clip ending) all dismiss it. It never replays within the same session, and it steps
  * aside entirely for reduced-motion users so nothing autoplays at them.
  */
+/** Phones skip the full-screen intro clip entirely (data + a cleaner first paint on mobile). */
+const isPhone = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches
+
 export function HeroIntro() {
   const alreadySkipped = useHeroIntroSkipped()
-  // Decide once, on first render, whether the intro should ever show. Reduced-motion users
-  // (and anyone who already dismissed it this session) go straight to the hero.
-  const [active, setActive] = useState(() => !alreadySkipped && !reducedMotion())
+  // Decide once, on first render, whether the intro should ever show. Reduced-motion users,
+  // phone viewers, and anyone who already dismissed it this session go straight to the hero.
+  const [active, setActive] = useState(() => !alreadySkipped && !reducedMotion() && !isPhone())
   const [closing, setClosing] = useState(false)
   const [ready, setReady] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -103,9 +105,9 @@ export function HeroIntro() {
         onCanPlay={() => setReady(true)}
         onEnded={close}
         onError={close}
-        className={cn('absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-out', ready ? 'opacity-100' : 'opacity-0')}
+        className={cn('absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ease-out', ready ? 'opacity-100' : 'opacity-0')}
       >
-        <source src={INTRO_VIDEO} type="video/mp4" />
+        <source src={INTRO_VIDEO} type="video/webm" />
       </video>
 
       {/* 40% charcoal shade over the clip. */}

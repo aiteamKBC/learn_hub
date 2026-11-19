@@ -5,6 +5,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Backdrop } from '@/components/art/backdrops'
 import { Button } from '@/components/ui/button'
 import { Logo } from '@/components/ui/logo'
+import { ScrollToTop } from '@/components/ui/scroll-to-top'
 import { useAuthSessionSync, useLogout, useMe } from '@/features/identity/auth'
 import { usePublicSettings, useSiteBanner } from '@/features/platform/api'
 import { setDatePrefs } from '@/lib/format'
@@ -145,6 +146,7 @@ export function SiteRoot() {
       <SmoothScroll />
       <SiteBanner />
       <Outlet />
+      <ScrollToTop />
     </>
   )
 }

@@ -165,9 +165,9 @@ export function AuthTabs({ initialTab = 'login' }: { initialTab?: Tab }) {
   return (
     <div>
       {/* role chooser — shared by log in and sign up (visual only, see NEEDS-USER UI-2) */}
-      <div className="mb-5">
+      <div className="mb-4">
         <span className="text-[13px] font-medium text-text">I'm a</span>
-        <div role="radiogroup" aria-label="Role" className="mt-1.5 grid grid-cols-4 gap-1.5">
+        <div role="radiogroup" aria-label="Role" className="mt-1.5 grid grid-cols-4 gap-1 sm:gap-1.5">
           {ROLES.map((r) => (
             <button
               key={r}
@@ -175,7 +175,7 @@ export function AuthTabs({ initialTab = 'login' }: { initialTab?: Tab }) {
               role="radio"
               aria-checked={role === r}
               onClick={() => setRole(r)}
-              className={cn('rounded-lg border px-2 py-2 text-[13px] font-medium transition-colors', role === r ? 'border-primary bg-primary-soft text-primary-soft-text' : 'border-border text-muted hover:text-text')}
+              className={cn('rounded-lg border px-1 py-1.5 text-center text-[11px] leading-tight font-medium whitespace-nowrap transition-colors sm:px-2 sm:py-2 sm:text-[13px]', role === r ? 'border-primary bg-primary-soft text-primary-soft-text' : 'border-border text-muted hover:text-text')}
             >
               {r}
             </button>
@@ -183,7 +183,7 @@ export function AuthTabs({ initialTab = 'login' }: { initialTab?: Tab }) {
         </div>
       </div>
 
-      <div role="tablist" aria-label="Log in or create an account" className="mb-6 grid grid-cols-2 gap-1.5 rounded-xl bg-surface-2/60 p-1">
+      <div role="tablist" aria-label="Log in or create an account" className="mb-4 grid grid-cols-2 gap-1.5 rounded-xl bg-surface-2/60 p-1">
         {(['login', 'signup'] as const).map((t) => (
           <button
             key={t}

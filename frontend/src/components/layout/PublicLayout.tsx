@@ -1,4 +1,4 @@
-import { Mail, Search, ShoppingCart } from 'lucide-react'
+import { Mail, Menu as MenuIcon, Moon, Search, ShoppingCart, Sun } from 'lucide-react'
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation, useSearchParams } from 'react-router-dom'
 
@@ -6,8 +6,10 @@ import { AuthTabs } from '@/components/home/GetStarted'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/components/ui/menu'
 import { Logo } from '@/components/ui/logo'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { useTheme } from '@/lib/theme'
 import { useCartCount } from '@/features/commerce/api'
 import { useMe } from '@/features/identity/auth'
 import { cn } from '@/lib/cn'
@@ -60,6 +62,9 @@ function SearchBox({ className, autoFocus, overlay }: { className?: string; auto
 /** Marketplace pages: top navigation, footer; phones get the learner bottom bar. */
 export function PublicLayout() {
   const { data: me, isLoading } = useMe()
+  const { data: cart } = useCartCount()
+  const cartCount = cart?.count ?? 0
+  const { dark, setChoice } = useTheme()
   const [searchOpen, setSearchOpen] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
   const { pathname } = useLocation()
@@ -82,8 +87,7 @@ export function PublicLayout() {
   const overlay = isHome && !scrolled
   // On the home page, smooth-scroll to a section. From another page, navigate home
   // (client-side) and let HomePage scroll to the section on mount — no full reload.
-  const scrollToId = (id: string) => (e: React.MouseEvent) => {
-    e.preventDefault()
+  const goSection = (id: string) => {
     if (isHome) {
       // scrollToAnchor keeps re-aiming as the async sections above load in, so we
       // always land on the right section (and bails out if the user scrolls).
@@ -92,6 +96,10 @@ export function PublicLayout() {
     } else {
       navigate(`/#${id}`)
     }
+  }
+  const scrollToId = (id: string) => (e: React.MouseEvent) => {
+    e.preventDefault()
+    goSection(id)
   }
   const link = ({ isActive }: { isActive: boolean }) =>
     cn(
@@ -109,7 +117,7 @@ export function PublicLayout() {
           <div className="flex min-w-0 flex-1 items-center">
           <Link
             to="/"
-            aria-label="LearnHub home — back to top"
+            aria-label="LearnHub home, back to top"
             className="shrink-0"
             onClick={(e) => {
               e.preventDefault()
@@ -131,16 +139,16 @@ export function PublicLayout() {
             {isLearner ? <NavLink to="/learn" className={link}>My learning</NavLink> : null}
           </nav>
           </div>
-          <SearchBox className="hidden max-w-md flex-1 md:block" overlay={overlay} />
+          <SearchBox className="hidden max-w-md flex-1 lg:block" overlay={overlay} />
           <div className="flex flex-1 items-center justify-end gap-1">
-            <Button variant="ghost" size="icon" className="md:hidden" aria-label="Search" onClick={() => setSearchOpen((v) => !v)}>
-              <Search />
-            </Button>
-            <span className="hidden sm:inline-flex">
+            {/* Standalone controls: desktop only. On mobile they live inside the menu below. */}
+            <span className="hidden lg:inline-flex">
               <CurrencyMenu />
             </span>
-            <ThemeToggle />
-            <CartButton />
+            <ThemeToggle className="hidden lg:inline-flex" />
+            <span className="hidden lg:inline-flex">
+              <CartButton />
+            </span>
             {me ? <NotificationBell /> : null}
             {isLoading ? null : me ? (
               <UserMenu />
@@ -156,9 +164,36 @@ export function PublicLayout() {
                 </DialogContent>
               </Dialog>
             )}
+            {/* Mobile/tablet: everything (nav links + search, theme, cart) collapses into this
+                menu, which sits to the right of the Log in button. */}
+            <Menu>
+              <MenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Menu">
+                  <MenuIcon />
+                </Button>
+              </MenuTrigger>
+              <MenuContent className="min-w-52">
+                <MenuItem onSelect={() => goSection('courses')}>Courses</MenuItem>
+                <MenuItem onSelect={() => navigate('/plans')}>Plans</MenuItem>
+                <MenuItem onSelect={() => goSection('sales')}>Offers</MenuItem>
+                <MenuItem onSelect={() => goSection('instructors')}>Instructors</MenuItem>
+                {isLearner ? <MenuItem onSelect={() => navigate('/learn')}>My learning</MenuItem> : null}
+                <MenuSeparator />
+                <MenuItem onSelect={() => setSearchOpen(true)}>
+                  <Search /> Search
+                </MenuItem>
+                <MenuItem onSelect={() => navigate('/cart')}>
+                  <ShoppingCart /> Cart
+                  {cartCount ? <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-on-primary tabular">{cartCount}</span> : null}
+                </MenuItem>
+                <MenuItem onSelect={() => setChoice(dark ? 'light' : 'dark')}>
+                  {dark ? <Sun /> : <Moon />} {dark ? 'Light theme' : 'Dark theme'}
+                </MenuItem>
+              </MenuContent>
+            </Menu>
           </div>
         </div>
-        {searchOpen ? <SearchBox className="border-t border-border px-4 py-3 md:hidden" autoFocus /> : null}
+        {searchOpen ? <SearchBox className="border-t border-border px-4 py-3 lg:hidden" autoFocus overlay={overlay} /> : null}
       </header>
 
       <main id="main" className={cn('flex-1', me && 'pb-16 md:pb-0')}>

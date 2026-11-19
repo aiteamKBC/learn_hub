@@ -10,10 +10,9 @@
     <meta name="description" content="LearnHub: online courses for people and compliance training for teams." />
     <title>LearnHub</title>
     <script>
-      // Apply the saved or system theme before first paint (no light flash in dark mode).
+      // Apply the saved theme before first paint (no light flash in dark mode).
       try {
-        var t = localStorage.getItem('theme') || 'system'
-        var dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+        var dark = localStorage.getItem('theme') === 'dark'
         document.documentElement.classList.toggle('dark', dark)
         document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#0d0b16' : '#f8f7fc')
       } catch (e) {}
