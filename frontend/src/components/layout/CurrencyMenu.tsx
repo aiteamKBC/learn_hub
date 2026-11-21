@@ -12,13 +12,13 @@ export function CurrencyMenu() {
   const current = code ?? 'GBP'
   if (!data || data.length < 2) return null
   return (
-    <Menu>
+    <Menu modal={false}>
       <MenuTrigger asChild>
         <Button variant="ghost" size="sm" className="gap-1.5 px-2 font-semibold text-muted" aria-label={`Currency: ${current}`}>
           <Coins /> <span className="tabular">{current}</span>
         </Button>
       </MenuTrigger>
-      <MenuContent className="max-h-80 w-60 overflow-y-auto">
+      <MenuContent className="max-h-80 w-60 overflow-y-auto overscroll-contain">
         <MenuLabel>Show prices in</MenuLabel>
         {data.map((c) => (
           <MenuItem key={c.code} onSelect={() => void setCurrency(c.code)}>

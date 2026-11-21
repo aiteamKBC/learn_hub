@@ -27,6 +27,16 @@ export function scrollToTopInstant() {
   window.scrollTo(0, 0)
 }
 
+/** Jump to a given Y position at once (no animation) — used to restore the scroll
+ * position on Back/Forward navigation. Goes through Lenis when it's running, else native. */
+export function scrollToInstant(y: number) {
+  if (lenis) {
+    lenis.scrollTo(y, { immediate: true })
+    return
+  }
+  window.scrollTo(0, y)
+}
+
 /** Smooth-scroll to an element (or the top), honouring the sticky header offset. */
 export function smoothScrollTo(target: Element | number, offset = -72) {
   if (lenis) {

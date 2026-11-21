@@ -264,6 +264,12 @@
   * {
     scrollbar-color: var(--border-strong) var(--surface-2);
   }
+  /* The main page scrollbar: thin, with a transparent track, so it reads as a quiet hairline
+     that blends into both the dark hero and the light sections instead of a bright default bar. */
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-ring;
   }

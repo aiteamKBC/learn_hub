@@ -92,19 +92,22 @@ function Hero() {
         </div>
       </div>
 
-      {/* Mobile + tablet (below lg): copy stacked at the top, then the art-directed artwork
-          (section.png — laptop + bird) filling the lower area. Flex keeps a guaranteed gap, so
-          the buttons never touch the artwork however tall the device is. */}
-      <div className="relative flex min-h-[100svh] flex-col lg:hidden">
-        <div className="relative z-10 flex flex-col items-center px-5 pt-24 pb-8 text-center sm:px-6">
+      {/* Mobile + tablet (below lg): ONE continuous charcoal scene — no seam, no overlay.
+          The wrapper owns a single background matched to the artwork's own dark top
+          (#1a222b, sampled from section.png) so the copy area and the illustration share
+          the exact same tone and there is no visible boundary between them. The artwork is
+          cropped to its lower portion (object-bottom) so the eagle sits just beneath the
+          buttons with no dead gap, and no element below introduces its own opaque background. */}
+      <div className="relative flex flex-col bg-[#1a222b] lg:hidden">
+        <div className="flex flex-col items-center px-5 pt-8 text-center sm:px-6">
           <div className="stagger flex w-full max-w-md flex-col items-center">
             <SectionEyebrow className="text-white">LearnHub</SectionEyebrow>
-            <h1 className="mt-4 text-[clamp(30px,8vw,44px)] leading-[1.1] font-bold tracking-tight text-white">
+            <h1 className="mt-4 text-[clamp(30px,7.5vw,44px)] leading-[1.12] font-bold tracking-tight text-white">
               <BlurText text="Learn without limits," className="block" />
               <BlurText text="built for real work." delay={0.35} className="block font-semibold text-primary" />
             </h1>
             <p className="mt-4 max-w-sm text-[13.5px] leading-relaxed text-white/80">High-quality courses from industry experts, with certificates your whole team can keep up with. Buy what you need, or subscribe for everything.</p>
-            <div className="mt-6 flex w-full max-w-xs flex-col gap-2.5">
+            <div className="mt-7 flex w-full max-w-xs flex-col gap-3">
               <Button size="lg" className="w-full rounded-full" asChild>
                 <Link to="/courses">View courses</Link>
               </Button>
@@ -114,15 +117,22 @@ function Hero() {
             </div>
           </div>
         </div>
-        <img
-          src={heroSectionMobile}
-          width={944}
-          height={1632}
-          alt=""
-          fetchPriority="high"
-          decoding="async"
-          className={cn('min-h-0 w-full flex-1 object-cover object-bottom transition-opacity duration-[650ms] ease-out', ready ? 'opacity-100' : 'opacity-0')}
-        />
+        {/* aspect-[941/905] crops the image to its lower region (a little dark headroom above
+            the eagle, then the eagle onward); object-bottom anchors it. The wrapper bg equals
+            the image's dark, and a short top mask-fade (24px) melts the crop edge into it so any
+            faint tone drift at the top-right of the artwork can't read as a seam. The fade sits
+            in the dark headroom above the eagle, so the bird/laptop stay fully opaque. */}
+        <div className="relative mt-1 w-full overflow-hidden aspect-[941/905] [mask-image:linear-gradient(to_bottom,transparent_0,#000_24px)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_0,#000_24px)]">
+          <img
+            src={heroSectionMobile}
+            width={941}
+            height={1672}
+            alt=""
+            fetchPriority="high"
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover object-bottom"
+          />
+        </div>
       </div>
 
       {/* Shared intro clip, opened by either "Watch video" button. */}
@@ -156,6 +166,115 @@ const categoryNotes: Record<string, string> = {
   marketing: 'Reach the right people',
 }
 
+type Category = NonNullable<ReturnType<typeof useCategories>['data']>[number]
+
+/** One category card: icon, name and a one-line note, linking to its filtered catalogue. */
+function CategoryCard({ c }: { c: Category }) {
+  const Icon = categoryIcons[c.icon] ?? Sparkles
+  return (
+    <Link to={`/courses?category=${c.slug}`} className="group relative flex h-full flex-col rounded-2xl border border-border bg-gradient-to-br from-surface to-primary-soft/40 p-6 shadow-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+      <span className="flex size-11 items-center justify-center rounded-xl bg-primary-soft text-primary-soft-text">
+        <Icon className="size-5" />
+      </span>
+      <h3 className="mt-6 text-lg font-semibold tracking-tight text-text">{c.name}</h3>
+      <div className="mt-1.5 flex items-end justify-between gap-2">
+        <p className="text-sm text-muted">{categoryNotes[c.slug] ?? 'Explore this track'}</p>
+        <ArrowUpRight className="size-4 shrink-0 text-subtle transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
+      </div>
+    </Link>
+  )
+}
+
+/**
+ * Horizontal category carousel: a scroll-snap track (three cards on desktop, two on tablet,
+ * one-plus-a-peek on phones) that you swipe, or step through with the side arrows and the
+ * page dots. Motion is user-triggered only and drops to an instant jump under reduced motion.
+ */
+function CategoryCarousel({ items }: { items: Category[] }) {
+  const track = useRef<HTMLDivElement>(null)
+  const [page, setPage] = useState(0)
+  const [pages, setPages] = useState(1)
+
+  useEffect(() => {
+    const el = track.current
+    if (!el) return
+    const measure = () => {
+      const max = el.scrollWidth - el.clientWidth
+      setPages(max <= 1 ? 1 : Math.max(1, Math.round(el.scrollWidth / el.clientWidth)))
+      setPage(max <= 1 ? 0 : Math.min(Math.round(el.scrollLeft / el.clientWidth), Math.round(max / el.clientWidth)))
+    }
+    measure()
+    el.addEventListener('scroll', measure, { passive: true })
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener('scroll', measure)
+      ro.disconnect()
+    }
+  }, [items])
+
+  const goTo = (i: number) => {
+    const el = track.current
+    if (!el) return
+    const next = Math.min(pages - 1, Math.max(0, i))
+    el.scrollTo({ left: next * el.clientWidth, behavior: reducedMotion() ? 'auto' : 'smooth' })
+  }
+
+  return (
+    <div className="relative mt-10 sm:px-16">
+      <button
+        type="button"
+        onClick={() => goTo(page - 1)}
+        disabled={page === 0}
+        aria-label="Previous categories"
+        className="absolute top-1/2 left-0 z-10 hidden size-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface text-text shadow-md transition-all duration-200 hover:border-primary/40 hover:text-primary disabled:pointer-events-none disabled:opacity-0 sm:flex"
+      >
+        <ChevronLeft className="size-5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => goTo(page + 1)}
+        disabled={page >= pages - 1}
+        aria-label="Next categories"
+        className="absolute top-1/2 right-0 z-10 hidden size-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface text-text shadow-md transition-all duration-200 hover:border-primary/40 hover:text-primary disabled:pointer-events-none disabled:opacity-0 sm:flex"
+      >
+        <ChevronRight className="size-5" />
+      </button>
+
+      <div
+        ref={track}
+        role="group"
+        aria-roledescription="carousel"
+        aria-label="Course categories"
+        tabIndex={0}
+        data-lenis-prevent
+        className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring [&::-webkit-scrollbar]:hidden"
+      >
+        {items.map((c) => (
+          <div key={c.id} className="shrink-0 basis-[82%] snap-start sm:basis-[calc((100%-1rem)/2)] lg:basis-[calc((100%-2rem)/3)]">
+            <CategoryCard c={c} />
+          </div>
+        ))}
+      </div>
+
+      {pages > 1 ? (
+        <div className="mt-6 flex justify-center gap-2">
+          {Array.from({ length: pages }, (_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => goTo(i)}
+              aria-label={`Go to page ${i + 1} of ${pages}`}
+              aria-current={i === page}
+              className={cn('h-2 rounded-full transition-all duration-300 ease-out', i === page ? 'w-6 bg-primary' : 'w-2 bg-primary/25 hover:bg-primary/50')}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 /** Evidrise-style "Browse by category": editorial header + large cards + decorative rings. */
 function CategorySection() {
   const { data, isLoading } = useCategories()
@@ -177,31 +296,21 @@ function CategorySection() {
             <p className="mt-4 text-muted">Find the right track for where you want to go: real skills, assessed and certified.</p>
           </div>
           <Button variant="secondary" size="lg" asChild className="shrink-0 rounded-full border-primary/40">
-            <Link to="/courses">
+            <Link to="/courses" state={{ returnTo: '/#categories' }}>
               All courses <ArrowRight className="size-4" />
             </Link>
           </Button>
         </div>
 
-        <div className={cn('mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3', data && 'stagger')}>
-          {isLoading || !data
-            ? Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-40 rounded-2xl" />)
-            : data.slice(0, 6).map((c) => {
-                const Icon = categoryIcons[c.icon] ?? Sparkles
-                return (
-                  <Link key={c.id} to={`/courses?category=${c.slug}`} className="group relative flex flex-col rounded-2xl border border-border bg-gradient-to-br from-surface to-primary-soft/40 p-6 shadow-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0">
-                    <span className="flex size-11 items-center justify-center rounded-xl bg-primary-soft text-primary-soft-text">
-                      <Icon className="size-5" />
-                    </span>
-                    <h3 className="mt-6 text-lg font-semibold tracking-tight text-text">{c.name}</h3>
-                    <div className="mt-1.5 flex items-end justify-between gap-2">
-                      <p className="text-sm text-muted">{categoryNotes[c.slug] ?? 'Explore this track'}</p>
-                      <ArrowUpRight className="size-4 shrink-0 text-subtle transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
-                    </div>
-                  </Link>
-                )
-              })}
-        </div>
+        {isLoading || !data ? (
+          <div className="mt-10 flex gap-4 overflow-hidden">
+            {Array.from({ length: 3 }, (_, i) => (
+              <Skeleton key={i} className="h-40 shrink-0 basis-[82%] rounded-2xl sm:basis-[calc((100%-1rem)/2)] lg:basis-[calc((100%-2rem)/3)]" />
+            ))}
+          </div>
+        ) : (
+          <CategoryCarousel items={data} />
+        )}
       </div>
     </section>
   )
@@ -250,7 +359,7 @@ function Membership() {
   ]
 
   return (
-    <section className="relative overflow-hidden  text-white">
+    <section id="membership" className="relative scroll-mt-20 overflow-hidden text-white">
       <img src={FEATURED_PHOTOS[5]} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover opacity-40" />
       <div aria-hidden className="absolute inset-0" />
       <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:py-20">
@@ -301,7 +410,7 @@ function Membership() {
               <h3 className={cn('text-base font-semibold', t.featured ? 'text-white' : 'text-text')}>{t.name}</h3>
               <p className={cn('mt-1 text-sm', t.featured ? 'text-white/60' : 'text-muted')}>{t.tagline}</p>
               <p className={cn('mt-5 text-4xl font-bold tracking-tight tabular', t.featured ? 'text-white' : 'text-text')}>
-                {t.price ?? <Skeleton className="h-9 w-24" />}
+                {t.price ?? (isLoading ? <Skeleton className="h-9 w-24" /> : '—')}
                 {t.unit ? <span className={cn('ml-1.5 text-sm font-normal', t.featured ? 'text-white/55' : 'text-muted')}>{t.unit}</span> : null}
               </p>
               {t.note ? <p className={cn('mt-1 text-[12.5px]', t.featured ? 'text-white/55' : 'text-subtle')}>{t.note}</p> : null}
@@ -821,7 +930,7 @@ function FeaturedCourses() {
               </Link>
             </Button>
             <Button variant="secondary" asChild size="lg" className="rounded-full">
-              <Link to="/plans">See membership</Link>
+              <a href="#membership">See membership</a>
             </Button>
           </div>
         </div>

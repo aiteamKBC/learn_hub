@@ -1,6 +1,6 @@
 import { ArrowLeft, LayoutGrid, List, SearchX, SlidersHorizontal, Star, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { DashboardBackdrop } from '@/components/art/dashboard-backdrop'
 import { Badge } from '@/components/ui/badge'
@@ -105,10 +105,13 @@ function Filters({ params, set }: { params: URLSearchParams; set: Setter }) {
 export function CoursesPage() {
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const [drawer, setDrawer] = useState(false)
-  // Return to where the learner came from (e.g. My learning); fall back to the learner home
-  // if this page was opened directly with no in-app history to step back through.
-  const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate('/learn'))
+  // A page that linked here can ask Back to return to a specific spot (e.g. the home
+  // "All courses" button sends you back to its category section). Otherwise step back in
+  // history, falling back to the learner home when the page was opened directly.
+  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo
+  const goBack = () => (returnTo ? navigate(returnTo) : window.history.length > 1 ? navigate(-1) : navigate('/learn'))
   const view = params.get('view') === 'list' ? 'list' : 'grid'
   const filters: CourseFilters = {
     q: params.get('q') ?? undefined,
@@ -127,7 +130,8 @@ export function CoursesPage() {
     const next = new URLSearchParams(params)
     if (value) next.set(key, value)
     else next.delete(key)
-    setParams(next, { replace: true })
+    // Keep the location state (e.g. returnTo) so Back still works after filtering.
+    setParams(next, { replace: true, state: location.state })
   }
   const chips = [
     filters.q && ['q', `“${filters.q}”`],

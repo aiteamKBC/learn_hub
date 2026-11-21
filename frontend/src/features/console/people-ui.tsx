@@ -31,14 +31,25 @@ export function PeopleSwitch({ active }: { active: 'students' | 'instructors' })
   )
 }
 
+/** A friendly display name: the stored name, or a title-cased guess from the email's local
+ * part (e.g. "ahmed.lotfi@…" -> "Ahmed Lotfi"), so people who never set a name still read as
+ * a name with real two-letter initials instead of a repeated email. */
+export function personName(name: string, email: string): string {
+  if (name?.trim()) return name
+  const local = email.split('@')[0] ?? ''
+  const parts = local.split(/[._-]+/).filter(Boolean)
+  return parts.length ? parts.map((p) => p[0]!.toUpperCase() + p.slice(1)).join(' ') : email
+}
+
 /** Avatar, name and email in one table cell. */
 export function PersonCell({ name, email, extra }: { name: string; email: string; extra?: ReactNode }) {
+  const display = personName(name, email)
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <Avatar name={name || email} size="sm" />
+      <Avatar name={display} size="sm" />
       <div className="min-w-0">
-        <p className="flex items-center gap-2 truncate font-medium">
-          <span className="truncate">{name || email}</span>
+        <p className="flex items-center gap-2 font-medium">
+          <span className="min-w-0 truncate">{display}</span>
           {extra}
         </p>
         <p className="max-w-[16rem] truncate text-xs text-muted">{email}</p>
