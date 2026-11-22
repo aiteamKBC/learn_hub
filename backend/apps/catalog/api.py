@@ -1,7 +1,21 @@
 """Public catalog: browse, search and course pages. Works signed out; signed in, the
 course page also says what the viewer has (enrolled, in cart, wishlisted)."""
 
-from django.db.models import BooleanField, Count, F, Prefetch, Q
+from typing import Literal
+
+from django.db.models import (
+    BooleanField,
+    Case,
+    Count,
+    Exists,
+    F,
+    IntegerField,
+    OuterRef,
+    Prefetch,
+    Q,
+    Value,
+    When,
+)
 from django.db.models.expressions import RawSQL
 from django.shortcuts import get_object_or_404
 from ninja import Field, Query, Router, Schema
@@ -26,6 +40,9 @@ SORTS = {  # name -> (field, cursor cast)
 
 class CourseFilters(Schema):
     q: str | None = None
+    # where `q` looks: course titles, instructor names or topics (category).
+    # Left empty, `q` is the broad full-text search.
+    search_in: Literal["courses", "instructors", "topics"] | None = None
     category: str | None = None
     level: str | None = None
     price: str | None = None  # "free" | "paid"
@@ -92,13 +109,44 @@ def list_courses(request, f: Query[CourseFilters]):
     if f.rating:
         qs = qs.filter(rating_avg__gte=f.rating)
 
+    if f.q and f.q.strip() and f.search_in:
+        term = f.q.strip()[:100]
+        if f.search_in == "instructors":
+            names = CourseInstructor.objects.filter(course_id=OuterRef("pk"), is_visible=True)
+            qs = qs.filter(Exists(names.filter(user__full_name__icontains=term)))
+            starts = Exists(names.filter(user__full_name__istartswith=term))
+        elif f.search_in == "topics":
+            qs = qs.filter(category__name__icontains=term)
+            starts = Q(category__name__istartswith=term)
+        else:
+            qs = qs.filter(title__icontains=term)
+            starts = Q(title__istartswith=term)
+        first = Case(When(starts, then=Value(0)), default=Value(1), output_field=IntegerField())
+        offset = int((cursor.decode(f.cursor, 1) or [0])[0])
+        total = qs.count() if not offset else None
+        rows = list(qs.annotate(first=first).order_by("first", "title", "id")[offset : offset + limit + 1])
+        nxt = cursor.encode(offset + limit) if len(rows) > limit else None
+        return {"items": _cards(rows[:limit], currency), "next_cursor": nxt, "total": total}
+
     if f.q and f.q.strip():
         term = f.q.strip()[:100]
         tsq = "websearch_to_tsquery('english', %s)"
         qs = qs.annotate(
             rank=RawSQL(f'ts_rank("catalog"."courses".search, {tsq})', (term,)),  # noqa: S611 - parameterised
             matches=RawSQL(f'"catalog"."courses".search @@ {tsq}', (term,), output_field=BooleanField()),  # noqa: S611
-        ).filter(Q(matches=True) | Q(title__trigram_similar=term))
+        ).filter(
+            Q(matches=True)
+            | Q(title__trigram_similar=term)
+            # partial words, so the live search finds "health" from "heal" or even "h"
+            | Q(title__icontains=term)
+            | Q(subtitle__icontains=term)
+            | Q(category__name__icontains=term)
+            | Exists(
+                CourseInstructor.objects.filter(
+                    course_id=OuterRef("pk"), is_visible=True, user__full_name__icontains=term
+                )
+            )
+        )
         offset = int((cursor.decode(f.cursor, 1) or [0])[0])
         if offset > 240:
             raise ServiceError("too_deep", "Refine your search to see more results.")

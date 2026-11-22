@@ -1,6 +1,6 @@
 import { Ban, BellRing, CalendarPlus, ChevronDown, ClipboardCheck, History, ShieldOff, ShieldQuestion, Undo2 } from 'lucide-react'
 import { type FormEvent, type ReactNode, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

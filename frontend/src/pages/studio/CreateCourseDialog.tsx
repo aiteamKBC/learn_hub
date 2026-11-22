@@ -1,6 +1,6 @@
 import { Rocket } from 'lucide-react'
 import { type FormEvent, type ReactNode, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'

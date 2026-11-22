@@ -1,6 +1,6 @@
 import { BellRing, BookOpen, CalendarRange, Plus, Users, X } from 'lucide-react'
 import { type FormEvent, type ReactNode, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
 import { Field, Input, Label, NativeSelect, Textarea } from '@/components/ui/input'

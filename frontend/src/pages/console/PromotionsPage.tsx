@@ -1,6 +1,6 @@
 import { BadgePercent, CalendarClock, Copy, Gift, Megaphone, Pencil, PauseCircle, Percent, Plus, Receipt, Settings2, Tag, Users } from 'lucide-react'
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

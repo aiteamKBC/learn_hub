@@ -1,6 +1,6 @@
 import { Copy, ShieldCheck, ShieldOff, Smartphone } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { api, unwrap } from '@/api/client'
 import { Badge } from '@/components/ui/badge'

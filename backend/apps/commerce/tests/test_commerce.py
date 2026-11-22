@@ -354,7 +354,11 @@ class SubscriptionTest(CommerceBase):
     def test_personal_plan_access_follows_the_subscription(self, _session):
         with tenant_context(**self.STAFF):
             plan = Plan.objects.create(
-                code="personal-monthly", name="Personal", audience="personal", interval="month"
+                code="personal-monthly",
+                name="Personal",
+                audience="personal",
+                kind=Plan.Kind.UNLIMITED_B2C,
+                interval="month",
             )
             PlanPrice.objects.create(
                 plan=plan, currency_id="GBP", amount_minor=1999, stripe_price_id="price_1"

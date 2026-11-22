@@ -9,7 +9,7 @@
  */
 import { Banknote, CreditCard, Info, Landmark, Receipt, ShieldCheck, Smartphone, Coins as TokenIcon, Wallet } from 'lucide-react'
 import { useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

@@ -1,11 +1,11 @@
 import { Heart } from 'lucide-react'
 import { useRef, useState } from 'react'
-import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { useMe } from '@/features/identity/auth'
 import { cn } from '@/lib/cn'
 import { useNavigate } from '@/lib/router'
+import { toast } from '@/lib/toast'
 
 import { useRemoveWishlist, useSaveWishlist, useWishlist } from './api'
 

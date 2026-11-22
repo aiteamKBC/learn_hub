@@ -1,6 +1,6 @@
 import { BookOpen, Check, Coins, Download, GraduationCap, Inbox, MailPlus, MoreHorizontal, Pause, Pencil, Play, Search, Send, ShieldCheck, Wallet, X } from 'lucide-react'
 import { useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

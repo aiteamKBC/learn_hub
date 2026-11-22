@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Building2, LinkIcon, Loader2, LogOut, UserRound } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { ApiError } from '@/api/client'
 import { Backdrop } from '@/components/art/backdrops'

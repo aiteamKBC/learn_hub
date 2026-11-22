@@ -1,6 +1,6 @@
 import { ArrowLeft, BookOpen, Crown, Info, ListFilter, MoreHorizontal, Pencil, Percent, PieChart, Plus, Power, Search, Settings, SlidersHorizontal, Users } from 'lucide-react'
 import { useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

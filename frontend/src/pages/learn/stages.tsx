@@ -1,6 +1,6 @@
 import { CalendarClock, CheckCircle2, Clock, Download, ExternalLink, FileText, Film, Loader2, Radio } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Backdrop } from '@/components/art/backdrops'
 import { Badge } from '@/components/ui/badge'

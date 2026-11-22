@@ -1,6 +1,6 @@
 import { Archive, Bell, Building2, Palette, Search, Trash2, Upload } from 'lucide-react'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'

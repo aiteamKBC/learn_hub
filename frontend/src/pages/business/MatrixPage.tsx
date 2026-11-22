@@ -1,7 +1,7 @@
 import { AlertOctagon, CalendarClock, ChevronRight, Download, Gauge, Grid3x3, Search, SearchX, ShieldCheck, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'

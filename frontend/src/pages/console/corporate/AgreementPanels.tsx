@@ -2,7 +2,7 @@
  * plans and who each instalment covers, and purchase files. */
 import { Armchair, CalendarClock, Plus, Send, Trash2, Users, Wallet } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

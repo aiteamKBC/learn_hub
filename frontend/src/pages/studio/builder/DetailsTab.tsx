@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, ImageOff, Plus, X } from 'lucide-react'
 import { useId, useMemo, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'

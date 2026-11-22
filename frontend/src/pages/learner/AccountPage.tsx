@@ -1,6 +1,6 @@
 import { Award, Bell, Building2, ChevronRight, ClipboardCheck, CreditCard, KeyRound, LifeBuoy, ReceiptText, Trophy, User } from 'lucide-react'
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'

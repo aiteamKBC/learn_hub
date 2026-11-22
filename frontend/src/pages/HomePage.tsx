@@ -1,5 +1,5 @@
 import { ArrowRight, ArrowUpRight, Briefcase, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, Code2, HeartPulse, Megaphone, Palette, PlayCircle, Server, ShieldCheck, Sparkles, Star, type LucideIcon } from 'lucide-react'
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { useLocation } from 'react-router-dom'
 
@@ -391,17 +391,6 @@ function Membership() {
     ? { price: money(team.amount_minor, team.currency, team.exponent), unit: '/seat · year', note: 'From 5 seats' }
     : { price: isLoading ? undefined : 'Custom', unit: '', note: isLoading ? '' : 'Billed per seat · from 5 seats' }
 
-  // Explorer and Teams are white cards in BOTH themes. Pin the text/border tokens to their
-  // light-mode values so the content stays dark-on-white in dark mode too (same values as light,
-  // so light mode is unchanged). Without this, the adaptive tokens turn light and vanish on white.
-  const lightCard: CSSProperties = {
-    '--text': '#1f262e',
-    '--text-muted': '#5f5a53',
-    '--text-subtle': '#908b82',
-    '--border': '#e8e4dd',
-    '--surface-2': '#f3f1ec',
-  } as CSSProperties
-
   const tiers = [
     { name: 'Explorer', tagline: 'For getting your bearings.', price: 'Free', unit: '', note: '', features: MEMBERSHIP_FEATURES.explorer, cta: 'Start free', to: '/signup', featured: false, badge: '' },
     { name: 'Practitioner', tagline: 'For the work you are doing now.', price: practitioner?.price, unit: practitioner?.unit, note: practitioner?.note, features: MEMBERSHIP_FEATURES.practitioner, cta: 'Choose Practitioner', to: '/plans', featured: true, badge: 'Most chosen' },
@@ -433,9 +422,9 @@ function Membership() {
               <MenuItem onSelect={() => setYearly(true)}>Yearly</MenuItem>
             </MenuContent>
           </Menu>
-          <div role="group" aria-label="Billing period" style={lightCard} className="relative hidden shrink-0 rounded-full border border-text/25 bg-white/85 p-1 text-sm shadow-sm backdrop-blur-sm md:inline-flex">
+          <div role="group" aria-label="Billing period" className="relative hidden shrink-0 rounded-full border border-border bg-surface/85 p-1 text-sm shadow-sm backdrop-blur-sm md:inline-flex">
             {/* Sliding highlight: moves between the two slots, honouring reduced motion via the global setting. */}
-            <span aria-hidden className={cn('pointer-events-none absolute top-1 bottom-1 left-1 w-20 rounded-full bg-primary shadow-[0_6px_16px_-6px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-out motion-reduce:transition-none', yearly && 'translate-x-full')} />
+            <span aria-hidden className={cn('pointer-events-none absolute top-1 bottom-1 left-1 w-24 rounded-full bg-primary shadow-[0_6px_16px_-6px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-out motion-reduce:transition-none', yearly && 'translate-x-full')} />
             {[
               { k: false, label: 'monthly' },
               { k: true, label: 'yearly' },
@@ -445,7 +434,7 @@ function Membership() {
                 type="button"
                 onClick={() => setYearly(o.k)}
                 aria-pressed={yearly === o.k}
-                className={cn('relative z-10 w-20 rounded-full px-3.5 py-1.5 text-center text-[13px] font-medium transition-colors duration-200', yearly === o.k ? 'text-on-primary' : 'text-text/60 hover:text-text')}
+                className={cn('relative z-10 w-24 rounded-full px-4 py-1.5 text-center font-medium transition-colors duration-200', yearly === o.k ? 'text-on-primary' : 'text-muted hover:text-text')}
               >
                 {o.label}
               </button>
@@ -455,7 +444,7 @@ function Membership() {
 
         <div className="mt-10 grid gap-5 lg:grid-cols-3">
           {tiers.map((t) => (
-            <article key={t.name} style={t.featured ? undefined : lightCard} className={cn('relative flex flex-col rounded-2xl p-6 shadow-lg transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-xl motion-reduce:transition-none motion-reduce:hover:translate-y-0', t.featured ? 'bg-[#2a333c] ring-1 ring-primary/50 hover:ring-primary/70' : 'bg-white text-text')}>
+            <article key={t.name} className={cn('relative flex flex-col rounded-2xl p-6 shadow-lg transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-xl motion-reduce:transition-none motion-reduce:hover:translate-y-0', t.featured ? 'bg-[#2a333c] ring-1 ring-primary/50 hover:ring-primary/70' : 'border border-border bg-surface text-text')}>
               {t.badge ? <span className="absolute top-5 right-5 rounded-full bg-primary px-2.5 py-1 font-mono text-[10px] tracking-[0.1em] text-on-primary uppercase">{t.badge}</span> : null}
               <h3 className={cn('text-base font-semibold', t.featured ? 'text-white' : 'text-text')}>{t.name}</h3>
               <p className={cn('mt-1 text-sm', t.featured ? 'text-white/60' : 'text-muted')}>{t.tagline}</p>
