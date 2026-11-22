@@ -380,3 +380,24 @@ class SubscriptionTest(CommerceBase):
             self.assertEqual(Subscription.objects.get(pk=sub.pk).status, "canceled")
             e.refresh_from_db()
             self.assertLessEqual(e.access_expires_at, timezone.now())
+
+
+class PlanPricingTest(CommerceBase):
+    """The public /plans endpoint shows real prices even for shoppers whose currency has no
+    plan price of its own: it falls back to the base-currency (GBP) prices rather than an
+    empty, stuck pricing section. Subscriptions are still only billed in priced currencies."""
+
+    def test_plans_fall_back_to_base_currency_when_unpriced(self):
+        with tenant_context(**self.STAFF):
+            plan = Plan.objects.create(
+                code="personal-monthly", name="Personal", audience="personal", interval="month"
+            )
+            PlanPrice.objects.create(
+                plan=plan, currency_id="GBP", amount_minor=1999, stripe_price_id="price_gbp"
+            )
+        # A currency that has its own plan price shows that price.
+        gbp = self.client.get("/api/v1/commerce/plans?currency=GBP").json()
+        self.assertEqual([(p["currency"], p["amount_minor"]) for p in gbp], [("GBP", 1999)])
+        # A currency with no plan price of its own falls back to GBP, not an empty list.
+        usd = self.client.get("/api/v1/commerce/plans?currency=USD").json()
+        self.assertEqual([(p["currency"], p["amount_minor"]) for p in usd], [("GBP", 1999)])

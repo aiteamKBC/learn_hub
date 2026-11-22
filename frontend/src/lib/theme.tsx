@@ -1,37 +1,27 @@
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useState, useSyncExternalStore } from 'react'
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
 
-export type ThemeChoice = 'light' | 'dark' | 'system'
+export type ThemeChoice = 'light' | 'dark'
 
 const KEY = 'theme'
-const query = '(prefers-color-scheme: dark)'
 
 function read(): ThemeChoice {
   try {
-    const v = localStorage.getItem(KEY)
-    return v === 'light' || v === 'dark' ? v : 'system'
+    return localStorage.getItem(KEY) === 'dark' ? 'dark' : 'light'
   } catch {
-    return 'system'
+    return 'light'
   }
 }
 
-function subscribeSystem(onChange: () => void) {
-  const m = window.matchMedia(query)
-  m.addEventListener('change', onChange)
-  return () => m.removeEventListener('change', onChange)
-}
-const systemDark = () => window.matchMedia(query).matches
-
 const ThemeContext = createContext<{ choice: ThemeChoice; dark: boolean; setChoice: (c: ThemeChoice) => void }>({
-  choice: 'system',
+  choice: 'light',
   dark: false,
   setChoice: () => {},
 })
 
-/** Light, dark or follow the computer. The choice is a per-browser convenience. */
+/** Light or dark. The choice is a per-browser convenience. */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [choice, setChoiceState] = useState<ThemeChoice>(read)
-  const system = useSyncExternalStore(subscribeSystem, systemDark, () => false)
-  const dark = choice === 'dark' || (choice === 'system' && system)
+  const dark = choice === 'dark'
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)

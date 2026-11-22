@@ -27,7 +27,11 @@ export type StripeInstance = {
   elements: (options: Record<string, unknown>) => StripeElements
   confirmPayment: (options: {
     elements: StripeElements
-    confirmParams: { return_url: string; receipt_email?: string }
+    confirmParams: {
+      return_url: string
+      receipt_email?: string
+      payment_method_data?: { billing_details?: { email?: string } }
+    }
     redirect?: 'if_required'
   }) => Promise<{ error?: { message?: string; type?: string } }>
 }
@@ -59,6 +63,11 @@ function loadScript(): Promise<void> {
     }
   })
   return scriptPromise
+}
+
+/** Start downloading Stripe.js while the checkout intent is being created. */
+export function preloadStripe(): Promise<void> {
+  return loadScript()
 }
 
 const cache = new Map<string, StripeInstance>()

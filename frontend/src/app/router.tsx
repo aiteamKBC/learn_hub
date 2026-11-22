@@ -8,18 +8,20 @@ import { PublicLayout } from '@/components/layout/PublicLayout'
 import { SiteRoot } from '@/components/layout/SiteRoot'
 import { type NavSection, WorkspaceLayout } from '@/components/layout/WorkspaceLayout'
 import { corporateBusinessNav, corporateBusinessRoutes, corporateConsoleRoutes, corporateLearnerRoutes } from '@/features/corporate/routes'
+import { HomePage } from '@/pages/HomePage'
 import { NotFoundPage } from '@/pages/StatusPages'
 
 import { PageSpinner, RequireAuth, RequireGuest, RequireManager, RequireRole } from './guards'
 
-// Every page is its own chunk: visitors download the marketplace only.
+// Most pages are their own chunks. The home page stays eager so its intro video can
+// appear immediately on a direct visit or refresh without an intermediate loader.
 const named = <K extends string>(load: () => Promise<Record<K, React.ComponentType>>, name: K) =>
   lazy(() => load().then((m) => ({ default: m[name] })))
-const HomePage = named(() => import('@/pages/HomePage'), 'HomePage')
 const CoursesPage = named(() => import('@/pages/CoursesPage'), 'CoursesPage')
 const CoursePage = named(() => import('@/pages/CoursePage'), 'CoursePage')
 const MyLearningPage = named(() => import('@/pages/MyLearningPage'), 'MyLearningPage')
 const DesignPage = named(() => import('@/pages/DesignPage'), 'DesignPage')
+const InfoPage = named(() => import('@/pages/InfoPage'), 'InfoPage')
 const LoginPage = named(() => import('@/pages/auth/LoginPage'), 'LoginPage')
 const SignupPage = named(() => import('@/pages/auth/SignupPage'), 'SignupPage')
 const VerifyEmailPage = named(() => import('@/pages/auth/VerifyEmailPage'), 'VerifyEmailPage')
@@ -143,10 +145,19 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
   {
     element: <PublicLayout />,
     children: [
-      { path: '/', element: page(<HomePage />) },
+      { path: '/', element: <HomePage /> },
       { path: '/courses', element: page(<CoursesPage />) },
       { path: '/courses/:slug', element: page(<CoursePage />) },
       { path: '/design', element: page(<DesignPage />) },
+      { path: '/about', element: page(<InfoPage />) },
+      { path: '/careers', element: page(<InfoPage />) },
+      { path: '/press', element: page(<InfoPage />) },
+      { path: '/help', element: page(<InfoPage />) },
+      { path: '/contact', element: page(<InfoPage />) },
+      { path: '/accessibility', element: page(<InfoPage />) },
+      { path: '/terms', element: page(<InfoPage />) },
+      { path: '/privacy', element: page(<InfoPage />) },
+      { path: '/cookies', element: page(<InfoPage />) },
       { path: '/plans', element: page(<PlansPage />) },
       { path: '/verify', element: page(<VerifyPage />) },
       { path: '/verify/:code', element: page(<VerifyPage />) },

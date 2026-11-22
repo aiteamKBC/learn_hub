@@ -12,8 +12,8 @@ export function DashboardBackdrop({ className }: { className?: string }) {
   return (
     <div aria-hidden className={cn('pointer-events-none absolute inset-0 -z-0 overflow-hidden select-none', className)}>
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: `url(${dashboardBg})`, backgroundAttachment: 'fixed' }}
+        className="absolute inset-0 bg-scroll bg-cover bg-center bg-no-repeat md:bg-fixed"
+        style={{ backgroundImage: `url(${dashboardBg})` }}
       />
       {/* Light mode: a near-white veil softens the warm artwork so the page leans white.
           Dark mode: the bright artwork is toned right down instead. */}
