@@ -118,7 +118,7 @@ export function Donut({ slices, centre, centreLabel, format, size = 148 }: { sli
   const r = 15.9155 // circumference 100
   let offset = 0
   return (
-    <div ref={ref} className="flex flex-wrap items-center gap-x-6 gap-y-4">
+    <div ref={ref} className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-4">
       <div className="relative shrink-0" style={{ width: size, height: size }} role="img" aria-label={`${centreLabel}: ${centre}. ${slices.map((s) => `${s.label} ${format(s.value)}`).join(', ')}.`}>
         <svg viewBox="0 0 36 36" className="size-full -rotate-90" aria-hidden>
           <circle cx="18" cy="18" r={r} fill="none" stroke="var(--surface-2)" strokeWidth="4.2" />
@@ -136,14 +136,14 @@ export function Donut({ slices, centre, centreLabel, format, size = 148 }: { sli
           <span className="text-[11px] text-muted">{centreLabel}</span>
         </div>
       </div>
-      {/* min-w-[190px]: when the card is too narrow to fit the legend beside the ring, it
-          wraps below (flex-wrap) instead of spilling past the card's edge. */}
-      <ul className="grid min-w-[190px] flex-1 gap-2 text-sm">
+      {/* The legend may shrink beside the ring, but wraps below from its 190px basis when
+          the card gets narrower. Values keep their full width; only labels truncate. */}
+      <ul className="grid min-w-0 flex-[1_1_190px] gap-2 text-sm">
         {slices.map((s) => (
-          <li key={s.label} className="flex items-center gap-2.5">
+          <li key={s.label} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
             <span className="size-2.5 shrink-0 rounded-sm" style={{ background: s.color }} aria-hidden />
-            <span className="min-w-0 flex-1 truncate">{s.label}</span>
-            <span className="flex shrink-0 items-baseline gap-1.5 tabular">
+            <span className="truncate" title={s.label}>{s.label}</span>
+            <span className="flex items-baseline gap-1.5 whitespace-nowrap tabular">
               <span className="font-medium">{format(s.value)}</span>
               <span className="text-xs text-muted">({total ? Math.round((Math.max(0, s.value) / total) * 100) : 0}%)</span>
             </span>

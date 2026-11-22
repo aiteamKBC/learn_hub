@@ -1,6 +1,6 @@
 import { Flag } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'

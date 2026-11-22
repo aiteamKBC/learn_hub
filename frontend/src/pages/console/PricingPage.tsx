@@ -1,6 +1,6 @@
 import { BookOpen, ChevronRight, Coins, Crown, Globe, Info, Layers, MapPin, Pencil, Plus, RefreshCw, Settings2, SlidersHorizontal, Tag, Wand2 } from 'lucide-react'
 import { type FormEvent, useMemo, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowRight, CheckCircle2, Clock, FilePlus2, Info, MessageSquareWarning, Rocket, Send } from 'lucide-react'
 import { useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { ApiError } from '@/api/client'
 import { Badge } from '@/components/ui/badge'

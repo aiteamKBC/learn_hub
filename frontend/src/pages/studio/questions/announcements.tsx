@@ -1,7 +1,7 @@
 import { BookOpen, Megaphone, Plus } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'

@@ -1,20 +1,26 @@
 import { Megaphone, Wrench, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { Navigate, Outlet, useLocation, useNavigationType } from 'react-router-dom'
 
 import { Backdrop } from '@/components/art/backdrops'
 import { Button } from '@/components/ui/button'
 import { Logo } from '@/components/ui/logo'
+import { ScrollToTop } from '@/components/ui/scroll-to-top'
 import { useAuthSessionSync, useLogout, useMe } from '@/features/identity/auth'
 import { usePublicSettings, useSiteBanner } from '@/features/platform/api'
 import { setDatePrefs } from '@/lib/format'
 import { Link } from '@/lib/router'
-import { scrollToTopInstant, SmoothScroll } from '@/lib/smooth-scroll'
+import { scrollToInstant, scrollToTopInstant, SmoothScroll } from '@/lib/smooth-scroll'
 
 // Pages a visitor can open while guest browsing is off are sign-in pages only; the
 // catalogue sends them to log in (the API refuses it too).
 const CATALOGUE = [/^\/$/, /^\/courses(\/|$)/, /^\/plans$/]
 const AUTH_PAGES = /^\/(login|signup|account\/(verify-email|password|provider))/
+
+// Scroll position per history entry, so Back/Forward land where you left off instead of
+// at the top. Keyed by the router's per-entry location key; a module singleton so it
+// survives re-renders for the life of the tab.
+const scrollPositions = new Map<string, number>()
 
 /** Uses the platform name in every browser tab title (pages write "… · LearnHub"; a
  * renamed platform replaces it) and the uploaded favicon. */
@@ -120,13 +126,46 @@ export function SiteRoot() {
   useAuthSessionSync()
   const { settings } = usePublicSettings()
   const { data: me, isLoading } = useMe()
-  const { pathname, search, hash } = useLocation()
+  const { pathname, search, hash, key } = useLocation()
+  const navType = useNavigationType()
   useBranding(settings['general.platform_name'], settings['general.favicon_url'])
-  // Open each new route at its top. Skip when the URL carries an anchor (#section),
-  // which has its own smooth-scroll handling.
+  // Keep each history entry's scroll position up to date while it is on screen.
   useEffect(() => {
-    if (!hash) scrollToTopInstant()
-  }, [pathname, hash])
+    const save = () => scrollPositions.set(key, window.scrollY)
+    window.addEventListener('scroll', save, { passive: true })
+    return () => {
+      save() // capture the final position before this entry is left
+      window.removeEventListener('scroll', save)
+    }
+  }, [key])
+  // New (PUSH/REPLACE) routes open at their top. Back/Forward (POP) restore the scroll
+  // position we saved for that entry, so e.g. "Back" from the catalogue lands on the
+  // category section you came from, not the top. Skip both when the URL carries an
+  // anchor (#section), which has its own smooth-scroll handling. Async sections can grow
+  // in after mount, so a POP restore is re-applied a few times (cancelled if you scroll).
+  useEffect(() => {
+    if (hash) return
+    if (navType === 'POP' && scrollPositions.has(key)) {
+      const y = scrollPositions.get(key)!
+      let cancelled = false
+      const cancel = () => {
+        cancelled = true
+        window.removeEventListener('wheel', cancel)
+        window.removeEventListener('touchmove', cancel)
+      }
+      const apply = () => !cancelled && scrollToInstant(y)
+      const raf = requestAnimationFrame(apply)
+      const timers = [setTimeout(apply, 120), setTimeout(apply, 320)]
+      window.addEventListener('wheel', cancel, { passive: true, once: true })
+      window.addEventListener('touchmove', cancel, { passive: true, once: true })
+      return () => {
+        cancelAnimationFrame(raf)
+        timers.forEach(clearTimeout)
+        cancel()
+      }
+    }
+    scrollToTopInstant()
+  }, [pathname, hash, key, navType])
   // date format, time zone and language for every page (set during render so the first paint uses them)
   setDatePrefs(settings['general.date_format'], settings['general.time_zone'])
   const lang = settings['general.default_language']
@@ -145,6 +184,7 @@ export function SiteRoot() {
       <SmoothScroll />
       <SiteBanner />
       <Outlet />
+      <ScrollToTop />
     </>
   )
 }

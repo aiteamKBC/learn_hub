@@ -1,6 +1,6 @@
 import { Award, BookOpen, CheckCircle2, ChevronRight, CircleAlert, ClipboardCheck, Clock, Coins, ExternalLink, FileText, History, Inbox, ListChecks, MessageSquareText, Pencil, PlayCircle, Search, ShieldCheck, Star, User, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'

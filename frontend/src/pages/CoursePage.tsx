@@ -1,7 +1,7 @@
 import { ArrowLeft, Award, BarChart3, Check, ChevronDown, Clock, Coins, Crown, FileText, Globe, HelpCircle, Infinity as InfinityIcon, ListChecks, PlayCircle, Radio, RefreshCw, ShoppingCart, Smartphone, Users, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Backdrop } from '@/components/art/backdrops'
 import { DashboardBackdrop } from '@/components/art/dashboard-backdrop'
@@ -27,6 +27,7 @@ import { cn } from '@/lib/cn'
 import { useCurrency } from '@/lib/currency'
 import { count, duration, money, relativeDate, shortDate } from '@/lib/format'
 import { Link, useNavigate } from '@/lib/router'
+import { authAlert } from '@/lib/auth-alert'
 
 const kindIcon: Record<string, LucideIcon> = { video: PlayCircle, article: FileText, quiz: HelpCircle, assignment: ListChecks, live_session: Radio, external_link: Globe }
 
@@ -244,7 +245,7 @@ function BuyBox({ course, onPreview }: { course: Detail; onPreview?: () => void 
   const tokenCoursePrice = course.full_course_token_price ?? null
 
   const fail = (e: unknown) => toast.error((e as Error).message)
-  const add = () => addToCart.mutate(course.id, { onSuccess: () => toast.success('Added to your cart', { action: { label: 'View cart', onClick: () => navigate('/cart') } }), onError: fail })
+  const add = () => addToCart.mutate(course.id, { onSuccess: () => authAlert({ kind: 'cart', title: 'Added to your cart', text: course.title, autoClose: 3500, action: { label: 'View cart', onClick: () => navigate('/cart') } }), onError: fail })
   // "Buy now" and free courses skip the cart: one course straight to checkout
   const buyNow = () =>
     checkout.mutate(
@@ -437,7 +438,7 @@ export function CoursePage() {
               <span aria-hidden>/</span>
               {c.category ? <Link to={catSlug ? `/courses?category=${catSlug}` : '/courses'} className="font-medium text-primary">{c.category}</Link> : null}
             </nav>
-            <h1 className="mt-3 text-3xl leading-tight font-bold tracking-tight sm:text-4xl" style={{ viewTransitionName: 'course-title' }}>{c.title}</h1>
+            <h1 className="mt-3 text-2xl leading-tight font-bold tracking-tight sm:text-4xl" style={{ viewTransitionName: 'course-title' }}>{c.title}</h1>
             <p className="mt-3 max-w-2xl text-lg text-muted">{c.subtitle}</p>
             <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
               {c.student_count > 50 ? <Badge tone="warning">Bestseller</Badge> : null}

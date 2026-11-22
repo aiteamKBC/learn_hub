@@ -33,7 +33,7 @@ export function MyLearningPage() {
           <p className="text-sm text-muted">
             {greeting()}, {me?.full_name?.split(' ')[0] || 'there'}
           </p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">
+          <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-4xl">
             Continue your <span className="text-primary">learning</span>
           </h1>
         </div>

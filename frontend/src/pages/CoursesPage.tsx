@@ -1,6 +1,6 @@
-import { ArrowLeft, LayoutGrid, List, SearchX, SlidersHorizontal, Star, X } from 'lucide-react'
+import { ArrowLeft, LayoutGrid, List, Search, SearchX, SlidersHorizontal, Star, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { DashboardBackdrop } from '@/components/art/dashboard-backdrop'
 import { Badge } from '@/components/ui/badge'
@@ -9,9 +9,10 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { NativeSelect } from '@/components/ui/input'
 import { EmptyState, ErrorState } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
-import { type CourseFilters, useCategories, useCourseFeed } from '@/features/catalog/api'
+import { type CourseFilters, type SearchIn, useCategories, useCourseFeed } from '@/features/catalog/api'
 import { CourseCard, CourseCardSkeleton } from '@/features/catalog/CourseCard'
 import { CourseRow } from '@/features/catalog/CourseRow'
+import { useDebounced } from '@/features/org/ui'
 import { cn } from '@/lib/cn'
 
 const LEVELS = [
@@ -102,16 +103,59 @@ function Filters({ params, set }: { params: URLSearchParams; set: Setter }) {
   )
 }
 
+/** The page's own search: course names only. Results update as you type. */
+function CourseSearch({ initial, onSearch, onType }: { initial: string; onSearch: (q: string) => void; onType: (q: string | null) => void }) {
+  const [v, setV] = useState(initial)
+  const term = useDebounced(v.trim(), 400)
+  const first = useRef(true)
+  // follow a search started elsewhere (the header, a removed chip) without fighting the typing
+  useEffect(() => {
+    if (initial !== term) {
+      setV(initial)
+      onType(null) // the URL search leads again
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the URL search changes
+  }, [initial])
+  useEffect(() => {
+    if (first.current) return void (first.current = false)
+    onSearch(term)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the debounced text changes
+  }, [term])
+  return (
+    <form role="search" onSubmit={(e) => (e.preventDefault(), onSearch(v.trim()))} className="group relative mt-5 max-w-xl animate-reveal">
+      <Search aria-hidden className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted transition-colors group-focus-within:text-primary" />
+      <input
+        value={v}
+        onChange={(e) => (setV(e.target.value), onType(e.target.value))}
+        placeholder="Search course names"
+        aria-label="Search course names"
+        autoComplete="off"
+        className="h-11 w-full rounded-full border border-border bg-surface pr-10 pl-11 text-sm text-text shadow-sm transition-[box-shadow,border-color] duration-200 outline-none placeholder:text-subtle focus:border-primary focus:ring-4 focus:ring-primary/15"
+      />
+      {v ? (
+        <button type="button" aria-label="Clear search" onClick={() => (setV(''), onType(''), onSearch(''))} className="absolute top-1/2 right-3 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-text">
+          <X className="size-3.5" />
+        </button>
+      ) : null}
+    </form>
+  )
+}
+
 export function CoursesPage() {
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const [drawer, setDrawer] = useState(false)
-  // Return to where the learner came from (e.g. My learning); fall back to the learner home
-  // if this page was opened directly with no in-app history to step back through.
-  const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate('/learn'))
+  // A page that linked here can ask Back to return to a specific spot (e.g. the home
+  // "All courses" button sends you back to its category section). Otherwise step back in
+  // history, falling back to the learner home when the page was opened directly.
+  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo
+  const goBack = () => (returnTo ? navigate(returnTo) : window.history.length > 1 ? navigate(-1) : navigate('/learn'))
   const view = params.get('view') === 'list' ? 'list' : 'grid'
   const filters: CourseFilters = {
     q: params.get('q') ?? undefined,
+    // the page's own search box looks at course names; the header can also send ?in=instructors|topics
+    search_in: (['instructors', 'topics'].includes(params.get('in') ?? '') ? params.get('in') : 'courses') as SearchIn,
     category: params.get('category') ?? undefined,
     level: params.get('level') ?? undefined,
     price: (params.get('price') as CourseFilters['price']) ?? undefined,
@@ -120,17 +164,28 @@ export function CoursesPage() {
   }
   const feed = useCourseFeed(filters)
   const { data: cats } = useCategories()
-  const items = feed.data?.pages.flatMap((p) => p.items) ?? []
-  const total = feed.data?.pages[0]?.total
+  const serverItems = feed.data?.pages.flatMap((p) => p.items) ?? []
+  // Instant search: the same list without the search text (cached by React Query). When it
+  // is complete (one page), course-name matches are filtered right here on each key press,
+  // so results change at once instead of waiting for the server round trip.
+  const base = useCourseFeed({ ...filters, q: undefined, search_in: undefined })
+  const baseItems = base.data?.pages.flatMap((p) => p.items) ?? []
+  const [typed, setTyped] = useState<string | null>(null)
+  const instant = !!base.data && !base.hasNextPage && (typed != null || filters.search_in === 'courses')
+  const needle = (typed ?? filters.q ?? '').trim().toLowerCase()
+  const items = instant ? (needle ? baseItems.filter((c) => c.title.toLowerCase().includes(needle)) : baseItems) : serverItems
+  const total = instant ? items.length : feed.data?.pages[0]?.total
 
   const set: Setter = (key, value) => {
     const next = new URLSearchParams(params)
     if (value) next.set(key, value)
     else next.delete(key)
-    setParams(next, { replace: true })
+    if (key === 'q') next.delete('in') // a new or cleared search here is a course-name search
+    // Keep the location state (e.g. returnTo) so Back still works after filtering.
+    setParams(next, { replace: true, state: location.state })
   }
   const chips = [
-    filters.q && ['q', `“${filters.q}”`],
+    filters.q && ['q', filters.search_in === 'courses' ? `“${filters.q}”` : `${filters.search_in === 'instructors' ? 'Instructor' : 'Topic'}: “${filters.q}”`],
     filters.category && ['category', cats?.find((c) => c.slug === filters.category)?.name ?? filters.category],
     filters.rating && ['rating', `${filters.rating}+ stars`],
     filters.level && ['level', LEVELS.find(([v]) => v === filters.level)?.[1] ?? filters.level],
@@ -153,17 +208,17 @@ export function CoursesPage() {
       {/* Fixed to the viewport so the artwork also sits behind the frosted header. */}
       <DashboardBackdrop className="animate-fade-in fixed inset-0 -z-10" />
       <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 animate-reveal">
+        <div className="flex flex-col items-stretch gap-4 animate-reveal sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{filters.q ? `Results for “${filters.q}”` : 'Explore courses'}</h1>
             <p className="mt-1 text-sm text-muted" aria-live="polite">
               {total == null ? <Skeleton className="inline-block h-4 w-32 align-middle" /> : `${total.toLocaleString('en-GB')} ${total === 1 ? 'course' : 'courses'}`}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-2 text-sm text-muted">
+          <div className="flex w-full flex-nowrap items-center justify-between gap-1 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:ml-auto sm:w-auto sm:justify-end sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden">
+            <label className="order-3 flex items-center gap-2 text-sm text-muted sm:order-1">
               <span className="hidden sm:inline">Sort by</span>
-              <NativeSelect value={filters.sort} onChange={(e) => set('sort', e.target.value)} className="h-8 w-40 rounded-full text-[13px]" aria-label="Sort by">
+              <NativeSelect value={filters.sort} onChange={(e) => set('sort', e.target.value)} className="h-9 w-[120px] gap-1 rounded-full px-2 text-xs [&>span]:truncate [&>span]:whitespace-nowrap min-[390px]:w-[128px] sm:h-8 sm:w-40 sm:px-3 sm:text-[13px]" aria-label="Sort by">
                 {SORTS.map(([v, l]) => (
                   <option key={v} value={v}>
                     {l}
@@ -171,23 +226,28 @@ export function CoursesPage() {
                 ))}
               </NativeSelect>
             </label>
-            <div className="hidden rounded-full border border-border bg-surface p-0.5 shadow-sm sm:flex" role="group" aria-label="Layout">
+            <div className="order-4 flex rounded-full border border-border bg-surface p-0.5 shadow-sm sm:order-2" role="group" aria-label="Layout">
               {(
                 [
                   ['grid', LayoutGrid],
                   ['list', List],
                 ] as const
               ).map(([v, Icon]) => (
-                <Button key={v} variant="ghost" size="icon-sm" aria-pressed={view === v} aria-label={`${v} view`} onClick={() => set('view', v === 'grid' ? undefined : v)} className={cn(view === v && 'bg-primary-soft text-primary-soft-text')}>
+                <Button key={v} variant="ghost" size="icon-sm" aria-pressed={view === v} aria-label={`${v} view`} onClick={() => set('view', v === 'grid' ? undefined : v)} className={cn('size-[30px] min-[390px]:size-8', view === v && 'bg-primary-soft text-primary-soft-text')}>
                   <Icon />
                 </Button>
               ))}
             </div>
-            <Button variant="secondary" size="sm" onClick={goBack}>
+            <Button variant="secondary" size="sm" className="order-1 h-9 gap-1 px-2 text-xs min-[390px]:px-2.5 sm:order-3" onClick={goBack}>
               <ArrowLeft /> Back
+            </Button>
+            <Button variant="secondary" size="sm" className="order-2 h-9 gap-1 px-2 text-xs min-[390px]:px-2.5 sm:order-4 lg:hidden" onClick={() => setDrawer(true)}>
+              <SlidersHorizontal /> Filters {active ? <Badge tone="primary">{active}</Badge> : null}
             </Button>
           </div>
         </div>
+
+        <CourseSearch initial={filters.search_in === 'courses' ? (filters.q ?? '') : ''} onType={setTyped} onSearch={(v) => set('q', v || undefined)} />
 
         <div className="mt-6 lg:grid lg:grid-cols-[248px_1fr] lg:gap-8">
           <aside className="hidden lg:block" aria-label="Filters">
@@ -205,9 +265,6 @@ export function CoursesPage() {
           </aside>
 
           <div className="min-w-0">
-            <Button variant="secondary" className="mb-4 lg:hidden" onClick={() => setDrawer(true)}>
-              <SlidersHorizontal /> Filters {active ? <Badge tone="primary">{active}</Badge> : null}
-            </Button>
             {chips.length ? (
               <div className="mb-4 flex flex-wrap gap-1.5">
                 {chips.map(([k, label]) => (
@@ -221,7 +278,7 @@ export function CoursesPage() {
             <div className={cn('transition-opacity duration-200', feed.isFetching && !feed.isFetchingNextPage && !feed.isLoading && 'opacity-60')}>
               {feed.error ? (
                 <ErrorState message={(feed.error as Error).message} onRetry={() => void feed.refetch()} />
-              ) : feed.isLoading ? (
+              ) : (instant ? base.isLoading : feed.isLoading) ? (
                 <div className={view === 'grid' ? 'grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 xl:grid-cols-3' : 'grid gap-3'}>
                   {Array.from({ length: 6 }, (_, i) => (view === 'grid' ? <CourseCardSkeleton key={i} /> : <Skeleton key={i} className="h-36 rounded-lg" />))}
                 </div>

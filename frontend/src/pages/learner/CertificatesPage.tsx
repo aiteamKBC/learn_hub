@@ -1,5 +1,5 @@
 import { Award, Copy, Download, ExternalLink, ShieldCheck } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'

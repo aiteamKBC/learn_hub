@@ -8,10 +8,9 @@ import { reducedMotion } from '@/lib/motion'
 
 /**
  * The intro clip played full-bleed over the hero when the landing page first loads.
- * The `tr=` transform makes ImageKit serve H.264/AVC — raw uploads are often HEVC, which most
- * browsers (Chrome, Firefox) cannot decode in a <video> tag, so it must not be used directly.
+ * Served as the original WebM (no ImageKit re-encode) so the full clip plays.
  */
-const INTRO_VIDEO = 'https://ik.imagekit.io/bmjbddbgyi/web%20(1).mp4?tr=w-1600,q-72'
+const INTRO_VIDEO = 'https://ik.imagekit.io/bmjbddbgyi/evidrise_hero_ending.webm?tr=orig-true'
 
 /**
  * Full-bleed intro video that plays once when the landing page first loads, then fades away
@@ -19,26 +18,45 @@ const INTRO_VIDEO = 'https://ik.imagekit.io/bmjbddbgyi/web%20(1).mp4?tr=w-1600,q
  * the clip ending) all dismiss it. It never replays within the same session, and it steps
  * aside entirely for reduced-motion users so nothing autoplays at them.
  */
+/** Phones skip the full-screen intro clip entirely (data + a cleaner first paint on mobile). */
+const isPhone = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches
+
 export function HeroIntro() {
   const alreadySkipped = useHeroIntroSkipped()
-  // Decide once, on first render, whether the intro should ever show. Reduced-motion users
-  // (and anyone who already dismissed it this session) go straight to the hero.
-  const [active, setActive] = useState(() => !alreadySkipped && !reducedMotion())
+  // Decide once, on first render, whether the intro should ever show. Reduced-motion users,
+  // phone viewers, and anyone who already dismissed it this session go straight to the hero.
+  const [active, setActive] = useState(() => !alreadySkipped && !reducedMotion() && !isPhone())
   const [closing, setClosing] = useState(false)
   const [ready, setReady] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const endTimer = useRef<number | undefined>(undefined)
 
-  // Fade out, then hand the hero over to the rest of the page via the shared flag.
+  // Fade the overlay out, then hand the hero over to the rest of the page via the shared flag.
+  // No scroll is forced here: the page is already at the top (we never scrolled while the intro
+  // covered it), and snapping the scroll on close caused a visible jump/lag as the hero appeared.
   const close = useCallback(() => {
     setClosing((was) => {
       if (was) return was
+      window.clearTimeout(endTimer.current)
       window.setTimeout(() => {
         skipHeroIntro()
         setActive(false)
-      }, 480)
+      }, 650)
       return true
     })
   }, [])
+
+  // Once the clip's length is known, arm an absolute fallback: close shortly after it should
+  // have finished. If playback ever stalls near the end (so `ended` never fires), the intro
+  // still steps aside instead of freezing on screen.
+  const armFallback = useCallback(() => {
+    setReady(true)
+    const d = videoRef.current?.duration
+    if (d && Number.isFinite(d)) {
+      window.clearTimeout(endTimer.current)
+      endTimer.current = window.setTimeout(close, (d + 2) * 1000)
+    }
+  }, [close])
 
   // If the store gets skipped from elsewhere (e.g. the header control), close in step.
   useEffect(() => {
@@ -55,15 +73,24 @@ export function HeroIntro() {
     return () => window.removeEventListener('keydown', onKey)
   }, [active, close])
 
-  // Lock background scroll while the intro is on top.
+  // We deliberately do NOT lock body scroll (no `overflow: hidden`). Hiding the scrollbar while
+  // the intro plays and restoring it on close made the scrollbar flash back in — an ugly pop as
+  // the hero appeared. Leaving the scrollbar untouched keeps it steady, and the hero already has
+  // its own "Scroll" cue. The full-bleed fixed overlay still covers the page while it plays.
+  // Instead we just swallow scroll gestures so the page stays put behind the intro.
   useEffect(() => {
     if (!active) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const block = (e: Event) => e.preventDefault()
+    window.addEventListener('wheel', block, { passive: false })
+    window.addEventListener('touchmove', block, { passive: false })
     return () => {
-      document.body.style.overflow = prev
+      window.removeEventListener('wheel', block)
+      window.removeEventListener('touchmove', block)
     }
   }, [active])
+
+  // Drop the fallback timer if the intro unmounts for any reason.
+  useEffect(() => () => window.clearTimeout(endTimer.current), [])
 
   // Nudge playback to start. Muted autoplay is allowed, but some browsers only honour it
   // once we ask explicitly, so call play() as soon as the element is mounted.
@@ -89,7 +116,7 @@ export function HeroIntro() {
       role="dialog"
       aria-label="Intro"
       className={cn(
-        'fixed inset-0 z-[100] flex items-center justify-center bg-[#1f262e] transition-opacity duration-[480ms] ease-out',
+        'fixed inset-0 z-[100] flex items-center justify-center bg-[#1f262e] transition-opacity duration-[650ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
         closing ? 'pointer-events-none opacity-0' : 'opacity-100',
       )}
     >
@@ -99,13 +126,21 @@ export function HeroIntro() {
         muted
         playsInline
         preload="auto"
+        onLoadedMetadata={armFallback}
         onLoadedData={() => setReady(true)}
         onCanPlay={() => setReady(true)}
+        onTimeUpdate={() => {
+          const v = videoRef.current
+          // Close as soon as we reach the end, rather than relying only on `ended` (which some
+          // clips/browsers don't fire reliably), so the hero is never left waiting behind a
+          // paused final frame.
+          if (v && Number.isFinite(v.duration) && v.duration > 0 && v.currentTime >= v.duration - 0.2) close()
+        }}
         onEnded={close}
         onError={close}
-        className={cn('absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-out', ready ? 'opacity-100' : 'opacity-0')}
+        className={cn('absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ease-out', ready ? 'opacity-100' : 'opacity-0')}
       >
-        <source src={INTRO_VIDEO} type="video/mp4" />
+        <source src={INTRO_VIDEO} type="video/webm" />
       </video>
 
       {/* 40% charcoal shade over the clip. */}

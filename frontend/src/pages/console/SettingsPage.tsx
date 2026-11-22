@@ -1,6 +1,6 @@
 import { Bell, Check, ChevronRight, CreditCard, Eye, GraduationCap, ImageUp, Info, RotateCcw, Settings2, ShieldCheck, SlidersHorizontal, Trash2, Users, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'

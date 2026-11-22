@@ -1,6 +1,6 @@
 import { ArrowLeft, BookOpen, CircleHelp, ClipboardCheck, Coins, Download, FileText, Gift, Info, Link, Pencil, Plus, Radio, Search, Trash2, Video, Wand2 } from 'lucide-react'
 import { useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

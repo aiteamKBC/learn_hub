@@ -1,6 +1,6 @@
 import { AlertTriangle, BadgeCheck, Building2, CalendarClock, CheckCircle2, Clock, CreditCard, Globe, History, Info, Mail, Percent, Plus, Send, Trash2, Wallet } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

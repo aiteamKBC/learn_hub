@@ -21,7 +21,7 @@ import { Link, useNavigate } from '@/lib/router'
 
 type Tab = 'login' | 'signup'
 
-const ROLES = ['Student', 'Company', 'Instructor', 'Admin'] as const
+const ROLES = ['Student', 'Company', 'Instructor'] as const
 type Role = (typeof ROLES)[number]
 
 function LoginForm() {
@@ -71,6 +71,9 @@ function LoginForm() {
       noValidate
       onSubmit={(e: FormEvent) => {
         e.preventDefault()
+        // Prepare the destination while the server verifies the password so the
+        // next screen does not add another sequential wait after sign-in.
+        void import('@/pages/MyLearningPage')
         login.mutate({ email, password }, { onSuccess: (r) => (r === 'mfa' ? setStep('code') : navigate('/learn', { replace: true })) })
       }}
     >
@@ -152,7 +155,10 @@ function SignupForm() {
       <Button type="submit" size="lg" loading={signup.isPending} className="w-full">
         Create account
       </Button>
-      <p className="text-center text-xs text-muted">By creating an account you agree to the terms of use and privacy policy.</p>
+      <p className="text-center text-xs text-muted">
+        By creating an account you agree to the <Link to="/terms" className="font-medium text-primary hover:underline">terms of use</Link> and{' '}
+        <Link to="/privacy" className="font-medium text-primary hover:underline">privacy policy</Link>.
+      </p>
     </form>
   )
 }
@@ -164,25 +170,6 @@ export function AuthTabs({ initialTab = 'login' }: { initialTab?: Tab }) {
 
   return (
     <div>
-      {/* role chooser — shared by log in and sign up (visual only, see NEEDS-USER UI-2) */}
-      <div className="mb-5">
-        <span className="text-[13px] font-medium text-text">I'm a</span>
-        <div role="radiogroup" aria-label="Role" className="mt-1.5 grid grid-cols-4 gap-1.5">
-          {ROLES.map((r) => (
-            <button
-              key={r}
-              type="button"
-              role="radio"
-              aria-checked={role === r}
-              onClick={() => setRole(r)}
-              className={cn('rounded-lg border px-2 py-2 text-[13px] font-medium transition-colors', role === r ? 'border-primary bg-primary-soft text-primary-soft-text' : 'border-border text-muted hover:text-text')}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div role="tablist" aria-label="Log in or create an account" className="mb-6 grid grid-cols-2 gap-1.5 rounded-xl bg-surface-2/60 p-1">
         {(['login', 'signup'] as const).map((t) => (
           <button
@@ -197,7 +184,31 @@ export function AuthTabs({ initialTab = 'login' }: { initialTab?: Tab }) {
           </button>
         ))}
       </div>
-      {tab === 'login' ? <LoginForm /> : <SignupForm />}
+      {tab === 'login' ? (
+        <LoginForm />
+      ) : (
+        <>
+        {/* role chooser — only when creating an account (visual only, see NEEDS-USER UI-2) */}
+        <div className="mb-5">
+          <span className="text-[13px] font-medium text-text">I'm a</span>
+          <div role="radiogroup" aria-label="Role" className="mt-1.5 grid grid-cols-3 gap-1.5">
+            {ROLES.map((r) => (
+              <button
+                key={r}
+                type="button"
+                role="radio"
+                aria-checked={role === r}
+                onClick={() => setRole(r)}
+                className={cn('rounded-lg border px-2 py-2 text-[13px] font-medium transition-colors', role === r ? 'border-primary bg-primary-soft text-primary-soft-text' : 'border-border text-muted hover:text-text')}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+          <SignupForm />
+        </>
+      )}
     </div>
   )
 }

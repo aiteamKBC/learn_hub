@@ -1,7 +1,7 @@
 import { ArrowLeft, Heart, Lock, ShoppingCart, Tag, Trash2, X } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { useNavigate as useRouterNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Backdrop } from '@/components/art/backdrops'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,7 @@ import { cn } from '@/lib/cn'
 import { useCurrency } from '@/lib/currency'
 import { money } from '@/lib/format'
 import { useNavigate } from '@/lib/router'
+import { authAlert } from '@/lib/auth-alert'
 
 export function CartPage() {
   const [coupon, setCoupon] = useState<string | undefined>()
@@ -94,7 +95,7 @@ export function CartPage() {
                       }
                       actions={
                         <>
-                          <Button variant="link" size="sm" className="text-danger" onClick={() => remove.mutate(l.course.id, { onSuccess: () => toast.success(`Removed “${l.course.title}”`) })}>
+                          <Button variant="link" size="sm" className="text-danger" onClick={() => remove.mutate(l.course.id, { onSuccess: () => authAlert({ kind: 'removed', title: 'Removed from your cart', text: l.course.title, autoClose: 2500 }) })}>
                             <Trash2 /> Remove
                           </Button>
                           <Button

@@ -10103,6 +10103,8 @@ export interface components {
         CourseFilters: {
             /** Q */
             q?: string | null;
+            /** Search In */
+            search_in?: ("courses" | "instructors" | "topics") | null;
             /** Category */
             category?: string | null;
             /** Level */
@@ -23845,6 +23847,7 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string | null;
+                search_in?: ("courses" | "instructors" | "topics") | null;
                 category?: string | null;
                 level?: string | null;
                 price?: string | null;

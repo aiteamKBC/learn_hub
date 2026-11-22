@@ -1,6 +1,6 @@
 import { CreditCard, ExternalLink, FileText, Minus, Plus, Receipt, Settings2, ShieldAlert, Users } from 'lucide-react'
 import { useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

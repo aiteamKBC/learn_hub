@@ -1,6 +1,6 @@
 import { Building2, Check, GraduationCap, LayoutDashboard, LogOut, PenTool, Shield, User } from 'lucide-react'
 
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from '@/components/ui/menu'

@@ -1,13 +1,14 @@
-import { Award, ChevronLeft, ChevronRight, Info, ListTree, Lock, Megaphone, MessagesSquare, NotebookPen, PanelRightClose, PanelRightOpen, PartyPopper, Star } from 'lucide-react'
+import { Award, ChevronDown, ChevronLeft, ChevronRight, Info, ListTree, Lock, Megaphone, MessagesSquare, NotebookPen, PanelRightClose, PanelRightOpen, PartyPopper, Star } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useParams, useSearchParams } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Backdrop } from '@/components/art/backdrops'
 import { DashboardBackdrop } from '@/components/art/dashboard-backdrop'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Logo } from '@/components/ui/logo'
+import { Menu, MenuContent, MenuItem, MenuTrigger } from '@/components/ui/menu'
 import { EmptyState, ErrorState } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -102,6 +103,14 @@ export function PlayerPage() {
   const all = p?.sections.flatMap((s) => s.lectures) ?? []
   const doneCount = all.filter((l) => l.completed).length
   const error = lookup.error ?? player.error
+  const secondaryTabs = [
+    { value: 'overview', label: 'Overview', Icon: Info },
+    { value: 'notes', label: 'Notes', Icon: NotebookPen },
+    { value: 'qa', label: 'Q&A', Icon: MessagesSquare },
+    { value: 'announcements', label: 'Announcements', Icon: Megaphone },
+    { value: 'review', label: 'Review', Icon: Star },
+  ] as const
+  const activeSecondary = secondaryTabs.find((item) => item.value === tab)
 
   return (
     <div className="relative flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
@@ -152,10 +161,9 @@ export function PlayerPage() {
           {/* On desktop the main column scrolls on its own (contained to the viewport height)
               instead of growing the whole page, so short lectures don't leave a long empty tail. */}
           <main id="main" className="min-w-0 lg:overflow-y-auto" data-lenis-prevent>
-            {/* Centre the stage and cap its width so the video doesn't swallow the whole page.
-                Match the lecture bar / tabs width (max-w-5xl) so nothing below is narrower than
-                the video, and drop it a little below the sticky header instead of touching it. */}
-            <div className="mx-auto w-full max-w-5xl pt-4 lg:px-6 lg:pt-20">
+            {/* Mobile media starts directly below the header. Desktop keeps breathing room and
+                caps the stage width so the video does not swallow the whole page. */}
+            <div className="mx-auto w-full max-w-5xl lg:px-6 lg:pt-20">
               {locked && p ? (
                 <LockedStage slug={route.slug} title={locked.title} prerequisiteKey={locked.prerequisite_key} prerequisiteTitle={locked.prerequisite_title} reason={locked.locked_reason} />
               ) : <Stage lecture={lecture.data} loading={lecture.isLoading || !p} error={lecture.error} enrollmentId={lookup.enrollmentId} slug={route.slug} startAt={params.get('t') ? Number(params.get('t')) : undefined} onRetry={() => void lecture.refetch()} />}
@@ -165,11 +173,32 @@ export function PlayerPage() {
               <>
                 <LectureBar lecture={lecture.data} slug={route.slug} />
                 <div className="relative">
-                  <Tabs value={tab} onValueChange={(v) => setTab(v)} className="relative mx-auto max-w-5xl px-4 pt-2 pb-16 sm:px-6">
-                    <TabsList>
-                      <TabsTrigger value="content" className="lg:hidden">
-                        <ListTree /> Content
-                      </TabsTrigger>
+                  <Tabs value={tab} onValueChange={(v) => setTab(v)} className="relative mx-auto max-w-5xl px-4 pt-0 pb-16 sm:px-6 sm:pt-2">
+                    <nav aria-label="Lesson sections" className="flex items-stretch border-b border-border lg:hidden">
+                      <Menu>
+                        <MenuTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label="Choose another lesson section"
+                            className={cn('inline-flex min-w-0 items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium transition-colors', activeSecondary ? 'border-primary text-primary' : 'border-transparent text-muted')}
+                          >
+                            <span className="inline-flex min-w-0 items-center gap-2">
+                              {activeSecondary ? <activeSecondary.Icon className="size-4 shrink-0" /> : <Info className="size-4 shrink-0" />}
+                              <span className="truncate">{activeSecondary?.label ?? 'Overview & more'}</span>
+                            </span>
+                            <ChevronDown className="size-4 shrink-0" />
+                          </button>
+                        </MenuTrigger>
+                        <MenuContent align="start" className="min-w-56">
+                          {secondaryTabs.map(({ value, label, Icon }) => (
+                            <MenuItem key={value} onSelect={() => setTab(value)} className={cn(tab === value && 'font-medium text-primary')}>
+                              <Icon /> {label}
+                            </MenuItem>
+                          ))}
+                        </MenuContent>
+                      </Menu>
+                    </nav>
+                    <TabsList className="hidden lg:flex">
                       <TabsTrigger value="overview">
                         <Info /> Overview
                       </TabsTrigger>
@@ -340,7 +369,7 @@ function LectureBar({ lecture, slug }: { lecture: Lecture; slug: string }) {
   const { Icon, label } = kindOf(lecture.kind)
   return (
     <div>
-      <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:px-6">
+      <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-2.5 sm:px-6 sm:py-3">
         <div className="min-w-0 flex-1">
           {lecture.kind === 'video' ? <p className="truncate text-[15px] font-semibold">{lecture.title}</p> : null}
           <p className="flex items-center gap-1.5 text-xs text-muted">
@@ -379,12 +408,12 @@ function Overview({ player, lecture }: { player: Player; lecture: Lecture }) {
     { label: 'Left to go', value: minutes(left) || 'Nothing' },
   ]
   return (
-    <div className="grid gap-8">
-      <div className="stagger grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="grid gap-6 sm:gap-8">
+      <div className="stagger grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
         {stats.map((s) => (
-          <div key={s.label} className="rounded-xl border border-border bg-surface p-4 shadow-sm">
-            <p className="text-xs text-muted">{s.label}</p>
-            <p className="mt-1 text-lg font-semibold tabular">{s.value}</p>
+          <div key={s.label} className="rounded-lg border border-border bg-surface p-3 shadow-sm sm:rounded-xl sm:p-4">
+            <p className="text-[11px] text-muted sm:text-xs">{s.label}</p>
+            <p className="mt-0.5 text-base font-semibold tabular sm:mt-1 sm:text-lg">{s.value}</p>
           </div>
         ))}
       </div>

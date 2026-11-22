@@ -3,6 +3,7 @@ import { type ReactNode, useEffect } from 'react'
 import { Toaster } from 'sonner'
 
 import { queryClient } from '@/api/queryClient'
+import { AuthAlertHost } from '@/components/ui/auth-alert'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider, useTheme } from '@/lib/theme'
 
@@ -23,6 +24,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <TooltipProvider>
           {children}
           <Toasts />
+          <AuthAlertHost />
         </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>

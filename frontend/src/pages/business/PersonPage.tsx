@@ -1,7 +1,7 @@
 import { ArrowLeft, Award, BookOpen, Mail, ShieldCheck, Trash2, UserX } from 'lucide-react'
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
