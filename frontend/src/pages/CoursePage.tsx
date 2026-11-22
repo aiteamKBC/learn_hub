@@ -438,7 +438,7 @@ export function CoursePage() {
               <span aria-hidden>/</span>
               {c.category ? <Link to={catSlug ? `/courses?category=${catSlug}` : '/courses'} className="font-medium text-primary">{c.category}</Link> : null}
             </nav>
-            <h1 className="mt-3 text-3xl leading-tight font-bold tracking-tight sm:text-4xl" style={{ viewTransitionName: 'course-title' }}>{c.title}</h1>
+            <h1 className="mt-3 text-2xl leading-tight font-bold tracking-tight sm:text-4xl" style={{ viewTransitionName: 'course-title' }}>{c.title}</h1>
             <p className="mt-3 max-w-2xl text-lg text-muted">{c.subtitle}</p>
             <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
               {c.student_count > 50 ? <Badge tone="warning">Bestseller</Badge> : null}

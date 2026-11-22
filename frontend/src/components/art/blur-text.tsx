@@ -4,7 +4,7 @@
  * shows the text immediately.
  */
 import { gsap } from 'gsap'
-import { useEffect, useRef } from 'react'
+import { Fragment, useEffect, useRef } from 'react'
 
 import { cn } from '@/lib/cn'
 import { reducedMotion } from '@/lib/motion'
@@ -34,10 +34,14 @@ export function BlurText({ text, className, delay = 0 }: { text: string; classNa
   return (
     <span ref={ref} className={cn('inline', className)}>
       {words.map((w, i) => (
-        <span key={i} data-w className="inline-block will-change-[filter,transform,opacity]" style={{ opacity: 0 }}>
-          {w}
-          {i < words.length - 1 ? ' ' : ''}
-        </span>
+        // The space sits OUTSIDE the inline-block so the line can wrap between words on
+        // narrow screens; a space kept inside an inline-block gives no wrap opportunity.
+        <Fragment key={i}>
+          <span data-w className="inline-block will-change-[filter,transform,opacity]" style={{ opacity: 0 }}>
+            {w}
+          </span>
+          {i < words.length - 1 ? ' ' : ''}
+        </Fragment>
       ))}
     </span>
   )

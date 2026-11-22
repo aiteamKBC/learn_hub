@@ -134,12 +134,13 @@ export function useLogin() {
       if (r.status !== 200) raise(r)
       return 'signed-in'
     },
-    // refetch even when no screen is showing the user yet (the sign-in page), so the
-    // next page already knows who is signed in
-    onSuccess: async (r) => {
+    // Refresh the account in the background. Returning this promise kept the login
+    // button pending until a second network round-trip finished, even though the
+    // password had already been accepted.
+    onSuccess: (r) => {
       if (r !== 'signed-in') return
-      await qc.refetchQueries({ queryKey: ['me'], type: 'all' })
       welcome(qc.getQueryData<{ full_name?: string } | null>(['me']))
+      void qc.refetchQueries({ queryKey: ['me'], type: 'all' })
     },
   })
 }
@@ -158,9 +159,9 @@ export function useMfaAuthenticate() {
       const r = await call('POST', '/auth/2fa/authenticate', { code })
       if (r.status !== 200) raise(r)
     },
-    onSuccess: async () => {
-      await qc.refetchQueries({ queryKey: ['me'], type: 'all' })
+    onSuccess: () => {
       welcome(qc.getQueryData<{ full_name?: string } | null>(['me']))
+      void qc.refetchQueries({ queryKey: ['me'], type: 'all' })
     },
   })
 }

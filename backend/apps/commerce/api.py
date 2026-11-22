@@ -15,7 +15,7 @@ from apps.platform.services import audit_request
 from core import cursor as keyset
 from core.auth import session_auth
 from core.errors import ServiceError
-from core.money import request_currency
+from core.money import BASE, request_currency
 from core.permissions import OrgRole, org_scope
 
 from . import gateway, services, webhooks
@@ -71,7 +71,17 @@ def currencies(request):
 @router.get("/plans", response=list[PlanPriceOut], auth=None)
 def plans(request, currency: str | None = None):
     cur = request_currency(request, currency)
-    rows = PlanPrice.objects.filter(currency_id=cur["code"], plan__is_active=True).select_related("plan")
+    rows = list(
+        PlanPrice.objects.filter(currency_id=cur["code"], plan__is_active=True).select_related("plan")
+    )
+    # Subscriptions are billed only in currencies that have a real (Stripe-backed) plan
+    # price. When the shopper's currency has none, fall back to the base-currency prices so
+    # the real billing price is always shown instead of an empty, stuck pricing section.
+    if not rows and cur["code"] != BASE:
+        cur = request_currency(request, BASE)
+        rows = list(
+            PlanPrice.objects.filter(currency_id=cur["code"], plan__is_active=True).select_related("plan")
+        )
     return [
         {"plan_id": p.plan_id, "code": p.plan.code, "name": p.plan.name, "audience": p.plan.audience,
          "interval": p.plan.interval, "trial_days": p.plan.trial_days, "currency": cur["code"],

@@ -71,6 +71,9 @@ function LoginForm() {
       noValidate
       onSubmit={(e: FormEvent) => {
         e.preventDefault()
+        // Prepare the destination while the server verifies the password so the
+        // next screen does not add another sequential wait after sign-in.
+        void import('@/pages/MyLearningPage')
         login.mutate({ email, password }, { onSuccess: (r) => (r === 'mfa' ? setStep('code') : navigate('/learn', { replace: true })) })
       }}
     >
@@ -152,7 +155,10 @@ function SignupForm() {
       <Button type="submit" size="lg" loading={signup.isPending} className="w-full">
         Create account
       </Button>
-      <p className="text-center text-xs text-muted">By creating an account you agree to the terms of use and privacy policy.</p>
+      <p className="text-center text-xs text-muted">
+        By creating an account you agree to the <Link to="/terms" className="font-medium text-primary hover:underline">terms of use</Link> and{' '}
+        <Link to="/privacy" className="font-medium text-primary hover:underline">privacy policy</Link>.
+      </p>
     </form>
   )
 }

@@ -21,11 +21,11 @@ export function BottomNav() {
             <NavLink
               to={to}
               end={end}
-              className={({ isActive }) => cn('flex h-15 flex-col items-center justify-center gap-1 text-[11px] font-medium', isActive ? 'text-primary' : 'text-muted')}
+              className={({ isActive }) => cn('flex h-13 flex-col items-center justify-center gap-0.5 text-[10px] font-medium', isActive ? 'text-primary' : 'text-muted')}
             >
               {({ isActive }) => (
                 <>
-                  <Icon className="size-[22px]" strokeWidth={isActive ? 2.2 : 1.8} />
+                  <Icon className="size-5" strokeWidth={isActive ? 2.2 : 1.8} />
                   {label}
                 </>
               )}
