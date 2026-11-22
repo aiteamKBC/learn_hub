@@ -1,4 +1,4 @@
-import { ArrowLeft, Award, BookOpen, Mail, Trash2, UserX } from 'lucide-react'
+import { ArrowLeft, Award, BookOpen, Mail, ShieldCheck, Trash2, UserX } from 'lucide-react'
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -17,7 +17,7 @@ import { usePersonCompliance } from '@/features/compliance/api'
 import { PersonRequirements } from '@/features/compliance/PersonRequirements'
 import { useMe } from '@/features/identity/auth'
 import { useWorkspace } from '@/features/identity/workspace'
-import { type MemberPatch, ROLE_LABEL, useAssignableRoles, useIsOrgAdmin, useJobRoles, useRemovePerson, useUnits, useUpdatePerson } from '@/features/org/api'
+import { type MemberPatch, type OrgResponsibility, ROLE_LABEL, useAssignableRoles, useIsOrgAdmin, useJobRoles, usePersonResponsibilities, useRemovePerson, useRoleCapabilities, useSetPersonResponsibilities, useUnits, useUpdatePerson } from '@/features/org/api'
 import { CheckList, RoleBadge, SavedTick, UnitPicker } from '@/features/org/ui'
 import { shortDate } from '@/lib/format'
 import { Link, useNavigate } from '@/lib/router'
@@ -31,6 +31,70 @@ const COURSE_STATUS: Record<string, { label: string; tone: 'success' | 'info' | 
 }
 
 const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i])
+
+const RESPONSIBILITIES = [
+  { code: 'executive', label: 'Executive', detail: 'Company-wide strategy and final decisions.' },
+  { code: 'hr_admin', label: 'HR', detail: 'People operations and company workforce setup.' },
+  { code: 'department_head', label: 'Head of Department', detail: 'Leadership and reporting for one department.', scoped: 'department' },
+  { code: 'line_manager', label: 'Line Manager', detail: 'People and development in one team or unit.', scoped: 'unit' },
+  { code: 'academy_marketing', label: 'Academy Marketing', detail: 'The company’s external learning catalogue and campaigns.' },
+] as const
+
+function ResponsibilitiesForm({ memberId }: { memberId: string }) {
+  const capability = useRoleCapabilities()
+  const current = usePersonResponsibilities(memberId)
+  const { data: units } = useUnits()
+  const save = useSetPersonResponsibilities(memberId)
+  const [assignments, setAssignments] = useState<OrgResponsibility[]>([])
+  const [saved, setSaved] = useState(false)
+  useEffect(() => {
+    if (current.data) setAssignments(current.data.assignments.map(({ code, unit_id }) => ({ code, unit_id })))
+  }, [current.data])
+
+  if (capability.isLoading || current.isLoading || !capability.data?.can_manage_responsibilities) return null
+  if (current.error) return <Card><ErrorState message={(current.error as Error).message} onRetry={() => void current.refetch()} /></Card>
+  const initial = (current.data?.assignments ?? []).map(({ code, unit_id }) => `${code}:${unit_id ?? ''}`).sort().join('|')
+  const value = assignments.map(({ code, unit_id }) => `${code}:${unit_id ?? ''}`).sort().join('|')
+  const dirty = initial !== value
+  const toggle = (code: string, checked: boolean) => {
+    setSaved(false)
+    setAssignments((prev) => checked ? [...prev.filter((item) => item.code !== code), { code, unit_id: null }] : prev.filter((item) => item.code !== code))
+  }
+  const scopeUnit = (code: string) => assignments.find((item) => item.code === code)?.unit_id ?? ''
+  const setScopeUnit = (code: string, unitId: string) => setAssignments((prev) => prev.map((item) => item.code === code ? { ...item, unit_id: unitId || null } : item))
+
+  return (
+    <Card>
+      <CardHeader title="Responsibilities" description="These company responsibilities are separate from the person’s job title. One account can hold several." />
+      <CardBody className="grid gap-4">
+        {RESPONSIBILITIES.map((item) => {
+          const selected = assignments.some((entry) => entry.code === item.code)
+          const scopeKind = 'scoped' in item ? item.scoped : undefined
+          const availableUnits = scopeKind === 'department' ? (units ?? []).filter((unit) => unit.kind === 'department') : units ?? []
+          return (
+            <div key={item.code} className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-[1fr_minmax(13rem,0.8fr)] sm:items-center">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input type="checkbox" className="mt-1 size-4 accent-[var(--color-primary)]" checked={selected} onChange={(event) => toggle(item.code, event.target.checked)} />
+                <span><span className="block text-sm font-medium">{item.label}</span><span className="mt-0.5 block text-xs text-muted">{item.detail}</span></span>
+              </label>
+              {scopeKind && selected ? (
+                <Field label={scopeKind === 'department' ? 'Department' : 'Team or unit'}>
+                  {(props) => <NativeSelect {...props} value={scopeUnit(item.code)} onChange={(event) => setScopeUnit(item.code, event.target.value)}><option value="">Choose a scope</option>{availableUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</NativeSelect>}
+                </Field>
+              ) : null}
+            </div>
+          )
+        })}
+        <div className="flex items-center justify-end gap-3">
+          {saved ? <span className="text-sm text-success">Responsibilities saved</span> : null}
+          <Button disabled={!dirty || save.isPending} loading={save.isPending} onClick={() => save.mutate(assignments, { onSuccess: () => { setSaved(true); void current.refetch() }, onError: (error) => toast.error((error as Error).message) })}>
+            <ShieldCheck /> Save responsibilities
+          </Button>
+        </div>
+      </CardBody>
+    </Card>
+  )
+}
 
 function ProfileForm({ person }: { person: PersonData }) {
   const { org } = useWorkspace()
@@ -343,7 +407,10 @@ export function PersonPage() {
           <TabsTrigger value="training">Training</TabsTrigger>
         </TabsList>
         <TabsContent value="profile">
-          <ProfileForm person={person} />
+          <div className="grid gap-6">
+            <ProfileForm person={person} />
+            <ResponsibilitiesForm memberId={person.member_id} />
+          </div>
         </TabsContent>
         <TabsContent value="training">
           <Training person={person} focus={focus} />

@@ -1,4 +1,4 @@
-import { AlertOctagon, BellRing, CalendarClock, Download, GraduationCap, ShieldAlert, ShieldCheck, UserPlus, Users } from 'lucide-react'
+import { AlertOctagon, BellRing, CalendarClock, Download, GraduationCap, Network, ShieldAlert, ShieldCheck, UserPlus, Users } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Avatar } from '@/components/ui/avatar'
@@ -13,6 +13,7 @@ import { Table, Td, Th, Tr } from '@/components/ui/table'
 import { Tooltip } from '@/components/ui/tooltip'
 import { type Dashboard, downloadExport, type RequirementSummary, STATUS, type StatusKey, useDashboard, useRemind, useSummary } from '@/features/compliance/api'
 import { useWorkspace } from '@/features/identity/workspace'
+import { useRoleCapabilities } from '@/features/org/api'
 import { cn } from '@/lib/cn'
 import { relativeDate } from '@/lib/format'
 import { useFill, useInView } from '@/lib/motion'
@@ -162,13 +163,23 @@ function Attention({ rows }: { rows: Dashboard['attention'] }) {
 
 export function ComplianceDashboard() {
   const { org } = useWorkspace()
+  const capabilities = useRoleCapabilities()
   const { data: d, isLoading, error, refetch } = useDashboard()
+  const roles = new Set(capabilities.data?.responsibilities.map((item) => item.code) ?? [])
+  const roleTitle = roles.has('executive') ? 'Executive overview' : roles.has('hr_admin') ? 'People and learning overview' : roles.has('department_head') ? 'Department overview' : roles.has('line_manager') ? 'Team overview' : 'Compliance overview'
+  const shortcuts = roles.has('hr_admin')
+    ? [{ to: '/business/hcm/people', title: 'People & HR', detail: 'Employee records and qualifications' }, { to: '/business/frameworks/roles', title: 'Role frameworks', detail: 'Skills and role expectations' }, { to: '/business/pms/cycles', title: 'Performance', detail: 'Review cycles and objectives' }, { to: '/business/governance/policies', title: 'Policies', detail: 'Company guidance and adoption' }]
+    : roles.has('executive')
+      ? [{ to: '/business/governance/strategies', title: 'Strategy', detail: 'Company priorities and objectives' }, { to: '/business/pms/kpis', title: 'Performance measures', detail: 'Company goals and progress' }, { to: '/business/reports', title: 'Reports', detail: 'Workforce learning outcomes' }]
+      : roles.has('department_head') || roles.has('line_manager')
+        ? [{ to: '/business/people', title: roles.has('department_head') ? 'Department people' : 'My team', detail: 'People in your assigned area' }, { to: '/business/matrix', title: 'Training status', detail: 'Required learning and overdue items' }, { to: '/business/reports', title: 'Team progress', detail: 'Learning progress in your area' }]
+        : []
 
   return (
     <>
       <PageHeader
-        title="Compliance overview"
-        description={org ? `${org.name} · training status for everyone you manage` : undefined}
+        title={roleTitle}
+        description={org ? `${org.name} · ${roles.has('executive') || roles.has('hr_admin') ? 'your organisation at a glance' : 'training status for everyone in your area'}` : undefined}
         actions={
           <>
             <Button variant="secondary" onClick={() => downloadExport().catch((e: Error) => toast.error(e.message))}>
@@ -186,6 +197,17 @@ export function ComplianceDashboard() {
         <ErrorState message={(error as Error).message} onRetry={() => void refetch()} />
       ) : (
         <div className="grid gap-6">
+          {shortcuts.length ? (
+            <section aria-label="Your work areas" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {shortcuts.map((item) => (
+                <Link key={item.to} to={item.to} className="group rounded-xl border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+                  <span className="flex size-9 items-center justify-center rounded-lg bg-primary-soft text-primary"><Network className="size-4" /></span>
+                  <h2 className="mt-3 text-sm font-semibold">{item.title}</h2>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">{item.detail}</p>
+                </Link>
+              ))}
+            </section>
+          ) : null}
           <div className={cn('grid gap-4 sm:grid-cols-2 xl:grid-cols-[1.3fr_1fr_1fr_1fr]', d && 'stagger')}>
             <Card className="flex items-center gap-6 p-5 sm:col-span-2 xl:col-span-1">
               {isLoading || !d ? <Skeleton className="size-[132px] rounded-full" /> : <Ring value={d.compliance_pct} label="compliant" color={toneFill[toneFor(d.compliance_pct)]} />}

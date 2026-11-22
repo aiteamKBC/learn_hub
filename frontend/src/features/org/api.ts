@@ -21,6 +21,29 @@ export function useCompany() {
   return useQuery({ queryKey: ['org', 'company', currentOrgId()], queryFn: fetchCompany })
 }
 
+const fetchRoleCapabilities = () => unwrap(api.GET('/api/v1/org/role-capabilities'))
+export type OrgResponsibility = components['schemas']['OrgResponsibilityIn']
+export type OrgResponsibilityView = components['schemas']['OrgResponsibilityOut']
+
+export function useRoleCapabilities() {
+  return useQuery({ queryKey: ['org', 'role-capabilities', currentOrgId()], queryFn: fetchRoleCapabilities, enabled: !!currentOrgId() })
+}
+
+export function usePersonResponsibilities(memberId: string) {
+  return useQuery({
+    queryKey: ['org', 'responsibilities', currentOrgId(), memberId],
+    queryFn: () => unwrap(api.GET('/api/v1/org/people/{member_id}/responsibilities', { params: { path: { member_id: memberId } } })),
+  })
+}
+
+export function useSetPersonResponsibilities(memberId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (assignments: OrgResponsibility[]) => unwrap(api.PUT('/api/v1/org/people/{member_id}/responsibilities', { params: { path: { member_id: memberId } }, body: { assignments } })),
+    onSuccess: () => refresh(qc, ['org', 'responsibilities'], ['org', 'role-capabilities'], ['org', 'people']),
+  })
+}
+
 export function useUnits() {
   return useQuery({ queryKey: ['org', 'units', currentOrgId()], queryFn: fetchUnits })
 }

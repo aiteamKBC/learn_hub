@@ -415,6 +415,41 @@ export interface paths {
         patch: operations["apps_org_api_update_person"];
         trace?: never;
     };
+    "/api/v1/org/role-capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Role Capabilities */
+        get: operations["apps_org_api_role_capabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/people/{member_id}/responsibilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Person Responsibilities */
+        get: operations["apps_org_api_person_responsibilities"];
+        /** Set Person Responsibilities */
+        put: operations["apps_org_api_set_person_responsibilities"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/org/invites": {
         parameters: {
             query?: never;
@@ -2885,6 +2920,1271 @@ export interface paths {
         post?: never;
         /** Delete Attachment */
         delete: operations["apps_corporate_api_delete_attachment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hcm/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Profile */
+        get: operations["apps_hcm_api_my_profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update My Profile */
+        patch: operations["apps_hcm_api_update_my_profile"];
+        trace?: never;
+    };
+    "/api/v1/hcm/me/wellbeing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Wellbeing */
+        get: operations["apps_hcm_api_my_wellbeing"];
+        put?: never;
+        /** Submit Wellbeing */
+        post: operations["apps_hcm_api_submit_wellbeing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hcm/me/cpd": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Cpd */
+        get: operations["apps_hcm_api_my_cpd"];
+        put?: never;
+        /** Add My Cpd */
+        post: operations["apps_hcm_api_add_my_cpd"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hcm/me/qualifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Qualifications */
+        get: operations["apps_hcm_api_my_qualifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hcm/qualifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Qualifications */
+        get: operations["apps_hcm_api_list_qualifications"];
+        put?: never;
+        /** Create Qualification */
+        post: operations["apps_hcm_api_create_qualification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hcm/people/{member_id}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Profile */
+        get: operations["apps_hcm_api_get_profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Hr Profile */
+        patch: operations["apps_hcm_api_update_hr_profile"];
+        trace?: never;
+    };
+    "/api/v1/hcm/people/{member_id}/qualifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Award Member Qualification */
+        post: operations["apps_hcm_api_award_member_qualification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hcm/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health */
+        get: operations["apps_hcm_api_health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/competencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Competencies */
+        get: operations["apps_frameworks_api_list_competencies"];
+        put?: never;
+        /** Create Competency */
+        post: operations["apps_frameworks_api_create_competency"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/competencies/{competency_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Competency */
+        patch: operations["apps_frameworks_api_update_competency"];
+        trace?: never;
+    };
+    "/api/v1/frameworks/competencies/{competency_id}/clone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Clone Competency */
+        post: operations["apps_frameworks_api_clone_competency"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/courses/{course_id}/competencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Course Tags */
+        get: operations["apps_frameworks_api_list_course_tags"];
+        put?: never;
+        /** Tag Course */
+        post: operations["apps_frameworks_api_tag_course"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Roles */
+        get: operations["apps_frameworks_api_list_roles"];
+        put?: never;
+        /** Create Role */
+        post: operations["apps_frameworks_api_create_role"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/roles/{framework_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Role */
+        get: operations["apps_frameworks_api_get_role"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/roles/{framework_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Role History */
+        get: operations["apps_frameworks_api_role_history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/roles/{framework_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Version */
+        post: operations["apps_frameworks_api_start_version"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/versions/{version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Version */
+        get: operations["apps_frameworks_api_get_version"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Version */
+        patch: operations["apps_frameworks_api_update_version"];
+        trace?: never;
+    };
+    "/api/v1/frameworks/versions/{version_id}/requirements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Requirement */
+        post: operations["apps_frameworks_api_add_requirement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/versions/{version_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Version */
+        post: operations["apps_frameworks_api_submit_version"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/versions/{version_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Version */
+        post: operations["apps_frameworks_api_approve_version"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/versions/{version_id}/request-changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Changes */
+        post: operations["apps_frameworks_api_request_changes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/me/competence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Competence */
+        get: operations["apps_frameworks_api_my_competence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/versions/{version_id}/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Version Readiness */
+        get: operations["apps_frameworks_api_version_readiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/versions/{version_id}/recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Version Recommendations */
+        get: operations["apps_frameworks_api_version_recommendations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/maturity/versions/{version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Maturity Version */
+        get: operations["apps_frameworks_api_get_maturity_version"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/maturity/frameworks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Maturity Frameworks */
+        get: operations["apps_frameworks_api_list_maturity_frameworks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/maturity/campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Campaigns */
+        get: operations["apps_frameworks_api_list_campaigns"];
+        put?: never;
+        /** Create Campaign */
+        post: operations["apps_frameworks_api_create_campaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/maturity/campaigns/{campaign_id}/responses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Response */
+        post: operations["apps_frameworks_api_submit_response"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/maturity/campaigns/{campaign_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close Campaign */
+        post: operations["apps_frameworks_api_close_campaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/maturity/campaigns/{campaign_id}/scores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Campaign Scores */
+        get: operations["apps_frameworks_api_campaign_scores"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/frameworks/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health */
+        get: operations["apps_frameworks_api_health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/kpis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Kpis */
+        get: operations["apps_pms_api_list_kpis"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/kpis/{kpi_id}/measurements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Measurements */
+        get: operations["apps_pms_api_list_measurements"];
+        put?: never;
+        /** Record Measurement */
+        post: operations["apps_pms_api_record_measurement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/kpis/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Proposals */
+        get: operations["apps_pms_api_list_proposals"];
+        put?: never;
+        /** Create Proposal */
+        post: operations["apps_pms_api_create_proposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/kpis/proposals/{proposal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Proposal */
+        get: operations["apps_pms_api_get_proposal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Proposal */
+        patch: operations["apps_pms_api_update_proposal"];
+        trace?: never;
+    };
+    "/api/v1/pms/kpis/proposals/{proposal_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Proposal History */
+        get: operations["apps_pms_api_proposal_history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/kpis/proposals/{proposal_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Proposal */
+        post: operations["apps_pms_api_submit_proposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/kpis/proposals/{proposal_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Proposal */
+        post: operations["apps_pms_api_approve_proposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/kpis/proposals/{proposal_id}/request-changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Changes Proposal */
+        post: operations["apps_pms_api_request_changes_proposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/review-cycles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Cycles */
+        get: operations["apps_pms_api_list_cycles"];
+        put?: never;
+        /** Create Cycle */
+        post: operations["apps_pms_api_create_cycle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/review-cycles/{cycle_id}/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open Cycle */
+        post: operations["apps_pms_api_open_cycle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/review-cycles/{cycle_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close Cycle */
+        post: operations["apps_pms_api_close_cycle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/review-cycles/{cycle_id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Cycle Reviews */
+        get: operations["apps_pms_api_list_cycle_reviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/me/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Reviews */
+        get: operations["apps_pms_api_my_reviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Review */
+        post: operations["apps_pms_api_create_review"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/reviews/{review_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Review */
+        get: operations["apps_pms_api_get_review"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Review */
+        patch: operations["apps_pms_api_update_review"];
+        trace?: never;
+    };
+    "/api/v1/pms/reviews/{review_id}/objectives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Objective */
+        post: operations["apps_pms_api_add_objective"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/reviews/{review_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Review */
+        post: operations["apps_pms_api_submit_review"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/reviews/{review_id}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Acknowledge Review */
+        post: operations["apps_pms_api_acknowledge_review"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/reviews/{review_id}/analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Analysis */
+        get: operations["apps_pms_api_get_analysis"];
+        put?: never;
+        /** Generate Analysis */
+        post: operations["apps_pms_api_generate_analysis"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pms/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health */
+        get: operations["apps_pms_api_health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/strategies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Strategies */
+        get: operations["apps_governance_api_list_strategies"];
+        put?: never;
+        /** Create Strategy */
+        post: operations["apps_governance_api_create_strategy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/strategies/{sid}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Strategy Versions */
+        get: operations["apps_governance_api_strategy_versions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/strategy-versions/{vid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Strategy Version */
+        get: operations["apps_governance_api_get_strategy_version"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Strategy Version */
+        patch: operations["apps_governance_api_update_strategy_version"];
+        trace?: never;
+    };
+    "/api/v1/governance/strategy-versions/{vid}/objectives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Objective */
+        post: operations["apps_governance_api_add_objective"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/strategy-versions/{vid}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Strategy Version */
+        post: operations["apps_governance_api_approve_strategy_version"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Policies */
+        get: operations["apps_governance_api_list_policies"];
+        put?: never;
+        /** Create Policy */
+        post: operations["apps_governance_api_create_policy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/policies/{pid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Policy */
+        get: operations["apps_governance_api_get_policy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/policies/{pid}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Policy Versions */
+        get: operations["apps_governance_api_policy_versions"];
+        put?: never;
+        /** Start Policy Version */
+        post: operations["apps_governance_api_start_policy_version"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/policy-versions/{vid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Policy Version */
+        get: operations["apps_governance_api_get_policy_version"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Policy Version */
+        patch: operations["apps_governance_api_update_policy_version"];
+        trace?: never;
+    };
+    "/api/v1/governance/policy-versions/{vid}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Policy Version */
+        post: operations["apps_governance_api_approve_policy_version"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/policies/{pid}/allocation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Allocation */
+        get: operations["apps_governance_api_get_allocation"];
+        /** Set Allocation */
+        put: operations["apps_governance_api_set_allocation"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/policies/{pid}/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Policy Records */
+        get: operations["apps_governance_api_policy_records"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/me/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Policies */
+        get: operations["apps_governance_api_my_policies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/me/policies/{pid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Policy Content */
+        get: operations["apps_governance_api_my_policy_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/policies/{pid}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read Policy */
+        post: operations["apps_governance_api_read_policy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/policies/{pid}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Acknowledge Policy */
+        post: operations["apps_governance_api_acknowledge_policy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/policies/{pid}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Check */
+        post: operations["apps_governance_api_submit_check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/policies/{pid}/observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Observation */
+        post: operations["apps_governance_api_add_observation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Questions */
+        get: operations["apps_governance_api_list_questions"];
+        put?: never;
+        /** Create Question */
+        post: operations["apps_governance_api_create_question"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/questions/{qid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Question */
+        get: operations["apps_governance_api_get_question"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Question */
+        patch: operations["apps_governance_api_update_question"];
+        trace?: never;
+    };
+    "/api/v1/governance/questions/{qid}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive Question */
+        post: operations["apps_governance_api_archive_question"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health */
+        get: operations["apps_governance_api_health"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -8558,6 +9858,39 @@ export interface components {
             /** Job Role Ids */
             job_role_ids?: string[] | null;
         };
+        /** OrgResponsibilityOut */
+        OrgResponsibilityOut: {
+            /** Code */
+            code: string;
+            /** Unit Id */
+            unit_id: string | null;
+            /** Unit Name */
+            unit_name: string | null;
+        };
+        /** OrgRoleCapabilitiesOut */
+        OrgRoleCapabilitiesOut: {
+            /** Can Manage Responsibilities */
+            can_manage_responsibilities: boolean;
+            /** Responsibilities */
+            responsibilities: components["schemas"]["OrgResponsibilityOut"][];
+        };
+        /** OrgResponsibilitiesOut */
+        OrgResponsibilitiesOut: {
+            /** Assignments */
+            assignments: components["schemas"]["OrgResponsibilityOut"][];
+        };
+        /** OrgResponsibilitiesIn */
+        OrgResponsibilitiesIn: {
+            /** Assignments */
+            assignments?: components["schemas"]["OrgResponsibilityIn"][];
+        };
+        /** OrgResponsibilityIn */
+        OrgResponsibilityIn: {
+            /** Code */
+            code: string;
+            /** Unit Id */
+            unit_id?: string | null;
+        };
         /** InviteOut */
         InviteOut: {
             /**
@@ -12142,6 +13475,1690 @@ export interface components {
         CorporateDownloadOut: {
             /** Url */
             url: string;
+        };
+        /** ProfileOut */
+        ProfileOut: {
+            /**
+             * Member Id
+             * Format: uuid
+             */
+            member_id: string;
+            /** Full Name */
+            full_name: string;
+            /** Email */
+            email: string;
+            /** Role */
+            role: string;
+            /** Track */
+            track: string;
+            /** Level */
+            level: number | null;
+            /** Aspiration */
+            aspiration: string;
+            /** Location */
+            location: string;
+            /** Start Date */
+            start_date: string | null;
+            /** Termination Date */
+            termination_date: string | null;
+            /** Line Manager Id */
+            line_manager_id: string | null;
+            /** Line Manager Name */
+            line_manager_name: string | null;
+            /** Stay Intent */
+            stay_intent: string | null;
+            /** Satisfaction */
+            satisfaction: string | null;
+            /** Adjustments */
+            adjustments: string;
+            /** Cpd Hours Cached */
+            cpd_hours_cached: string;
+        };
+        /**
+         * MyProfilePatch
+         * @description Fields a member may change on their own profile.
+         */
+        MyProfilePatch: {
+            /** Aspiration */
+            aspiration?: string | null;
+            /** Adjustments */
+            adjustments?: string | null;
+        };
+        /** WellbeingOut */
+        WellbeingOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+            /** Hope */
+            hope: number;
+            /** Efficacy */
+            efficacy: number;
+            /** Resilience */
+            resilience: number;
+            /** Optimism */
+            optimism: number;
+            /** Overall */
+            overall: number;
+            /** Stay Intent */
+            stay_intent: string | null;
+            /** Satisfaction */
+            satisfaction: string | null;
+            /** Note */
+            note: string;
+        };
+        /** WellbeingIn */
+        WellbeingIn: {
+            /** Hope */
+            hope: number;
+            /** Efficacy */
+            efficacy: number;
+            /** Resilience */
+            resilience: number;
+            /** Optimism */
+            optimism: number;
+            /** Overall */
+            overall: number;
+            /** Stay Intent */
+            stay_intent?: number | string | null;
+            /** Satisfaction */
+            satisfaction?: number | string | null;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** CpdOut */
+        CpdOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Title */
+            title: string;
+            /** Provider */
+            provider: string;
+            /**
+             * Completed On
+             * Format: date
+             */
+            completed_on: string;
+            /** Hours */
+            hours: string;
+            /** Verified */
+            verified: boolean;
+            /** Verified At */
+            verified_at: string | null;
+        };
+        /** CpdIn */
+        CpdIn: {
+            /** Title */
+            title: string;
+            /**
+             * Provider
+             * @default
+             */
+            provider: string;
+            /**
+             * Completed On
+             * Format: date
+             */
+            completed_on: string;
+            /** Hours */
+            hours: number | string;
+        };
+        /** MemberQualificationOut */
+        MemberQualificationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Qualification Id
+             * Format: uuid
+             */
+            qualification_id: string;
+            /** Qualification Name */
+            qualification_name: string;
+            /** Code */
+            code: string;
+            /** Awarded On */
+            awarded_on: string | null;
+            /** Expires On */
+            expires_on: string | null;
+        };
+        /** QualificationOut */
+        QualificationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Code */
+            code: string;
+            /** Archived */
+            archived: boolean;
+        };
+        /** QualificationIn */
+        QualificationIn: {
+            /** Name */
+            name: string;
+            /**
+             * Code
+             * @default
+             */
+            code: string;
+        };
+        /**
+         * HrProfilePatch
+         * @description Fields an HR admin may change on a member's profile.
+         */
+        HrProfilePatch: {
+            /** Track */
+            track?: string | null;
+            /** Level */
+            level?: number | null;
+            /** Aspiration */
+            aspiration?: string | null;
+            /** Location */
+            location?: string | null;
+            /** Start Date */
+            start_date?: string | null;
+            /** Termination Date */
+            termination_date?: string | null;
+            /** Line Manager Id */
+            line_manager_id?: string | null;
+            /** Adjustments */
+            adjustments?: string | null;
+        };
+        /** MemberQualificationIn */
+        MemberQualificationIn: {
+            /**
+             * Qualification Id
+             * Format: uuid
+             */
+            qualification_id: string;
+            /** Awarded On */
+            awarded_on?: string | null;
+            /** Expires On */
+            expires_on?: string | null;
+        };
+        /** HcmOk */
+        HcmOk: {
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+        };
+        /** FwCompetencyOut */
+        FwCompetencyOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Owner Org Id */
+            owner_org_id: string | null;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Kind */
+            kind: string;
+            /** Sort Order */
+            sort_order: number;
+            /** Is Platform */
+            is_platform: boolean;
+            /** Cloned From Id */
+            cloned_from_id: string | null;
+            /** Archived */
+            archived: boolean;
+        };
+        /** FwCompetencyIn */
+        FwCompetencyIn: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Sort Order
+             * @default 0
+             */
+            sort_order: number;
+        };
+        /** FwCompetencyPatch */
+        FwCompetencyPatch: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Sort Order */
+            sort_order?: number | null;
+        };
+        /** FwCourseTagOut */
+        FwCourseTagOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Competency Id
+             * Format: uuid
+             */
+            competency_id: string;
+            /** Competency Code */
+            competency_code: string;
+            /** Competency Name */
+            competency_name: string;
+            /** Target Level */
+            target_level: number;
+            /** Weight */
+            weight: number;
+        };
+        /** FwCourseTagIn */
+        FwCourseTagIn: {
+            /**
+             * Competency Id
+             * Format: uuid
+             */
+            competency_id: string;
+            /**
+             * Target Level
+             * @default 3
+             */
+            target_level: number;
+            /**
+             * Weight
+             * @default 5
+             */
+            weight: number;
+        };
+        /** FwRoleOut */
+        FwRoleOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Job Role Id
+             * Format: uuid
+             */
+            job_role_id: string;
+            /** Unit Id */
+            unit_id: string | null;
+            /** Title */
+            title: string;
+            /** Level */
+            level: number;
+            /** Step */
+            step: number;
+            /** Track */
+            track: string;
+            /** Archived */
+            archived: boolean;
+            /** Approved Version Number */
+            approved_version_number: number | null;
+            /** Latest Version Number */
+            latest_version_number: number | null;
+            /** Approved Version Id */
+            approved_version_id: string | null;
+            /** Latest Version Id */
+            latest_version_id: string | null;
+        };
+        /** FwRoleIn */
+        FwRoleIn: {
+            /**
+             * Job Role Id
+             * Format: uuid
+             */
+            job_role_id: string;
+            /** Unit Id */
+            unit_id?: string | null;
+            /** Title */
+            title: string;
+            /** Level */
+            level: number;
+            /**
+             * Step
+             * @default 1
+             */
+            step: number;
+            /**
+             * Track
+             * @default
+             */
+            track: string;
+        };
+        /** FwHistoryOut */
+        FwHistoryOut: {
+            /** Version Number */
+            version_number: number;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Action */
+            action: string;
+            /** Comment */
+            comment: string;
+        };
+        /** FwRequirementOut */
+        FwRequirementOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Text */
+            text: string;
+            /** Competency Id */
+            competency_id: string | null;
+            /** Competency Code */
+            competency_code: string | null;
+            /** Level */
+            level: number;
+            /** Priority */
+            priority: string;
+            /** Weight */
+            weight: number;
+            /** Sort Order */
+            sort_order: number;
+        };
+        /** FwVersionOut */
+        FwVersionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Framework Id
+             * Format: uuid
+             */
+            framework_id: string;
+            /** Number */
+            number: number;
+            /** Status */
+            status: string;
+            /** Job Description */
+            job_description: string;
+            /** Person Spec */
+            person_spec: string;
+            /** Required Hours */
+            required_hours: number;
+            /** Recommended Hours */
+            recommended_hours: number | null;
+            /** Cpd Period */
+            cpd_period: string;
+            /** Required Qualification Ids */
+            required_qualification_ids: string[];
+            /** Recommended Qualification Ids */
+            recommended_qualification_ids: string[];
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Approved At */
+            approved_at: string | null;
+            /** Requirements */
+            requirements: components["schemas"]["FwRequirementOut"][];
+        };
+        /** FwVersionPatch */
+        FwVersionPatch: {
+            /** Job Description */
+            job_description?: string | null;
+            /** Person Spec */
+            person_spec?: string | null;
+            /** Required Hours */
+            required_hours?: number | null;
+            /** Recommended Hours */
+            recommended_hours?: number | null;
+            /** Cpd Period */
+            cpd_period?: string | null;
+            /** Required Qualification Ids */
+            required_qualification_ids?: string[] | null;
+            /** Recommended Qualification Ids */
+            recommended_qualification_ids?: string[] | null;
+        };
+        /** FwRequirementIn */
+        FwRequirementIn: {
+            /** Kind */
+            kind: string;
+            /** Text */
+            text: string;
+            /** Competency Id */
+            competency_id?: string | null;
+            /** Level */
+            level: number;
+            /** Priority */
+            priority: string;
+            /**
+             * Weight
+             * @default 5
+             */
+            weight: number;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+        };
+        /** FwTransitionIn */
+        FwTransitionIn: {
+            /**
+             * Comment
+             * @default
+             */
+            comment: string;
+        };
+        /** FwCompetenceItem */
+        FwCompetenceItem: {
+            /**
+             * Competency Id
+             * Format: uuid
+             */
+            competency_id: string;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Evidenced Level */
+            evidenced_level: number;
+        };
+        /** FwCompetenceOut */
+        FwCompetenceOut: {
+            /**
+             * Member Id
+             * Format: uuid
+             */
+            member_id: string;
+            /** Items */
+            items: components["schemas"]["FwCompetenceItem"][];
+            /** Computed At */
+            computed_at: string | null;
+        };
+        /** FwGapOut */
+        FwGapOut: {
+            /**
+             * Competency Id
+             * Format: uuid
+             */
+            competency_id: string;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Required Level */
+            required_level: number;
+            /** Evidenced Level */
+            evidenced_level: number;
+            /** Priority */
+            priority: string;
+        };
+        /** FwReadinessOut */
+        FwReadinessOut: {
+            /**
+             * Member Id
+             * Format: uuid
+             */
+            member_id: string;
+            /**
+             * Version Id
+             * Format: uuid
+             */
+            version_id: string;
+            /** Competence Score */
+            competence_score: number;
+            /** Qualifications Met */
+            qualifications_met: boolean;
+            /** Missing Qualification Ids */
+            missing_qualification_ids: string[];
+            /** Ready */
+            ready: boolean;
+            /** Gaps */
+            gaps: components["schemas"]["FwGapOut"][];
+        };
+        /** FwRecommendationOut */
+        FwRecommendationOut: {
+            /**
+             * Competency Id
+             * Format: uuid
+             */
+            competency_id: string;
+            /** Competency Code */
+            competency_code: string;
+            /** Required Level */
+            required_level: number;
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Target Level */
+            target_level: number;
+        };
+        /** FwMaturityCriterionOut */
+        FwMaturityCriterionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Practice */
+            practice: string;
+            /** Question */
+            question: string;
+            /** Evidence */
+            evidence: string;
+            /** Weight */
+            weight: number;
+            /** Anchors */
+            anchors: string[];
+        };
+        /** FwMaturityDimensionOut */
+        FwMaturityDimensionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Target Level */
+            target_level: number;
+            /** Weight */
+            weight: number;
+            /** Action Hint */
+            action_hint: string;
+            /** Criteria */
+            criteria: components["schemas"]["FwMaturityCriterionOut"][];
+        };
+        /** FwMaturityVersionOut */
+        FwMaturityVersionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Framework Id
+             * Format: uuid
+             */
+            framework_id: string;
+            /** Number */
+            number: number;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /** Dimensions */
+            dimensions: components["schemas"]["FwMaturityDimensionOut"][];
+        };
+        /** FwMaturityFrameworkOut */
+        FwMaturityFrameworkOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Owner Org Id */
+            owner_org_id: string | null;
+            /** Code */
+            code: string;
+            /** Kind */
+            kind: string;
+            /** Dept */
+            dept: string;
+            /** Title */
+            title: string;
+            /** Is Platform */
+            is_platform: boolean;
+            /** Published Version Id */
+            published_version_id: string | null;
+        };
+        /** FwCampaignOut */
+        FwCampaignOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Framework Version Id
+             * Format: uuid
+             */
+            framework_version_id: string;
+            /** Dept */
+            dept: string;
+            /** Quarter Year */
+            quarter_year: number;
+            /** Quarter */
+            quarter: number;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Closed At */
+            closed_at: string | null;
+            /** Response Count */
+            response_count: number;
+        };
+        /** FwCampaignIn */
+        FwCampaignIn: {
+            /**
+             * Framework Version Id
+             * Format: uuid
+             */
+            framework_version_id: string;
+            /** Dept */
+            dept: string;
+            /** Quarter Year */
+            quarter_year: number;
+            /** Quarter */
+            quarter: number;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+        };
+        /** FwResponseOut */
+        FwResponseOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Campaign Id
+             * Format: uuid
+             */
+            campaign_id: string;
+            /**
+             * Member Id
+             * Format: uuid
+             */
+            member_id: string;
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+        };
+        /** FwResponseIn */
+        FwResponseIn: {
+            /** Answers */
+            answers?: {
+                [key: string]: unknown;
+            };
+            /** Reflections */
+            reflections?: {
+                [key: string]: unknown;
+            };
+        };
+        /** FwCampaignScoresOut */
+        FwCampaignScoresOut: {
+            /**
+             * Campaign Id
+             * Format: uuid
+             */
+            campaign_id: string;
+            /** Closed At */
+            closed_at: string | null;
+            /** Response Count */
+            response_count: number;
+            /** Scores */
+            scores: {
+                [key: string]: unknown;
+            };
+        };
+        /** FwOk */
+        FwOk: {
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+        };
+        /** PmsKpiOut */
+        PmsKpiOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Objective Code */
+            objective_code: string;
+            /** Objective Title */
+            objective_title: string;
+            /** Dept */
+            dept: string;
+            /** Name */
+            name: string;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Definition */
+            definition: string;
+            /** Unit */
+            unit: string;
+            /** Baseline */
+            baseline: string | null;
+            /** Target */
+            target: string | null;
+            /** Higher Better */
+            higher_better: boolean;
+            /** Cadence */
+            cadence: string;
+            /** Weight */
+            weight: number;
+            /** Period */
+            period: string;
+            /** Review Date */
+            review_date: string | null;
+            /** Status */
+            status: string;
+            /** Latest Value */
+            latest_value: string | null;
+            /** Attainment */
+            attainment: number | null;
+        };
+        /** PmsMeasurementOut */
+        PmsMeasurementOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kpi Id
+             * Format: uuid
+             */
+            kpi_id: string;
+            /** Period Year */
+            period_year: number;
+            /** Period Index */
+            period_index: number;
+            /** Value */
+            value: string;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+            /** Note */
+            note: string;
+        };
+        /** PmsMeasurementIn */
+        PmsMeasurementIn: {
+            /** Period Year */
+            period_year: number;
+            /** Period Index */
+            period_index: number;
+            /** Value */
+            value: number | string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** PmsProposalOut */
+        PmsProposalOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Objective Code */
+            objective_code: string;
+            /** Objective Title */
+            objective_title: string;
+            /** Dept */
+            dept: string;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Definition */
+            definition: string;
+            /** Unit */
+            unit: string;
+            /** Baseline */
+            baseline: string | null;
+            /** Target */
+            target: string | null;
+            /** Actual */
+            actual: string | null;
+            /** Higher Better */
+            higher_better: boolean;
+            /** Source */
+            source: string;
+            /** Cadence */
+            cadence: string;
+            /** Period */
+            period: string;
+            /** Review Date */
+            review_date: string | null;
+            /** Weight */
+            weight: number;
+            /** Stage */
+            stage: string;
+            /** Version */
+            version: number;
+            /** Ai Draft */
+            ai_draft: boolean;
+            /** Active Kpi Id */
+            active_kpi_id: string | null;
+        };
+        /** PmsProposalIn */
+        PmsProposalIn: {
+            /** Name */
+            name: string;
+            /**
+             * Objective Code
+             * @default
+             */
+            objective_code: string;
+            /**
+             * Objective Title
+             * @default
+             */
+            objective_title: string;
+            /**
+             * Dept
+             * @default
+             */
+            dept: string;
+            /** Owner Id */
+            owner_id?: string | null;
+            /**
+             * Definition
+             * @default
+             */
+            definition: string;
+            /**
+             * Unit
+             * @default
+             */
+            unit: string;
+            /** Baseline */
+            baseline?: number | string | null;
+            /** Target */
+            target?: number | string | null;
+            /**
+             * Higher Better
+             * @default true
+             */
+            higher_better: boolean;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /**
+             * Cadence
+             * @default monthly
+             */
+            cadence: string;
+            /**
+             * Period
+             * @default
+             */
+            period: string;
+            /** Review Date */
+            review_date?: string | null;
+            /**
+             * Weight
+             * @default 10
+             */
+            weight: number;
+        };
+        /** PmsProposalPatch */
+        PmsProposalPatch: {
+            /** Name */
+            name?: string | null;
+            /** Objective Code */
+            objective_code?: string | null;
+            /** Objective Title */
+            objective_title?: string | null;
+            /** Dept */
+            dept?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Definition */
+            definition?: string | null;
+            /** Unit */
+            unit?: string | null;
+            /** Baseline */
+            baseline?: number | string | null;
+            /** Target */
+            target?: number | string | null;
+            /** Higher Better */
+            higher_better?: boolean | null;
+            /** Source */
+            source?: string | null;
+            /** Cadence */
+            cadence?: string | null;
+            /** Period */
+            period?: string | null;
+            /** Review Date */
+            review_date?: string | null;
+            /** Weight */
+            weight?: number | null;
+        };
+        /** PmsHistoryOut */
+        PmsHistoryOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Action */
+            action: string;
+            /** Stage */
+            stage: string;
+            /** Version */
+            version: number;
+            /** Comment */
+            comment: string;
+        };
+        /** PmsTransitionIn */
+        PmsTransitionIn: {
+            /**
+             * Comment
+             * @default
+             */
+            comment: string;
+        };
+        /** PmsCycleOut */
+        PmsCycleOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Year */
+            year: number;
+            /** Quarter */
+            quarter: number;
+            /**
+             * Opens At
+             * Format: date-time
+             */
+            opens_at: string;
+            /**
+             * Closes At
+             * Format: date-time
+             */
+            closes_at: string;
+            /** Status */
+            status: string;
+            /** Closed At */
+            closed_at: string | null;
+            /** Review Count */
+            review_count: number;
+        };
+        /** PmsCycleIn */
+        PmsCycleIn: {
+            /** Name */
+            name: string;
+            /** Year */
+            year: number;
+            /** Quarter */
+            quarter: number;
+            /**
+             * Opens At
+             * Format: date-time
+             */
+            opens_at: string;
+            /**
+             * Closes At
+             * Format: date-time
+             */
+            closes_at: string;
+        };
+        /** PmsObjectiveOut */
+        PmsObjectiveOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Measure */
+            measure: string;
+            /** Priority */
+            priority: string;
+            /** Progress Pct */
+            progress_pct: number;
+            /** Status */
+            status: string;
+            /** Sort Order */
+            sort_order: number;
+        };
+        /** PmsReviewOut */
+        PmsReviewOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Cycle Id
+             * Format: uuid
+             */
+            cycle_id: string;
+            /**
+             * Member Id
+             * Format: uuid
+             */
+            member_id: string;
+            /** Reviewer Id */
+            reviewer_id: string | null;
+            /** Status */
+            status: string;
+            /** Self Summary */
+            self_summary: string;
+            /** Manager Summary */
+            manager_summary: string;
+            /** Strengths */
+            strengths: string;
+            /** Development Areas */
+            development_areas: string;
+            /** Overall Rating */
+            overall_rating: number | null;
+            /** Competence Score */
+            competence_score: string | null;
+            /** Kpi Score */
+            kpi_score: string | null;
+            /** Wellbeing Score */
+            wellbeing_score: string | null;
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Acknowledged At */
+            acknowledged_at: string | null;
+            /** Objectives */
+            objectives: components["schemas"]["PmsObjectiveOut"][];
+        };
+        /** PmsReviewCreateIn */
+        PmsReviewCreateIn: {
+            /**
+             * Cycle Id
+             * Format: uuid
+             */
+            cycle_id: string;
+            /**
+             * Member Id
+             * Format: uuid
+             */
+            member_id: string;
+            /** Reviewer Id */
+            reviewer_id?: string | null;
+        };
+        /** PmsReviewPatch */
+        PmsReviewPatch: {
+            /** Self Summary */
+            self_summary?: string | null;
+            /** Manager Summary */
+            manager_summary?: string | null;
+            /** Strengths */
+            strengths?: string | null;
+            /** Development Areas */
+            development_areas?: string | null;
+            /** Overall Rating */
+            overall_rating?: number | null;
+        };
+        /** PmsObjectiveIn */
+        PmsObjectiveIn: {
+            /** Title */
+            title: string;
+            /**
+             * Measure
+             * @default
+             */
+            measure: string;
+            /**
+             * Priority
+             * @default medium
+             */
+            priority: string;
+            /**
+             * Progress Pct
+             * @default 0
+             */
+            progress_pct: number;
+            /**
+             * Status
+             * @default open
+             */
+            status: string;
+        };
+        /** PmsAnalysisOut */
+        PmsAnalysisOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Review Id
+             * Format: uuid
+             */
+            review_id: string;
+            /** Status */
+            status: string;
+            /** Model Id */
+            model_id: string;
+            /** Summary */
+            summary: string;
+            /** Strengths */
+            strengths: string[];
+            /** Development */
+            development: string[];
+            /** Suggested Actions */
+            suggested_actions: string[];
+            /** Error */
+            error: string;
+            /** Generated At */
+            generated_at: string | null;
+        };
+        /** PmsOk */
+        PmsOk: {
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+        };
+        /** GovStrategyOut */
+        GovStrategyOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Archived */
+            archived: boolean;
+            /** Approved Version Number */
+            approved_version_number: number | null;
+            /** Latest Version Number */
+            latest_version_number: number | null;
+        };
+        /** GovStrategyIn */
+        GovStrategyIn: {
+            /** Name */
+            name: string;
+        };
+        /** GovObjectiveOut */
+        GovObjectiveOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /** Priority */
+            priority: string;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Period */
+            period: string;
+            /** Measure */
+            measure: string;
+            /** Description */
+            description: string;
+            /** Sort Order */
+            sort_order: number;
+        };
+        /** GovStrategyVersionOut */
+        GovStrategyVersionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Strategy Id
+             * Format: uuid
+             */
+            strategy_id: string;
+            /** Number */
+            number: number;
+            /** Status */
+            status: string;
+            /** Vision */
+            vision: string;
+            /** Mission */
+            mission: string;
+            /** Values */
+            values: string[];
+            /** Note */
+            note: string;
+            /** Approved At */
+            approved_at: string | null;
+            /** Objectives */
+            objectives: components["schemas"]["GovObjectiveOut"][];
+        };
+        /** GovVersionPatch */
+        GovVersionPatch: {
+            /** Vision */
+            vision?: string | null;
+            /** Mission */
+            mission?: string | null;
+            /** Values */
+            values?: string[] | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** GovObjectiveIn */
+        GovObjectiveIn: {
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /**
+             * Priority
+             * @default medium
+             */
+            priority: string;
+            /** Owner Id */
+            owner_id?: string | null;
+            /**
+             * Period
+             * @default
+             */
+            period: string;
+            /**
+             * Measure
+             * @default
+             */
+            measure: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /** GovPolicyOut */
+        GovPolicyOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /** Doc Type */
+            doc_type: string;
+            /** Category */
+            category: string;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Objective Code */
+            objective_code: string;
+            /** Summary */
+            summary: string;
+            /** Current Version */
+            current_version: number;
+            /** Status */
+            status: string;
+            /** Archived */
+            archived: boolean;
+        };
+        /** GovPolicyIn */
+        GovPolicyIn: {
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /**
+             * Doc Type
+             * @default policy
+             */
+            doc_type: string;
+            /**
+             * Category
+             * @default
+             */
+            category: string;
+            /** Owner Id */
+            owner_id?: string | null;
+            /**
+             * Objective Code
+             * @default
+             */
+            objective_code: string;
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+        };
+        /** GovPolicyVersionOut */
+        GovPolicyVersionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Doc Id
+             * Format: uuid
+             */
+            doc_id: string;
+            /** Number */
+            number: number;
+            /** Status */
+            status: string;
+            /** Effective Date */
+            effective_date: string | null;
+            /** Review Date */
+            review_date: string | null;
+            /** Summary */
+            summary: string;
+            /** Sections */
+            sections: unknown[];
+            /** Understanding Check */
+            understanding_check: {
+                [key: string]: unknown;
+            };
+            /** Approved At */
+            approved_at: string | null;
+            /** Published At */
+            published_at: string | null;
+        };
+        /** GovPolicyVersionPatch */
+        GovPolicyVersionPatch: {
+            /** Effective Date */
+            effective_date?: string | null;
+            /** Review Date */
+            review_date?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /** Sections */
+            sections?: unknown[] | null;
+            /** Understanding Check */
+            understanding_check?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** GovAllocationOut */
+        GovAllocationOut: {
+            /**
+             * Doc Id
+             * Format: uuid
+             */
+            doc_id: string;
+            /** Scope */
+            scope: string;
+            /** Depts */
+            depts: string[];
+            /** Titles */
+            titles: string[];
+            /** Sites */
+            sites: string[];
+            /** Worker Types */
+            worker_types: string[];
+            /** Persons */
+            persons: string[];
+            /** Require Reack */
+            require_reack: boolean;
+            /** Published Version */
+            published_version: number | null;
+            /** Published At */
+            published_at: string | null;
+        };
+        /** GovAllocationIn */
+        GovAllocationIn: {
+            /**
+             * Scope
+             * @default org
+             */
+            scope: string;
+            /** Depts */
+            depts?: string[];
+            /** Titles */
+            titles?: string[];
+            /** Sites */
+            sites?: string[];
+            /** Worker Types */
+            worker_types?: string[];
+            /** Persons */
+            persons?: string[];
+            /**
+             * Require Reack
+             * @default true
+             */
+            require_reack: boolean;
+        };
+        /** GovRecordOut */
+        GovRecordOut: {
+            /**
+             * Doc Id
+             * Format: uuid
+             */
+            doc_id: string;
+            /**
+             * Member Id
+             * Format: uuid
+             */
+            member_id: string;
+            /** Version */
+            version: number;
+            /** Read At */
+            read_at: string | null;
+            /** Ack At */
+            ack_at: string | null;
+            /** Check At */
+            check_at: string | null;
+            /** Check Score */
+            check_score: number | null;
+            /** Adoption Stage */
+            adoption_stage: number;
+            /** Adoption Label */
+            adoption_label: string;
+            /** Policy Code */
+            policy_code: string;
+            /** Policy Title */
+            policy_title: string;
+            /** Current Version */
+            current_version: number;
+            /** Require Reack */
+            require_reack: boolean;
+            /** Needs Reack */
+            needs_reack: boolean;
+        };
+        /** GovPolicyContentOut */
+        GovPolicyContentOut: {
+            /**
+             * Doc Id
+             * Format: uuid
+             */
+            doc_id: string;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /** Doc Type */
+            doc_type: string;
+            /** Current Version */
+            current_version: number;
+            /** Require Reack */
+            require_reack: boolean;
+            version: components["schemas"]["GovPolicyVersionOut"];
+        };
+        /** GovOk */
+        GovOk: {
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+        };
+        /** GovCheckIn */
+        GovCheckIn: {
+            /** Answer Index */
+            answer_index: number;
+        };
+        /** GovObservationIn */
+        GovObservationIn: {
+            /**
+             * Member Id
+             * Format: uuid
+             */
+            member_id: string;
+            /** Note */
+            note: string;
+        };
+        /** GovQuestionOut */
+        GovQuestionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Competency Id */
+            competency_id: string | null;
+            /** Dept */
+            dept: string;
+            /** Q Type */
+            q_type: string;
+            /** Prompt */
+            prompt: string;
+            /** Options */
+            options: string[];
+            /** Answer Index */
+            answer_index: number | null;
+            /** Expected */
+            expected: string;
+            /** Rationale */
+            rationale: string;
+            /** Mark */
+            mark: number;
+            /** Level */
+            level: number;
+            /** Course Ref */
+            course_ref: string;
+            /** Archived */
+            archived: boolean;
+        };
+        /** GovQuestionIn */
+        GovQuestionIn: {
+            /** Competency Id */
+            competency_id?: string | null;
+            /**
+             * Dept
+             * @default
+             */
+            dept: string;
+            /**
+             * Q Type
+             * @default mcq
+             */
+            q_type: string;
+            /** Prompt */
+            prompt: string;
+            /** Options */
+            options?: string[];
+            /** Answer Index */
+            answer_index?: number | null;
+            /**
+             * Expected
+             * @default
+             */
+            expected: string;
+            /**
+             * Rationale
+             * @default
+             */
+            rationale: string;
+            /**
+             * Mark
+             * @default 1
+             */
+            mark: number;
+            /**
+             * Level
+             * @default 2
+             */
+            level: number;
+            /**
+             * Course Ref
+             * @default
+             */
+            course_ref: string;
+        };
+        /** GovQuestionPatch */
+        GovQuestionPatch: {
+            /** Dept */
+            dept?: string | null;
+            /** Prompt */
+            prompt?: string | null;
+            /** Options */
+            options?: string[] | null;
+            /** Answer Index */
+            answer_index?: number | null;
+            /** Expected */
+            expected?: string | null;
+            /** Rationale */
+            rationale?: string | null;
+            /** Mark */
+            mark?: number | null;
+            /** Level */
+            level?: number | null;
+            /** Course Ref */
+            course_ref?: string | null;
         };
         /** StudioStatusOut */
         StudioStatusOut: {
@@ -20509,6 +23526,74 @@ export interface operations {
             };
         };
     };
+    apps_org_api_role_capabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgRoleCapabilitiesOut"];
+                };
+            };
+        };
+    };
+    apps_org_api_person_responsibilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgResponsibilitiesOut"];
+                };
+            };
+        };
+    };
+    apps_org_api_set_person_responsibilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrgResponsibilitiesIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgResponsibilitiesOut"];
+                };
+            };
+        };
+    };
     apps_org_api_invites: {
         parameters: {
             query?: {
@@ -24037,6 +27122,2242 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CorporateOkOut"];
+                };
+            };
+        };
+    };
+    apps_hcm_api_my_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+        };
+    };
+    apps_hcm_api_update_my_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyProfilePatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+        };
+    };
+    apps_hcm_api_my_wellbeing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WellbeingOut"][];
+                };
+            };
+        };
+    };
+    apps_hcm_api_submit_wellbeing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WellbeingIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WellbeingOut"];
+                };
+            };
+        };
+    };
+    apps_hcm_api_my_cpd: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CpdOut"][];
+                };
+            };
+        };
+    };
+    apps_hcm_api_add_my_cpd: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CpdIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CpdOut"];
+                };
+            };
+        };
+    };
+    apps_hcm_api_my_qualifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberQualificationOut"][];
+                };
+            };
+        };
+    };
+    apps_hcm_api_list_qualifications: {
+        parameters: {
+            query?: {
+                include_archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualificationOut"][];
+                };
+            };
+        };
+    };
+    apps_hcm_api_create_qualification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QualificationIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualificationOut"];
+                };
+            };
+        };
+    };
+    apps_hcm_api_get_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+        };
+    };
+    apps_hcm_api_update_hr_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HrProfilePatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+        };
+    };
+    apps_hcm_api_award_member_qualification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberQualificationIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberQualificationOut"];
+                };
+            };
+        };
+    };
+    apps_hcm_api_health: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HcmOk"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_list_competencies: {
+        parameters: {
+            query?: {
+                kind?: string | null;
+                include_archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwCompetencyOut"][];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_create_competency: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FwCompetencyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwCompetencyOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_update_competency: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                competency_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FwCompetencyPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwCompetencyOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_clone_competency: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                competency_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwCompetencyOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_list_course_tags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwCourseTagOut"][];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_tag_course: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FwCourseTagIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwCourseTagOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_list_roles: {
+        parameters: {
+            query?: {
+                include_archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwRoleOut"][];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_create_role: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FwRoleIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwRoleOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_get_role: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                framework_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwRoleOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_role_history: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                framework_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwHistoryOut"][];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_start_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                framework_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwVersionOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_get_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwVersionOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_update_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FwVersionPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwVersionOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_add_requirement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FwRequirementIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwVersionOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_submit_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FwTransitionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwVersionOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_approve_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FwTransitionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwVersionOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_request_changes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FwTransitionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwVersionOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_my_competence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwCompetenceOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_version_readiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwReadinessOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_version_recommendations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwRecommendationOut"][];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_get_maturity_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwMaturityVersionOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_list_maturity_frameworks: {
+        parameters: {
+            query?: {
+                kind?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwMaturityFrameworkOut"][];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_list_campaigns: {
+        parameters: {
+            query?: {
+                dept?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwCampaignOut"][];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_create_campaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FwCampaignIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwCampaignOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_submit_response: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FwResponseIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwResponseOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_close_campaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwCampaignScoresOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_campaign_scores: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwCampaignScoresOut"];
+                };
+            };
+        };
+    };
+    apps_frameworks_api_health: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FwOk"];
+                };
+            };
+        };
+    };
+    apps_pms_api_list_kpis: {
+        parameters: {
+            query?: {
+                dept?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsKpiOut"][];
+                };
+            };
+        };
+    };
+    apps_pms_api_list_measurements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kpi_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsMeasurementOut"][];
+                };
+            };
+        };
+    };
+    apps_pms_api_record_measurement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kpi_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PmsMeasurementIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsMeasurementOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_list_proposals: {
+        parameters: {
+            query?: {
+                stage?: string | null;
+                dept?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsProposalOut"][];
+                };
+            };
+        };
+    };
+    apps_pms_api_create_proposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PmsProposalIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsProposalOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_get_proposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsProposalOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_update_proposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PmsProposalPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsProposalOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_proposal_history: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsHistoryOut"][];
+                };
+            };
+        };
+    };
+    apps_pms_api_submit_proposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PmsTransitionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsProposalOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_approve_proposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PmsTransitionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsProposalOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_request_changes_proposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PmsTransitionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsProposalOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_list_cycles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsCycleOut"][];
+                };
+            };
+        };
+    };
+    apps_pms_api_create_cycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PmsCycleIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsCycleOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_open_cycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cycle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsCycleOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_close_cycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cycle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsCycleOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_list_cycle_reviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cycle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsReviewOut"][];
+                };
+            };
+        };
+    };
+    apps_pms_api_my_reviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsReviewOut"][];
+                };
+            };
+        };
+    };
+    apps_pms_api_create_review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PmsReviewCreateIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsReviewOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_get_review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsReviewOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_update_review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PmsReviewPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsReviewOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_add_objective: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PmsObjectiveIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsReviewOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_submit_review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsReviewOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_acknowledge_review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsReviewOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_get_analysis: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsAnalysisOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_generate_analysis: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsAnalysisOut"];
+                };
+            };
+        };
+    };
+    apps_pms_api_health: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsOk"];
+                };
+            };
+        };
+    };
+    apps_governance_api_list_strategies: {
+        parameters: {
+            query?: {
+                include_archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovStrategyOut"][];
+                };
+            };
+        };
+    };
+    apps_governance_api_create_strategy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovStrategyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovStrategyOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_strategy_versions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovStrategyVersionOut"][];
+                };
+            };
+        };
+    };
+    apps_governance_api_get_strategy_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovStrategyVersionOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_update_strategy_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovVersionPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovStrategyVersionOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_add_objective: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovObjectiveIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovStrategyVersionOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_approve_strategy_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovStrategyVersionOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_list_policies: {
+        parameters: {
+            query?: {
+                doc_type?: string | null;
+                include_archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovPolicyOut"][];
+                };
+            };
+        };
+    };
+    apps_governance_api_create_policy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovPolicyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovPolicyOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_get_policy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovPolicyOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_policy_versions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovPolicyVersionOut"][];
+                };
+            };
+        };
+    };
+    apps_governance_api_start_policy_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovPolicyVersionOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_get_policy_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovPolicyVersionOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_update_policy_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovPolicyVersionPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovPolicyVersionOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_approve_policy_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovPolicyVersionOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_get_allocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovAllocationOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_set_allocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovAllocationIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovAllocationOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_policy_records: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovRecordOut"][];
+                };
+            };
+        };
+    };
+    apps_governance_api_my_policies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovRecordOut"][];
+                };
+            };
+        };
+    };
+    apps_governance_api_my_policy_content: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovPolicyContentOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_read_policy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovOk"];
+                };
+            };
+        };
+    };
+    apps_governance_api_acknowledge_policy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovOk"];
+                };
+            };
+        };
+    };
+    apps_governance_api_submit_check: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovCheckIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovRecordOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_add_observation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovObservationIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovOk"];
+                };
+            };
+        };
+    };
+    apps_governance_api_list_questions: {
+        parameters: {
+            query?: {
+                dept?: string | null;
+                include_archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovQuestionOut"][];
+                };
+            };
+        };
+    };
+    apps_governance_api_create_question: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovQuestionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovQuestionOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_get_question: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                qid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovQuestionOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_update_question: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                qid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovQuestionPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovQuestionOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_archive_question: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                qid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovQuestionOut"];
+                };
+            };
+        };
+    };
+    apps_governance_api_health: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovOk"];
                 };
             };
         };

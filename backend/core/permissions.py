@@ -94,16 +94,46 @@ class Scope:
 
 def org_scope(request, minimum: OrgRole = OrgRole.MANAGER) -> Scope:
     org_id = require_org(request)
+    if getattr(request, "platform_staff", False):
+        # Platform staff enter through the explicit console workforce chooser;
+        # they are not added to the customer's employee directory.
+        return Scope(org_id, OrgRole.OWNER, UUID(int=0), None)
     from apps.org.models import OrgMember
     from apps.org.selectors import managed_unit_paths
 
     m = OrgMember.objects.filter(org_id=org_id, user_id=request.user.id, removed_at__isnull=True).first()
-    if m is None or ROLE_RANK[OrgRole(m.role)] < ROLE_RANK[minimum]:
+    if m is None:
         raise PermissionDenied("Insufficient role.")
     role = OrgRole(m.role)
     if ROLE_RANK[role] >= ROLE_RANK[OrgRole.ADMIN]:
         return Scope(org_id, role, m.id, None)
-    paths = tuple(managed_unit_paths(member_id=m.id))
+    if minimum == OrgRole.MANAGER:
+        from apps.org.models import OrgRoleAssignment
+
+        company_responsibilities = set(OrgRoleAssignment.objects.filter(
+            org_id=org_id, member=m, unit__isnull=True, revoked_at__isnull=True,
+            code__in=("hr_admin", "executive"),
+        ).values_list("code", flat=True))
+        if company_responsibilities:
+            # Company-wide readers can open the business workspace; authoring endpoints
+            # still require the domain-specific HR/Executive permission helper.
+            return Scope(org_id, OrgRole.MANAGER, m.id, None)
+    paths = set(managed_unit_paths(member_id=m.id))
+    if minimum == OrgRole.MANAGER:
+        from apps.org.models import OrgRoleAssignment
+
+        assigned_paths = OrgRoleAssignment.objects.filter(
+            org_id=org_id,
+            member=m,
+            code__in=("department_head", "line_manager"),
+            unit__isnull=False,
+            revoked_at__isnull=True,
+        ).values_list("unit__path", flat=True)
+        paths.update(assigned_paths)
+    if ROLE_RANK[role] < ROLE_RANK[minimum] and not (minimum == OrgRole.MANAGER and paths):
+        raise PermissionDenied("Insufficient role.")
     if not paths:
         raise ServiceError("no_units", "You are not set as manager of any unit yet.", status=403)
-    return Scope(org_id, role, m.id, paths)
+    # A unit-scoped HoD/line manager gets manager-level workspace access without
+    # changing their underlying membership role.
+    return Scope(org_id, OrgRole.MANAGER if ROLE_RANK[role] < ROLE_RANK[OrgRole.MANAGER] else role, m.id, tuple(paths))

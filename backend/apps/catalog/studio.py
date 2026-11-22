@@ -95,8 +95,12 @@ def editable(request, course_id) -> Course:
     if course is None:
         raise ServiceError("not_found", "Course not found.", status=404)
     if course.ownership == Course.Ownership.ORGANIZATION:
-        scope = org_scope(request, OrgRole.ADMIN)
+        scope = org_scope(request, OrgRole.MANAGER)
         allowed = course.owner_org_id == scope.org_id
+        if allowed and not scope.is_admin and not getattr(request, "platform_staff", False):
+            from apps.org.access import has_responsibility
+
+            allowed = has_responsibility(request, "hr_admin", company_wide=True)
     elif course.ownership == Course.Ownership.PLATFORM:
         allowed = request.user.is_staff
     else:
@@ -133,10 +137,18 @@ def _my_course_ids(request) -> list:
     )
     org_id = getattr(request, "org_id", None)
     if org_id:
+        if getattr(request, "platform_staff", False):
+            ids |= set(Course.objects.filter(owner_org_id=org_id).values_list("id", flat=True))
+            return list(ids)
         from apps.org.selectors import member_role
 
         if member_role(user_id=request.user.id, org_id=org_id) in ("admin", "owner"):
             ids |= set(Course.objects.filter(owner_org_id=org_id).values_list("id", flat=True))
+        else:
+            from apps.org.access import has_responsibility
+
+            if has_responsibility(request, "hr_admin", company_wide=True):
+                ids |= set(Course.objects.filter(owner_org_id=org_id).values_list("id", flat=True))
     return list(ids)
 
 
@@ -400,7 +412,12 @@ def my_courses(request):
 def create_course(request, body: CourseIn):
     org_id = getattr(request, "org_id", None)
     if org_id:  # inside a company workspace: a private company course
-        org_scope(request, OrgRole.ADMIN)
+        scope = org_scope(request, OrgRole.MANAGER)
+        if not scope.is_admin and not getattr(request, "platform_staff", False):
+            from apps.org.access import has_responsibility
+
+            if not has_responsibility(request, "hr_admin", company_wide=True):
+                raise ServiceError("insufficient_role", "Only company admins or HR can create company courses.", status=403)
         ownership = Course.Ownership.ORGANIZATION
     else:
         p = InstructorProfile.objects.filter(user=request.user).first()

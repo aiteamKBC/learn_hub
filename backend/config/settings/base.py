@@ -32,6 +32,10 @@ DOMAIN_APPS = [
     "apps.analytics",
     "apps.platform",
     "apps.corporate",
+    "apps.hcm",
+    "apps.frameworks",
+    "apps.pms",
+    "apps.governance",
 ]
 
 INSTALLED_APPS = [

@@ -18,6 +18,10 @@ DOMAIN_SCHEMAS = [
     "engagement",
     "analytics",
     "platform",
+    "hcm",
+    "frameworks",
+    "pms",
+    "governance",
 ]
 
 

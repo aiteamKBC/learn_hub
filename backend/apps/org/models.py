@@ -178,6 +178,30 @@ class MemberJobRole(TenantModel):
         indexes = [models.Index(fields=["org", "job_role"], name="ix_member_job_roles_role")]
 
 
+class OrgRoleAssignment(TenantModel):
+    """A company responsibility, distinct from both membership access and job title."""
+
+    class Code(models.TextChoices):
+        EXECUTIVE = "executive", "Executive"
+        HR_ADMIN = "hr_admin", "HR"
+        DEPARTMENT_HEAD = "department_head", "Head of Department"
+        LINE_MANAGER = "line_manager", "Line Manager"
+        ACADEMY_MARKETING = "academy_marketing", "Academy Marketing"
+
+    member = models.ForeignKey(OrgMember, on_delete=models.CASCADE, related_name="responsibility_assignments")
+    code = models.CharField(max_length=32, choices=Code.choices)
+    unit = models.ForeignKey(OrgUnit, on_delete=models.PROTECT, null=True, blank=True, related_name="responsibility_assignments")
+    assigned_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="assigned_org_responsibilities")
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "role_assignments")
+        indexes = [
+            models.Index(fields=["org", "member", "revoked_at"], name="ix_org_roles_member_active"),
+            models.Index(fields=["org", "code", "unit"], name="ix_org_roles_scope"),
+        ]
+
+
 class Invite(TenantModel):
     """Email invite to join a company. Only a SHA-256 hash of the token is stored,
     so a database leak cannot be used to accept invites."""

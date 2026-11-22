@@ -102,7 +102,18 @@ def matrix(request, unit_id: str | None = None, job_role_id: str | None = None, 
 
 @router.get("/people/{member_id}", response=CompliancePersonOut)
 def person(request, member_id: str):
-    scope = org_scope(request, OrgRole.MANAGER)
+    if getattr(request, "org_role", None) == OrgRole.LEARNER and getattr(request, "member_id", None):
+        from apps.org.models import OrgRoleAssignment
+        from core.permissions import Scope, require_org
+
+        org_id = require_org(request)
+        is_hr = OrgRoleAssignment.objects.filter(
+            org_id=org_id, member_id=request.member_id,
+            code=OrgRoleAssignment.Code.HR_ADMIN, unit__isnull=True, revoked_at__isnull=True,
+        ).exists()
+        scope = Scope(org_id, OrgRole.ADMIN, request.member_id, None) if is_hr else org_scope(request, OrgRole.MANAGER)
+    else:
+        scope = org_scope(request, OrgRole.MANAGER)
     p = selectors.person(scope, member_id)
     m = p["member"]
     from apps.learning.models import Certificate, Enrollment

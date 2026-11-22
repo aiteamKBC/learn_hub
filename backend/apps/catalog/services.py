@@ -365,7 +365,7 @@ def _copy_assignment(a: Assignment, lecture: Lecture) -> None:
 @authored
 def submit(*, version: CourseVersion, by, change_summary: str = "", requires_recompletion: bool = False,
            is_major_change: bool = False):  # fmt: skip
-    """Marketplace courses go to review; platform and company courses publish now.
+    """Marketplace and company courses go to platform review; platform-owned courses publish now.
     `is_major_change` (the instructor's own flag) puts an update in the "Course changes
     (major)" approvals tab; a first release is never a change."""
     _editable(version)
@@ -375,7 +375,7 @@ def submit(*, version: CourseVersion, by, change_summary: str = "", requires_rec
     version.requires_recompletion = requires_recompletion
     version.is_major_change = bool(is_major_change and version.course.live_version_id)
     version.submitted_by, version.submitted_at = by, timezone.now()
-    if version.course.ownership == Course.Ownership.INSTRUCTOR:
+    if version.course.ownership in (Course.Ownership.INSTRUCTOR, Course.Ownership.ORGANIZATION):
         version.status = CourseVersion.Status.IN_REVIEW
         version.save()
         _tell_staff("staff_course_submitted", {"course": version.course.title,
