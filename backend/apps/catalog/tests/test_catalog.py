@@ -8,6 +8,7 @@ from django.db import IntegrityError, ProgrammingError, transaction
 
 from apps.catalog import selectors, services
 from apps.catalog.models import Course, CourseVersion, Lecture, MediaAsset, QuizOption, VideoLibrary
+from apps.commerce.models import CoursePrice
 from apps.identity.models import User
 from apps.org import services as org_services
 from core.errors import ServiceError
@@ -76,6 +77,11 @@ class CatalogTestBase(SchemaTransactionTestCase):
         services.update_assignment(
             assignment=assignment_lec.assignment, instructions="Draw your floor's exit route."
         )
+        # Public courses must make an explicit paid/free choice before they can be
+        # submitted. Keep this reusable "complete course" fixture genuinely publishable.
+        if ownership in (Course.Ownership.PLATFORM, Course.Ownership.INSTRUCTOR):
+            with tenant_context(user_id=self.staff.id, staff=True):
+                CoursePrice.objects.create(course=course, is_free=True)
         return course, v1
 
 
@@ -181,6 +187,10 @@ class VersioningTest(CatalogTestBase):
             services.add_question(
                 quiz=q, kind="single_choice", prompt="?", options=[{"body": "a"}, {"body": "b"}]
             )
+            # Pricing is valid here so this test remains focused on its two broken
+            # curriculum items (unfinished video and an answerless quiz).
+            with tenant_context(user_id=self.staff.id, staff=True):
+                CoursePrice.objects.create(course=course, is_free=True)
             problems = services.publish_checklist(v1)
             self.assertEqual(len(problems), 2, problems)
             with self.assertRaises(ServiceError):

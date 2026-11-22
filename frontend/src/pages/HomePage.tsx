@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { CountUp } from '@/components/ui/count-up'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '@/components/ui/menu'
+import { ErrorState } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StarBorder } from '@/components/ui/star-border'
 import { type CourseCardData, useCategories, useCourses, usePlans } from '@/features/catalog/api'
@@ -37,6 +38,7 @@ function SectionEyebrow({ children, className }: { children: ReactNode; classNam
 
 /** Evidrise-style full-bleed hero. Custom LearnHub artwork supplied by the user. */
 const HERO_SRC = heroEagle
+const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
 const NOTEWORTHY_BG =
   'https://readdy.ai/api/search-image?query=Abstract%20layered%20paper%20ridges%20in%20warm%20sand%20cream%20and%20soft%20clay%20tones%20flowing%20like%20rolling%20dunes%2C%20gentle%20side%20light%20creating%20calm%20shadows%2C%20minimal%20editorial%20art%20direction%20with%20airy%20negative%20space%20and%20smooth%20gradient%20transitions&width=1600&height=900&seq=newnoteworthy-bg-2026-c3&orientation=landscape'
 const FEATURED_BG = NOTEWORTHY_BG
@@ -51,21 +53,25 @@ function Hero() {
   return (
     <section id="hero" aria-label="LearnHub" className="relative -mt-[calc(4rem+1px)] w-full overflow-hidden bg-[#1f262e] lg:h-[calc(100svh+1px)] lg:min-h-[600px]">
       {/* Desktop (lg+): full-bleed artwork with the copy overlaid to the left. */}
-      <img
-        src={HERO_SRC}
-        width={1717}
-        height={916}
-        alt=""
-        fetchPriority="high"
-        decoding="async"
-        // Soften the outer edges into the charcoal background so the artwork blends in rather
-        // than reading as a boxed rectangle; the subject (centre-right) stays fully crisp.
-        style={{
-          WebkitMaskImage: 'radial-gradient(135% 130% at 60% 45%, #000 72%, transparent 100%)',
-          maskImage: 'radial-gradient(135% 130% at 60% 45%, #000 72%, transparent 100%)',
-        }}
-        className={cn('absolute inset-0 hidden h-full w-full object-cover object-center transition-opacity duration-[650ms] ease-out lg:block', ready ? 'opacity-100' : 'opacity-0')}
-      />
+      <picture>
+        {/* A media source prevents phones from downloading the 2 MB desktop artwork. */}
+        <source media="(min-width: 1024px)" srcSet={HERO_SRC} />
+        <img
+          src={TRANSPARENT_PIXEL}
+          width={1717}
+          height={916}
+          alt=""
+          fetchPriority="high"
+          decoding="async"
+          // Soften the outer edges into the charcoal background so the artwork blends in rather
+          // than reading as a boxed rectangle; the subject (centre-right) stays fully crisp.
+          style={{
+            WebkitMaskImage: 'radial-gradient(135% 130% at 60% 45%, #000 72%, transparent 100%)',
+            maskImage: 'radial-gradient(135% 130% at 60% 45%, #000 72%, transparent 100%)',
+          }}
+          className={cn('absolute inset-0 hidden h-full w-full object-cover object-center transition-opacity duration-[650ms] ease-out lg:block', ready ? 'opacity-100' : 'opacity-0')}
+        />
+      </picture>
       {/* Charcoal veil that deepens behind the copy and clears to the right so the artwork stays visible. */}
       <div aria-hidden className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(90deg,rgba(31,38,46,0.86)_0%,rgba(31,38,46,0.6)_26%,rgba(31,38,46,0.12)_54%,transparent_76%)] lg:block" />
       <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-1/3 bg-[linear-gradient(to_top,rgba(31,38,46,0.72),transparent)] lg:block" />
@@ -123,15 +129,19 @@ function Hero() {
             faint tone drift at the top-right of the artwork can't read as a seam. The fade sits
             in the dark headroom above the eagle, so the bird/laptop stay fully opaque. */}
         <div className="relative mt-1 w-full overflow-hidden aspect-[941/905] [mask-image:linear-gradient(to_bottom,transparent_0,#000_24px)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_0,#000_24px)]">
-          <img
-            src={heroSectionMobile}
-            width={941}
-            height={1672}
-            alt=""
-            fetchPriority="high"
-            decoding="async"
-            className="absolute inset-0 h-full w-full object-cover object-bottom"
-          />
+          <picture>
+            {/* Desktop receives only the tiny fallback instead of this 1.5 MB phone image. */}
+            <source media="(max-width: 1023px)" srcSet={heroSectionMobile} />
+            <img
+              src={TRANSPARENT_PIXEL}
+              width={941}
+              height={1672}
+              alt=""
+              fetchPriority="high"
+              decoding="async"
+              className="absolute inset-0 h-full w-full object-cover object-bottom"
+            />
+          </picture>
         </div>
       </div>
 
@@ -192,16 +202,29 @@ function CategoryCard({ c }: { c: Category }) {
  */
 function CategoryCarousel({ items }: { items: Category[] }) {
   const track = useRef<HTMLDivElement>(null)
+  const touchStart = useRef<{ x: number; y: number; page: number } | null>(null)
   const [page, setPage] = useState(0)
-  const [pages, setPages] = useState(1)
+  const [stops, setStops] = useState([0])
+  const pages = stops.length
 
   useEffect(() => {
     const el = track.current
     if (!el) return
     const measure = () => {
       const max = el.scrollWidth - el.clientWidth
-      setPages(max <= 1 ? 1 : Math.max(1, Math.round(el.scrollWidth / el.clientWidth)))
-      setPage(max <= 1 ? 0 : Math.min(Math.round(el.scrollLeft / el.clientWidth), Math.round(max / el.clientWidth)))
+      const left = el.getBoundingClientRect().left
+      const nextStops = max <= 1
+        ? [0]
+        : Array.from(el.children, (child) => {
+            const x = (child as HTMLElement).getBoundingClientRect().left - left + el.scrollLeft
+            return Math.round(Math.min(max, Math.max(0, x)))
+          }).filter((x, i, all) => i === 0 || Math.abs(x - all[i - 1]!) > 2)
+      setStops((current) => current.length === nextStops.length && current.every((x, i) => x === nextStops[i]) ? current : nextStops)
+      let nearest = 0
+      for (let i = 1; i < nextStops.length; i += 1) {
+        if (Math.abs(nextStops[i]! - el.scrollLeft) < Math.abs(nextStops[nearest]! - el.scrollLeft)) nearest = i
+      }
+      setPage(nearest)
     }
     measure()
     el.addEventListener('scroll', measure, { passive: true })
@@ -217,48 +240,69 @@ function CategoryCarousel({ items }: { items: Category[] }) {
     const el = track.current
     if (!el) return
     const next = Math.min(pages - 1, Math.max(0, i))
-    el.scrollTo({ left: next * el.clientWidth, behavior: reducedMotion() ? 'auto' : 'smooth' })
+    el.scrollTo({ left: stops[next] ?? 0, behavior: reducedMotion() ? 'auto' : 'smooth' })
+  }
+
+  const onTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0]
+    if (touch) touchStart.current = { x: touch.clientX, y: touch.clientY, page }
+  }
+
+  const onTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const start = touchStart.current
+    const touch = e.changedTouches[0]
+    touchStart.current = null
+    if (!start || !touch) return
+    const dx = start.x - touch.clientX
+    const dy = start.y - touch.clientY
+    if (Math.abs(dx) >= 36 && Math.abs(dx) > Math.abs(dy)) goTo(start.page + (dx > 0 ? 1 : -1))
   }
 
   return (
-    <div className="relative mt-10 sm:px-16">
-      <button
-        type="button"
-        onClick={() => goTo(page - 1)}
-        disabled={page === 0}
-        aria-label="Previous categories"
-        className="absolute top-1/2 left-0 z-10 hidden size-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface text-text shadow-md transition-all duration-200 hover:border-primary/40 hover:text-primary disabled:pointer-events-none disabled:opacity-0 sm:flex"
-      >
-        <ChevronLeft className="size-5" />
-      </button>
-      <button
-        type="button"
-        onClick={() => goTo(page + 1)}
-        disabled={page >= pages - 1}
-        aria-label="Next categories"
-        className="absolute top-1/2 right-0 z-10 hidden size-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface text-text shadow-md transition-all duration-200 hover:border-primary/40 hover:text-primary disabled:pointer-events-none disabled:opacity-0 sm:flex"
-      >
-        <ChevronRight className="size-5" />
-      </button>
+    <div className="mt-10">
+      {/* Arrows live in this row so top-1/2 centres them on the cards, not the dots below. */}
+      <div className="relative sm:px-16">
+        <button
+          type="button"
+          onClick={() => goTo(page - 1)}
+          disabled={page === 0}
+          aria-label="Previous categories"
+          className="absolute top-1/2 left-0 z-10 hidden size-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface text-text shadow-md transition-all duration-200 hover:border-primary/40 hover:text-primary disabled:pointer-events-none disabled:opacity-40 sm:flex"
+        >
+          <ChevronLeft className="size-5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => goTo(page + 1)}
+          disabled={page >= pages - 1}
+          aria-label="Next categories"
+          className="absolute top-1/2 right-0 z-10 hidden size-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface text-text shadow-md transition-all duration-200 hover:border-primary/40 hover:text-primary disabled:pointer-events-none disabled:opacity-40 sm:flex"
+        >
+          <ChevronRight className="size-5" />
+        </button>
 
-      <div
-        ref={track}
-        role="group"
-        aria-roledescription="carousel"
-        aria-label="Course categories"
-        tabIndex={0}
-        data-lenis-prevent
-        className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring [&::-webkit-scrollbar]:hidden"
-      >
-        {items.map((c) => (
-          <div key={c.id} className="shrink-0 basis-[82%] snap-start sm:basis-[calc((100%-1rem)/2)] lg:basis-[calc((100%-2rem)/3)]">
-            <CategoryCard c={c} />
-          </div>
-        ))}
+        <div
+          ref={track}
+          role="group"
+          aria-roledescription="carousel"
+          aria-label="Course categories"
+          tabIndex={0}
+          data-lenis-prevent
+          data-lenis-prevent-touch
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+          className="flex touch-pan-x snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring [&::-webkit-scrollbar]:hidden"
+        >
+          {items.map((c) => (
+            <div key={c.id} className="shrink-0 basis-[82%] snap-start sm:basis-[calc((100%-1rem)/2)] lg:basis-[calc((100%-2rem)/3)]">
+              <CategoryCard c={c} />
+            </div>
+          ))}
+        </div>
       </div>
 
       {pages > 1 ? (
-        <div className="mt-6 flex justify-center gap-2">
+        <div className="mt-6 flex justify-center gap-1">
           {Array.from({ length: pages }, (_, i) => (
             <button
               key={i}
@@ -266,8 +310,10 @@ function CategoryCarousel({ items }: { items: Category[] }) {
               onClick={() => goTo(i)}
               aria-label={`Go to page ${i + 1} of ${pages}`}
               aria-current={i === page}
-              className={cn('h-2 rounded-full transition-all duration-300 ease-out', i === page ? 'w-6 bg-primary' : 'w-2 bg-primary/25 hover:bg-primary/50')}
-            />
+              className="group grid place-items-center p-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <span className={cn('h-2 rounded-full transition-all duration-300 ease-out', i === page ? 'w-6 bg-primary' : 'w-2 bg-primary/25 group-hover:bg-primary/50')} />
+            </button>
           ))}
         </div>
       ) : null}
@@ -277,7 +323,7 @@ function CategoryCarousel({ items }: { items: Category[] }) {
 
 /** Evidrise-style "Browse by category": editorial header + large cards + decorative rings. */
 function CategorySection() {
-  const { data, isLoading } = useCategories()
+  const { data, error, isLoading, refetch } = useCategories()
   return (
     <section id="categories" className="relative scroll-mt-20 overflow-hidden bg-surface-2">
       {/* decorative concentric rings, top-right */}
@@ -302,7 +348,11 @@ function CategorySection() {
           </Button>
         </div>
 
-        {isLoading || !data ? (
+        {error && !data ? (
+          <div className="mt-10 rounded-2xl border border-border bg-surface/80">
+            <ErrorState message={error.message} onRetry={() => void refetch()} />
+          </div>
+        ) : isLoading || !data ? (
           <div className="mt-10 flex gap-4 overflow-hidden">
             {Array.from({ length: 3 }, (_, i) => (
               <Skeleton key={i} className="h-40 shrink-0 basis-[82%] rounded-2xl sm:basis-[calc((100%-1rem)/2)] lg:basis-[calc((100%-2rem)/3)]" />
@@ -741,7 +791,7 @@ function BundleCard({ b, pair, index }: { b: (typeof BUNDLES)[number]; pair: Cou
           <span className="text-2xl font-bold tracking-tight text-text tabular">{b.price}</span>
           <span className="text-sm text-subtle line-through tabular">{b.was}</span>
         </div>
-        <Button className="mt-4 w-full rounded-full" asChild>
+        <Button className="mt-4 h-10 w-full rounded-full" asChild>
           <Link to="/courses">
             See the bundle <ArrowRight className="size-4" />
           </Link>
@@ -773,8 +823,8 @@ function Offers() {
       interactive
       fill
       maxWidth="max-w-5xl"
-      cardWidth="w-[320px] sm:w-[396px]"
-      stageHeight="h-[560px] sm:h-[580px]"
+      cardWidth="w-[calc(100vw-32px)] max-w-[336px] sm:w-[396px] sm:max-w-none"
+      stageHeight="h-[510px] sm:h-[520px]"
       slides={bundles.map(({ b, pair, index }) => ({ key: b.title, label: b.title, content: <BundleCard b={b} pair={pair} index={index} /> }))}
     />
   )
@@ -901,7 +951,7 @@ function FeaturedCourseCard({ course, index }: { course: CourseCardData; index: 
 function FeaturedCourses() {
   const { data: cats } = useCategories()
   const [active, setActive] = useState('')
-  const { data, isLoading } = useCourses({ category: active || undefined, sort: 'popular', limit: 6 })
+  const { data, error, isLoading, refetch } = useCourses({ category: active || undefined, sort: 'popular', limit: 6 })
   const tabs = [{ slug: '', name: 'All' }, ...(cats ?? []).map((c) => ({ slug: c.slug, name: c.name }))]
   return (
     <section id="courses" className="relative scroll-mt-20 overflow-hidden border-y border-border">
@@ -911,6 +961,8 @@ function FeaturedCourses() {
         aria-hidden
         width={1600}
         height={900}
+        loading="lazy"
+        decoding="async"
         className="pointer-events-none absolute inset-0 size-full object-cover object-center"
       />
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/88 via-background/72 to-background/92 dark:from-background/92 dark:via-background/82 dark:to-background/95" />
@@ -923,35 +975,33 @@ function FeaturedCourses() {
             </h2>
             <p className="mt-4 text-muted">Each course is short enough to finish alongside your work, and demanding enough to change how you do it.</p>
           </div>
-          <div className="flex shrink-0 gap-2.5">
-            <Button asChild size="lg" className="rounded-full">
+          <div className="flex w-full shrink-0 flex-nowrap items-center gap-1.5 sm:w-auto sm:gap-2.5">
+            <Button asChild size="lg" className="h-10 gap-1.5 rounded-full px-3 text-[13px] sm:h-12 sm:gap-2 sm:px-6 sm:text-[15px]">
               <Link to="/courses">
-                All courses <ArrowRight className="size-4" />
+                All courses <ArrowRight className="size-3.5 sm:size-4" />
               </Link>
             </Button>
-            <Button variant="secondary" asChild size="lg" className="rounded-full">
+            <Button variant="secondary" asChild size="lg" className="h-10 rounded-full px-3 text-[13px] sm:h-12 sm:px-6 sm:text-[15px]">
               <a href="#membership">See membership</a>
             </Button>
+            <Menu>
+              <MenuTrigger asChild>
+                <Button variant="secondary" className="h-10 w-[72px] justify-between gap-1 rounded-full px-2.5 text-[13px] md:hidden" title={tabs.find((t) => t.slug === active)?.name ?? 'All'}>
+                  <span className="truncate">{tabs.find((t) => t.slug === active)?.name ?? 'All'}</span> <ChevronDown className="size-3.5" />
+                </Button>
+              </MenuTrigger>
+              <MenuContent align="end" className="max-h-72 min-w-44 overflow-y-auto">
+                {tabs.map((t) => (
+                  <MenuItem key={t.slug} onSelect={() => setActive(t.slug)} className={cn(active === t.slug && 'font-medium text-primary')}>
+                    {t.name}
+                  </MenuItem>
+                ))}
+              </MenuContent>
+            </Menu>
           </div>
         </div>
 
-        {/* Mobile: a category dropdown with a chevron. Desktop keeps the full pill tablist. */}
-        <div className="mt-8 md:hidden">
-          <Menu>
-            <MenuTrigger asChild>
-              <Button variant="secondary" className="rounded-full">
-                {tabs.find((t) => t.slug === active)?.name ?? 'All'} <ChevronDown className="size-4" />
-              </Button>
-            </MenuTrigger>
-            <MenuContent align="start" className="max-h-72 min-w-44 overflow-y-auto">
-              {tabs.map((t) => (
-                <MenuItem key={t.slug} onSelect={() => setActive(t.slug)} className={cn(active === t.slug && 'font-medium text-primary')}>
-                  {t.name}
-                </MenuItem>
-              ))}
-            </MenuContent>
-          </Menu>
-        </div>
+        {/* Desktop keeps the full pill tablist; phones use the dropdown in the action row. */}
         <div
           className="mt-8 hidden max-w-full flex-nowrap items-center gap-1 overflow-x-auto rounded-full border border-border bg-white/85 p-1 shadow-sm backdrop-blur-sm [-ms-overflow-style:none] [scrollbar-width:none] md:inline-flex dark:bg-white/10 [&::-webkit-scrollbar]:hidden"
           role="tablist"
@@ -975,7 +1025,11 @@ function FeaturedCourses() {
         </div>
 
         <div className={cn('mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3', data && 'stagger')}>
-          {isLoading || !data ? (
+          {error && !data ? (
+            <div className="col-span-full rounded-2xl border border-border bg-surface/80">
+              <ErrorState message={error.message} onRetry={() => void refetch()} />
+            </div>
+          ) : isLoading || !data ? (
             Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-[380px] rounded-2xl" />)
           ) : data.items.length ? (
             data.items.map((c, i) => <FeaturedCourseCard key={c.id} course={c} index={i} />)
@@ -1015,7 +1069,7 @@ export function HomePage() {
               </h2>
               <p className="mt-4 text-muted">Two courses that belong together, one lower price. The offer stays open while the current intake is enrolling.</p>
             </div>
-            <Button variant="secondary" size="lg" asChild className="shrink-0 rounded-full">
+            <Button variant="secondary" size="lg" asChild className="w-[calc(100vw-32px)] max-w-[336px] shrink-0 self-center rounded-full sm:w-[396px] sm:max-w-none lg:w-auto lg:self-auto">
               <Link to="/plans">
                 Team &amp; volume pricing <ArrowRight className="size-4" />
               </Link>

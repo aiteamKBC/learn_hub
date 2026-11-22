@@ -1,8 +1,7 @@
 /**
- * Link, NavLink and useNavigate with page transitions switched on everywhere.
- * React Router wraps each navigation in document.startViewTransition(), so the browser
- * cross-fades / morphs between the two pages (see the "Motion" section of index.css).
- * Browsers without View Transitions simply switch pages instantly.
+ * App-wide router helpers. Keep navigation on React Router's stable path instead of
+ * forcing the browser View Transitions API: some Chromium builds can crash their
+ * renderer while snapshotting our media-heavy pages (STATUS_BREAKPOINT).
  */
 import { forwardRef, useCallback } from 'react'
 import {
@@ -16,15 +15,15 @@ import {
 } from 'react-router-dom'
 
 export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function Link(props, ref) {
-  return <RRLink ref={ref} viewTransition {...props} />
+  return <RRLink ref={ref} {...props} />
 })
 
 export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(function NavLink(props, ref) {
-  return <RRNavLink ref={ref} viewTransition {...props} />
+  return <RRNavLink ref={ref} {...props} />
 })
 
 // eslint-disable-next-line react/only-export-components
 export function useNavigate() {
   const navigate = useRRNavigate()
-  return useCallback((to: To, options?: NavigateOptions) => navigate(to, { viewTransition: true, ...options }), [navigate])
+  return useCallback((to: To, options?: NavigateOptions) => navigate(to, options), [navigate])
 }

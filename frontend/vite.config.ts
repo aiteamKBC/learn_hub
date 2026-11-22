@@ -15,7 +15,9 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
-  build: { target: 'es2022' },
+  // Keep lazy route chunks compatible with mobile Safari/Chromium versions that
+  // are still common on phones. This does not change desktop layout or behaviour.
+  build: { target: 'es2020' },
   server: {
     // Invitation emails are often opened on a phone during local testing. Bind to
     // the LAN interface so a configured FRONTEND_URL can reach this dev server.

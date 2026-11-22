@@ -157,17 +157,17 @@ export function CoursesPage() {
       {/* Fixed to the viewport so the artwork also sits behind the frosted header. */}
       <DashboardBackdrop className="animate-fade-in fixed inset-0 -z-10" />
       <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 animate-reveal">
+        <div className="flex flex-col items-stretch gap-4 animate-reveal sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{filters.q ? `Results for “${filters.q}”` : 'Explore courses'}</h1>
             <p className="mt-1 text-sm text-muted" aria-live="polite">
               {total == null ? <Skeleton className="inline-block h-4 w-32 align-middle" /> : `${total.toLocaleString('en-GB')} ${total === 1 ? 'course' : 'courses'}`}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-2 text-sm text-muted">
+          <div className="flex w-full flex-nowrap items-center justify-between gap-1 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:ml-auto sm:w-auto sm:justify-end sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden">
+            <label className="order-3 flex items-center gap-2 text-sm text-muted sm:order-1">
               <span className="hidden sm:inline">Sort by</span>
-              <NativeSelect value={filters.sort} onChange={(e) => set('sort', e.target.value)} className="h-8 w-40 rounded-full text-[13px]" aria-label="Sort by">
+              <NativeSelect value={filters.sort} onChange={(e) => set('sort', e.target.value)} className="h-9 w-[120px] gap-1 rounded-full px-2 text-xs [&>span]:truncate [&>span]:whitespace-nowrap min-[390px]:w-[128px] sm:h-8 sm:w-40 sm:px-3 sm:text-[13px]" aria-label="Sort by">
                 {SORTS.map(([v, l]) => (
                   <option key={v} value={v}>
                     {l}
@@ -175,20 +175,23 @@ export function CoursesPage() {
                 ))}
               </NativeSelect>
             </label>
-            <div className="hidden rounded-full border border-border bg-surface p-0.5 shadow-sm sm:flex" role="group" aria-label="Layout">
+            <div className="order-4 flex rounded-full border border-border bg-surface p-0.5 shadow-sm sm:order-2" role="group" aria-label="Layout">
               {(
                 [
                   ['grid', LayoutGrid],
                   ['list', List],
                 ] as const
               ).map(([v, Icon]) => (
-                <Button key={v} variant="ghost" size="icon-sm" aria-pressed={view === v} aria-label={`${v} view`} onClick={() => set('view', v === 'grid' ? undefined : v)} className={cn(view === v && 'bg-primary-soft text-primary-soft-text')}>
+                <Button key={v} variant="ghost" size="icon-sm" aria-pressed={view === v} aria-label={`${v} view`} onClick={() => set('view', v === 'grid' ? undefined : v)} className={cn('size-[30px] min-[390px]:size-8', view === v && 'bg-primary-soft text-primary-soft-text')}>
                   <Icon />
                 </Button>
               ))}
             </div>
-            <Button variant="secondary" size="sm" onClick={goBack}>
+            <Button variant="secondary" size="sm" className="order-1 h-9 gap-1 px-2 text-xs min-[390px]:px-2.5 sm:order-3" onClick={goBack}>
               <ArrowLeft /> Back
+            </Button>
+            <Button variant="secondary" size="sm" className="order-2 h-9 gap-1 px-2 text-xs min-[390px]:px-2.5 sm:order-4 lg:hidden" onClick={() => setDrawer(true)}>
+              <SlidersHorizontal /> Filters {active ? <Badge tone="primary">{active}</Badge> : null}
             </Button>
           </div>
         </div>
@@ -209,9 +212,6 @@ export function CoursesPage() {
           </aside>
 
           <div className="min-w-0">
-            <Button variant="secondary" className="mb-4 lg:hidden" onClick={() => setDrawer(true)}>
-              <SlidersHorizontal /> Filters {active ? <Badge tone="primary">{active}</Badge> : null}
-            </Button>
             {chips.length ? (
               <div className="mb-4 flex flex-wrap gap-1.5">
                 {chips.map(([k, label]) => (

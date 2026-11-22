@@ -3,19 +3,18 @@
  * stay in sync. Mounted once at the app root. Disabled when the viewer prefers reduced
  * motion. Inner scroll areas opt out with `data-lenis-prevent`.
  */
-import { gsap } from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import Lenis from 'lenis'
+import type Lenis from 'lenis'
 import { useEffect } from 'react'
 
 import 'lenis/dist/lenis.css'
 
 import { reducedMotion } from '@/lib/motion'
 
-gsap.registerPlugin(ScrollTrigger)
-
 // Module singleton so links/anchors can scroll through Lenis (falls back to native).
 let lenis: Lenis | null = null
+
+const prefersNativeTouchScroll = () =>
+  typeof window !== 'undefined' && (window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0)
 
 /** Jump to the top of the page at once (no animation) — used on navigation so a new
  * route opens at its top. Goes through Lenis when it's running, else native. */
@@ -98,25 +97,38 @@ export function scrollToAnchor(id: string): () => void {
 
 export function SmoothScroll() {
   useEffect(() => {
-    if (reducedMotion()) return
-    const l = new Lenis({
-      duration: 1.25,
+    // Native touch scrolling avoids delayed gestures and unnecessary animation work on
+    // phones and tablets. Desktop keeps the enhanced wheel-scrolling experience.
+    if (reducedMotion() || prefersNativeTouchScroll()) return
+    let disposed = false
+    let destroy = () => {}
+    void Promise.all([import('lenis'), import('gsap'), import('gsap/ScrollTrigger')]).then(([lenisModule, gsapModule, triggerModule]) => {
+      if (disposed) return
+      const LenisConstructor = lenisModule.default
+      const { gsap } = gsapModule
+      const { ScrollTrigger } = triggerModule
+      gsap.registerPlugin(ScrollTrigger)
+      const l = new LenisConstructor({
+        duration: 1.25,
       // Gentle expo ease-out: quick to respond, long calm settle — a clearly "smooth" feel.
-      easing: (t) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t)),
-      smoothWheel: true,
-      syncTouch: true, // carry the same easing onto touch devices
-      touchMultiplier: 1.6,
-      wheelMultiplier: 1,
+        easing: (t) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t)),
+        smoothWheel: true,
+        wheelMultiplier: 1,
+      })
+      lenis = l
+      l.on('scroll', ScrollTrigger.update)
+      const onTick = (time: number) => l.raf(time * 1000)
+      gsap.ticker.add(onTick)
+      gsap.ticker.lagSmoothing(0)
+      destroy = () => {
+        gsap.ticker.remove(onTick)
+        l.destroy()
+        if (lenis === l) lenis = null
+      }
     })
-    lenis = l
-    l.on('scroll', ScrollTrigger.update)
-    const onTick = (time: number) => l.raf(time * 1000)
-    gsap.ticker.add(onTick)
-    gsap.ticker.lagSmoothing(0)
     return () => {
-      gsap.ticker.remove(onTick)
-      l.destroy()
-      lenis = null
+      disposed = true
+      destroy()
     }
   }, [])
   return null
