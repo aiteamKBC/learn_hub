@@ -8,6 +8,8 @@ import { Card } from '@/components/ui/card'
 import { EmptyState, ErrorState } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useMe } from '@/features/identity/auth'
+import { useWorkspace } from '@/features/identity/workspace'
+import { CourseCompetencyPanel } from '@/features/frameworks/CourseCompetencyPanel'
 import { type StudioCourse, useStudioCourse } from '@/features/studio/api'
 import { cn } from '@/lib/cn'
 import { Link, NavLink } from '@/lib/router'
@@ -54,6 +56,7 @@ function BuilderSkeleton() {
 }
 
 export function CourseBuilderPage() {
+  const { org } = useWorkspace()
   const { courseId, tab: tabParam } = useParams()
   const { pathname } = useLocation()
   const { data: course, isPending, error, refetch } = useStudioCourse(courseId)
@@ -163,7 +166,7 @@ export function CourseBuilderPage() {
       </nav>
 
       <div key={tab} className="animate-reveal">
-        {tab === 'details' ? <DetailsTab course={course} /> : null}
+        {tab === 'details' ? <div className="grid gap-6"><DetailsTab course={course} />{org && ['owner', 'admin'].includes(org.role) ? <CourseCompetencyPanel courseId={course.id} /> : null}</div> : null}
         {tab === 'curriculum' ? <CurriculumTab course={course} /> : null}
         {tab === 'pricing' ? <PricingTab course={course} /> : null}
         {tab === 'coupons' ? <CouponsTab course={course} /> : null}

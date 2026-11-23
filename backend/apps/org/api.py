@@ -26,10 +26,20 @@ from apps.platform.services import audit_request, has_feature
 from core import cursor as keyset
 from core.auth import session_auth
 from core.errors import ServiceError
-from core.permissions import OrgRole, org_scope
+from core.permissions import OrgRole, Scope, org_scope
 
 from . import services
-from .models import Invite, JobRole, MemberJobRole, MemberUnit, Organization, OrgBranding, OrgMember, OrgUnit
+from .models import (
+    Invite,
+    JobRole,
+    MemberJobRole,
+    MemberUnit,
+    Organization,
+    OrgBranding,
+    OrgMember,
+    OrgRoleAssignment,
+    OrgUnit,
+)
 from .schemas import (
     AssignIn,
     AssignmentRow,
@@ -54,6 +64,9 @@ from .schemas import (
     MoveIn,
     MoveOut,
     OrgOut,
+    OrgResponsibilitiesIn,
+    OrgResponsibilitiesOut,
+    OrgRoleCapabilitiesOut,
     PersonPage,
     PersonRowsOut,
     UnitIn,
@@ -249,7 +262,7 @@ def people(request, q: str | None = None, unit_id: str | None = None, job_role_i
     people placed in that exact unit."""
     from apps.compliance.selectors import after_name, scoped_members
 
-    scope = org_scope(request, OrgRole.MANAGER)
+    scope = _people_scope(request)
     limit = max(1, min(limit, 200))
     unit = _unit_or_404(scope, unit_id)
     qs = scoped_members(scope, unit=unit, q=q, job_role_id=job_role_id).select_related("user")
@@ -273,6 +286,29 @@ def _unit_or_404(scope, unit_id):
         return get_object_or_404(OrgUnit, pk=uuid.UUID(str(unit_id)), org_id=scope.org_id)
     except ValueError:
         raise ServiceError("bad_unit", "This location or team does not exist.", status=404) from None
+
+
+def _people_scope(request, *, admin: bool = False):
+    """HR assignments may administer company people without granting platform/company admin."""
+    from core.permissions import require_org
+
+    org_id = require_org(request)
+    if getattr(request, "platform_staff", False):
+        return Scope(org_id, OrgRole.OWNER, uuid.UUID(int=0), None)
+    member_id = getattr(request, "member_id", None)
+    role = getattr(request, "org_role", None)
+    if member_id is None or role is None:
+        raise ServiceError("forbidden", "Join this company to view its people.", status=403)
+    is_hr = OrgRoleAssignment.objects.filter(
+        org_id=org_id,
+        member_id=member_id,
+        code=OrgRoleAssignment.Code.HR_ADMIN,
+        unit__isnull=True,
+        revoked_at__isnull=True,
+    ).exists()
+    if is_hr:
+        return Scope(org_id, OrgRole.ADMIN, member_id, None)
+    return org_scope(request, OrgRole.ADMIN if admin else OrgRole.MANAGER)
 
 
 def _person_rows(page: list) -> list[dict]:
@@ -327,7 +363,7 @@ def _selected(scope, member_ids) -> list:
 @router.post("/people/rows", response=PersonRowsOut)
 def people_rows(request, body: MemberIdsIn):
     """The selected people as rows (for "Export selected"), only people the caller may see."""
-    scope = org_scope(request, OrgRole.MANAGER)
+    scope = _people_scope(request)
     found = sorted(_selected(scope, body.member_ids), key=lambda m: (m.user.full_name.lower(), str(m.id)))
     audit_request(request, "member.export", "org", scope.org_id, {"people": len(found)})
     return {"items": _person_rows(found)}
@@ -337,7 +373,7 @@ def people_rows(request, body: MemberIdsIn):
 def move_people(request, body: MoveIn):
     """Move people's primary location or team. Other units, role, account and training
     history are kept."""
-    scope = org_scope(request, OrgRole.ADMIN)
+    scope = _people_scope(request, admin=True)
     members = _selected(scope, body.member_ids)
     unit = get_object_or_404(OrgUnit, pk=body.unit_id, org_id=scope.org_id, archived_at__isnull=True)
     moved, unchanged = services.move_members(org_id=scope.org_id, members=members, unit=unit)
@@ -363,7 +399,7 @@ def remind_people(request, body: MemberIdsIn):
 @router.patch("/people/{member_id}", response=OkOut)
 @transaction.atomic
 def update_person(request, member_id: str, body: MemberPatch):
-    scope = org_scope(request, OrgRole.ADMIN)
+    scope = _people_scope(request, admin=True)
     member = get_object_or_404(OrgMember, pk=member_id, org_id=scope.org_id, removed_at__isnull=True)
     if body.role and body.role != member.role:
         services.change_role(member=member, role=body.role, by_role=scope.role.value)
@@ -397,9 +433,163 @@ def update_person(request, member_id: str, body: MemberPatch):
     return {"ok": True}
 
 
+def _can_manage_responsibilities(request, scope) -> bool:
+    if getattr(request, "platform_staff", False) or scope.role in (OrgRole.ADMIN, OrgRole.OWNER):
+        return True
+    member_id = getattr(request, "member_id", None)
+    return bool(
+        member_id
+        and OrgRoleAssignment.objects.filter(
+            org_id=scope.org_id,
+            member_id=member_id,
+            code=OrgRoleAssignment.Code.HR_ADMIN,
+            revoked_at__isnull=True,
+            unit__isnull=True,
+        ).exists()
+    )
+
+
+def _responsibility_scope(request):
+    from core.permissions import require_org
+
+    org_id = require_org(request)
+    role = getattr(request, "org_role", None)
+    member_id = getattr(request, "member_id", None)
+    if getattr(request, "platform_staff", False):
+        return Scope(org_id, OrgRole.OWNER, uuid.UUID(int=0), None)
+    if role is None or member_id is None:
+        raise ServiceError("forbidden", "Join this company before managing responsibilities.", status=403)
+    scope = (
+        org_scope(request, OrgRole.LEARNER)
+        if role in (OrgRole.ADMIN, OrgRole.OWNER)
+        else Scope(org_id, OrgRole(role), member_id, ())
+    )
+    if not _can_manage_responsibilities(request, scope):
+        raise ServiceError(
+            "forbidden",
+            "Only the company owner, HR or platform admin can manage responsibilities.",
+            status=403,
+        )
+    return scope
+
+
+@router.get("/role-capabilities", response=OrgRoleCapabilitiesOut)
+def role_capabilities(request):
+    if getattr(request, "platform_staff", False):
+        return {"can_manage_responsibilities": True, "responsibilities": []}
+    member_id = getattr(request, "member_id", None)
+    if member_id is None:
+        return {"can_manage_responsibilities": False, "responsibilities": []}
+    role = getattr(request, "org_role", None)
+    rows = list(
+        OrgRoleAssignment.objects.filter(
+            org_id=request.org_id,
+            member_id=member_id,
+            revoked_at__isnull=True,
+        )
+        .select_related("unit")
+        .order_by("code", "unit__name")
+    )
+    allowed = role in (OrgRole.ADMIN, OrgRole.OWNER) or any(
+        row.code == OrgRoleAssignment.Code.HR_ADMIN and row.unit_id is None for row in rows
+    )
+    return {
+        "can_manage_responsibilities": bool(allowed),
+        "responsibilities": [
+            {"code": row.code, "unit_id": row.unit_id, "unit_name": row.unit.name if row.unit_id else None}
+            for row in rows
+        ],
+    }
+
+
+@router.get("/people/{member_id}/responsibilities", response=OrgResponsibilitiesOut)
+def person_responsibilities(request, member_id: str):
+    scope = _responsibility_scope(request)
+    member = get_object_or_404(OrgMember, pk=member_id, org_id=scope.org_id, removed_at__isnull=True)
+    rows = OrgRoleAssignment.objects.filter(
+        org_id=scope.org_id, member=member, revoked_at__isnull=True
+    ).select_related("unit")
+    return {
+        "assignments": [
+            {"code": row.code, "unit_id": row.unit_id, "unit_name": row.unit.name if row.unit_id else None}
+            for row in rows.order_by("code", "unit__name")
+        ]
+    }
+
+
+@router.put("/people/{member_id}/responsibilities", response=OrgResponsibilitiesOut)
+@transaction.atomic
+def set_person_responsibilities(request, member_id: str, body: OrgResponsibilitiesIn):
+    scope = _responsibility_scope(request)
+    member = get_object_or_404(OrgMember, pk=member_id, org_id=scope.org_id, removed_at__isnull=True)
+    valid_codes = {choice for choice, _label in OrgRoleAssignment.Code.choices}
+    requested = []
+    seen = set()
+    unit_ids = {item.unit_id for item in body.assignments if item.unit_id is not None}
+    units = {
+        unit.id: unit
+        for unit in OrgUnit.objects.filter(org_id=scope.org_id, id__in=unit_ids, archived_at__isnull=True)
+    }
+    if len(units) != len(unit_ids):
+        raise ServiceError("bad_unit", "One of these departments or teams does not exist.")
+    for item in body.assignments:
+        if item.code not in valid_codes:
+            raise ServiceError("bad_responsibility", "Choose a valid company responsibility.")
+        if (
+            item.code in (OrgRoleAssignment.Code.DEPARTMENT_HEAD, OrgRoleAssignment.Code.LINE_MANAGER)
+            and item.unit_id is None
+        ):
+            raise ServiceError("unit_required", "Choose a department or team for this responsibility.")
+        if (
+            item.code
+            in (
+                OrgRoleAssignment.Code.EXECUTIVE,
+                OrgRoleAssignment.Code.HR_ADMIN,
+                OrgRoleAssignment.Code.ACADEMY_MARKETING,
+            )
+            and item.unit_id is not None
+        ):
+            raise ServiceError("unit_not_allowed", "This responsibility applies to the whole company.")
+        if (
+            item.code == OrgRoleAssignment.Code.DEPARTMENT_HEAD
+            and units[item.unit_id].kind != OrgUnit.Kind.DEPARTMENT
+        ):
+            raise ServiceError("department_required", "Head of Department must be assigned to a department.")
+        key = (item.code, item.unit_id)
+        if key in seen:
+            raise ServiceError(
+                "duplicate_responsibility", "Each responsibility can be assigned once per scope."
+            )
+        seen.add(key)
+        requested.append(key)
+    OrgRoleAssignment.objects.filter(org_id=scope.org_id, member=member, revoked_at__isnull=True).update(
+        revoked_at=timezone.now()
+    )
+    active = []
+    for code, unit_id in requested:
+        row = OrgRoleAssignment.objects.create(
+            org_id=scope.org_id,
+            member=member,
+            code=code,
+            unit_id=unit_id,
+            assigned_by=request.user,
+        )
+        active.append(
+            {"code": row.code, "unit_id": row.unit_id, "unit_name": units[unit_id].name if unit_id else None}
+        )
+    audit_request(
+        request,
+        "member.responsibilities",
+        "member",
+        member.id,
+        {"assignments": [{"code": c, "unit_id": str(u) if u else None} for c, u in requested]},
+    )
+    return {"assignments": active}
+
+
 @router.delete("/people/{member_id}", response=OkOut)
 def remove_person(request, member_id: str):
-    scope = org_scope(request, OrgRole.ADMIN)
+    scope = _people_scope(request, admin=True)
     member = get_object_or_404(OrgMember, pk=member_id, org_id=scope.org_id, removed_at__isnull=True)
     if member.user_id == request.user.id:
         raise ServiceError("self", "You cannot remove yourself.")

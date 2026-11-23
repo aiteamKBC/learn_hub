@@ -35,3 +35,6 @@ shots/
 tools/harness/*.log
 .claude/hooks/.goal_state.json
 logs/
+
+# Celery Beat runtime files
+backend/celerybeat-schedule*

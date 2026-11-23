@@ -1,6 +1,345 @@
 # Build status
 
+## Company responsibility roles — first implementation slice (2026-11-22)
+
+Added company responsibility assignments separate from membership access and job
+titles: Executive, HR, department head, line manager and academy marketing. Each
+person can hold multiple responsibilities; department head and line manager roles
+require a unit scope. Owners/admins and assigned HR can manage assignments from a
+person's Workforce profile. Platform staff use the existing explicit company
+Workforce context. HR responsibility now grants access to the HR directory/profile
+surface without changing the member's base login or membership role.
+
+Added the `org.role_assignments` table migration and tenant/same-company database
+constraints. Migrations `org.0003` and `org.0004` are applied to the Neon development
+database only. HR and Executive access is wired through workforce, framework,
+governance and performance endpoints; HoD/Line Manager access is unit-scoped, with
+KPI proposal review stages. Platform Admin has direct company shortcuts for People,
+Frameworks, Performance, Governance and Courses. Company HR and admins can author
+private company courses in Studio; submissions now enter the existing Platform Admin
+approval queue before publishing. This is a working first slice, not complete
+EvidRise parity. No tests were run in this continuation. Django system checks, Ruff,
+frontend TypeScript typecheck and production build are the implementation checks.
+
+## EvidRise parity audit and role roadmap (2026-11-22)
+
+The route/domain audit, production-data reality, persona permission model and phased
+delivery plan are documented in `docs/evidrise-parity-roadmap.md`. The audit confirms
+that M17–M20 are an implemented first slice, not a complete functional or content
+port of the EvidRise prototype.
+
+## M17–M20 UI completion and integration (2026-11-22)
+
+Continued the interrupted Claude frontend work for HCM, Frameworks, PMS and
+Governance. The existing 24 screens are integrated and their current API journeys
+completed/repaired. Detailed scope, backend repairs, checks and remaining source
+parity gaps: `docs/milestones/M17-M20-ui-handoff.md`.
+
+Frontend typecheck/build and lint passed; Python domain lint passed. Focused
+backend regressions passed 13/13. Browser UI contract checks passed 96/96 render
+cases; a separate real-backend browser journey passed employee profile, wellbeing,
+CPD and policy adoption plus all six employee mobile routes. No new
+migrations, dependency additions or deployments. Earlier statements below that
+M17–M20 completed the whole EvidRise port apply only to the selected backend scope,
+not to every feature in the EvidRise source application.
+
 Maintained by Claude Code (`/status`) and read by the planner session. Newest milestone first.
+
+## M20 Governance — backend: Strategy + Policies + Question bank (2026-11-22)
+
+New `governance` schema/app completing the EvidRise feature port. Company strategy
+(versioned objectives), policy documents (allocation + per-member adoption tracking)
+and a technical question bank — all admin-authored. **Migrations applied to Neon dev**
+(`governance/0001`, `governance/0002`). Backend only; frontend next.
+
+### What was built
+
+- **`apps/governance/models.py`** — 8 models: `Strategy`/`StrategyVersion`/`StrategyObjective`,
+  `PolicyDoc`/`PolicyVersion`/`PolicyAllocation`/`PolicyRecord`, `TechQuestion`. All
+  company_only except `PolicyRecord` (`manager_of_unit` on `member`).
+- **Migrations:** `0001_initial` (schema + 8 tables + grants), `0002_security`
+  (company_only ×7, manager_of_unit ×1, 8 composite FKs).
+- **services / selectors / schemas / permissions:** strategy versioning + approval
+  (supersede prior), policy authoring + approval + new-version (carry-forward) +
+  allocation rule, member adoption (read/acknowledge/check → stage
+  Aware→Understands→Applies→Embedded) + admin observations, question-bank CRUD +
+  archive. `require_governance_admin` gates authoring.
+- **`api.py`** — 21 endpoints at `/api/v1/governance/`.
+- **`tests/test_governance.py`** — 9 tests (strategy approval + no-edit-after-approve,
+  policy authoring/approval, full member adoption flow, wrong-answer scores 0, question
+  CRUD + archive, non-admin guards, typed-response contract).
+- **Registration:** `apps.governance` in `DOMAIN_APPS`; `governance` in
+  `test_rls.DOMAIN_SCHEMAS`, `tests/base.TRUNCATE_SCHEMAS`; `/api/v1/governance/` in
+  `test_api_contract.TYPED_PREFIXES`.
+- **`docs/milestones/M20-governance.md`** — milestone brief.
+
+### Checks passed
+
+- `manage.py check` 0 issues · `makemigrations --check` clean · `ruff` clean.
+- `core.tests.test_rls` 3/3 (governance schema structurally validated — 8 tables FORCE RLS).
+- `apps.governance` (9) + `test_rls` (3) + `test_api_contract` (2) — **14/14 pass** on Neon dev.
+
+### No migrations left to apply
+
+All applied. The selected M17–M20 backend scope is complete on Neon dev; this does
+not mean full EvidRise route, workflow or content parity.
+
+---
+
+## M19 PMS — backend: KPIs + reviews + AI analysis (2026-11-22)
+
+New `pms` Postgres schema and app completing the EvidRise port (Phase 2). KPIs with a
+HoD→HR→Exec approval route, quarterly performance reviews with snapshotted scores, and
+an AI analysis service. All sample content is generic and name-free. Backend only;
+frontend awaits mockups. **Migrations applied to Neon dev** (`pms/0001`, `pms/0002`).
+
+### What was built
+
+- **`apps/pms/models.py`** — 8 models: `Kpi`, `KpiProposal`, `KpiProposalHistory`,
+  `KpiMeasurement` (all company_only); `ReviewCycle` (company_only); `PerformanceReview`,
+  `ReviewObjective`, `ReviewAnalysis` (`manager_of_unit` RLS on a denormalised `member`).
+- **Migrations:** `pms/0001_initial` (CREATE SCHEMA + 8 tables + grants),
+  `pms/0002_security` (company_only ×5, manager_of_unit ×3, 12 composite FKs).
+- **`schemas.py` / `selectors.py` / `permissions.py`** — typed `Pms*` schemas,
+  optimised reads, `require_pms_admin` (admin/owner).
+- **`services.py`** — KPI approval state machine
+  (`draft → hod_review → hr_alignment → exec_approval → active`, + `changes_requested`
+  which bumps the version; reaching `active` creates the live `Kpi`), measurement upsert,
+  review-cycle open/close, review create/edit/objective/submit/acknowledge.
+- **`scoring.py`** — `kpi_attainment` (baseline→target progress), `member_kpi_score`
+  (weighted), `member_competence_score` (reuses Frameworks evidence), `member_wellbeing_score`
+  (latest HCM survey), `review_snapshot` (assembles all three at submit time, P4).
+- **`analysis.py`** — `generate()` produces a development narrative. Default is a
+  deterministic **heuristic** analyser (works with no dependency/key); an optional
+  **Claude API** path (`claude-opus-5-5`) activates only when the `anthropic` SDK is
+  installed AND `ANTHROPIC_API_KEY` is set. Never raises into the request (P5).
+- **`api.py`** — ~26 endpoints at `/api/v1/pms/`: KPIs + measurements, proposal CRUD +
+  workflow + history, review cycles + open/close, reviews + objectives + submit +
+  acknowledge, analysis generate/read, health.
+- **`tests/test_pms.py`** — 9 tests: KPI approval workflow, non-admin guard,
+  request-changes version bump, measurement/attainment, review round-trip with snapshot,
+  acknowledge-only-own-review guard, heuristic analysis, typed-response contract.
+- **Registration:** `apps.pms` in `DOMAIN_APPS`; `pms` in `test_rls.DOMAIN_SCHEMAS`,
+  `tests/base.TRUNCATE_SCHEMAS`; `/api/v1/pms/` in `test_api_contract.TYPED_PREFIXES`.
+- **`docs/milestones/M19-pms.md`** — milestone brief.
+
+### Checks passed
+
+- `manage.py check` 0 issues · `makemigrations --check` clean · `ruff` clean.
+- `core.tests.test_rls` 3/3 (pms schema structurally validated — all 8 tables FORCE RLS).
+- `apps.pms` (9) + `core.tests.test_api_contract` (2) — **11/11 pass** on Neon dev.
+
+### Enabling the real Claude API (optional)
+
+The AI analysis runs on the built-in heuristic out of the box. To use the Claude API:
+`pip install anthropic` (**needs your approval — adds a dependency**) and set
+`ANTHROPIC_API_KEY` in `backend/.env`. No code change; `analysis.py` auto-detects both.
+
+---
+
+## M18 Frameworks — backend Wave 2: services + API + scoring + tests (2026-11-22)
+
+Wave 1 migrations were applied to Neon dev (`frameworks/0001–0003` + `hcm/0004`, all
+OK). Wave 2 adds the full backend service layer, real API and tests. Frontend still
+awaits mockups (BLOCKED, unchanged).
+
+### What was built
+
+- **`apps/frameworks/schemas.py`** — typed In/Out schemas (prefixed `Fw*` for
+  project-unique class names): competencies, content tags, role versions/requirements,
+  competence/readiness/recommendations, maturity campaigns/responses/scores.
+- **`apps/frameworks/selectors.py`** — optimised reads (competency catalogue relying on
+  `scoped_content` for platform+org hybrid visibility, role/version/history, campaigns).
+- **`apps/frameworks/permissions.py`** — `require_framework_admin` (role admin/owner, D3).
+- **`apps/frameworks/services.py`** — writes: competency create/clone/update, course
+  tagging, role framework create, version draft/edit (carries requirements forward from
+  the approved version), add requirement, and the **approval state machine**
+  (submit → approve [supersedes prior approved atomically] / request-changes), each
+  transition logged to `RoleFrameworkHistory`; maturity campaign create/respond/close
+  (snapshots scores onto `MaturityVersion.last_scores`, D5).
+- **`apps/frameworks/scoring.py`** — pure compute: `evidenced_levels` (max target level
+  across the member's completed, competency-tagged courses), `competence_score`
+  (weight-weighted attainment 0..100), `readiness` (score + required-qualification match
+  + gaps), `recompute_evidenced` (refreshes `MemberProfile.evidenced_cached`), and
+  `score_campaign` (criterion→dimension→overall weighted rollup with a flat-mean fallback).
+- **`apps/frameworks/recommender.py`** — gap → course (tags meeting the required level,
+  excluding already-completed courses).
+- **`apps/frameworks/api.py`** — real endpoints at `/api/v1/frameworks/` (~23 routes):
+  competencies (CRUD + clone), course tagging, roles + versions + workflow transitions +
+  history, `/me/competence`, `/versions/{id}/readiness` + `/recommendations`, maturity
+  frameworks/campaigns/responses/close/scores, health. Admin-gated writes; self-service
+  reads open to any member.
+- **`apps/frameworks/tasks.py`** — Celery `recompute_evidenced_for_member` +
+  nightly `recompute_all_evidenced` fan-out.
+- **`apps/frameworks/tests/test_frameworks.py`** — 12 tests: competency hybrid + clone +
+  platform-readonly + non-admin guard, role approval workflow + no-edit-after-approve,
+  evidenced/readiness scoring + gap, maturity campaign round-trip, typed-response contract.
+- **`core/tests/test_api_contract.py`** — `/api/v1/frameworks/` added to `TYPED_PREFIXES`.
+
+### Checks passed (Wave 2)
+
+- `python manage.py check` — 0 issues · `makemigrations --check` — no changes.
+- `ruff check` / `ruff format --check` — clean.
+- `apps.frameworks` (12) + `core.tests.test_rls` (3) + `core.tests.test_api_contract` (2)
+  — **17/17 pass** on Neon dev (`--keepdb`).
+
+### Notes / gotchas fixed during Wave 2
+
+- An empty leftover `apps/frameworks/services/` package was shadowing `services.py`
+  (`AttributeError: no attribute 'create_competency'`) — removed the stray package dir.
+- Tests must **not** seed via the `owner` connection: a stale snapshot on that separate
+  psycopg connection caused FK-not-found + leftover-user errors and broke truncation.
+  Platform rows (owner_org NULL) are now seeded on the default connection under
+  `tenant_context(staff=True)`; enrolments under the member's own context.
+
+### Wave 2 — no migrations to apply
+
+All Wave 2 changes are code + tests only. No new migrations. (Wave 1 migrations were
+already applied.)
+
+---
+
+## M18 Frameworks — backend Wave 1: models + migrations (2026-11-21)
+
+New `frameworks` Postgres schema and Django app: competency catalogue (KSB), role
+frameworks with HR approval workflow, and department maturity surveys. Models + RLS +
+seed only; services, API and tests are Wave 2 (not yet built).
+
+### What was built
+
+- **`backend/apps/frameworks/`** — app skeleton + 13 models across 3 files:
+  - `models/competency.py` — `Competency` (hybrid platform/org, kind K/S/B/P),
+    `CourseCompetency`, `LectureCompetency`, `QuizQuestionCompetency` (KSB tagging on
+    content). All `scoped_content` RLS on `owner_org_id` (same pattern as catalog).
+  - `models/role_framework.py` — `RoleFramework`, `RoleFrameworkVersion` (5-state
+    approval: draft/submitted/changes_requested/approved/superseded), `RoleRequirement`
+    (per-KSB), `RoleFrameworkHistory` (audit). `required/recommended_qualification_ids`
+    are `ArrayField(UUID)` → hcm.Qualification (no M2M join table to secure).
+  - `models/dept_maturity.py` — `MaturityFramework`/`Version`/`Dimension`/`Criterion`
+    (hybrid catalogue), `MaturityCampaign` (company_only survey wave), `MaturityResponse`
+    (`manager_of_unit` RLS — member + managers see raw rows, peers don't).
+  - `api.py` — empty router placeholder (keeps auto-mount from breaking).
+- **Migrations:**
+  - `frameworks/0001_initial` — CREATE SCHEMA frameworks + 13 tables + grants.
+  - `frameworks/0002_security` — `scoped_content` ×8, `company_only` ×5,
+    `manager_of_unit` on maturity_responses, 5 composite FKs.
+  - `frameworks/0003_seed` — 8 platform KSBs (C1–C8, generic trade/ops starter set) +
+    one starter maturity framework (3 dimensions, 6 criteria). Idempotent, `.using(db)`.
+  - `hcm/0004_evidenced_cache` — adds `evidenced_cached` JSON + `evidenced_cached_at`
+    to `MemberProfile` (for the M18 recommender; filled nightly in Wave 2).
+- **`backend/config/settings/base.py`** — `apps.frameworks` added to `DOMAIN_APPS`.
+- **`backend/core/tests/base.py`** — `frameworks` added to `TRUNCATE_SCHEMAS`.
+- **`backend/core/tests/test_rls.py`** — `hcm` + `frameworks` added to `DOMAIN_SCHEMAS`
+  (they were previously NOT structurally validated — now they are).
+- **`docs/milestones/M18-frameworks.md`** — milestone brief.
+
+### Bug fixed during build
+
+- `frameworks/0003_seed` and `hcm/0003_backfill` RunPython seeds queried the new tables
+  on the default (`lms_app`) connection, which cannot see tables created in the same
+  uncommitted migration → `relation does not exist`. Fixed to use
+  `.using(schema_editor.connection.alias)` (the owner connection), per the project's
+  existing seed-migration convention (`commerce/0003`, `engagement/0003`).
+
+### Checks passed
+
+- `ruff check` / `ruff format --check` — clean
+- `python manage.py check` — 0 issues
+- `makemigrations --check --dry-run` — no additional migrations
+- `core.tests.test_rls` — 3/3 (frameworks schema + all 13 tables forced RLS with policy)
+
+### ⚠ Migrations NOT yet applied to Neon
+
+The user must run:
+
+```sh
+python manage.py migrate --database owner
+```
+
+Applies `frameworks/0001–0003` and `hcm/0004_evidenced_cache`.
+
+### Wave 2 (not yet built)
+
+- `schemas.py`, `selectors.py`, `services/` (scoring: evidenced/competence/readiness;
+  workflow: approval state machine; recommender: gap → course), `permissions.py`,
+  `api.py` endpoints, `tasks.py` (nightly recompute_evidenced), `tests/`.
+- Studio KSB tagging (course/question/assignment rubric) and all frontend — awaiting
+  mockups.
+
+---
+
+## M17 HCM Foundation — backend Wave 1 + Wave 2 (2026-11-21)
+
+New `hcm` Postgres schema and Django app: member profiles, qualifications catalogue, CPD log,
+quarterly rollup table, wellbeing surveys, activity sessions.
+
+### What was built
+
+- **`backend/apps/hcm/`** — full app, no frontend yet (see brief; awaiting mockups).
+  - `models.py` — 7 models: `MemberProfile`, `Qualification`, `MemberQualification`,
+    `MemberQuarter`, `WellbeingSurvey`, `CpdEntry`, `MemberActivity`. Every table in the
+    `hcm` schema with FORCE RLS, composite FKs `(org_id, x_id)`, and business-rule check
+    constraints (level 1-4, no self-manager, 0-1 scalars, etc.).
+  - `migrations/0001_initial.py` — CREATE SCHEMA hcm, 7 tables, GRANT to lms_app.
+  - `migrations/0002_security.py` — `company_only` RLS on 6 tables; `manager_of_unit` on
+    `wellbeing_surveys` (members + their managers only); 8 composite FKs.
+  - `migrations/0003_backfill.py` — idempotent `get_or_create` of `MemberProfile` for every
+    active `OrgMember` at migration time.
+  - `schemas.py` — `ProfileOut`, `MyProfilePatch`, `HrProfilePatch`, `QualificationOut`,
+    `MemberQualificationOut`, `CpdOut`, `WellbeingIn`, `WellbeingOut`, `HcmOk`.
+  - `selectors.py` — `profile_for`, `profile_payload`, `member_in_org`,
+    `qualification_catalogue`, `member_qualifications`, `cpd_entries`, `recent_wellbeing`.
+  - `services.py` — `update_my_profile`, `update_hr_profile`, `create_qualification`,
+    `award_qualification`, `record_external_cpd`, `submit_wellbeing` (mirrors latest scalars
+    onto `MemberProfile` on each submit; bumps `cpd_hours_cached` after CPD entry).
+  - `permissions.py` — `active_member_id`, `is_self`, `is_hr_admin`, `require_hr_admin`,
+    `require_self_or_hr`.
+  - `api.py` — 11 endpoints at `/api/v1/hcm/`: self-service (`/me/profile`, `/me/cpd`,
+    `/me/wellbeing`, `/me/qualifications`) + HR admin (`/qualifications`, `/people/{id}/…`).
+  - `tests/test_hcm.py` — 14 integration tests covering profile read/patch (self + HR),
+    qualification create/award, CPD add/list + cache update, wellbeing submit/list + scalar
+    mirror, typed-schema contract check. **14/14 passed**.
+- **`backend/core/rls.py`** — `MEMBER`, `ORG_ROLE` constants; `manager_of_unit()` helper
+  building an LTree ancestor EXISTS policy (staff / self / admin / manager).
+- **`backend/core/tenancy.py`** — `TenantMiddleware` now also sets `app.member_id` and
+  `app.org_role` per request; `tenant_context` context manager extended with the same kwargs.
+- **`backend/apps/org/selectors.py`** — `active_member_scope()` (single query resolving
+  member_id + role; replaces `is_active_member` for the middleware).
+- **`backend/config/settings/base.py`** — `apps.hcm` added to `DOMAIN_APPS`.
+- **`backend/core/tests/base.py`** — `hcm` added to `TRUNCATE_SCHEMAS`.
+- **`backend/core/tests/test_api_contract.py`** — `/api/v1/hcm/` added to `TYPED_PREFIXES`.
+- **`docs/milestones/M17-hcm-foundation.md`** — formal milestone brief.
+- **`docs/client-questions.md`** — entries 23–29 (PsyCap scale, wellbeing retention, manager
+  visibility, CPD verification, line manager assignment, manager unit scope, adjustments).
+
+### Checks passed
+
+- `ruff check` / `ruff format --check` — clean
+- `python manage.py check` — 0 issues
+- `makemigrations --check --dry-run` — no additional migrations
+- `core.tests.test_rls` — 3/3 (hcm schema + RLS policies)
+- `apps.hcm.tests.test_hcm` — 14/14
+
+### ⚠ Migrations NOT yet applied to Neon
+
+The user must run:
+
+```
+python manage.py migrate --database owner
+```
+
+This applies `hcm/0001_initial` (schema + tables), `hcm/0002_security` (RLS + composite FKs)
+and `hcm/0003_backfill` (MemberProfile rows for all existing OrgMembers).
+
+### Not in this milestone
+
+- **Frontend:** no HCM screens yet — awaiting mockups (see M17 brief BLOCKED section).
+- **Celery tasks:** `refresh_cpd_cache`, `create_next_quarter`, `rollup_quarter` — deferred to
+  the tasks wave of M17 or the next milestone.
+- `MemberQuarter.kpi_score` and `competence_score` stay NULL until Phase 1 (Frameworks) and
+  Phase 2 (PMS) fill them.
+
+---
 
 ## Embedded course checkout — Stripe Payment Element (2026-11-17)
 

@@ -67,6 +67,32 @@ class BusinessApiTest(SchemaTransactionTestCase):
     def patch(self, path, data):
         return self.client.patch(API + path, data=data, content_type="application/json", **self.H)
 
+    def test_platform_staff_can_open_explicit_company_workforce_view(self):
+        self.as_(self.staff)
+        # X-Org-Id alone is still ignored for a non-member, including staff.
+        self.assertEqual(self.get("/org/company").status_code, 403)
+
+        response = self.client.get(
+            API + "/org/company",
+            **self.H,
+            HTTP_X_PLATFORM_ORG_ACCESS="on",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["id"], str(self.acme.id))
+        self.assertEqual(response.json()["my_role"], "owner")
+
+        with tenant_context(staff=True):
+            self.assertFalse(OrgMember.objects.filter(org=self.acme, user=self.staff).exists())
+
+        # A normal user cannot turn the platform-only hand-off header into access.
+        self.as_(self.teacher)
+        denied = self.client.get(
+            API + "/org/company",
+            **self.H,
+            HTTP_X_PLATFORM_ORG_ACCESS="on",
+        )
+        self.assertEqual(denied.status_code, 403)
+
     def test_roles_scope_requirements_matrix_and_actions(self):
         # learners and outsiders get nothing from the HR API
         self.as_(self.sara)
