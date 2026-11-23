@@ -180,6 +180,30 @@ class PersonRowsOut(Schema):
     items: list[PersonRow]
 
 
+class OrgResponsibilityOut(Schema):
+    code: str
+    unit_id: UUID | None
+    unit_name: str | None
+
+
+class OrgResponsibilityIn(Schema):
+    code: str
+    unit_id: UUID | None = None
+
+
+class OrgResponsibilitiesIn(Schema):
+    assignments: list[OrgResponsibilityIn] = Field(default_factory=list, max_length=20)
+
+
+class OrgResponsibilitiesOut(Schema):
+    assignments: list[OrgResponsibilityOut]
+
+
+class OrgRoleCapabilitiesOut(Schema):
+    can_manage_responsibilities: bool
+    responsibilities: list[OrgResponsibilityOut]
+
+
 class AssignIn(Schema):
     course_id: UUID
     member_ids: list[UUID] = Field(default_factory=list, max_length=5000)

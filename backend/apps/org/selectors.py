@@ -19,6 +19,20 @@ def member_role(*, user_id, org_id: UUID) -> str | None:
     )
 
 
+def active_member_scope(*, user_id, org_id: UUID) -> tuple[UUID, str] | None:
+    """One query to resolve a request's OrgMember into (member_id, role). Called by
+    TenantMiddleware when switching into a company context so the RLS keys
+    `app.member_id` and `app.org_role` can both be set. Returns None if the user
+    is not an active member of the org (the middleware then falls back to the
+    user-only context)."""
+    row = (
+        OrgMember.objects.filter(org_id=org_id, user_id=user_id, removed_at__isnull=True)
+        .values_list("id", "role")
+        .first()
+    )
+    return (row[0], row[1]) if row else None
+
+
 def subtree(unit: OrgUnit):
     """The unit and every unit below it (one GiST-indexed query)."""
     return OrgUnit.objects.filter(org_id=unit.org_id, path__descendant_of=unit.path, archived_at__isnull=True)

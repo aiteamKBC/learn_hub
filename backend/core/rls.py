@@ -36,6 +36,10 @@ USER = "(SELECT NULLIF(current_setting('app.user_id', true), '')::uuid)"
 STAFF = "(SELECT COALESCE(current_setting('app.platform_staff', true), '') = 'on')"
 # Set only while a catalog authoring service runs (apps.catalog.services.authoring)
 AUTHOR = "(SELECT COALESCE(current_setting('app.author', true), '') = 'on')"
+# Set by TenantMiddleware alongside ORG when the request's user is an active member
+# of the active company. Used by `manager_of_unit` to scope rows to a line manager.
+MEMBER = "(SELECT NULLIF(current_setting('app.member_id', true), '')::uuid)"
+ORG_ROLE = "(SELECT NULLIF(current_setting('app.org_role', true), ''))"
 
 
 def _qualified(schema: str, table: str) -> str:
@@ -130,6 +134,39 @@ def composite_fk(
         f"REFERENCES {rq} ({rcols}) ON DELETE {on_delete} DEFERRABLE INITIALLY IMMEDIATE;"
     )
     return forward, f"ALTER TABLE {q} DROP CONSTRAINT IF EXISTS {name};"
+
+
+def manager_of_unit(schema: str, table: str, member_column: str = "member_id") -> tuple[str, str]:
+    """Row about a specific member: visible to that member, to org admins/owners,
+    to platform staff, and to any `org.UnitManager` whose unit is an ancestor of
+    the target member's unit(s) in the LTree hierarchy. Use for sensitive
+    per-member data (wellbeing surveys, review notes) where plain
+    `company_only` would expose it to every colleague.
+
+    Needs `app.member_id` and `app.org_role` to be set by TenantMiddleware
+    alongside `app.org_id`; the policy is otherwise self-only + staff.
+    """
+    q = _qualified(schema, table)
+    _ident(member_column)
+    manager_subquery = (
+        'EXISTS (SELECT 1 FROM "org"."member_units" mu '  # noqa: S608 - identifiers validated by _ident
+        'JOIN "org"."org_units" tgt ON tgt.org_id = mu.org_id AND tgt.id = mu.unit_id '
+        'JOIN "org"."unit_managers" um ON um.org_id = tgt.org_id '
+        'JOIN "org"."org_units" mgr ON mgr.org_id = um.org_id AND mgr.id = um.unit_id '
+        f"WHERE mu.member_id = {table}.{member_column} "
+        f"AND um.member_id = {MEMBER} "
+        "AND tgt.path <@ mgr.path)"
+    )
+    rule = (
+        f"(org_id = {ORG} AND ("
+        f"{STAFF}"
+        f" OR {table}.{member_column} = {MEMBER}"
+        f" OR {ORG_ROLE} IN ('owner', 'admin')"
+        f" OR {manager_subquery}"
+        "))"
+    )
+    forward = _enable(q) + f"CREATE POLICY tenant_manager ON {q} USING {rule} WITH CHECK {rule};"
+    return forward, _disable(q, "tenant_manager")
 
 
 def scoped_content(schema: str, table: str, column: str = "owner_org_id") -> tuple[str, str]:

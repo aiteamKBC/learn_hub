@@ -19,6 +19,10 @@ TRUNCATE_SCHEMAS = [
     "payouts",
     "engagement",
     "platform",
+    "hcm",
+    "frameworks",
+    "pms",
+    "governance",
 ]
 # Reference data loaded by migrations survives between tests
 KEEP = {

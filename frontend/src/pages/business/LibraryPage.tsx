@@ -13,7 +13,8 @@ import { EmptyState, ErrorState, PageHeader } from '@/components/ui/misc'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { type LibraryCourse, useAssignments, useLibrary } from '@/features/org/api'
+import { type LibraryCourse, useAssignments, useIsOrgAdmin, useLibrary } from '@/features/org/api'
+import { CourseCompetencyPanel } from '@/features/frameworks/CourseCompetencyPanel'
 import { AssignWizard, type PickedPerson } from '@/features/org/AssignWizard'
 import { cn } from '@/lib/cn'
 import { duration, relativeDate } from '@/lib/format'
@@ -27,6 +28,7 @@ const STATUS: Record<string, { label: string; tone: 'success' | 'info' | 'neutra
 /** Who has this course and how far they are (side sheet). */
 function ProgressSheet({ course, onClose, onAssign }: { course: LibraryCourse | null; onClose: () => void; onAssign: (courseId: string) => void }) {
   const { data, isLoading, error, refetch } = useAssignments(course?.id ?? null)
+  const admin = useIsOrgAdmin()
   return (
     <Dialog open={!!course} onOpenChange={(o) => !o && onClose()}>
       {course ? (
@@ -78,6 +80,7 @@ function ProgressSheet({ course, onClose, onAssign }: { course: LibraryCourse | 
                 })}
               </ul>
             )}
+            {admin ? <CourseCompetencyPanel key={course.id} courseId={course.id} /> : null}
           </div>
         </DialogContent>
       ) : null}

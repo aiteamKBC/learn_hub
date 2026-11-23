@@ -1,4 +1,4 @@
-import { Building2, Plus, Search, ShieldCheck, UserMinus, UserPlus, Users } from 'lucide-react'
+import { ArrowRight, BriefcaseBusiness, Building2, Plus, Search, ShieldCheck, UserMinus, UserPlus, Users } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { toast } from '@/lib/toast'
 
@@ -27,8 +27,10 @@ import {
   useUpdateCompany,
 } from '@/features/console/companies'
 import { ConfirmDialog, DetailSheet, InfoRow, StatusPill, useParam } from '@/features/console/ui'
+import { useWorkspace } from '@/features/identity/workspace'
 import { useDebounced } from '@/features/org/ui'
 import { count, shortDate } from '@/lib/format'
+import { useNavigate } from '@/lib/router'
 
 function Kpis() {
   const { data } = useCompanyKpis()
@@ -277,12 +279,32 @@ function AdminsSection({ c }: { c: ConsoleCompanyDetail }) {
 
 function CompanyDetail({ id }: { id: string }) {
   const q = useCompany(id)
+  const { switchToStaffOrg } = useWorkspace()
+  const navigate = useNavigate()
   if (q.isLoading) return <div className="grid gap-3">{Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-16" />)}</div>
   if (q.error || !q.data) return <ErrorState message={q.error?.message ?? 'Company not found.'} onRetry={() => void q.refetch()} />
   const c = q.data
   const subs = [...c.subscriptions, ...c.addon_subscriptions]
+  const openWorkforce = () => {
+    switchToStaffOrg({ org_id: c.id, name: c.name, slug: c.slug })
+    navigate('/business')
+  }
   return (
     <div className="grid animate-reveal gap-6">
+      <Card className="border-primary/25 bg-primary-soft/45 p-4 shadow-none">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
+            <BriefcaseBusiness className="size-5" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold">HR, performance & governance</h3>
+            <p className="mt-0.5 text-sm text-muted">Open this company’s People, HCM, frameworks, reviews, strategy and policies.</p>
+          </div>
+          <Button onClick={openWorkforce}>
+            Open workforce <ArrowRight />
+          </Button>
+        </div>
+      </Card>
       <div>
         <InfoRow label="Status"><StatusPill status={c.status} label={COMPANY_STATUSES[c.status]} /></InfoRow>
         <InfoRow label="People">{count(c.members)}{c.seat_limit ? ` of ${count(c.seat_limit)} seats` : ''}</InfoRow>
