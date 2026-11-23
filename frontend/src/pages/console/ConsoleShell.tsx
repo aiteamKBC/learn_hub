@@ -1,4 +1,4 @@
-import { Award, BadgePercent, ShieldCheck, BarChart3, BookOpen, Building2, Coins, CreditCard, GraduationCap, History, LayoutDashboard, MessageSquare, Package as PackageIcon, Percent, Receipt, Settings, Stamp, Star, Tags, Users, Wallet, WalletCards } from 'lucide-react'
+import { Award, BadgePercent, ShieldCheck, BarChart3, BookOpen, Building2, Coins, CreditCard, GraduationCap, History, LayoutDashboard, MessageSquare, Package as PackageIcon, Percent, Receipt, Settings, Stamp, Star, Tags, Users, Wallet, WalletCards, BriefcaseBusiness } from 'lucide-react'
 
 import { ApiError } from '@/api/client'
 import { Backdrop } from '@/components/art/backdrops'
@@ -69,6 +69,7 @@ const consoleNav: NavSection[] = [
     title: 'Platform',
     items: [
       { to: '/console/companies', label: 'Companies', Icon: Building2 },
+      { to: '/console/workforce', label: 'Workforce', Icon: BriefcaseBusiness },
       { to: '/console/home-layout', label: 'Home layout', Icon: LayoutDashboard },
       { to: '/console/settings', label: 'Settings', Icon: Settings },
       { to: '/console/audit', label: 'Audit log', Icon: History },

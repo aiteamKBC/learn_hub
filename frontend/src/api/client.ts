@@ -1,7 +1,7 @@
 import createClient, { type Middleware } from 'openapi-fetch'
 
 import { API_BASE_URL } from '@/lib/env'
-import { currentOrgId } from '@/lib/workspace'
+import { currentOrgId, isStaffOrgAccess } from '@/lib/workspace'
 
 import type { paths } from './schema'
 
@@ -29,6 +29,7 @@ const auth: Middleware = {
     // a request may pin its own space (e.g. personal billing passes X-Org-Id: "")
     const orgId = currentOrgId()
     if (orgId && !request.headers.has('X-Org-Id')) request.headers.set('X-Org-Id', orgId)
+    if (orgId && isStaffOrgAccess()) request.headers.set('X-Platform-Org-Access', 'on')
     return request
   },
 }

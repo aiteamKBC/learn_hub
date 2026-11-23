@@ -11,10 +11,30 @@ npm run gen:api      # refresh src/api/schema.d.ts after backend API changes (Dj
 npm run analyze      # dist/stats.html: what is inside each JS chunk
 ```
 
+To target another local Django process in PowerShell, set
+`$env:LEARNHUB_API_PROXY_TARGET='http://127.0.0.1:8012'` before `npm.cmd run dev`.
+This changes only Vite's same-origin `/api` and `/_allauth` proxy. The default is
+still `http://localhost:8000`; no browser API URL or production setting changes.
+
 - Design tokens (colours, radius, shadows, light + dark): `src/index.css`. Change the brand there.
 - Components: `src/components/ui`; layouts: `src/components/layout`.
 - One folder per backend domain under `src/features`; route screens under `src/pages`.
 - Every page is lazy-loaded; `/design` renders the whole design system for review.
+
+### Workforce areas (M17–M20)
+
+The company sidebar includes HR, Frameworks, Performance and Governance. Employee
+pages are `/learn/hr-profile`, `/learn/wellbeing`, `/learn/cpd`, `/learn/competence`,
+`/learn/reviews` and `/learn/policies`. These pages require an active company workspace:
+a single membership is selected automatically, while multiple memberships show a chooser.
+On phones the **Learning & work menu** exposes these links without expanding the
+five-item bottom navigation. All areas keep the existing dashboard artwork/theme.
+
+Company admins can map a course's competency evidence in the business **Course
+library** detail sheet (also in studio **Details** for admins with studio access).
+Role readiness and maturity responses use real framework version/criterion IDs.
+Employee policy content comes from the answer-redacted published-content endpoint.
+See `docs/milestones/M17-M20-ui-handoff.md` for verification and remaining API gaps.
 
 ### Theme-safe native controls
 

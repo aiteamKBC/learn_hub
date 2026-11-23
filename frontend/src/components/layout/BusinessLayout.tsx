@@ -1,10 +1,12 @@
-import { Search } from 'lucide-react'
+import { ArrowLeft, Search } from 'lucide-react'
 import { useState } from 'react'
 
 import { Input } from '@/components/ui/input'
-import { useCompany } from '@/features/org/api'
+import { Button } from '@/components/ui/button'
+import { useCompany, useRoleCapabilities } from '@/features/org/api'
+import { useWorkspace } from '@/features/identity/workspace'
 import { brandStyle, safeLogo } from '@/features/org/branding'
-import { useNavigate } from '@/lib/router'
+import { Link, useNavigate } from '@/lib/router'
 
 import { type NavSection, WorkspaceLayout } from './WorkspaceLayout'
 
@@ -29,10 +31,16 @@ export function CompanyMark({ name, logoUrl, className = 'size-8' }: { name: str
 /** Header: the company (logo + name, underlined in its accent colour) and people search. */
 function BusinessHeader() {
   const { data: company } = useCompany()
+  const { isPlatformAdminView } = useWorkspace()
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   return (
     <div className="flex min-w-0 items-center gap-3">
+      {isPlatformAdminView ? (
+        <Button asChild variant="ghost" size="icon-sm">
+          <Link to="/console/workforce" aria-label="Back to admin workforce"><ArrowLeft /></Link>
+        </Button>
+      ) : null}
       {company ? (
         <span className="hidden min-w-0 items-center gap-2 border-b-2 pb-0.5 lg:inline-flex" style={{ borderColor: 'var(--brand-accent, transparent)' }}>
           <CompanyMark name={company.name} logoUrl={company.logo_url} className="size-7" />
@@ -57,5 +65,25 @@ function BusinessHeader() {
  * branding, plus the header search for people. */
 export function BusinessLayout({ sections }: { sections: NavSection[] }) {
   const { data: company } = useCompany()
-  return <WorkspaceLayout area="Business" sections={sections} art="contours" header={<BusinessHeader />} style={brandStyle(company?.primary_color, company?.accent_color)} />
+  const { org, isPlatformAdminView } = useWorkspace()
+  const responsibilities = useRoleCapabilities()
+  const admin = !!org && ['owner', 'admin'].includes(org.role)
+  const roles = new Set(responsibilities.data?.responsibilities.map((item) => item.code) ?? [])
+  const hr = roles.has('hr_admin')
+  const executive = roles.has('executive')
+  const scopedManager = roles.has('department_head') || roles.has('line_manager')
+  const visibleSections = sections.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => {
+      if (admin) return true
+      const to = item.to
+      if (to.startsWith('/business/hcm/') || to.startsWith('/business/frameworks/')) return hr
+      if (to === '/business/governance/questions') return hr
+      if (to.startsWith('/business/governance/')) return hr || executive
+      if (to.startsWith('/business/pms/')) return hr || executive
+      if (to === '/business/billing' || to === '/business/settings' || to === '/business/invites') return false
+      return hr || executive || scopedManager || !!org && org.role === 'manager'
+    }),
+  })).filter((section) => section.items.length)
+  return <WorkspaceLayout area={isPlatformAdminView ? 'Admin · Workforce' : 'Business'} sections={visibleSections} art="contours" header={<BusinessHeader />} style={brandStyle(company?.primary_color, company?.accent_color)} />
 }
