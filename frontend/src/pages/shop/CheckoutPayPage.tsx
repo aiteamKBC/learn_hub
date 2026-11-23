@@ -370,7 +370,10 @@ export function CheckoutPayPage() {
   const { slug = '' } = useParams()
   const { data: course, isLoading, error, refetch } = useCourse(slug)
   const navigate = useNavigate()
-  const goBack = () => (window.history.length > 1 ? window.history.back() : navigate(`/courses/${slug}`))
+  // This action is explicitly "Back to course", so make its destination deterministic.
+  // Browser history may point at the login redirect (or another page entirely), especially
+  // on mobile, which made the button appear to do nothing.
+  const goBack = () => navigate(`/courses/${slug}`)
 
   return (
     <div className="relative isolate min-h-dvh">

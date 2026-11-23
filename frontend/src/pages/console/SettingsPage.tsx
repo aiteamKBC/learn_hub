@@ -1,4 +1,4 @@
-import { Bell, Check, ChevronRight, CreditCard, Eye, GraduationCap, ImageUp, Info, RotateCcw, Settings2, ShieldCheck, SlidersHorizontal, Trash2, Users, type LucideIcon } from 'lucide-react'
+import { Bell, Check, CreditCard, Eye, GraduationCap, ImageUp, Info, RotateCcw, Settings2, ShieldCheck, SlidersHorizontal, Trash2, Users, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from '@/lib/toast'
 
@@ -237,9 +237,9 @@ export function ConsoleSettingsPage() {
       {q.error ? (
         <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />
       ) : q.isLoading ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className={cn('grid gap-4', tab === 'general' && 'lg:grid-cols-[minmax(0,1fr)_22rem]')}>
           <Skeleton className="h-[540px] rounded-lg" />
-          <Skeleton className="h-[540px] rounded-lg" />
+          {tab === 'general' ? <Skeleton className="h-[540px] rounded-lg" /> : null}
         </div>
       ) : (
         <div className="grid animate-reveal gap-5">
@@ -253,7 +253,7 @@ export function ConsoleSettingsPage() {
               ))}
             </TabsList>
           </Tabs>
-          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className={cn('grid items-start gap-5', tab === 'general' && 'lg:grid-cols-[minmax(0,1fr)_22rem]')}>
             <Card className="min-w-0 p-5 sm:p-6">
               <div className="flex items-start gap-3 border-b border-border pb-4">
                 <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary"><current.icon className="size-5" /></span>
@@ -302,9 +302,8 @@ export function ConsoleSettingsPage() {
               </div>
             </Card>
 
-            <div className="grid min-w-0 gap-5">
-              {tab === 'general' ? (
-                <>
+            {tab === 'general' ? (
+              <div className="grid min-w-0 gap-5">
                   <Preview name={String(value('general.platform_name'))} tagline={String(value('general.tagline'))} logo={String(saved['general.logo_url'] ?? '')} />
                   <Card className="p-5">
                     <h2 className="flex items-center gap-2 text-base font-semibold"><SlidersHorizontal className="size-4 text-primary" /> Additional options</h2>
@@ -315,32 +314,8 @@ export function ConsoleSettingsPage() {
                       ))}
                     </div>
                   </Card>
-                </>
-              ) : null}
-              <Card className="p-3">
-                <h2 className="px-2 pt-2 text-base font-semibold">Settings overview</h2>
-                <p className="px-2 text-xs text-muted">Quick access to every section.</p>
-                <ul className="mt-2 grid gap-1">
-                  {TABS.map((t) => (
-                    <li key={t.key}>
-                      <button
-                        type="button"
-                        onClick={() => setTab(t.key)}
-                        aria-current={t.key === tab ? 'page' : undefined}
-                        className={cn('flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors', t.key === tab ? 'bg-primary-soft' : 'hover:bg-surface-2')}
-                      >
-                        <t.icon className={cn('size-5 shrink-0', t.key === tab ? 'text-primary' : 'text-muted')} />
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-medium">{t.label} settings{changedIn(t) ? <span className="ml-1.5 text-xs font-normal text-warning">· {changedIn(t)} unsaved</span> : null}</span>
-                          <span className="block text-xs text-muted">{t.hint}</span>
-                        </span>
-                        <ChevronRight className="size-4 shrink-0 text-muted" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            </div>
+              </div>
+            ) : null}
           </div>
         </div>
       )}

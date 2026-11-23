@@ -9,13 +9,15 @@ const field =
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { icon?: ReactNode }>(
   function Input({ className, icon, ...props }, ref) {
-    if (!icon) return <input ref={ref} className={cn(field, 'h-10', className)} {...props} />
+    const searchLabel = String(props['aria-label'] ?? props.placeholder ?? '')
+    const isSearch = props.type === 'search' || /^search\b/i.test(searchLabel)
+    if (!icon) return <input ref={ref} className={cn(field, 'h-10', isSearch && 'rounded-full', className)} {...props} />
     return (
       <div className="relative">
         <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-subtle [&_svg]:size-4">
           {icon}
         </span>
-        <input ref={ref} className={cn(field, 'h-10 pl-9', className)} {...props} />
+        <input ref={ref} className={cn(field, 'h-10 pl-9', isSearch && 'rounded-full', className)} {...props} />
       </div>
     )
   },

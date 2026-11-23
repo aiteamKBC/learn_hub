@@ -80,7 +80,7 @@ export type WorkspaceSearch = { placeholder: string; to: (q: string) => string }
  * choose its own with `handle: { art }` in its route. `topBar` is an optional full-width row
  * above the whole frame (e.g. the marketplace nav on the admin console); the sidebar and header
  * then stick just below it. */
-export function WorkspaceLayout({ area, sections, header, search, topBar, style }: { area: string; sections: NavSection[]; header?: ReactNode; art?: BackdropVariant; search?: WorkspaceSearch; topBar?: ReactNode; style?: CSSProperties }) {
+export function WorkspaceLayout({ area, sections, header, search, topBar, centerHeader = false, style }: { area: string; sections: NavSection[]; header?: ReactNode; art?: BackdropVariant; search?: WorkspaceSearch; topBar?: ReactNode; centerHeader?: boolean; style?: CSSProperties }) {
   const [open, setOpen] = useState(false)
   const hasTop = !!topBar
   const headerContent = header ?? (search ? <HeaderSearch {...search} /> : null)
@@ -127,11 +127,18 @@ export function WorkspaceLayout({ area, sections, header, search, topBar, style 
         {/* With a top bar (admin console) the theme toggle, bell and user menu already live in
             the marketplace nav, so this header drops them to avoid a duplicate strip; when it
             would then be empty it only stays on mobile, where it carries the sidebar hamburger. */}
-        <header className={cn('vt-header sticky z-30 flex h-16 items-center gap-2 border-b border-border bg-background/90 px-4 backdrop-blur-md sm:px-6', hasTop ? 'top-16' : 'top-0', headerEmptyOnDesktop && 'lg:hidden')}>
+        <header className={cn('vt-header relative sticky z-30 flex h-16 items-center gap-2 border-b border-border bg-background/90 px-4 backdrop-blur-md sm:px-6', hasTop ? 'top-16' : 'top-0', headerEmptyOnDesktop && 'lg:hidden')}>
           <Button variant="ghost" size="icon" className="-ml-2 lg:hidden" aria-label="Open menu" onClick={() => setOpen(true)}>
             <MenuIcon />
           </Button>
-          <div className="hidden min-w-0 max-w-sm flex-1 sm:block">{headerContent}</div>
+          <div
+            className={cn(
+              'hidden min-w-0 max-w-2xl flex-1 sm:block',
+              centerHeader && 'sm:absolute sm:left-1/2 sm:w-[calc(100%_-_20rem)] sm:max-w-md sm:-translate-x-1/2',
+            )}
+          >
+            {headerContent}
+          </div>
           {hasTop ? null : (
             <div className="ml-auto flex items-center gap-1">
               <ThemeToggle />

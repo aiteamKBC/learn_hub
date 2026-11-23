@@ -1,4 +1,4 @@
-import { BookOpen, ChevronRight, Coins, Crown, Globe, Info, Layers, MapPin, Pencil, Plus, RefreshCw, Settings2, SlidersHorizontal, Tag, Wand2 } from 'lucide-react'
+import { BookOpen, Coins, Crown, Globe, Info, Layers, MapPin, Pencil, Plus, RefreshCw, Settings2, Tag, Wand2 } from 'lucide-react'
 import { type FormEvent, useMemo, useState } from 'react'
 import { toast } from '@/lib/toast'
 
@@ -127,7 +127,7 @@ function CoursesCard({ filters, setFilters }: { filters: GridFilters; setFilters
     return a ? <span className={cn(a.regional && 'font-semibold text-warning')} title={a.regional ? 'Regional price' : undefined}>{money(a.amount_minor, a.currency, a.exponent)}</span> : '—'
   }
   return (
-    <Card>
+    <Card className="w-full min-w-0">
       <CardHeader title="Course prices" description="Prices come from tiers, so every currency stays in step." />
       <Toolbar>
         <SearchBox value={text} onChange={setText} label="Search courses" placeholder="Search courses by title or instructor" className="sm:max-w-xs" />
@@ -378,37 +378,6 @@ function RulesCard({ open, setOpen }: { open: string; setOpen: (id: string) => v
         {rule ? <RulePreview rule={rule} onDone={() => setOpen('')} /> : null}
       </DetailSheet>
     </Card>
-  )
-}
-
-function Tools({ go, onRule }: { go: (t: Tab) => void; onRule: () => void }) {
-  const items: [string, string, React.ReactNode, () => void][] = [
-    ['Currencies and rates', 'Manage currencies and exchange rates', <Coins key="c" />, () => go('currencies')],
-    ['Regional prices', 'Set a price for one country', <MapPin key="m" />, () => go('regional')],
-    ['Bulk price update', 'Tick courses in the table, then “Change price”', <Layers key="l" />, () => document.querySelector<HTMLInputElement>('[aria-label="Select every course shown"]')?.focus()],
-    ['Price rules', 'Raise or lower many prices together', <SlidersHorizontal key="s" />, onRule],
-  ]
-  return (
-    <div className="grid content-start gap-4">
-      <Card>
-        <CardHeader title="Pricing tools" />
-        <ul className="divide-y divide-border px-2 pb-2">
-          {items.map(([title, body, icon, act]) => (
-            <li key={title}>
-              <button type="button" onClick={act} className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-left transition-colors hover:bg-surface-2 [&_svg]:size-5">
-                <span className="text-primary">{icon}</span>
-                <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{title}</span><span className="block text-xs text-muted">{body}</span></span>
-                <ChevronRight className="text-muted" aria-hidden />
-              </button>
-            </li>
-          ))}
-        </ul>
-      </Card>
-      <Card className="bg-primary-soft p-4 text-primary-soft-text">
-        <p className="flex items-center gap-2 font-semibold"><Info className="size-4" aria-hidden /> Hybrid pricing</p>
-        <p className="mt-1 text-sm">Learners can buy single courses or subscribe to a plan. Regional prices apply to buyers in that country when switched on in Pricing settings.</p>
-      </Card>
-    </div>
   )
 }
 
@@ -799,12 +768,16 @@ export function ConsolePricingPage() {
         <div className="mt-5 grid gap-5">
           <Figures />
           <TabsContent value="courses" className="mt-0">
-            <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-              <div className="grid min-w-0 gap-5">
-                <CoursesCard filters={filters} setFilters={setFilters} />
-                <RulesCard open={openRule} setOpen={setOpenRule} />
+            <div className="grid min-w-0 gap-5">
+              <div role="note" className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary-soft px-4 py-3 text-primary-soft-text">
+                <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <div className="min-w-0 text-sm">
+                  <p className="font-semibold">Hybrid pricing</p>
+                  <p className="mt-0.5">Learners can buy single courses or subscribe to a plan. Regional prices apply to buyers in that country when switched on in Pricing settings.</p>
+                </div>
               </div>
-              <Tools go={setTab} onRule={() => document.getElementById('price-rules')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
+              <CoursesCard filters={filters} setFilters={setFilters} />
+              <RulesCard open={openRule} setOpen={setOpenRule} />
             </div>
           </TabsContent>
           <TabsContent value="subscriptions" className="mt-0"><SubscriptionPricing /></TabsContent>
