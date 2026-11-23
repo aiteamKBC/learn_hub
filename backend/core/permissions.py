@@ -110,10 +110,15 @@ def org_scope(request, minimum: OrgRole = OrgRole.MANAGER) -> Scope:
     if minimum == OrgRole.MANAGER:
         from apps.org.models import OrgRoleAssignment
 
-        company_responsibilities = set(OrgRoleAssignment.objects.filter(
-            org_id=org_id, member=m, unit__isnull=True, revoked_at__isnull=True,
-            code__in=("hr_admin", "executive"),
-        ).values_list("code", flat=True))
+        company_responsibilities = set(
+            OrgRoleAssignment.objects.filter(
+                org_id=org_id,
+                member=m,
+                unit__isnull=True,
+                revoked_at__isnull=True,
+                code__in=("hr_admin", "executive"),
+            ).values_list("code", flat=True)
+        )
         if company_responsibilities:
             # Company-wide readers can open the business workspace; authoring endpoints
             # still require the domain-specific HR/Executive permission helper.
@@ -136,4 +141,6 @@ def org_scope(request, minimum: OrgRole = OrgRole.MANAGER) -> Scope:
         raise ServiceError("no_units", "You are not set as manager of any unit yet.", status=403)
     # A unit-scoped HoD/line manager gets manager-level workspace access without
     # changing their underlying membership role.
-    return Scope(org_id, OrgRole.MANAGER if ROLE_RANK[role] < ROLE_RANK[OrgRole.MANAGER] else role, m.id, tuple(paths))
+    return Scope(
+        org_id, OrgRole.MANAGER if ROLE_RANK[role] < ROLE_RANK[OrgRole.MANAGER] else role, m.id, tuple(paths)
+    )

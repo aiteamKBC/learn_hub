@@ -14,7 +14,10 @@ def has_responsibility(request, codes: str | Iterable[str], *, company_wide: boo
         return False
     values = [codes] if isinstance(codes, str) else list(codes)
     qs = OrgRoleAssignment.objects.filter(
-        org_id=org_id, member_id=member_id, code__in=values, revoked_at__isnull=True,
+        org_id=org_id,
+        member_id=member_id,
+        code__in=values,
+        revoked_at__isnull=True,
     )
     if company_wide:
         qs = qs.filter(unit__isnull=True)

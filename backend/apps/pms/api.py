@@ -147,9 +147,7 @@ def update_proposal(request, proposal_id: UUID, data: PmsProposalPatch):
     current = _proposal(request, proposal_id)
     patch = data.dict(exclude_unset=True)
     perms.require_proposal_author(request, patch.get("dept", current.dept))
-    p = services.update_proposal(
-        org_id=org_id, proposal=current, patch=patch
-    )
+    p = services.update_proposal(org_id=org_id, proposal=current, patch=patch)
     return selectors.proposal_payload(p)
 
 
@@ -168,9 +166,7 @@ def submit_proposal(request, proposal_id: UUID, data: PmsTransitionIn):
     require_org(request)
     proposal = _proposal(request, proposal_id)
     perms.require_proposal_author(request, proposal.dept)
-    p = services.submit_proposal(
-        proposal=proposal, by_user_id=request.user.id, comment=data.comment
-    )
+    p = services.submit_proposal(proposal=proposal, by_user_id=request.user.id, comment=data.comment)
     return selectors.proposal_payload(p)
 
 
@@ -179,9 +175,7 @@ def approve_proposal(request, proposal_id: UUID, data: PmsTransitionIn):
     require_org(request)
     proposal = _proposal(request, proposal_id)
     perms.require_proposal_reviewer(request, proposal)
-    p = services.advance_proposal(
-        proposal=proposal, by_user_id=request.user.id, comment=data.comment
-    )
+    p = services.advance_proposal(proposal=proposal, by_user_id=request.user.id, comment=data.comment)
     return selectors.proposal_payload(p)
 
 
@@ -190,9 +184,7 @@ def request_changes_proposal(request, proposal_id: UUID, data: PmsTransitionIn):
     require_org(request)
     proposal = _proposal(request, proposal_id)
     perms.require_proposal_reviewer(request, proposal)
-    p = services.request_changes_proposal(
-        proposal=proposal, by_user_id=request.user.id, comment=data.comment
-    )
+    p = services.request_changes_proposal(proposal=proposal, by_user_id=request.user.id, comment=data.comment)
     return selectors.proposal_payload(p)
 
 

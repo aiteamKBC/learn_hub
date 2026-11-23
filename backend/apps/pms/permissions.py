@@ -53,8 +53,11 @@ def can_review_proposal(request, proposal) -> bool:
         from apps.org.models import OrgRoleAssignment
 
         return OrgRoleAssignment.objects.filter(
-            org_id=proposal.org_id, member_id=getattr(request, "member_id", None),
-            code="department_head", unit__name__iexact=proposal.dept, revoked_at__isnull=True,
+            org_id=proposal.org_id,
+            member_id=getattr(request, "member_id", None),
+            code="department_head",
+            unit__name__iexact=proposal.dept,
+            revoked_at__isnull=True,
         ).exists()
     if stage == "hr_alignment":
         return _company_role(request, "hr_admin")
@@ -74,8 +77,11 @@ def require_proposal_author(request, dept: str) -> None:
     from apps.org.models import OrgRoleAssignment
 
     if OrgRoleAssignment.objects.filter(
-        org_id=getattr(request, "org_id", None), member_id=getattr(request, "member_id", None),
-        code="department_head", unit__name__iexact=dept, revoked_at__isnull=True,
+        org_id=getattr(request, "org_id", None),
+        member_id=getattr(request, "member_id", None),
+        code="department_head",
+        unit__name__iexact=dept,
+        revoked_at__isnull=True,
     ).exists():
         return
     raise PermissionDenied("Only HR, Executive or the department head can draft this KPI.")
@@ -87,6 +93,9 @@ def can_view_proposal(request, proposal) -> bool:
     from apps.org.models import OrgRoleAssignment
 
     return OrgRoleAssignment.objects.filter(
-        org_id=proposal.org_id, member_id=getattr(request, "member_id", None),
-        code="department_head", unit__name__iexact=proposal.dept, revoked_at__isnull=True,
+        org_id=proposal.org_id,
+        member_id=getattr(request, "member_id", None),
+        code="department_head",
+        unit__name__iexact=proposal.dept,
+        revoked_at__isnull=True,
     ).exists()

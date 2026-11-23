@@ -300,8 +300,11 @@ def _people_scope(request, *, admin: bool = False):
     if member_id is None or role is None:
         raise ServiceError("forbidden", "Join this company to view its people.", status=403)
     is_hr = OrgRoleAssignment.objects.filter(
-        org_id=org_id, member_id=member_id, code=OrgRoleAssignment.Code.HR_ADMIN,
-        unit__isnull=True, revoked_at__isnull=True,
+        org_id=org_id,
+        member_id=member_id,
+        code=OrgRoleAssignment.Code.HR_ADMIN,
+        unit__isnull=True,
+        revoked_at__isnull=True,
     ).exists()
     if is_hr:
         return Scope(org_id, OrgRole.ADMIN, member_id, None)
@@ -434,10 +437,16 @@ def _can_manage_responsibilities(request, scope) -> bool:
     if getattr(request, "platform_staff", False) or scope.role in (OrgRole.ADMIN, OrgRole.OWNER):
         return True
     member_id = getattr(request, "member_id", None)
-    return bool(member_id and OrgRoleAssignment.objects.filter(
-        org_id=scope.org_id, member_id=member_id, code=OrgRoleAssignment.Code.HR_ADMIN,
-        revoked_at__isnull=True, unit__isnull=True,
-    ).exists())
+    return bool(
+        member_id
+        and OrgRoleAssignment.objects.filter(
+            org_id=scope.org_id,
+            member_id=member_id,
+            code=OrgRoleAssignment.Code.HR_ADMIN,
+            revoked_at__isnull=True,
+            unit__isnull=True,
+        ).exists()
+    )
 
 
 def _responsibility_scope(request):
@@ -450,9 +459,17 @@ def _responsibility_scope(request):
         return Scope(org_id, OrgRole.OWNER, uuid.UUID(int=0), None)
     if role is None or member_id is None:
         raise ServiceError("forbidden", "Join this company before managing responsibilities.", status=403)
-    scope = org_scope(request, OrgRole.LEARNER) if role in (OrgRole.ADMIN, OrgRole.OWNER) else Scope(org_id, OrgRole(role), member_id, ())
+    scope = (
+        org_scope(request, OrgRole.LEARNER)
+        if role in (OrgRole.ADMIN, OrgRole.OWNER)
+        else Scope(org_id, OrgRole(role), member_id, ())
+    )
     if not _can_manage_responsibilities(request, scope):
-        raise ServiceError("forbidden", "Only the company owner, HR or platform admin can manage responsibilities.", status=403)
+        raise ServiceError(
+            "forbidden",
+            "Only the company owner, HR or platform admin can manage responsibilities.",
+            status=403,
+        )
     return scope
 
 
@@ -464,9 +481,15 @@ def role_capabilities(request):
     if member_id is None:
         return {"can_manage_responsibilities": False, "responsibilities": []}
     role = getattr(request, "org_role", None)
-    rows = list(OrgRoleAssignment.objects.filter(
-        org_id=request.org_id, member_id=member_id, revoked_at__isnull=True,
-    ).select_related("unit").order_by("code", "unit__name"))
+    rows = list(
+        OrgRoleAssignment.objects.filter(
+            org_id=request.org_id,
+            member_id=member_id,
+            revoked_at__isnull=True,
+        )
+        .select_related("unit")
+        .order_by("code", "unit__name")
+    )
     allowed = role in (OrgRole.ADMIN, OrgRole.OWNER) or any(
         row.code == OrgRoleAssignment.Code.HR_ADMIN and row.unit_id is None for row in rows
     )
@@ -483,11 +506,15 @@ def role_capabilities(request):
 def person_responsibilities(request, member_id: str):
     scope = _responsibility_scope(request)
     member = get_object_or_404(OrgMember, pk=member_id, org_id=scope.org_id, removed_at__isnull=True)
-    rows = OrgRoleAssignment.objects.filter(org_id=scope.org_id, member=member, revoked_at__isnull=True).select_related("unit")
-    return {"assignments": [
-        {"code": row.code, "unit_id": row.unit_id, "unit_name": row.unit.name if row.unit_id else None}
-        for row in rows.order_by("code", "unit__name")
-    ]}
+    rows = OrgRoleAssignment.objects.filter(
+        org_id=scope.org_id, member=member, revoked_at__isnull=True
+    ).select_related("unit")
+    return {
+        "assignments": [
+            {"code": row.code, "unit_id": row.unit_id, "unit_name": row.unit.name if row.unit_id else None}
+            for row in rows.order_by("code", "unit__name")
+        ]
+    }
 
 
 @router.put("/people/{member_id}/responsibilities", response=OrgResponsibilitiesOut)
@@ -499,31 +526,64 @@ def set_person_responsibilities(request, member_id: str, body: OrgResponsibiliti
     requested = []
     seen = set()
     unit_ids = {item.unit_id for item in body.assignments if item.unit_id is not None}
-    units = {unit.id: unit for unit in OrgUnit.objects.filter(org_id=scope.org_id, id__in=unit_ids, archived_at__isnull=True)}
+    units = {
+        unit.id: unit
+        for unit in OrgUnit.objects.filter(org_id=scope.org_id, id__in=unit_ids, archived_at__isnull=True)
+    }
     if len(units) != len(unit_ids):
         raise ServiceError("bad_unit", "One of these departments or teams does not exist.")
     for item in body.assignments:
         if item.code not in valid_codes:
             raise ServiceError("bad_responsibility", "Choose a valid company responsibility.")
-        if item.code in (OrgRoleAssignment.Code.DEPARTMENT_HEAD, OrgRoleAssignment.Code.LINE_MANAGER) and item.unit_id is None:
+        if (
+            item.code in (OrgRoleAssignment.Code.DEPARTMENT_HEAD, OrgRoleAssignment.Code.LINE_MANAGER)
+            and item.unit_id is None
+        ):
             raise ServiceError("unit_required", "Choose a department or team for this responsibility.")
-        if item.code in (OrgRoleAssignment.Code.EXECUTIVE, OrgRoleAssignment.Code.HR_ADMIN, OrgRoleAssignment.Code.ACADEMY_MARKETING) and item.unit_id is not None:
+        if (
+            item.code
+            in (
+                OrgRoleAssignment.Code.EXECUTIVE,
+                OrgRoleAssignment.Code.HR_ADMIN,
+                OrgRoleAssignment.Code.ACADEMY_MARKETING,
+            )
+            and item.unit_id is not None
+        ):
             raise ServiceError("unit_not_allowed", "This responsibility applies to the whole company.")
-        if item.code == OrgRoleAssignment.Code.DEPARTMENT_HEAD and units[item.unit_id].kind != OrgUnit.Kind.DEPARTMENT:
+        if (
+            item.code == OrgRoleAssignment.Code.DEPARTMENT_HEAD
+            and units[item.unit_id].kind != OrgUnit.Kind.DEPARTMENT
+        ):
             raise ServiceError("department_required", "Head of Department must be assigned to a department.")
         key = (item.code, item.unit_id)
         if key in seen:
-            raise ServiceError("duplicate_responsibility", "Each responsibility can be assigned once per scope.")
+            raise ServiceError(
+                "duplicate_responsibility", "Each responsibility can be assigned once per scope."
+            )
         seen.add(key)
         requested.append(key)
-    OrgRoleAssignment.objects.filter(org_id=scope.org_id, member=member, revoked_at__isnull=True).update(revoked_at=timezone.now())
+    OrgRoleAssignment.objects.filter(org_id=scope.org_id, member=member, revoked_at__isnull=True).update(
+        revoked_at=timezone.now()
+    )
     active = []
     for code, unit_id in requested:
         row = OrgRoleAssignment.objects.create(
-            org_id=scope.org_id, member=member, code=code, unit_id=unit_id, assigned_by=request.user,
+            org_id=scope.org_id,
+            member=member,
+            code=code,
+            unit_id=unit_id,
+            assigned_by=request.user,
         )
-        active.append({"code": row.code, "unit_id": row.unit_id, "unit_name": units[unit_id].name if unit_id else None})
-    audit_request(request, "member.responsibilities", "member", member.id, {"assignments": [{"code": c, "unit_id": str(u) if u else None} for c, u in requested]})
+        active.append(
+            {"code": row.code, "unit_id": row.unit_id, "unit_name": units[unit_id].name if unit_id else None}
+        )
+    audit_request(
+        request,
+        "member.responsibilities",
+        "member",
+        member.id,
+        {"assignments": [{"code": c, "unit_id": str(u) if u else None} for c, u in requested]},
+    )
     return {"assignments": active}
 
 

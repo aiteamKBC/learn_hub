@@ -190,8 +190,12 @@ class OrgRoleAssignment(TenantModel):
 
     member = models.ForeignKey(OrgMember, on_delete=models.CASCADE, related_name="responsibility_assignments")
     code = models.CharField(max_length=32, choices=Code.choices)
-    unit = models.ForeignKey(OrgUnit, on_delete=models.PROTECT, null=True, blank=True, related_name="responsibility_assignments")
-    assigned_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="assigned_org_responsibilities")
+    unit = models.ForeignKey(
+        OrgUnit, on_delete=models.PROTECT, null=True, blank=True, related_name="responsibility_assignments"
+    )
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="assigned_org_responsibilities"
+    )
     revoked_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:

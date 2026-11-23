@@ -417,7 +417,9 @@ def create_course(request, body: CourseIn):
             from apps.org.access import has_responsibility
 
             if not has_responsibility(request, "hr_admin", company_wide=True):
-                raise ServiceError("insufficient_role", "Only company admins or HR can create company courses.", status=403)
+                raise ServiceError(
+                    "insufficient_role", "Only company admins or HR can create company courses.", status=403
+                )
         ownership = Course.Ownership.ORGANIZATION
     else:
         p = InstructorProfile.objects.filter(user=request.user).first()

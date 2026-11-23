@@ -108,10 +108,17 @@ def person(request, member_id: str):
 
         org_id = require_org(request)
         is_hr = OrgRoleAssignment.objects.filter(
-            org_id=org_id, member_id=request.member_id,
-            code=OrgRoleAssignment.Code.HR_ADMIN, unit__isnull=True, revoked_at__isnull=True,
+            org_id=org_id,
+            member_id=request.member_id,
+            code=OrgRoleAssignment.Code.HR_ADMIN,
+            unit__isnull=True,
+            revoked_at__isnull=True,
         ).exists()
-        scope = Scope(org_id, OrgRole.ADMIN, request.member_id, None) if is_hr else org_scope(request, OrgRole.MANAGER)
+        scope = (
+            Scope(org_id, OrgRole.ADMIN, request.member_id, None)
+            if is_hr
+            else org_scope(request, OrgRole.MANAGER)
+        )
     else:
         scope = org_scope(request, OrgRole.MANAGER)
     p = selectors.person(scope, member_id)
