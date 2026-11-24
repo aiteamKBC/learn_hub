@@ -1,4 +1,4 @@
-import { Armchair, CalendarDays, ClipboardList, GraduationCap, LifeBuoy, PoundSterling, Send, UserCheck } from 'lucide-react'
+import { Armchair, CalendarDays, ClipboardList, GraduationCap, PoundSterling, Send, UserCheck } from 'lucide-react'
 import { useEffect } from 'react'
 
 import { Avatar } from '@/components/ui/avatar'
@@ -143,17 +143,9 @@ export function CorporateOverviewPage() {
         title="Company training"
         description="Seats, live groups and how your people are getting on."
         actions={
-          <>
-            <Button asChild variant="secondary">
-              <Link to="/business/live-bookings">Live training</Link>
-            </Button>
-            <Button asChild variant="secondary">
-              <Link to="/support"><LifeBuoy /> B2B support</Link>
-            </Button>
-            <Button asChild>
-              <Link to="/business/packages">Course packages</Link>
-            </Button>
-          </>
+          <Button asChild>
+            <Link to="/business/packages">Course packages</Link>
+          </Button>
         }
       />
       <div className="grid gap-6">

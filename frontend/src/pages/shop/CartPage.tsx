@@ -3,7 +3,6 @@ import { type FormEvent, useState } from 'react'
 import { useNavigate as useRouterNavigate } from 'react-router-dom'
 import { toast } from '@/lib/toast'
 
-import { Backdrop } from '@/components/art/backdrops'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input, NativeSelect } from '@/components/ui/input'
@@ -51,8 +50,7 @@ export function CartPage() {
   const fmt = (n: number) => (cart ? money(n, cart.currency, cart.exponent) : '')
 
   return (
-    <div className="relative isolate">
-      <Backdrop variant="mosaic" seed={44} height={340} />
+    <div className="bg-background">
       <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <Button variant="ghost" size="sm" className="-ml-2 mb-3 text-muted" onClick={goBack}>
           <ArrowLeft className="mr-1 size-4" /> Back

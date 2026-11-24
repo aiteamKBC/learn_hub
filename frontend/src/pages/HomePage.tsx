@@ -3,8 +3,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { useLocation } from 'react-router-dom'
 
-import heroEagle from '@/assets/brand/hero-eagle.png'
-import heroSectionMobile from '@/assets/brand/section.png'
+import heroEagle from '@/assets/brand/hero-eagle-dashboard.png'
+import heroSectionMobile from '@/assets/brand/section-dashboard.png'
 import { BlurText } from '@/components/art/blur-text'
 import { HeroIntro } from '@/components/home/HeroIntro'
 import { Button } from '@/components/ui/button'

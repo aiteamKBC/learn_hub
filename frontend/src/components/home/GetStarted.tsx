@@ -1,13 +1,3 @@
-/**
- * Home "Get started" section: a real log-in / create-account card driven by the
- * existing auth hooks (useLogin, useSignup, useMfaAuthenticate) — no new backend.
- *
- * NOTE (see docs/NEEDS-USER.md, UI-2): the account-type (Individual / Company) and
- * role chooser (Student / Instructor / Company / Coach / Admin / Other) are VISUAL
- * ONLY. The backend sign-up accepts email + password and assigns the default role;
- * the chosen role is not sent anywhere yet. Kept at the user's explicit request for
- * the demo, to be wired when the backend supports roles.
- */
 import { MailCheck } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 
@@ -21,16 +11,7 @@ import { Link, useNavigate } from '@/lib/router'
 
 type Tab = 'login' | 'signup'
 
-const ROLES = ['Student', 'Company', 'Instructor', 'Admin'] as const
-type Role = (typeof ROLES)[number]
-const ROLE_HOME: Record<Role, string> = {
-  Student: '/learn',
-  Company: '/business',
-  Instructor: '/studio',
-  Admin: '/console',
-}
-
-function LoginForm({ role }: { role: Role }) {
+function LoginForm() {
   const navigate = useNavigate()
   const login = useLogin()
   const mfa = useMfaAuthenticate()
@@ -39,7 +20,6 @@ function LoginForm({ role }: { role: Role }) {
   const [step, setStep] = useState<'password' | 'code'>('password')
   const [code, setCode] = useState('')
   const err = login.error instanceof AuthError ? login.error : null
-  const destination = ROLE_HOME[role]
   // Show a message for ANY failed sign-in. allauth usually returns an AuthError (with a
   // field-level message, or a general one); anything else (network, unexpected) still gets
   // a friendly fallback, so a wrong email/password never fails silently.
@@ -55,7 +35,7 @@ function LoginForm({ role }: { role: Role }) {
         className="grid gap-4"
         onSubmit={(e) => {
           e.preventDefault()
-          mfa.mutate(code.replace(/\s/g, ''), { onSuccess: () => navigate(destination, { replace: true }) })
+          mfa.mutate(code.replace(/\s/g, ''), { onSuccess: () => navigate('/learn', { replace: true }) })
         }}
       >
         <p className="text-sm text-muted">Open your authenticator app and type the 6-digit code.</p>
@@ -80,8 +60,8 @@ function LoginForm({ role }: { role: Role }) {
         e.preventDefault()
         // Prepare the destination while the server verifies the password so the
         // next screen does not add another sequential wait after sign-in.
-        if (role === 'Student') void import('@/pages/MyLearningPage')
-        login.mutate({ email, password }, { onSuccess: (r) => (r === 'mfa' ? setStep('code') : navigate(destination, { replace: true })) })
+        void import('@/pages/MyLearningPage')
+        login.mutate({ email, password }, { onSuccess: (r) => (r === 'mfa' ? setStep('code') : navigate('/learn', { replace: true })) })
       }}
     >
       {generalError ? (
@@ -141,7 +121,6 @@ function SignupForm() {
       noValidate
       onSubmit={(e: FormEvent) => {
         e.preventDefault()
-        // the chosen role is not sent to the backend yet (visual only — see NEEDS-USER UI-2)
         signup.mutate({ email, password }, { onSuccess: (r) => (r === 'verify-email' ? setSent(true) : navigate('/learn', { replace: true })) })
       }}
     >
@@ -173,29 +152,9 @@ function SignupForm() {
 /** The tabbed log-in / create-account card, for use inside the navbar/hero dialog. */
 export function AuthTabs({ initialTab = 'login' }: { initialTab?: Tab }) {
   const [tab, setTab] = useState<Tab>(initialTab)
-  const [role, setRole] = useState<Role>('Student')
 
   return (
     <div>
-      {/* Shared by the desktop and mobile dialog. Keep the selected account type
-          visible when logging in as well as when creating an account. */}
-      <div className="mb-5">
-        <span className="text-[13px] font-medium text-text">I'm a</span>
-        <div role="radiogroup" aria-label="Role" className="mt-1.5 grid grid-cols-4 gap-1.5">
-          {ROLES.map((r) => (
-            <button
-              key={r}
-              type="button"
-              role="radio"
-              aria-checked={role === r}
-              onClick={() => setRole(r)}
-              className={cn('min-w-0 rounded-lg border px-1 py-2 text-[11px] font-medium transition-colors min-[380px]:px-1.5 min-[380px]:text-xs sm:px-2 sm:text-[13px]', role === r ? 'border-primary bg-primary-soft text-primary-soft-text' : 'border-border text-muted hover:text-text')}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
-      </div>
       <div role="tablist" aria-label="Log in or create an account" className="mb-6 grid grid-cols-2 gap-1.5 rounded-xl bg-surface-2/60 p-1">
         {(['login', 'signup'] as const).map((t) => (
           <button
@@ -210,7 +169,7 @@ export function AuthTabs({ initialTab = 'login' }: { initialTab?: Tab }) {
           </button>
         ))}
       </div>
-      {tab === 'login' ? <LoginForm role={role} /> : <SignupForm />}
+      {tab === 'login' ? <LoginForm /> : <SignupForm />}
     </div>
   )
 }
