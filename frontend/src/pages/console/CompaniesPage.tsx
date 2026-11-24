@@ -1,4 +1,4 @@
-import { ArrowRight, BriefcaseBusiness, Building2, Plus, Search, ShieldCheck, UserMinus, UserPlus, Users } from 'lucide-react'
+import { ArrowRight, BookOpenCheck, BriefcaseBusiness, Building2, Gauge, Layers, Plus, Search, ShieldCheck, UserMinus, UserPlus, Users } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { toast } from '@/lib/toast'
 
@@ -277,6 +277,16 @@ function AdminsSection({ c }: { c: ConsoleCompanyDetail }) {
   )
 }
 
+/** The workforce tools live in the company's business workspace; from here a platform
+ * admin jumps straight to an area without becoming one of the company's employees. */
+const WORKFORCE_AREAS = [
+  { label: 'People & HR', to: '/business/people', Icon: Users },
+  { label: 'Frameworks', to: '/business/frameworks/competencies', Icon: Layers },
+  { label: 'Performance (KPIs)', to: '/business/pms/kpis', Icon: Gauge },
+  { label: 'Governance', to: '/business/governance/strategies', Icon: BookOpenCheck },
+  { label: 'Courses', to: '/studio/courses', Icon: BookOpenCheck },
+]
+
 function CompanyDetail({ id }: { id: string }) {
   const q = useCompany(id)
   const { switchToStaffOrg } = useWorkspace()
@@ -285,9 +295,9 @@ function CompanyDetail({ id }: { id: string }) {
   if (q.error || !q.data) return <ErrorState message={q.error?.message ?? 'Company not found.'} onRetry={() => void q.refetch()} />
   const c = q.data
   const subs = [...c.subscriptions, ...c.addon_subscriptions]
-  const openWorkforce = () => {
+  const goto = (to: string) => {
     switchToStaffOrg({ org_id: c.id, name: c.name, slug: c.slug })
-    navigate('/business')
+    navigate(to)
   }
   return (
     <div className="grid animate-reveal gap-6">
@@ -298,12 +308,25 @@ function CompanyDetail({ id }: { id: string }) {
           </span>
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold">HR, performance & governance</h3>
-            <p className="mt-0.5 text-sm text-muted">Open this company’s People, HCM, frameworks, reviews, strategy and policies.</p>
+            <p className="mt-0.5 text-sm text-muted">Open this company’s People, HCM, frameworks, KPIs, reviews, strategy and policies.</p>
           </div>
-          <Button onClick={openWorkforce}>
+          <Button onClick={() => goto('/business')}>
             Open workforce <ArrowRight />
           </Button>
         </div>
+        <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label={`Manage ${c.name} workforce areas`}>
+          {WORKFORCE_AREAS.map(({ label, to, Icon }) => (
+            <li key={label}>
+              <button
+                type="button"
+                onClick={() => goto(to)}
+                className="flex w-full items-center gap-2 rounded-md bg-surface/70 px-2.5 py-2 text-left text-xs font-medium text-muted transition-colors hover:bg-primary-soft hover:text-primary-soft-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <Icon className="size-3.5 shrink-0 text-primary" aria-hidden /> {label}
+              </button>
+            </li>
+          ))}
+        </ul>
       </Card>
       <div>
         <InfoRow label="Status"><StatusPill status={c.status} label={COMPANY_STATUSES[c.status]} /></InfoRow>

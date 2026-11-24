@@ -15,7 +15,8 @@ import { PageSpinner } from '@/app/guards'
 const named = <K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) => lazy(() => load().then((m) => ({ default: m[name] })))
 const page = (el: ReactNode) => <Suspense fallback={<PageSpinner />}>{el}</Suspense>
 
-const KpisPage = named(() => import('@/pages/business/pms/KpisPage'), 'KpisPage')
+const KpisPage = named(() => import('@/pages/business/pms/KpiBoardPage'), 'KpiBoardPage')
+const IndividualKpisPage = named(() => import('@/pages/business/pms/KpiBoardPage'), 'IndividualKpisPage')
 const ProposalsPage = named(() => import('@/pages/business/pms/ProposalsPage'), 'ProposalsPage')
 const CyclesPage = named(() => import('@/pages/business/pms/CyclesPage'), 'CyclesPage')
 const CycleDetailPage = named(() => import('@/pages/business/pms/CycleDetailPage'), 'CycleDetailPage')
@@ -25,6 +26,7 @@ const MyReviewsPage = named(() => import('@/pages/learner/pms/MyReviewsPage'), '
 /** Children of /business (company owner, admin or manager; admin-only actions inside). */
 export const pmsBusinessRoutes: RouteObject[] = [
   { path: 'pms/kpis', element: page(<KpisPage />), handle: { art: 'dials' } },
+  { path: 'pms/individual-kpis', element: page(<IndividualKpisPage />), handle: { art: 'dials' } },
   { path: 'pms/proposals', element: page(<ProposalsPage />), handle: { art: 'checklist' } },
   { path: 'pms/cycles', element: page(<CyclesPage />), handle: { art: 'timetable' } },
   { path: 'pms/cycles/:cycleId', element: page(<CycleDetailPage />), handle: { art: 'storyboard' } },
@@ -38,7 +40,8 @@ export const pmsBusinessNav: NavSection[] = [
   {
     title: 'Performance',
     items: [
-      { to: '/business/pms/kpis', label: 'Performance measures', Icon: Gauge },
+      { to: '/business/pms/kpis', label: 'Department KPIs', Icon: Gauge },
+      { to: '/business/pms/individual-kpis', label: 'Individual KPIs', Icon: Gauge },
       { to: '/business/pms/proposals', label: 'KPI proposals', Icon: ClipboardList },
       { to: '/business/pms/cycles', label: 'Review cycles', Icon: CalendarRange },
     ],

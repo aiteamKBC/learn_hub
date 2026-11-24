@@ -4,7 +4,7 @@
  *   - LearnerLayout children:  ...hcmLearnerRoutes
  *   - businessNav:             ...hcmBusinessNav
  */
-import { Award, Users } from 'lucide-react'
+import { Award, ListChecks, Users } from 'lucide-react'
 import { lazy, Suspense, type ComponentType, type ReactNode } from 'react'
 import type { RouteObject } from 'react-router-dom'
 
@@ -22,6 +22,7 @@ const MemberProfilePage = named(() => import('@/pages/business/hcm/MemberProfile
 const MyHrProfilePage = named(() => import('@/pages/learner/hcm/MyHrProfilePage'), 'MyHrProfilePage')
 const MyWellbeingPage = named(() => import('@/pages/learner/hcm/MyWellbeingPage'), 'MyWellbeingPage')
 const MyCpdPage = named(() => import('@/pages/learner/hcm/MyCpdPage'), 'MyCpdPage')
+const TrainingPlansPage = named(() => import('@/pages/business/TrainingPlansPage'), 'TrainingPlansPage')
 
 function HrAdmin({ children }: { children: ReactNode }) {
   const capabilities = useRoleCapabilities()
@@ -31,6 +32,7 @@ function HrAdmin({ children }: { children: ReactNode }) {
 
 /** The backend reserves HR directory/profile administration for owners and admins. */
 export const hcmBusinessRoutes: RouteObject[] = [
+  { path: 'training-plans', element: page(<TrainingPlansPage />), handle: { art: 'checklist' } },
   { path: 'hcm/people', element: <HrAdmin>{page(<HrPeoplePage />)}</HrAdmin>, handle: { art: 'orgchart' } },
   { path: 'hcm/people/:memberId', element: <HrAdmin>{page(<MemberProfilePage />)}</HrAdmin>, handle: { art: 'orgchart' } },
   { path: 'hcm/qualifications', element: <HrAdmin>{page(<QualificationsPage />)}</HrAdmin>, handle: { art: 'stamp' } },
@@ -48,6 +50,7 @@ export const hcmBusinessNav: NavSection[] = [
     title: 'People',
     items: [
       { to: '/business/hcm/people', label: 'People (HR)', Icon: Users },
+      { to: '/business/training-plans', label: 'Training plans', Icon: ListChecks },
       { to: '/business/hcm/qualifications', label: 'Qualifications', Icon: Award },
     ],
   },

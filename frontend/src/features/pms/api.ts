@@ -26,8 +26,8 @@ export type Analysis = S['PmsAnalysisOut']
 const key = (...parts: unknown[]) => ['pms', currentOrgId(), ...parts]
 
 // ---------------------------------------------------------------- KPIs
-export function useKpis() {
-  return useQuery({ queryKey: key('kpis'), queryFn: () => unwrap(api.GET('/api/v1/pms/kpis')) })
+export function useKpis(scope: 'department' | 'individual' = 'department') {
+  return useQuery({ queryKey: key('kpis', scope), queryFn: () => unwrap(api.GET('/api/v1/pms/kpis', { params: { query: { scope } } })) })
 }
 
 export function useMeasurements(kpiId?: string) {

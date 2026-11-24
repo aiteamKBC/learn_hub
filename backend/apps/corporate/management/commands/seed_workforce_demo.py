@@ -9,6 +9,7 @@ import os
 from datetime import timedelta
 from decimal import Decimal
 
+from allauth.account.models import EmailAddress
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -47,8 +48,13 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--password", default=os.getenv("DEMO_PASSWORD", "Demo1234!"))
+        parser.add_argument(
+            "--company",
+            default=None,
+            help="Seed into an existing company by slug (e.g. instalment-demo-company) instead of the dedicated workforce demo company. Its current owner is kept and acts as the owner.",
+        )
 
-    def handle(self, *args, password, **options):
+    def handle(self, *args, password, company, **options):
         if not settings.DEBUG or os.getenv("DJANGO_SETTINGS_MODULE") == "config.settings.prod":
             raise CommandError("Workforce demo seeding is restricted to a DEBUG development environment.")
         if not password:
@@ -59,18 +65,21 @@ class Command(BaseCommand):
             raise CommandError("Create a Platform Admin account before seeding workforce demo data.")
 
         with transaction.atomic(using="default"):
-            users = self._users(password)
-            org = self._company(users["workforce.owner"])
-            with tenant_context(org_id=org.id, user_id=users["workforce.owner"].id):
+            target = self._existing_company(company) if company else None
+            users = self._users(password, existing_owner=self._company_owner(target) if target else None)
+            org = target or self._company(users["workforce.owner"])
+            owner_user = users["workforce.owner"]
+            with tenant_context(org_id=org.id, user_id=owner_user.id):
                 units, roles = self._structure(org)
                 members = self._members(org, users, units)
+                owner_member = members["workforce.owner"]
                 with tenant_context(
                     org_id=org.id,
-                    user_id=users["workforce.owner"].id,
-                    member_id=members["workforce.owner"].id,
-                    org_role=members["workforce.owner"].role,
+                    user_id=owner_user.id,
+                    member_id=owner_member.id,
+                    org_role=owner_member.role,
                 ):
-                    self._responsibilities(org, members, units, users["workforce.owner"])
+                    self._responsibilities(org, members, units, owner_user)
                     self._hcm(org, members, users)
                     competency = self._frameworks(
                         org, roles["Facilities Supervisor"], units["Operations"], staff
@@ -78,7 +87,7 @@ class Command(BaseCommand):
                     self._performance(org, members, competency, users)
                     self._governance(org, members, users)
 
-        self.stdout.write(self.style.SUCCESS(f"Workforce demo is ready: {org.name} ({SLUG})."))
+        self.stdout.write(self.style.SUCCESS(f"Workforce demo is ready: {org.name} ({org.slug})."))
         self.stdout.write("Company: workforce.owner@learnhub.example")
         self.stdout.write("Executive: workforce.executive@learnhub.example")
         self.stdout.write("HR: workforce.hr@learnhub.example")
@@ -87,16 +96,52 @@ class Command(BaseCommand):
         self.stdout.write("Learner: workforce.learner@learnhub.example")
         self.stdout.write(f"Password for newly created accounts: {password}")
 
-    def _users(self, password):
+    def _users(self, password, existing_owner=None):
         users = {}
         for local, name, _membership_role, _responsibility in PEOPLE:
+            # Seeding into an existing company keeps that company's real owner as the
+            # owner identity; only the other role accounts are created.
+            if local == "workforce.owner" and existing_owner is not None:
+                users[local] = existing_owner
+                continue
             email = f"{local}@{DOMAIN}"
             user, created = User.objects.get_or_create(email=email, defaults={"full_name": name})
             if created:
                 user.set_password(password)
                 user.save(update_fields=["password"])
+            # These are fictional local demo accounts with a reserved example
+            # domain. No confirmation email can reach them, while allauth
+            # requires a verified address before password sign-in.
+            EmailAddress.objects.update_or_create(
+                user=user,
+                email=email,
+                defaults={"verified": True, "primary": True},
+            )
             users[local] = user
         return users
+
+    def _existing_company(self, slug):
+        from apps.org.models import Organization
+
+        with tenant_context(staff=True):
+            org = Organization.objects.filter(slug=slug).first()
+        if org is None:
+            raise CommandError(
+                f"No company with slug '{slug}' exists. Create it before seeding workforce data into it."
+            )
+        return org
+
+    def _company_owner(self, org):
+        with tenant_context(org_id=org.id, staff=True):
+            member = (
+                OrgMember.objects.filter(org=org, role=OrgMember.Role.OWNER, removed_at__isnull=True)
+                .select_related("user")
+                .order_by("joined_at")
+                .first()
+            )
+        if member is None:
+            raise CommandError(f"{org.name} has no active owner to act as. Seed or set its owner first.")
+        return member.user
 
     def _company(self, owner):
         from apps.org.models import Organization

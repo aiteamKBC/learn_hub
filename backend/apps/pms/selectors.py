@@ -17,8 +17,9 @@ from .models import (
 
 
 # ---------------------------------------------------------------- KPIs
-def active_kpis(*, org_id: UUID, dept: str | None = None):
+def active_kpis(*, org_id: UUID, dept: str | None = None, scope: str = "department"):
     qs = Kpi.objects.filter(org_id=org_id, status=Kpi.Status.ACTIVE)
+    qs = qs.filter(scope=scope)
     if dept:
         qs = qs.filter(dept=dept)
     return qs.order_by("dept", "name")
@@ -44,6 +45,8 @@ def proposal(*, org_id: UUID, proposal_id: UUID) -> KpiProposal | None:
 def proposal_payload(p: KpiProposal) -> dict:
     return {
         "id": p.id,
+        "scope": p.scope,
+        "parent_kpi_id": p.parent_kpi_id,
         "name": p.name,
         "objective_code": p.objective_code,
         "objective_title": p.objective_title,

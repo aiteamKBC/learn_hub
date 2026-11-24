@@ -114,6 +114,31 @@ class FrameworksApiTest(SchemaTransactionTestCase):
         r = self.patch(f"/frameworks/competencies/{self.plat_skill.id}", {"name": "Hacked"})
         self.assertEqual(r.status_code, 403)
 
+    # ---- platform admin (staff) manages the shared library via the elevated view ----
+    STAFF_H = {"HTTP_X_PLATFORM_ORG_ACCESS": "on"}
+
+    def test_staff_creates_platform_competency(self):
+        self.as_(self.staff)
+        r = self.post(
+            "/frameworks/competencies",
+            {"code": "GLOBAL1", "name": "Public speaking", "kind": "S"},
+            **self.STAFF_H,
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        body = r.json()
+        self.assertTrue(body["is_platform"])
+        self.assertIsNone(body["owner_org_id"])
+
+    def test_staff_edits_platform_competency(self):
+        self.as_(self.staff)
+        r = self.patch(
+            f"/frameworks/competencies/{self.plat_skill.id}",
+            {"name": "Surface prep (revised)"},
+            **self.STAFF_H,
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()["name"], "Surface prep (revised)")
+
     # ---------------------------------------------------------------- role workflow
     def _draft_version_id(self) -> str:
         """Create a role framework and return its editable draft version id."""

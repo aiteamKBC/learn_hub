@@ -9,8 +9,11 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from django.db.models import F, Q, Window
+from django.db.models.functions import RowNumber
 from ninja import Router
 
+from apps.catalog.models import Course
 from apps.org.models import OrgMember
 from core.auth import session_auth
 from core.errors import ServiceError
@@ -18,7 +21,7 @@ from core.permissions import require_org
 
 from . import analysis, scoring, selectors, services
 from . import permissions as perms
-from .models import Kpi, KpiProposal, PerformanceReview, ReviewCycle
+from .models import Kpi, KpiMeasurement, KpiProposal, PerformanceReview, ReviewCycle
 from .schemas import (
     PmsAnalysisOut,
     PmsCycleIn,
@@ -52,7 +55,11 @@ def _member(request, member_id: UUID) -> OrgMember:
 
 def _kpi(request, kpi_id: UUID) -> Kpi:
     k = selectors.kpi(org_id=require_org(request), kpi_id=kpi_id)
-    if k is None:
+    if k is None or (
+        k.scope == Kpi.Scope.INDIVIDUAL
+        and not perms.is_pms_admin(request)
+        and k.owner_id != getattr(request, "member_id", None)
+    ):
         raise ServiceError("not_found", "KPI not found.", status=404)
     return k
 
@@ -92,9 +99,60 @@ def _meas_payload(m) -> dict:
 
 # ================================================================ KPIs
 @router.get("/kpis", response=list[PmsKpiOut])
-def list_kpis(request, dept: str | None = None):
+def list_kpis(request, dept: str | None = None, scope: str = "department"):
     org_id = require_org(request)
-    return [scoring.kpi_payload(k, org_id=org_id) for k in selectors.active_kpis(org_id=org_id, dept=dept)]
+    if scope not in (Kpi.Scope.DEPARTMENT, Kpi.Scope.INDIVIDUAL):
+        raise ServiceError("bad_scope", "Unknown KPI scope.", status=400)
+    kpis = selectors.active_kpis(org_id=org_id, dept=dept, scope=scope)
+    if scope == Kpi.Scope.INDIVIDUAL and not perms.is_pms_admin(request):
+        kpis = kpis.filter(owner_id=getattr(request, "member_id", None))
+    kpis = list(kpis.select_related("owner__user"))
+    ids = [k.id for k in kpis]
+    readings: dict[UUID, list[KpiMeasurement]] = {}
+    if ids:
+        latest_rows = (
+            KpiMeasurement.objects.filter(org_id=org_id, kpi_id__in=ids)
+            .annotate(
+                rank=Window(
+                    expression=RowNumber(),
+                    partition_by=[F("kpi_id")],
+                    order_by=[F("period_year").desc(), F("period_index").desc()],
+                )
+            )
+            .filter(rank__lte=6)
+            .order_by("kpi_id", "-period_year", "-period_index")
+        )
+        for row in latest_rows:
+            readings.setdefault(row.kpi_id, []).append(row)
+    sources = dict(
+        KpiProposal.objects.filter(
+            org_id=org_id, id__in=[k.source_proposal_id for k in kpis if k.source_proposal_id]
+        ).values_list("id", "source")
+    )
+    slugs = {
+        source.removeprefix("/courses/") for source in sources.values() if source.startswith("/courses/")
+    }
+    course_titles = (
+        dict(
+            Course.objects.filter(slug__in=slugs, status="published")
+            .filter(Q(owner_org_id=org_id) | Q(owner_org__isnull=True))
+            .values_list("slug", "title")
+        )
+        if slugs
+        else {}
+    )
+    return [
+        scoring.kpi_payload(
+            k,
+            org_id=org_id,
+            recent=readings.get(k.id, []),
+            source=sources.get(k.source_proposal_id, ""),
+            source_title=course_titles.get(
+                sources.get(k.source_proposal_id, "").removeprefix("/courses/"), ""
+            ),
+        )
+        for k in kpis
+    ]
 
 
 @router.post("/kpis/{kpi_id}/measurements", response=PmsMeasurementOut)

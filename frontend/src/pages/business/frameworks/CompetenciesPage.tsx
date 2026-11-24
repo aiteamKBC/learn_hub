@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, Td, Th, Tr } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { type Competency, KIND_LABEL, KIND_OPTIONS, useCloneCompetency, useCompetencies, useCreateCompetency, useUpdateCompetency } from '@/features/frameworks/api'
+import { useWorkspace } from '@/features/identity/workspace'
 import { useIsOrgAdmin } from '@/features/org/api'
 
 function KindBadge({ kind }: { kind: string }) {
@@ -98,7 +99,7 @@ function EditForm({ competency, onDone }: { competency: Competency; onDone: () =
   )
 }
 
-function CompetencyTable({ items, admin, onEdit, onClone, cloning }: { items: Competency[]; admin: boolean; onEdit: (c: Competency) => void; onClone: (c: Competency) => void; cloning: string | null }) {
+function CompetencyTable({ items, admin, canEditPlatform, onEdit, onClone, cloning }: { items: Competency[]; admin: boolean; canEditPlatform: boolean; onEdit: (c: Competency) => void; onClone: (c: Competency) => void; cloning: string | null }) {
   return (
     <Table>
       <thead>
@@ -126,7 +127,7 @@ function CompetencyTable({ items, admin, onEdit, onClone, cloning }: { items: Co
             </Td>
             {admin ? (
               <Td className="text-right">
-                {c.is_platform ? (
+                {c.is_platform && !canEditPlatform ? (
                   <Button size="sm" variant="secondary" loading={cloning === c.id} onClick={() => onClone(c)}>
                     <Copy /> Clone
                   </Button>
@@ -146,6 +147,7 @@ function CompetencyTable({ items, admin, onEdit, onClone, cloning }: { items: Co
 
 export function CompetenciesPage() {
   const admin = useIsOrgAdmin()
+  const { isPlatformAdminView } = useWorkspace()
   const [kind, setKind] = useState('')
   const { data, isLoading, error, refetch } = useCompetencies(kind)
   const clone = useCloneCompetency()
@@ -162,7 +164,7 @@ export function CompetenciesPage() {
     <>
       <PageHeader
         title="Competencies"
-        description="The knowledge, skills, behaviours and professional standards your roles are built from."
+        description={isPlatformAdminView ? 'The master skills library for the whole platform. New competencies you add here are shared with every company.' : 'The knowledge, skills, behaviours and professional standards your roles are built from.'}
         actions={
           admin ? (
             <Button onClick={() => setCreating(true)}>
@@ -216,16 +218,21 @@ export function CompetenciesPage() {
                     action={admin ? <Button onClick={() => setCreating(true)}>New competency</Button> : undefined}
                   />
                 ) : (
-                  <CompetencyTable items={org} admin={admin} onEdit={setEditing} onClone={doClone} cloning={clone.isPending ? clone.variables ?? null : null} />
+                  <CompetencyTable items={org} admin={admin} canEditPlatform={isPlatformAdminView} onEdit={setEditing} onClone={doClone} cloning={clone.isPending ? clone.variables ?? null : null} />
                 )}
               </Card>
             </TabsContent>
             <TabsContent value="platform">
               <Card>
                 {platform.length === 0 ? (
-                  <EmptyState icon={<Layers />} title="None" body="No platform competencies match this filter." />
+                  <EmptyState
+                    icon={<Layers />}
+                    title="None"
+                    body={isPlatformAdminView ? 'The platform library is empty. Add the first shared competency.' : 'No platform competencies match this filter.'}
+                    action={isPlatformAdminView ? <Button onClick={() => setCreating(true)}>New competency</Button> : undefined}
+                  />
                 ) : (
-                  <CompetencyTable items={platform} admin={admin} onEdit={setEditing} onClone={doClone} cloning={clone.isPending ? clone.variables ?? null : null} />
+                  <CompetencyTable items={platform} admin={admin} canEditPlatform={isPlatformAdminView} onEdit={setEditing} onClone={doClone} cloning={clone.isPending ? clone.variables ?? null : null} />
                 )}
               </Card>
             </TabsContent>
@@ -236,7 +243,7 @@ export function CompetenciesPage() {
       {admin ? (
         <>
           <Dialog open={creating} onOpenChange={setCreating}>
-            <DialogContent title="New competency" description="Add a competency owned by your company.">
+            <DialogContent title="New competency" description={isPlatformAdminView ? 'Add a competency to the shared platform library — every company will see it.' : 'Add a competency owned by your company.'}>
               <CreateForm onDone={() => setCreating(false)} />
             </DialogContent>
           </Dialog>

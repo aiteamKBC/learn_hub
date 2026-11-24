@@ -1,0 +1,22 @@
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+(async () => {
+ if (!process.env.AUDIT_EMAIL || !process.env.AUDIT_PASSWORD) throw Error('Set AUDIT_EMAIL and AUDIT_PASSWORD');
+ const browser=await chromium.launch({channel:'msedge',headless:true});
+ const context=await browser.newContext(); const page=await context.newPage();
+ const csrfReady=page.waitForResponse(r=>r.url().endsWith('/identity/csrf'));
+ await page.goto('http://localhost:5173/login');
+ await csrfReady;
+ await page.waitForTimeout(1000);
+ await page.getByLabel('Email',{exact:true}).fill(process.env.AUDIT_EMAIL);
+ await page.getByLabel('Password',{exact:true}).fill(process.env.AUDIT_PASSWORD);
+ await context.clearCookies({name:'csrftoken'});
+ const responsePromise=page.waitForResponse(r=>r.url().endsWith('/auth/login'));
+ await page.getByRole('button',{name:'Log in',exact:true}).click();
+ const response=await responsePromise;
+ console.log('LOGIN_WITH_MISSING_CSRF',response.status());
+ await page.waitForTimeout(2500);
+ console.log('UI_ALERT',await page.getByRole('alert').allTextContents());
+ console.log('ME',(await context.request.get('http://localhost:5173/api/v1/identity/me')).status());
+ await browser.close();
+ if(response.status()!==200) process.exitCode=1;
+})().catch(e=>{console.error(e);process.exit(1)});
