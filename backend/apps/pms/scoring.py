@@ -48,16 +48,44 @@ def latest_measurement(*, org_id: UUID, kpi_id: UUID) -> KpiMeasurement | None:
     )
 
 
-def kpi_payload(kpi: Kpi, *, org_id: UUID) -> dict:
-    m = latest_measurement(org_id=org_id, kpi_id=kpi.id)
+def kpi_payload(
+    kpi: Kpi,
+    *,
+    org_id: UUID,
+    recent: list[KpiMeasurement] | None = None,
+    source: str | None = None,
+    source_title: str = "",
+) -> dict:
+    if recent is None:
+        recent = list(
+            KpiMeasurement.objects.filter(org_id=org_id, kpi_id=kpi.id).order_by(
+                "-period_year", "-period_index"
+            )[:6]
+        )
+    m = recent[0] if recent else None
     value = m.value if m else None
+    if source is None:
+        from .models import KpiProposal
+
+        source = (
+            KpiProposal.objects.filter(org_id=org_id, id=kpi.source_proposal_id)
+            .values_list("source", flat=True)
+            .first()
+            if kpi.source_proposal_id
+            else ""
+        )
     return {
         "id": kpi.id,
+        "scope": kpi.scope,
+        "parent_kpi_id": kpi.parent_kpi_id,
+        "source": source or "",
+        "source_title": source_title,
         "objective_code": kpi.objective_code,
         "objective_title": kpi.objective_title,
         "dept": kpi.dept,
         "name": kpi.name,
         "owner_id": kpi.owner_id,
+        "owner_name": kpi.owner.user.full_name or kpi.owner.user.email if kpi.owner_id else "Unassigned",
         "definition": kpi.definition,
         "unit": kpi.unit,
         "baseline": kpi.baseline,
@@ -69,6 +97,10 @@ def kpi_payload(kpi: Kpi, *, org_id: UUID) -> dict:
         "review_date": kpi.review_date,
         "status": kpi.status,
         "latest_value": value,
+        "series": [
+            {"period_year": row.period_year, "period_index": row.period_index, "value": row.value}
+            for row in reversed(recent)
+        ],
         "attainment": kpi_attainment(
             value=value, baseline=kpi.baseline, target=kpi.target, higher_better=kpi.higher_better
         ),

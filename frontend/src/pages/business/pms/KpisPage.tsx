@@ -22,7 +22,7 @@ function attainmentColour(pct: number) {
   return 'var(--chart-4)'
 }
 
-function RecordDialog({ kpi, admin }: { kpi: Kpi; admin: boolean }) {
+export function RecordDialog({ kpi, admin }: { kpi: Kpi; admin: boolean }) {
   const [open, setOpen] = useState(false)
   const measurements = useMeasurements(open ? kpi.id : undefined)
   const record = useRecordMeasurement(kpi.id)

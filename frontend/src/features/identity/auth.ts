@@ -21,6 +21,14 @@ type AllauthResponse = {
 }
 
 async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<AllauthResponse> {
+  // The app's initial CSRF request can race with submission or fail while the
+  // local API restarts. Re-establish a missing cookie before sending credentials.
+  if (method !== 'GET' && !csrfToken()) {
+    const csrf = await fetch('/api/v1/identity/csrf', { credentials: 'include' })
+    if (!csrf.ok || !csrfToken()) {
+      throw new AuthError('Unable to prepare a secure sign-in. Refresh the page and try again.')
+    }
+  }
   const res = await fetch(BASE + path, {
     method,
     credentials: 'include',

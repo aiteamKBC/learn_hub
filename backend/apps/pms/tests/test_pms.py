@@ -114,6 +114,37 @@ class PmsApiTest(SchemaTransactionTestCase):
         self.assertAlmostEqual(kpi["attainment"], 90.0, places=1)
         self.assertEqual(float(kpi["latest_value"]), 88.0)
 
+    def test_individual_kpi_is_linked_and_private(self):
+        _, parent_id = self._make_active_kpi()
+        response = self.post(
+            "/pms/kpis/proposals",
+            {
+                "name": "Sara's quarterly goal",
+                "scope": "individual",
+                "parent_kpi_id": parent_id,
+                "owner_id": str(self.m_sara.id),
+                "target": 95,
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        proposal_id = response.json()["id"]
+        for action in ("submit", "approve", "approve", "approve"):
+            response = self.post(f"/pms/kpis/proposals/{proposal_id}/{action}", {})
+            self.assertEqual(response.status_code, 200, response.content)
+        individual_id = response.json()["active_kpi_id"]
+
+        self.as_(self.member_user)
+        response = self.client.get(API + "/pms/kpis?scope=individual", **self.H)
+        self.assertEqual([row["id"] for row in response.json()], [individual_id])
+        self.assertEqual(response.json()[0]["parent_kpi_id"], parent_id)
+
+        colleague = User.objects.create_user("colleague@acme.example.com", "x")
+        with tenant_context(org_id=self.acme.id, user_id=self.owner_user.id):
+            OrgMember.objects.create(org=self.acme, user=colleague, joined_at=timezone.now())
+        self.as_(colleague)
+        self.assertEqual(self.client.get(API + "/pms/kpis?scope=individual", **self.H).json(), [])
+        self.assertEqual(self.get(f"/pms/kpis/{individual_id}/measurements").status_code, 404)
+
     # ---------------------------------------------------------------- reviews
     def _open_cycle(self):
         self.as_(self.owner_user)

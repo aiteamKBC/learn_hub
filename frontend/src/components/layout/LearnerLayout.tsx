@@ -4,11 +4,14 @@ import { Outlet, useLocation } from 'react-router-dom'
 
 import { DashboardBackdrop } from '@/components/art/dashboard-backdrop'
 import { useMe } from '@/features/identity/auth'
+import { useWorkspace } from '@/features/identity/workspace'
 import { cn } from '@/lib/cn'
 import { NavLink } from '@/lib/router'
 
 import { LearnerHeaderSlotContext } from './learner-header'
 
+// `company`: employee self-service, only while "Learning as" a company is active.
+// `personal`: consumer shopping, hidden in company mode and for platform admins (who never buy).
 const items = [
   { to: '/learn', label: 'My learning', Icon: BookOpen, end: true },
   { to: '/learn/required', label: 'Required training', Icon: ClipboardCheck, company: true },
@@ -16,17 +19,18 @@ const items = [
   { to: '/learn/wellbeing', label: 'Wellbeing', Icon: HeartPulse, company: true },
   { to: '/learn/cpd', label: 'CPD log', Icon: Award, company: true },
   { to: '/learn/competence', label: 'My competence', Icon: Sparkles, company: true },
+  { to: '/learn/practise-ksbs', label: 'Practise your KSBs', Icon: Sparkles, company: true },
   { to: '/learn/reviews', label: 'My reviews', Icon: ClipboardCheck, company: true },
   { to: '/learn/policies', label: 'My policies', Icon: ScrollText, company: true },
   { to: '/courses', label: 'Browse courses', Icon: Compass },
-  { to: '/wishlist', label: 'Wishlist', Icon: Heart },
+  { to: '/wishlist', label: 'Wishlist', Icon: Heart, personal: true },
   { to: '/learn/certificates', label: 'Certificates', Icon: Award },
   { to: '/learn/achievements', label: 'Achievements', Icon: Trophy },
   { to: '/notifications', label: 'Notifications', Icon: Bell },
-  { to: '/account/orders', label: 'Purchase history', Icon: ReceiptText },
-  { to: '/wallet', label: 'Token wallet', Icon: Coins },
-  { to: '/subscription', label: 'Unlimited plan', Icon: Crown },
-  { to: '/packages', label: 'Packages', Icon: Package },
+  { to: '/account/orders', label: 'Purchase history', Icon: ReceiptText, personal: true },
+  { to: '/wallet', label: 'Token wallet', Icon: Coins, personal: true },
+  { to: '/subscription', label: 'Unlimited plan', Icon: Crown, personal: true },
+  { to: '/packages', label: 'Packages', Icon: Package, personal: true },
   { to: '/support', label: 'Help & support', Icon: LifeBuoy },
   { to: '/account', label: 'Settings', Icon: Settings, end: true },
 ]
@@ -39,10 +43,20 @@ const items = [
  * it. Pages feed the band through <LearnerHeader> / <PageHeader>. */
 export function LearnerLayout() {
   const { data: me } = useMe()
-  const inCompany = !!me?.memberships.length
+  const { org } = useWorkspace()
+  // "Learning as" a company is active; employee self-service belongs to this mode only.
+  const inCompanyMode = !!org
+  // Admins never self-purchase (platform staff, or owners/admins of any company); nobody
+  // shops while acting for a company (the company bills through /business).
+  const isAdmin = !!me?.is_staff || !!me?.memberships.some((m) => m.role === 'owner' || m.role === 'admin')
+  const hidePersonal = isAdmin || inCompanyMode
   const [slot, setSlot] = useState<HTMLDivElement | null>(null)
   const { pathname } = useLocation()
-  const visibleItems = items.filter((i) => !i.company || inCompany)
+  const visibleItems = items.filter((i) => {
+    if (i.company) return inCompanyMode
+    if (i.personal) return !hidePersonal
+    return true
+  })
   const links = visibleItems.map(({ to, label, Icon, end }) => (
     <NavLink key={to} to={to} end={end} className={({ isActive }) =>
       cn('flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors', isActive ? 'bg-primary-soft text-primary-soft-text' : 'text-muted hover:bg-surface-2 hover:text-text')}>

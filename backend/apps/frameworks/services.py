@@ -36,13 +36,18 @@ _EDITABLE = {RoleFrameworkVersion.Status.DRAFT, RoleFrameworkVersion.Status.CHAN
 # ---------------------------------------------------------------- competencies
 @transaction.atomic
 def create_competency(
-    *, org_id: UUID, code: str, name: str, kind: str, description: str = "", sort_order: int = 0
+    *, owner_org_id: UUID | None, code: str, name: str, kind: str, description: str = "", sort_order: int = 0
 ) -> Competency:
+    """Create a competency.
+
+    `owner_org_id=None` makes a platform-library row (shared with every company) —
+    only platform staff reach this path; a company admin always passes their own org.
+    """
     code = code.strip()
-    if Competency.objects.filter(owner_org_id=org_id, code=code).exists():
+    if Competency.objects.filter(owner_org_id=owner_org_id, code=code).exists():
         raise ServiceError("duplicate_code", "A competency with this code already exists.", status=409)
     return Competency.objects.create(
-        owner_org_id=org_id,
+        owner_org_id=owner_org_id,
         code=code,
         name=name.strip(),
         kind=kind,
@@ -73,8 +78,8 @@ def clone_competency(*, org_id: UUID, source: Competency) -> Competency:
 
 
 @transaction.atomic
-def update_competency(*, competency: Competency, patch: dict) -> Competency:
-    if competency.owner_org_id is None:
+def update_competency(*, competency: Competency, patch: dict, allow_platform: bool = False) -> Competency:
+    if competency.owner_org_id is None and not allow_platform:
         raise ServiceError("platform_readonly", "Platform competencies cannot be edited.", status=403)
     for field in ("name", "description", "sort_order"):
         if field in patch and patch[field] is not None:

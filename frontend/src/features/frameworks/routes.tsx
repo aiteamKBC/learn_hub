@@ -20,6 +20,7 @@ const RoleDetailPage = named(() => import('@/pages/business/frameworks/RoleDetai
 const RoleVersionPage = named(() => import('@/pages/business/frameworks/RoleVersionPage'), 'RoleVersionPage')
 const MaturityPage = named(() => import('@/pages/business/frameworks/MaturityPage'), 'MaturityPage')
 const MyCompetencePage = named(() => import('@/pages/learner/frameworks/MyCompetencePage'), 'MyCompetencePage')
+const PractiseKsbsPage = named(() => import('@/pages/learner/frameworks/PractiseKsbsPage'), 'PractiseKsbsPage')
 
 /** Children of /business (admins change things; managers read). */
 export const frameworksBusinessRoutes: RouteObject[] = [
@@ -31,7 +32,10 @@ export const frameworksBusinessRoutes: RouteObject[] = [
 ]
 
 /** Inside LearnerLayout (the signed-in person's own competence). */
-export const frameworksLearnerRoutes: RouteObject[] = [{ path: '/learn/competence', element: page(<MyCompetencePage />), handle: { art: 'constellation' } }]
+export const frameworksLearnerRoutes: RouteObject[] = [
+  { path: '/learn/competence', element: page(<MyCompetencePage />), handle: { art: 'constellation' } },
+  { path: '/learn/practise-ksbs', element: page(<PractiseKsbsPage />), handle: { art: 'constellation' } },
+]
 
 export const frameworksBusinessNav: NavSection[] = [
   {

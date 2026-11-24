@@ -14270,6 +14270,10 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            scope: string;
+            parent_kpi_id: string | null;
+            source: string;
+            source_title: string;
             /** Objective Code */
             objective_code: string;
             /** Objective Title */
@@ -14280,6 +14284,7 @@ export interface components {
             name: string;
             /** Owner Id */
             owner_id: string | null;
+            owner_name: string;
             /** Definition */
             definition: string;
             /** Unit */
@@ -14304,6 +14309,12 @@ export interface components {
             latest_value: string | null;
             /** Attainment */
             attainment: number | null;
+            series: components["schemas"]["PmsKpiPoint"][];
+        };
+        PmsKpiPoint: {
+            period_year: number;
+            period_index: number;
+            value: string;
         };
         /** PmsMeasurementOut */
         PmsMeasurementOut: {
@@ -14352,6 +14363,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            scope: string;
+            parent_kpi_id: string | null;
             /** Name */
             name: string;
             /** Objective Code */
@@ -14397,6 +14410,8 @@ export interface components {
         PmsProposalIn: {
             /** Name */
             name: string;
+            scope: string;
+            parent_kpi_id?: string | null;
             /**
              * Objective Code
              * @default
@@ -14460,6 +14475,8 @@ export interface components {
         PmsProposalPatch: {
             /** Name */
             name?: string | null;
+            scope?: string | null;
+            parent_kpi_id?: string | null;
             /** Objective Code */
             objective_code?: string | null;
             /** Objective Title */
@@ -28076,6 +28093,7 @@ export interface operations {
         parameters: {
             query?: {
                 dept?: string | null;
+                scope?: string;
             };
             header?: never;
             path?: never;

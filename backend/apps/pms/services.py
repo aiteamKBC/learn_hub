@@ -41,6 +41,7 @@ _ADVANCE = {
 
 _PROP_FIELDS = (
     "name",
+    "scope",
     "objective_code",
     "objective_title",
     "dept",
@@ -67,6 +68,23 @@ def _member_in_org(org_id: UUID, member_id: UUID | None) -> OrgMember | None:
     return m
 
 
+def _parent_in_org(org_id: UUID, parent_id: UUID | None, scope: str, dept: str, owner) -> Kpi | None:
+    if scope == Kpi.Scope.DEPARTMENT:
+        if parent_id:
+            raise ServiceError("bad_parent", "Only an individual KPI can have a parent KPI.", status=400)
+        return None
+    if owner is None or parent_id is None:
+        raise ServiceError(
+            "missing_link", "An individual KPI needs a person and a department KPI.", status=400
+        )
+    parent = Kpi.objects.filter(
+        org_id=org_id, id=parent_id, scope=Kpi.Scope.DEPARTMENT, status=Kpi.Status.ACTIVE
+    ).first()
+    if parent is None or parent.dept != dept:
+        raise ServiceError("bad_parent", "Choose an active KPI in the same department.", status=400)
+    return parent
+
+
 def _log_proposal(proposal: KpiProposal, *, by_user_id, action: str, comment: str = "") -> None:
     KpiProposalHistory.objects.create(
         org_id=proposal.org_id,
@@ -83,10 +101,18 @@ def _log_proposal(proposal: KpiProposal, *, by_user_id, action: str, comment: st
 @transaction.atomic
 def create_proposal(*, org_id: UUID, by_user_id: UUID, data: dict) -> KpiProposal:
     owner = _member_in_org(org_id, data.get("owner_id"))
+    parent = _parent_in_org(
+        org_id,
+        data.get("parent_kpi_id"),
+        data.get("scope", Kpi.Scope.DEPARTMENT),
+        data.get("dept", ""),
+        owner,
+    )
     proposal = KpiProposal.objects.create(
         org_id=org_id,
         author_id=by_user_id,
         owner=owner,
+        parent_kpi=parent,
         stage=KpiProposal.Stage.DRAFT,
         version=1,
         ai_draft=data.get("ai_draft", False),
@@ -102,6 +128,13 @@ def update_proposal(*, org_id: UUID, proposal: KpiProposal, patch: dict) -> KpiP
         raise ServiceError("not_editable", f"A {proposal.stage} proposal cannot be edited.", status=409)
     if "owner_id" in patch:
         proposal.owner = _member_in_org(org_id, patch["owner_id"])
+    proposal.parent_kpi = _parent_in_org(
+        org_id,
+        patch.get("parent_kpi_id", proposal.parent_kpi_id),
+        patch.get("scope", proposal.scope),
+        patch.get("dept", proposal.dept),
+        proposal.owner,
+    )
     for f in _PROP_FIELDS:
         if f in patch and patch[f] is not None:
             setattr(proposal, f, patch[f])
@@ -141,6 +174,8 @@ def advance_proposal(*, proposal: KpiProposal, by_user_id: UUID, comment: str = 
 def _activate(proposal: KpiProposal) -> Kpi:
     return Kpi.objects.create(
         org_id=proposal.org_id,
+        scope=proposal.scope,
+        parent_kpi=proposal.parent_kpi,
         objective_code=proposal.objective_code,
         objective_title=proposal.objective_title,
         dept=proposal.dept,

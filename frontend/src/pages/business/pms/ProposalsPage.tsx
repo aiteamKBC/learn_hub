@@ -5,15 +5,20 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { CourseThumb } from '@/components/ui/course-thumb'
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
 import { Input, NativeSelect, Textarea } from '@/components/ui/input'
 import { EmptyState, ErrorState, PageHeader } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useCourse, useCourses } from '@/features/catalog/api'
 import { MemberSelect, useMemberNames, memberName } from '@/features/pms/members'
-import { NEXT_STAGE_LABEL, type Proposal, type ProposalIn, PROPOSAL_STAGE, useCreateProposal, useProposalAction, useProposalHistory, useProposals, useUpdateProposal } from '@/features/pms/api'
+import { NEXT_STAGE_LABEL, type Proposal, type ProposalIn, PROPOSAL_STAGE, useCreateProposal, useKpis, useProposalAction, useProposalHistory, useProposals, useUpdateProposal } from '@/features/pms/api'
 import { useIsOrgAdmin } from '@/features/org/api'
+import { useDebounced } from '@/features/org/ui'
+import { cn } from '@/lib/cn'
 import { relativeDate } from '@/lib/format'
+import { Link } from '@/lib/router'
 
 const STAGE_TABS = [
   { value: 'all', label: 'All' },
@@ -30,11 +35,95 @@ function StageBadge({ stage }: { stage: string }) {
   return <Badge tone={s.tone}>{s.label}</Badge>
 }
 
-function CreateProposalDialog({ proposal }: { proposal?: Proposal }) {
+// A KPI's data source is either an external link (report/dashboard) or one of the
+// platform's courses, stored as the course's own path so no extra column is needed.
+const COURSE_SOURCE_RE = /^\/courses\/([a-z0-9-]+)$/i
+const courseSourceSlug = (source: string | null | undefined) => (source ?? '').match(COURSE_SOURCE_RE)?.[1] ?? null
+
+/** The chosen course as a compact cover card (title + thumbnail). */
+function CourseSourceCard({ slug, onClear }: { slug: string; onClear?: () => void }) {
+  const { data, isLoading } = useCourse(slug)
+  return (
+    <div className="flex items-center gap-2.5 rounded-md border border-border bg-surface-2/40 p-1.5">
+      <span className="w-16 shrink-0">
+        {isLoading ? <Skeleton className="aspect-video w-full rounded-md" /> : <CourseThumb src={data?.thumbnail_url} title={data?.title ?? slug} category={data?.category} />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{data?.title ?? slug}</p>
+        <p className="truncate text-xs text-muted">Course · /courses/{slug}</p>
+      </div>
+      {onClear ? <Button type="button" variant="ghost" size="sm" onClick={onClear}>Change</Button> : null}
+    </div>
+  )
+}
+
+/** Course mode of the data-source field: search and pick a course, or clear the choice. */
+function CourseSourcePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const slug = courseSourceSlug(value)
+  const [q, setQ] = useState('')
+  const term = useDebounced(q).trim()
+  const { data, isFetching } = useCourses({ q: term, limit: 6 }, term.length > 0)
+  if (slug) return <CourseSourceCard slug={slug} onClear={() => onChange('')} />
+  return (
+    <div className="grid gap-1.5">
+      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a course…" />
+      {term ? (
+        <ul className="grid max-h-56 gap-0.5 overflow-auto rounded-md border border-border p-1">
+          {(data?.items ?? []).map((c) => (
+            <li key={c.id}>
+              <button type="button" onClick={() => onChange(`/courses/${c.slug}`)} className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left hover:bg-surface-2">
+                <span className="w-12 shrink-0"><CourseThumb src={c.thumbnail_url} title={c.title} category={c.category} /></span>
+                <span className="min-w-0 truncate text-sm">{c.title}</span>
+              </button>
+            </li>
+          ))}
+          {!isFetching && !(data?.items ?? []).length ? <li className="px-2 py-1.5 text-xs text-muted">No courses found.</li> : null}
+        </ul>
+      ) : null}
+    </div>
+  )
+}
+
+/** Data source in the proposal form: a link (URL) or a course. */
+function DataSourceField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [mode, setMode] = useState<'link' | 'course'>(courseSourceSlug(value) ? 'course' : 'link')
+  const switchMode = (m: 'link' | 'course') => {
+    if (m === mode) return
+    setMode(m)
+    onChange('') // the two modes store different things; start the new one empty
+  }
+  return (
+    <div className="grid gap-2">
+      <div className="flex w-fit gap-0.5 rounded-md bg-surface-2 p-0.5">
+        {(['link', 'course'] as const).map((m) => (
+          <button key={m} type="button" onClick={() => switchMode(m)} className={cn('rounded px-2.5 py-1 text-xs font-medium transition-colors', mode === m ? 'bg-surface text-text shadow-sm' : 'text-muted hover:text-text')}>
+            {m === 'link' ? 'Link' : 'Course'}
+          </button>
+        ))}
+      </div>
+      {mode === 'link' ? (
+        <Input type="url" value={value} maxLength={200} onChange={(e) => onChange(e.target.value)} placeholder="https://… report or dashboard" />
+      ) : (
+        <CourseSourcePicker value={value} onChange={onChange} />
+      )}
+    </div>
+  )
+}
+
+/** Read-only data source: a course cover card, an external link, or plain text. */
+function DataSourceView({ source }: { source: string }) {
+  const slug = courseSourceSlug(source)
+  if (slug) return <Link to={`/courses/${slug}`} className="block">{<CourseSourceCard slug={slug} />}</Link>
+  if (/^https?:\/\//i.test(source)) return <a href={source} target="_blank" rel="noopener noreferrer" className="text-sm font-medium break-all text-primary underline underline-offset-2 hover:text-primary/80">{source}</a>
+  return <p className="text-sm break-words">{source}</p>
+}
+
+export function CreateProposalDialog({ proposal, defaultScope = 'department', label }: { proposal?: Proposal; defaultScope?: 'department' | 'individual'; label?: string }) {
   const [open, setOpen] = useState(false)
   const create = useCreateProposal()
   const update = useUpdateProposal(proposal?.id ?? '')
-  const initial: ProposalIn = proposal ? { name: proposal.name, objective_code: proposal.objective_code, objective_title: proposal.objective_title, dept: proposal.dept, definition: proposal.definition, unit: proposal.unit, baseline: proposal.baseline, target: proposal.target, higher_better: proposal.higher_better, source: proposal.source, cadence: proposal.cadence, period: proposal.period, review_date: proposal.review_date, weight: proposal.weight, owner_id: proposal.owner_id } : { name: '', objective_code: '', objective_title: '', dept: '', definition: '', unit: '', higher_better: true, source: '', cadence: 'monthly', period: '', weight: 10 }
+  const departmentKpis = useKpis()
+  const initial: ProposalIn = proposal ? { name: proposal.name, scope: proposal.scope, parent_kpi_id: proposal.parent_kpi_id, objective_code: proposal.objective_code, objective_title: proposal.objective_title, dept: proposal.dept, definition: proposal.definition, unit: proposal.unit, baseline: proposal.baseline, target: proposal.target, higher_better: proposal.higher_better, source: proposal.source, cadence: proposal.cadence, period: proposal.period, review_date: proposal.review_date, weight: proposal.weight, owner_id: proposal.owner_id } : { name: '', scope: defaultScope, parent_kpi_id: null, objective_code: '', objective_title: '', dept: '', definition: '', unit: '', higher_better: true, source: '', cadence: 'quarterly', period: '', weight: 10 }
   const [form, setForm] = useState<ProposalIn>(initial)
   const set = (patch: Partial<ProposalIn>) => setForm((f) => ({ ...f, ...patch }))
 
@@ -47,7 +136,7 @@ function CreateProposalDialog({ proposal }: { proposal?: Proposal }) {
         onSuccess: () => {
           toast.success(proposal ? 'Proposal updated' : 'Proposal created as a draft')
           setOpen(false)
-          setForm({ name: '', objective_code: '', objective_title: '', dept: '', definition: '', unit: '', higher_better: true, source: '', cadence: 'monthly', period: '', weight: 10 })
+          setForm({ name: '', scope: defaultScope, parent_kpi_id: null, objective_code: '', objective_title: '', dept: '', definition: '', unit: '', higher_better: true, source: '', cadence: 'quarterly', period: '', weight: 10 })
         },
         onError: (err) => toast.error((err as Error).message),
       },
@@ -57,10 +146,24 @@ function CreateProposalDialog({ proposal }: { proposal?: Proposal }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Button size={proposal ? 'sm' : 'md'} variant={proposal ? 'secondary' : 'primary'} onClick={() => { setForm(initial); setOpen(true) }}>
-        {proposal ? <Pencil /> : <Plus />} {proposal ? 'Edit proposal' : 'New proposal'}
+        {proposal ? <Pencil /> : <Plus />} {proposal ? 'Edit proposal' : label ?? 'New proposal'}
       </Button>
       <DialogContent title={proposal ? 'Edit KPI proposal' : 'Propose a KPI'} description="Save your definition, then submit it to begin the approval route." className="max-w-[640px]">
         <form onSubmit={submit} className="grid gap-3">
+          <label className="grid gap-1 text-xs text-muted">
+            KPI level
+            <NativeSelect value={form.scope} onChange={(e) => set({ scope: e.target.value, parent_kpi_id: null, dept: '' })}>
+              <option value="department">Department KPI</option>
+              <option value="individual">Individual KPI</option>
+            </NativeSelect>
+          </label>
+          {form.scope === 'individual' ? <label className="grid gap-1 text-xs text-muted">
+            Linked department KPI
+            <NativeSelect value={form.parent_kpi_id ?? ''} onChange={(e) => { const parent = departmentKpis.data?.find((k) => k.id === e.target.value); set({ parent_kpi_id: e.target.value || null, dept: parent?.dept ?? '' }) }} required>
+              <option value="">Choose a department KPI</option>
+              {(departmentKpis.data ?? []).map((k) => <option key={k.id} value={k.id}>{k.dept} · {k.name}</option>)}
+            </NativeSelect>
+          </label> : null}
           <label className="grid gap-1 text-xs text-muted">
             Name
             <Input value={form.name} onChange={(e) => set({ name: e.target.value })} minLength={2} maxLength={200} required />
@@ -68,7 +171,7 @@ function CreateProposalDialog({ proposal }: { proposal?: Proposal }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1 text-xs text-muted">
               Department
-              <Input value={form.dept} onChange={(e) => set({ dept: e.target.value })} />
+              <Input value={form.dept} onChange={(e) => set({ dept: e.target.value })} readOnly={form.scope === 'individual'} required />
             </label>
             <label className="grid gap-1 text-xs text-muted">
               Objective title
@@ -118,11 +221,11 @@ function CreateProposalDialog({ proposal }: { proposal?: Proposal }) {
             <label className="grid gap-1 text-xs text-muted">Objective code<Input value={form.objective_code} maxLength={16} onChange={(e) => set({ objective_code: e.target.value })} /></label>
             <label className="grid gap-1 text-xs text-muted">Period<Input value={form.period} maxLength={32} onChange={(e) => set({ period: e.target.value })} placeholder="For example: 2026 Q4" /></label>
             <label className="grid gap-1 text-xs text-muted">Review date<Input type="date" value={form.review_date ?? ''} onChange={(e) => set({ review_date: e.target.value || null })} /></label>
-            <label className="grid gap-1 text-xs text-muted">Data source<Input value={form.source} maxLength={200} onChange={(e) => set({ source: e.target.value })} /></label>
+            <div className="grid gap-1 text-xs text-muted">Data source<DataSourceField value={form.source} onChange={(v) => set({ source: v })} /></div>
           </div>
           <label className="grid gap-1 text-xs text-muted">
-            Owner
-            <MemberSelect value={form.owner_id ?? ''} onChange={(v) => set({ owner_id: v || null })} />
+            {form.scope === 'individual' ? 'Person' : 'Owner'}
+            <MemberSelect value={form.owner_id ?? ''} onChange={(v) => set({ owner_id: v || null })} label={form.scope === 'individual' ? 'Person' : 'Owner'} />
           </label>
           <div className="mt-2 flex justify-end gap-2">
             <DialogClose asChild>
@@ -130,7 +233,7 @@ function CreateProposalDialog({ proposal }: { proposal?: Proposal }) {
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit" loading={proposal ? update.isPending : create.isPending}>
+            <Button type="submit" loading={proposal ? update.isPending : create.isPending} disabled={form.scope === 'individual' && (!form.owner_id || !form.parent_kpi_id)}>
               {proposal ? 'Save changes' : 'Create draft'}
             </Button>
           </div>
@@ -251,6 +354,12 @@ function ProposalRow({ proposal, admin, names }: { proposal: Proposal; admin: bo
                 </div>
               </dl>
               {proposal.definition ? <p className="mt-3 text-sm text-muted">{proposal.definition}</p> : null}
+              {proposal.source ? (
+                <div className="mt-3">
+                  <p className="mb-1 text-xs text-muted">Data source</p>
+                  <DataSourceView source={proposal.source} />
+                </div>
+              ) : null}
               <div className="mt-5">
                 <p className="mb-2 flex items-center gap-1.5 text-sm font-medium">
                   <History className="size-4" /> Approval history

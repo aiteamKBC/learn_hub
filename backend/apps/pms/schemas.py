@@ -14,13 +14,24 @@ from ninja import Field, Schema
 
 
 # ---------------------------------------------------------------- KPIs
+class PmsKpiPoint(Schema):
+    period_year: int
+    period_index: int
+    value: Decimal
+
+
 class PmsKpiOut(Schema):
     id: UUID
+    scope: str
+    parent_kpi_id: UUID | None
+    source: str
+    source_title: str
     objective_code: str
     objective_title: str
     dept: str
     name: str
     owner_id: UUID | None
+    owner_name: str
     definition: str
     unit: str
     baseline: Decimal | None
@@ -33,10 +44,13 @@ class PmsKpiOut(Schema):
     status: str
     latest_value: Decimal | None
     attainment: float | None
+    series: list[PmsKpiPoint]
 
 
 class PmsProposalIn(Schema):
     name: str = Field(..., min_length=2, max_length=200)
+    scope: str = Field("department", pattern="^(department|individual)$")
+    parent_kpi_id: UUID | None = None
     objective_code: str = Field("", max_length=16)
     objective_title: str = Field("", max_length=200)
     dept: str = Field("", max_length=80)
@@ -55,6 +69,8 @@ class PmsProposalIn(Schema):
 
 class PmsProposalPatch(Schema):
     name: str | None = Field(None, min_length=2, max_length=200)
+    scope: str | None = Field(None, pattern="^(department|individual)$")
+    parent_kpi_id: UUID | None = None
     objective_code: str | None = Field(None, max_length=16)
     objective_title: str | None = Field(None, max_length=200)
     dept: str | None = Field(None, max_length=80)
@@ -73,6 +89,8 @@ class PmsProposalPatch(Schema):
 
 class PmsProposalOut(Schema):
     id: UUID
+    scope: str
+    parent_kpi_id: UUID | None
     name: str
     objective_code: str
     objective_title: str

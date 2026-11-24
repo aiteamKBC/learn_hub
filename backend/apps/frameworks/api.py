@@ -96,8 +96,11 @@ def list_competencies(request, kind: str | None = None, include_archived: bool =
 def create_competency(request, data: FwCompetencyIn):
     org_id = require_org(request)
     perms.require_framework_admin(request)
+    # In a platform-admin view (staff inspecting a company) new competencies go to the
+    # shared platform library; a company admin's go to their own company.
+    platform = bool(getattr(request, "platform_staff", False))
     c = services.create_competency(
-        org_id=org_id,
+        owner_org_id=None if platform else org_id,
         code=data.code,
         name=data.name,
         kind=data.kind,
@@ -111,7 +114,10 @@ def create_competency(request, data: FwCompetencyIn):
 def update_competency(request, competency_id: UUID, data: FwCompetencyPatch):
     require_org(request)
     perms.require_framework_admin(request)
-    c = services.update_competency(competency=_competency(request, competency_id), patch=data.dict())
+    allow_platform = bool(getattr(request, "platform_staff", False))
+    c = services.update_competency(
+        competency=_competency(request, competency_id), patch=data.dict(), allow_platform=allow_platform
+    )
     return selectors.competency_payload(c)
 
 

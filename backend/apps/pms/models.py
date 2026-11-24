@@ -43,6 +43,14 @@ class Kpi(TenantModel):
         ACTIVE = "active", "Active"
         RETIRED = "retired", "Retired"
 
+    class Scope(models.TextChoices):
+        DEPARTMENT = "department", "Department"
+        INDIVIDUAL = "individual", "Individual"
+
+    scope = models.CharField(max_length=12, choices=Scope.choices, default=Scope.DEPARTMENT)
+    parent_kpi = models.ForeignKey(
+        "self", on_delete=models.PROTECT, null=True, blank=True, related_name="individual_kpis"
+    )
     objective_code = models.CharField(max_length=16, blank=True)
     objective_title = models.CharField(max_length=200, blank=True)
     dept = models.CharField(max_length=80, blank=True)
@@ -94,6 +102,11 @@ class KpiProposal(TenantModel):
         WEEKLY = "weekly", "Weekly"
         MONTHLY = "monthly", "Monthly"
         QUARTERLY = "quarterly", "Quarterly"
+
+    scope = models.CharField(max_length=12, choices=Kpi.Scope.choices, default=Kpi.Scope.DEPARTMENT)
+    parent_kpi = models.ForeignKey(
+        Kpi, on_delete=models.PROTECT, null=True, blank=True, related_name="child_proposals"
+    )
 
     objective_code = models.CharField(max_length=16, blank=True)
     objective_title = models.CharField(max_length=200, blank=True)
