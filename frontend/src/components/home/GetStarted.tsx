@@ -21,10 +21,16 @@ import { Link, useNavigate } from '@/lib/router'
 
 type Tab = 'login' | 'signup'
 
-const ROLES = ['Student', 'Company', 'Instructor'] as const
+const ROLES = ['Student', 'Company', 'Instructor', 'Admin'] as const
 type Role = (typeof ROLES)[number]
+const ROLE_HOME: Record<Role, string> = {
+  Student: '/learn',
+  Company: '/business',
+  Instructor: '/studio',
+  Admin: '/console',
+}
 
-function LoginForm() {
+function LoginForm({ role }: { role: Role }) {
   const navigate = useNavigate()
   const login = useLogin()
   const mfa = useMfaAuthenticate()
@@ -33,6 +39,7 @@ function LoginForm() {
   const [step, setStep] = useState<'password' | 'code'>('password')
   const [code, setCode] = useState('')
   const err = login.error instanceof AuthError ? login.error : null
+  const destination = ROLE_HOME[role]
   // Show a message for ANY failed sign-in. allauth usually returns an AuthError (with a
   // field-level message, or a general one); anything else (network, unexpected) still gets
   // a friendly fallback, so a wrong email/password never fails silently.
@@ -48,7 +55,7 @@ function LoginForm() {
         className="grid gap-4"
         onSubmit={(e) => {
           e.preventDefault()
-          mfa.mutate(code.replace(/\s/g, ''), { onSuccess: () => navigate('/learn', { replace: true }) })
+          mfa.mutate(code.replace(/\s/g, ''), { onSuccess: () => navigate(destination, { replace: true }) })
         }}
       >
         <p className="text-sm text-muted">Open your authenticator app and type the 6-digit code.</p>
@@ -73,8 +80,8 @@ function LoginForm() {
         e.preventDefault()
         // Prepare the destination while the server verifies the password so the
         // next screen does not add another sequential wait after sign-in.
-        void import('@/pages/MyLearningPage')
-        login.mutate({ email, password }, { onSuccess: (r) => (r === 'mfa' ? setStep('code') : navigate('/learn', { replace: true })) })
+        if (role === 'Student') void import('@/pages/MyLearningPage')
+        login.mutate({ email, password }, { onSuccess: (r) => (r === 'mfa' ? setStep('code') : navigate(destination, { replace: true })) })
       }}
     >
       {generalError ? (
@@ -170,6 +177,25 @@ export function AuthTabs({ initialTab = 'login' }: { initialTab?: Tab }) {
 
   return (
     <div>
+      {/* Shared by the desktop and mobile dialog. Keep the selected account type
+          visible when logging in as well as when creating an account. */}
+      <div className="mb-5">
+        <span className="text-[13px] font-medium text-text">I'm a</span>
+        <div role="radiogroup" aria-label="Role" className="mt-1.5 grid grid-cols-4 gap-1.5">
+          {ROLES.map((r) => (
+            <button
+              key={r}
+              type="button"
+              role="radio"
+              aria-checked={role === r}
+              onClick={() => setRole(r)}
+              className={cn('min-w-0 rounded-lg border px-1 py-2 text-[11px] font-medium transition-colors min-[380px]:px-1.5 min-[380px]:text-xs sm:px-2 sm:text-[13px]', role === r ? 'border-primary bg-primary-soft text-primary-soft-text' : 'border-border text-muted hover:text-text')}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
       <div role="tablist" aria-label="Log in or create an account" className="mb-6 grid grid-cols-2 gap-1.5 rounded-xl bg-surface-2/60 p-1">
         {(['login', 'signup'] as const).map((t) => (
           <button
@@ -184,31 +210,7 @@ export function AuthTabs({ initialTab = 'login' }: { initialTab?: Tab }) {
           </button>
         ))}
       </div>
-      {tab === 'login' ? (
-        <LoginForm />
-      ) : (
-        <>
-        {/* role chooser — only when creating an account (visual only, see NEEDS-USER UI-2) */}
-        <div className="mb-5">
-          <span className="text-[13px] font-medium text-text">I'm a</span>
-          <div role="radiogroup" aria-label="Role" className="mt-1.5 grid grid-cols-3 gap-1.5">
-            {ROLES.map((r) => (
-              <button
-                key={r}
-                type="button"
-                role="radio"
-                aria-checked={role === r}
-                onClick={() => setRole(r)}
-                className={cn('rounded-lg border px-2 py-2 text-[13px] font-medium transition-colors', role === r ? 'border-primary bg-primary-soft text-primary-soft-text' : 'border-border text-muted hover:text-text')}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
-        </div>
-          <SignupForm />
-        </>
-      )}
+      {tab === 'login' ? <LoginForm role={role} /> : <SignupForm />}
     </div>
   )
 }

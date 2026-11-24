@@ -20,21 +20,42 @@ type AllauthResponse = {
   errors?: { message: string; code: string; param?: string }[]
 }
 
-async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<AllauthResponse> {
-  // The app's initial CSRF request can race with submission or fail while the
-  // local API restarts. Re-establish a missing cookie before sending credentials.
-  if (method !== 'GET' && !csrfToken()) {
-    const csrf = await fetch('/api/v1/identity/csrf', { credentials: 'include' })
-    if (!csrf.ok || !csrfToken()) {
-      throw new AuthError('Unable to prepare a secure sign-in. Refresh the page and try again.')
-    }
+let csrfRequest: Promise<void> | null = null
+
+/** Authentication writes can be submitted before the app-level CSRF bootstrap finishes,
+ * especially on a phone immediately after opening the page. Ensure the cookie exists and
+ * share one in-flight request between simultaneous callers. */
+async function ensureCsrf(force = false) {
+  if (!force && csrfToken()) return
+  if (!csrfRequest) {
+    csrfRequest = fetch('/api/v1/identity/csrf', { credentials: 'include', cache: 'no-store' })
+      .then((res) => {
+        if (!res.ok) throw new Error('Could not prepare secure sign-in. Please try again.')
+      })
+      .finally(() => {
+        csrfRequest = null
+      })
   }
-  const res = await fetch(BASE + path, {
-    method,
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken(), ...headers },
-    body: body ? JSON.stringify(body) : undefined,
-  })
+  await csrfRequest
+}
+
+async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<AllauthResponse> {
+  const write = method !== 'GET'
+  if (write) await ensureCsrf()
+  const send = () =>
+    fetch(BASE + path, {
+      method,
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken(), ...headers },
+      body: body ? JSON.stringify(body) : undefined,
+    })
+  let res = await send()
+  // A stale page can retain an old CSRF cookie after the backend session changes. Refresh
+  // it once and repeat the same request instead of making a correct password look invalid.
+  if (write && res.status === 403) {
+    await ensureCsrf(true)
+    res = await send()
+  }
   const json = (await res.json().catch(() => ({ status: res.status }))) as AllauthResponse
   return { ...json, status: res.status }
 }
@@ -136,7 +157,7 @@ export function useLogin() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (v: { email: string; password: string }): Promise<'signed-in' | 'mfa'> => {
-      const r = await call('POST', '/auth/login', v)
+      const r = await call('POST', '/auth/login', { ...v, email: v.email.trim() })
       // 2-step sign-in: the password was right, now the code from the authenticator app
       if (r.status === 401 && r.data?.flows?.some((f) => f.id === 'mfa_authenticate' && f.is_pending)) return 'mfa'
       if (r.status !== 200) raise(r)
