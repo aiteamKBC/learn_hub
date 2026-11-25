@@ -11,7 +11,7 @@ from django.utils import timezone
 from apps.catalog.models import Course
 from apps.compliance import engine
 from apps.compliance.models import CompletionRecord, MemberStatus, Requirement, RequirementTarget
-from apps.org.models import OrgMember, Organization
+from apps.org.models import Organization, OrgMember
 from core.tenancy import tenant_context
 
 COMPANY_SLUG = "instalment-demo-company"

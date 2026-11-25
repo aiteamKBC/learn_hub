@@ -74,7 +74,6 @@ from .schemas import (
     UnitPatch,
 )
 
-
 # Company audit actions are namespaced by feature. Keep the grouped UI filter here
 # so its meaning is enforced by the API (including when the trail is paginated).
 AUDIT_ACTION_FILTERS = {
