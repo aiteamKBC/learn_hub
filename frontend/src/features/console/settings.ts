@@ -50,3 +50,26 @@ export function useBrandingRemove() {
     onSuccess: done,
   })
 }
+
+export function usePlatformStaff() {
+  return useQuery({ queryKey: ['console', 'settings', 'staff'], queryFn: () => unwrap(api.GET('/api/v1/console/settings/staff')) })
+}
+
+function useStaffChanged() {
+  const queryClient = useQueryClient()
+  return () => void queryClient.invalidateQueries({ queryKey: ['console', 'settings', 'staff'] })
+}
+
+export function useGrantPlatformStaff() {
+  const done = useStaffChanged()
+  return useMutation({ mutationFn: (email: string) => unwrap(api.POST('/api/v1/console/settings/staff', { body: { email } })), onSuccess: done })
+}
+
+export function useRemovePlatformStaff() {
+  const done = useStaffChanged()
+  return useMutation({ mutationFn: (id: string) => unwrap(api.POST('/api/v1/console/settings/staff/{user_id}/remove', { params: { path: { user_id: id } } })), onSuccess: done })
+}
+
+export function useIntegrationHealth() {
+  return useQuery({ queryKey: ['console', 'settings', 'integrations'], queryFn: () => unwrap(api.GET('/api/v1/console/health')), refetchInterval: 60_000 })
+}

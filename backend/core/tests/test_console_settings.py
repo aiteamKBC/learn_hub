@@ -5,7 +5,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 
-from apps.identity.models import InstructorProfile
+from apps.identity.models import InstructorProfile, User
 from apps.platform import services as platform
 from core.errors import ServiceError
 from core.tenancy import tenant_context
@@ -106,3 +106,22 @@ class SettingsTest(SchemaTransactionTestCase):
 
         Authenticator.objects.create(user=self.staff, type="totp", data={"secret": "x"})
         self.assertEqual(self.client.get(f"{API}/console/tickets").status_code, 200)
+
+    def test_roles_and_permissions_manage_platform_staff(self):
+        self.client.force_login(self.staff)
+        rows = self.client.get(f"{API}/console/settings/staff").json()
+        self.assertEqual([(row["email"], row["is_self"]) for row in rows], [(self.staff.email, True)])
+        granted = self.client.post(
+            f"{API}/console/settings/staff", data={"email": self.teacher.email}, content_type="application/json"
+        )
+        self.assertEqual(granted.status_code, 200, granted.content)
+        self.assertTrue(User.objects.get(pk=self.teacher.id).is_staff)
+        self.assertEqual(
+            self.client.post(f"{API}/console/settings/staff/{self.staff.id}/remove", data={}, content_type="application/json").json()["error"]["code"],
+            "self",
+        )
+        removed = self.client.post(
+            f"{API}/console/settings/staff/{self.teacher.id}/remove", data={}, content_type="application/json"
+        )
+        self.assertEqual(removed.status_code, 200, removed.content)
+        self.assertFalse(User.objects.get(pk=self.teacher.id).is_staff)

@@ -57,6 +57,7 @@ const SubscriptionPage = named(() => import('@/pages/b2c/SubscriptionPage'), 'Su
 const PackagesPage = named(() => import('@/pages/b2c/PackagesPage'), 'PackagesPage')
 const CheckoutReviewPage = named(() => import('@/pages/b2c/CheckoutReviewPage'), 'CheckoutReviewPage')
 const ComplianceDashboard = named(() => import('@/pages/business/ComplianceDashboard'), 'ComplianceDashboard')
+const CompanyRoleDashboard = named(() => import('@/pages/business/CompanyRoleDashboard'), 'CompanyRoleDashboard')
 const MatrixPage = named(() => import('@/pages/business/MatrixPage'), 'MatrixPage')
 const RequirementsPage = named(() => import('@/pages/business/RequirementsPage'), 'RequirementsPage')
 const ReportsPage = named(() => import('@/pages/business/ReportsPage'), 'ReportsPage')
@@ -84,6 +85,7 @@ const ConsoleDashboardPage = named(() => import('@/pages/console/DashboardPage')
 const ConsoleCoursesPage = named(() => import('@/pages/console/CoursesPage'), 'ConsoleCoursesPage')
 const ConsoleInstructorsPage = named(() => import('@/pages/console/InstructorsPage'), 'ConsoleInstructorsPage')
 const ConsoleStudentsPage = named(() => import('@/pages/console/StudentsPage'), 'ConsoleStudentsPage')
+const ConsoleEnrolmentsPage = named(() => import('@/pages/console/EnrolmentsPage'), 'ConsoleEnrolmentsPage')
 const ConsoleSalesPage = named(() => import('@/pages/console/SalesPage'), 'ConsoleSalesPage')
 const ConsoleSubscriptionsPage = named(() => import('@/pages/console/SubscriptionsPage'), 'ConsoleSubscriptionsPage')
 const ConsolePricingPage = named(() => import('@/pages/console/PricingPage'), 'ConsolePricingPage')
@@ -112,6 +114,7 @@ const businessNav: NavSection[] = [
   {
     title: 'Compliance',
     items: [
+      { to: '/business/compliance-overview', label: 'Compliance overview', Icon: ShieldCheck },
       { to: '/business/matrix', label: 'Training matrix', Icon: ClipboardCheck },
       { to: '/business/requirements', label: 'Requirements', Icon: ShieldCheck },
       { to: '/business/reports', label: 'Reports', Icon: FileBarChart },
@@ -260,7 +263,8 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
       </RequireAuth>
     ),
     children: [
-      { index: true, element: page(<ComplianceDashboard />) },
+      { index: true, element: page(<CompanyRoleDashboard />) },
+      { path: 'compliance-overview', element: page(<ComplianceDashboard />), handle: { art: 'dials' } },
       { path: 'matrix', element: page(<MatrixPage />) },
       { path: 'requirements', element: page(<RequirementsPage />), handle: { art: 'checklist' } },
       { path: 'reports', element: page(<ReportsPage />), handle: { art: 'chartgrid' } },
@@ -314,6 +318,7 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
       { path: 'courses', element: page(<ConsoleCoursesPage />), handle: { art: 'mosaic' } },
       { path: 'instructors', element: page(<ConsoleInstructorsPage />), handle: { art: 'orgchart' } },
       { path: 'students', element: page(<ConsoleStudentsPage />), handle: { art: 'orgchart' } },
+      { path: 'enrolments', element: page(<ConsoleEnrolmentsPage />), handle: { art: 'orgchart' } },
       { path: 'sales', element: page(<ConsoleSalesPage />), handle: { art: 'coins' } },
       { path: 'subscriptions', element: page(<ConsoleSubscriptionsPage />), handle: { art: 'coins' } },
       { path: 'pricing', element: page(<ConsolePricingPage />), handle: { art: 'coins' } },

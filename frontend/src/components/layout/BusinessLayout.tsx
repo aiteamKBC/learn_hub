@@ -1,11 +1,10 @@
 import { ArrowLeft } from 'lucide-react'
 import { useState } from 'react'
 
-import { Button } from '@/components/ui/button'
 import { useWorkspace } from '@/features/identity/workspace'
 import { useCompany, useRoleCapabilities } from '@/features/org/api'
 import { brandStyle, safeLogo } from '@/features/org/branding'
-import { Link } from '@/lib/router'
+import { useNavigate } from '@/lib/router'
 
 import { SearchBox } from './SearchBox'
 import { type NavSection, WorkspaceLayout } from './WorkspaceLayout'
@@ -28,31 +27,31 @@ export function CompanyMark({ name, logoUrl, className = 'size-8' }: { name: str
   )
 }
 
-/** Centred catalogue search, with a way back when staff preview a workforce. */
+/** Centred catalogue search for the company workspace. */
 function BusinessHeader() {
-  const { isPlatformAdminView } = useWorkspace()
-  return (
-    <div className="relative mx-auto w-full max-w-md">
-      {isPlatformAdminView ? (
-        <Button asChild variant="ghost" size="icon-sm" className="absolute top-1/2 right-full mr-2 -translate-y-1/2">
-          <Link to="/console/workforce" aria-label="Back to admin workforce"><ArrowLeft /></Link>
-        </Button>
-      ) : null}
-      <SearchBox className="w-full" />
-    </div>
-  )
+  return <SearchBox className="mx-auto w-full max-w-md" />
 }
 
 /** Company workspace with role-scoped navigation and the centred catalogue search. */
 export function BusinessLayout({ sections }: { sections: NavSection[] }) {
+  const navigate = useNavigate()
   const { data: company } = useCompany()
-  const { org, isPlatformAdminView } = useWorkspace()
+  const { org, isPlatformAdminView, staffPreviewRole, switchTo } = useWorkspace()
   const responsibilities = useRoleCapabilities()
   const admin = !!org && ['owner', 'admin'].includes(org.role)
   const roles = new Set(responsibilities.data?.responsibilities.map((item) => item.code) ?? [])
-  const hr = roles.has('hr_admin')
-  const executive = roles.has('executive')
-  const scopedManager = roles.has('department_head') || roles.has('line_manager')
+  const hr = roles.has('hr_admin') || staffPreviewRole === 'hr_admin'
+  const executive = roles.has('executive') || staffPreviewRole === 'executive'
+  const scopedManager = roles.has('department_head') || roles.has('line_manager') || staffPreviewRole === 'department_head' || staffPreviewRole === 'line_manager'
+  const previewRoleLabel = staffPreviewRole === 'hr_admin'
+    ? 'HR'
+    : staffPreviewRole === 'executive'
+      ? 'Executive'
+      : staffPreviewRole === 'department_head'
+        ? 'Department head'
+        : staffPreviewRole === 'line_manager'
+          ? 'Line manager'
+          : 'Company admin'
   const visibleSections = sections
     .map((section) => ({
       ...section,
@@ -71,10 +70,27 @@ export function BusinessLayout({ sections }: { sections: NavSection[] }) {
 
   return (
     <WorkspaceLayout
-      area={isPlatformAdminView ? 'Admin · Workforce' : 'Business'}
+      area={isPlatformAdminView ? `Admin · ${previewRoleLabel}` : 'Business'}
       sections={visibleSections}
       art="contours"
       header={<BusinessHeader />}
+      sidebarTop={isPlatformAdminView && org ? (
+        <button
+          type="button"
+          onClick={() => {
+            // Leave the guarded business route first. Clearing the preview while
+            // still on /business makes RequireManager redirect to /learn.
+            navigate('/console/companies', { replace: true, flushSync: true })
+            switchTo(null)
+          }}
+          aria-label="Back to Companies"
+          title="Back to Companies"
+          className="group inline-flex h-9 items-center gap-2 px-1 text-[13px] font-semibold text-nav-text transition-colors hover:text-white focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          <ArrowLeft className="size-5 transition-transform group-hover:-translate-x-0.5" strokeWidth={2.2} />
+          <span className="border-b border-nav-text/55 pb-0.5 transition-colors group-hover:border-primary">Admin · {previewRoleLabel}</span>
+        </button>
+      ) : undefined}
       centerHeader
       style={brandStyle(company?.primary_color, company?.accent_color)}
     />

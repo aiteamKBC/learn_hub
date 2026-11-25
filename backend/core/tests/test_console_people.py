@@ -3,11 +3,15 @@ edit, suspend / reactivate (with notifications), delete guards, permissions enfo
 the studio, instructor suspension and the invite-to-teach flow."""
 
 from django.core.cache import cache
+from django.utils import timezone
 
 from apps.catalog.models import CourseVersion
 from apps.engagement.models import Notification
 from apps.identity import invites
 from apps.identity.models import InstructorProfile, User
+from apps.learning.models import Enrollment
+from apps.org import services as org_services
+from apps.org.models import OrgMember
 from apps.platform import services as platform
 from core.tenancy import tenant_context
 from core.tests import factories as f
@@ -96,6 +100,67 @@ class ConsolePeopleTest(SchemaTransactionTestCase):
             {"user.edit", "user.suspend", "user.reactivate", "user.anonymize", "people.export"} <= actions
         )
 
+    def test_staff_can_create_student_and_manage_course_access(self):
+        self.as_(self.staff)
+        created = self.post(
+            "/console/people/students",
+            {"full_name": "New Learner", "email": "new.learner@x.test", "temporary_password": "TempPass123!"},
+        )
+        self.assertEqual(created.status_code, 200, created.content)
+        user_id = created.json()["id"]
+        user = User.objects.get(pk=user_id)
+        self.assertTrue(user.check_password("TempPass123!"))
+
+        granted = self.post(
+            f"/console/people/students/{user_id}/enrolments", {"course_id": str(self.course.id)}
+        )
+        self.assertEqual(granted.status_code, 200, granted.content)
+        enrolment_id = granted.json()["id"]
+        detail = self.get(f"/console/people/students/{user_id}").json()
+        self.assertEqual((detail["enrolments"], detail["enrolment_list"][0]["source"]), (1, "Granted by staff"))
+
+        updated = self.send(
+            "patch",
+            f"/console/people/students/{user_id}/enrolments/{enrolment_id}",
+            {"status": "completed", "progress_pct": 40},
+        )
+        self.assertEqual(updated.status_code, 200, updated.content)
+        enrolment = self.get(f"/console/people/students/{user_id}").json()["enrolment_list"][0]
+        self.assertEqual((enrolment["status"], enrolment["progress_pct"]), ("completed", 100.0))
+
+        self.send(
+            "patch",
+            f"/console/people/students/{user_id}/enrolments/{enrolment_id}",
+            {"status": "revoked", "progress_pct": 100},
+        )
+        self.assertEqual(self.get(f"/console/people/students/{user_id}").json()["enrolment_list"][0]["status"],
+                         "revoked")  # fmt: skip
+
+    def test_global_enrolments_manage_personal_and_company_access(self):
+        self.as_(self.staff)
+        self.assertEqual(self.get("/console/enrolments/kpis").json()["total"], 0)
+        created = self.post("/console/enrolments", {"user_id": str(self.sara.id), "course_id": str(self.course.id)})
+        self.assertEqual(created.status_code, 200, created.content)
+        enrolment_id = created.json()["id"]
+        self.assertEqual(self.get("/console/enrolments?scope=personal").json()["items"][0]["source"], "admin_grant")
+        self.assertEqual(self.post("/console/enrolments", {"user_id": str(self.sara.id), "course_id": str(self.course.id)}).json()["error"]["code"], "already_enrolled")
+
+        with tenant_context(user_id=self.omar.id, staff=True):
+            org = org_services.create_organization(name="Acme", slug="acme-enrolments", owner=self.omar)
+            OrgMember.objects.create(org=org, user=self.sara, joined_at=timezone.now())
+        company = self.post("/console/enrolments", {"user_id": str(self.sara.id), "course_id": str(self.course.id), "company_id": str(org.id)})
+        self.assertEqual(company.status_code, 200, company.content)
+        row = self.get("/console/enrolments?scope=company").json()["items"][0]
+        self.assertEqual((row["company"], row["source"]), ("Acme", "organization"))
+        updated = self.send("patch", f"/console/enrolments/{enrolment_id}", {"status": "completed", "progress_pct": 20})
+        self.assertEqual(updated.status_code, 200, updated.content)
+        with tenant_context(staff=True):
+            self.assertEqual(Enrollment.objects.get(pk=enrolment_id).progress_pct, 100)
+        self.send("patch", f"/console/enrolments/{enrolment_id}", {"status": "revoked", "progress_pct": 100})
+        self.assertEqual(self.get("/console/enrolments/kpis").json()["cancelled"], 1)
+        options = self.get("/console/enrolments/options").json()
+        self.assertTrue(options["students"] and options["courses"] and options["companies"])
+
     def test_instructors_permissions_enforced_and_suspension(self):
         self.as_(self.staff)
         kpis = self.get("/console/people/instructors/kpis").json()
@@ -148,6 +213,33 @@ class ConsolePeopleTest(SchemaTransactionTestCase):
         self.post(f"/console/people/instructors/{self.tom.id}/reactivate")
         self.as_(self.tom)
         self.assertEqual(self.get(f"/studio/courses/{self.course.id}").status_code, 200)
+
+    def test_staff_can_edit_instructor_identity_and_course_assignment(self):
+        self.as_(self.staff)
+        edited = self.send(
+            "patch",
+            f"/console/people/instructors/{self.tom.id}",
+            {"full_name": "Tom Teacher", "email": "tom.teacher@x.test", "headline": "Senior teacher"},
+        )
+        self.assertEqual(edited.status_code, 200, edited.content)
+        self.tom.refresh_from_db()
+        self.assertEqual((self.tom.full_name, self.tom.email), ("Tom Teacher", "tom.teacher@x.test"))
+
+        assigned = self.post(
+            f"/console/people/instructors/{self.tom.id}/courses",
+            {"course_id": str(self.course.id), "can_edit": False, "is_visible": False,
+             "revenue_share_pct": 25.5},
+        )
+        self.assertEqual(assigned.status_code, 200, assigned.content)
+        course = self.get(f"/console/people/instructors/{self.tom.id}").json()["course_list"][0]
+        self.assertEqual((course["can_edit"], course["is_visible"], course["revenue_share_pct"]),
+                         (False, False, 25.5))  # fmt: skip
+
+        removed = self.post(
+            f"/console/people/instructors/{self.tom.id}/courses/{self.course.id}/remove"
+        )
+        self.assertEqual(removed.status_code, 200, removed.content)
+        self.assertEqual(self.get(f"/console/people/instructors/{self.tom.id}").json()["courses"], 0)
 
     def test_applications_and_invite(self):
         InstructorProfile.objects.create(user=self.omar, headline="Chef")

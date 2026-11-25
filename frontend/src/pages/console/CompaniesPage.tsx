@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpenCheck, BriefcaseBusiness, Building2, Gauge, Layers, Plus, Search, ShieldCheck, UserMinus, UserPlus, Users } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BriefcaseBusiness, Building2, Crown, HeartHandshake, Plus, Search, ShieldCheck, UserCog, UserMinus, UserPlus, Users } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { toast } from '@/lib/toast'
 
@@ -31,6 +31,11 @@ import { useWorkspace } from '@/features/identity/workspace'
 import { useDebounced } from '@/features/org/ui'
 import { count, shortDate } from '@/lib/format'
 import { useNavigate } from '@/lib/router'
+import type { StaffPreviewRole } from '@/lib/workspace'
+
+// Keep both presentations available so returning to the previous drawer is a
+// one-line change if the inline company profile is not the preferred direction.
+const COMPANY_DETAIL_PRESENTATION = 'inline' as 'inline' | 'sheet'
 
 function Kpis() {
   const { data } = useCompanyKpis()
@@ -119,15 +124,21 @@ function DetailsSection({ c }: { c: ConsoleCompanyDetail }) {
     <section className="grid gap-3">
       <h3 className="text-sm font-semibold">Details</h3>
       <Field label="Company name">{(f) => <Input {...f} value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />}</Field>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Seat limit" hint={`${count(c.members)} in use. Empty means no limit.`}>{(f) => <Input {...f} type="number" min={1} value={seats} onChange={(e) => setSeats(e.target.value)} />}</Field>
-        <Field label="Status">
-          {(f) => (
-            <NativeSelect {...f} value={status} onChange={(e) => setStatus(e.target.value)}>
-              {Object.entries(COMPANY_STATUSES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-            </NativeSelect>
-          )}
-        </Field>
+      <div className="grid items-start gap-3 sm:grid-cols-2">
+        <div className="min-w-0">
+          <Field label="Seat limit">{(f) => <Input {...f} type="number" min={1} value={seats} onChange={(e) => setSeats(e.target.value)} />}</Field>
+          <p className="mt-1 min-h-4 text-xs leading-4 text-muted">{count(c.members)} in use. Empty means no limit.</p>
+        </div>
+        <div className="min-w-0">
+          <Field label="Status">
+            {(f) => (
+              <NativeSelect {...f} value={status} onChange={(e) => setStatus(e.target.value)}>
+                {Object.entries(COMPANY_STATUSES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </NativeSelect>
+            )}
+          </Field>
+          <p className="mt-1 min-h-4 text-xs leading-4" aria-hidden="true">&nbsp;</p>
+        </div>
       </div>
       <div className="flex flex-wrap justify-end gap-2">
         <Button variant="secondary" size="sm" disabled={!nameChanged && !seatsChanged && !statusChanged} onClick={() => (setName(c.name), setSeats(c.seat_limit ? String(c.seat_limit) : ''), setStatus(c.status))}>
@@ -277,57 +288,142 @@ function AdminsSection({ c }: { c: ConsoleCompanyDetail }) {
   )
 }
 
-/** The workforce tools live in the company's business workspace; from here a platform
- * admin jumps straight to an area without becoming one of the company's employees. */
-const WORKFORCE_AREAS = [
-  { label: 'People & HR', to: '/business/people', Icon: Users },
-  { label: 'Frameworks', to: '/business/frameworks/competencies', Icon: Layers },
-  { label: 'Performance (KPIs)', to: '/business/pms/kpis', Icon: Gauge },
-  { label: 'Governance', to: '/business/governance/strategies', Icon: BookOpenCheck },
-  { label: 'Courses', to: '/studio/courses', Icon: BookOpenCheck },
-]
-
-function CompanyDetail({ id }: { id: string }) {
-  const q = useCompany(id)
-  const { switchToStaffOrg } = useWorkspace()
-  const navigate = useNavigate()
-  if (q.isLoading) return <div className="grid gap-3">{Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-16" />)}</div>
-  if (q.error || !q.data) return <ErrorState message={q.error?.message ?? 'Company not found.'} onRetry={() => void q.refetch()} />
-  const c = q.data
-  const subs = [...c.subscriptions, ...c.addon_subscriptions]
-  const goto = (to: string) => {
-    switchToStaffOrg({ org_id: c.id, name: c.name, slug: c.slug })
-    navigate(to)
-  }
+function SubscriptionsSection({ c }: { c: ConsoleCompanyDetail }) {
+  const subscriptions = [...c.subscriptions, ...c.addon_subscriptions]
   return (
-    <div className="grid animate-reveal gap-6">
-      <Card className="border-primary/25 bg-primary-soft/45 p-4 shadow-none">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
-            <BriefcaseBusiness className="size-5" aria-hidden />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h3 className="font-semibold">HR, performance & governance</h3>
-            <p className="mt-0.5 text-sm text-muted">Open this company’s People, HCM, frameworks, KPIs, reviews, strategy and policies.</p>
-          </div>
-          <Button onClick={() => goto('/business')}>
-            Open workforce <ArrowRight />
-          </Button>
-        </div>
-        <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label={`Manage ${c.name} workforce areas`}>
-          {WORKFORCE_AREAS.map(({ label, to, Icon }) => (
-            <li key={label}>
-              <button
-                type="button"
-                onClick={() => goto(to)}
-                className="flex w-full items-center gap-2 rounded-md bg-surface/70 px-2.5 py-2 text-left text-xs font-medium text-muted transition-colors hover:bg-primary-soft hover:text-primary-soft-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              >
-                <Icon className="size-3.5 shrink-0 text-primary" aria-hidden /> {label}
-              </button>
+    <section className="grid gap-3">
+      <div>
+        <h3 className="text-sm font-semibold">Subscriptions</h3>
+        <p className="mt-1 text-xs text-muted">Plans and paid add-ons attached to this company.</p>
+      </div>
+      {subscriptions.length ? (
+        <ul className="grid gap-2">
+          {subscriptions.map((subscription) => (
+            <li key={subscription.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-2/35 px-3 py-3 text-sm">
+              <span className="font-medium">{subscription.plan}</span>
+              <StatusPill status={subscription.status} />
+              <span className="text-xs text-muted">{count(subscription.seats)} {subscription.seats === 1 ? 'seat' : 'seats'}</span>
+              {subscription.current_period_end ? <span className="ml-auto text-xs text-muted">{subscription.cancel_at_period_end ? 'ends' : 'renews'} {shortDate(subscription.current_period_end)}</span> : null}
             </li>
           ))}
         </ul>
-      </Card>
+      ) : (
+        <EmptyState icon={<BriefcaseBusiness />} title="No subscriptions" body="Plans are bought from the company's billing page." className="py-10" />
+      )}
+    </section>
+  )
+}
+
+function CompanySummary({ c }: { c: ConsoleCompanyDetail }) {
+  const items = [
+    { label: 'Status', value: <StatusPill status={c.status} label={COMPANY_STATUSES[c.status]} /> },
+    { label: 'People', value: <span className="font-semibold tabular">{count(c.members)}{c.seat_limit ? ` / ${count(c.seat_limit)} seats` : ''}</span> },
+    { label: 'Billing currency', value: <span className="font-semibold">{c.billing_currency}</span> },
+    { label: 'Joined', value: <span className="font-semibold tabular">{shortDate(c.created_at)}</span> },
+  ]
+  return (
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Company summary">
+      {items.map((item) => (
+        <Card key={item.label} className="p-4 shadow-none">
+          <p className="text-xs font-medium text-muted">{item.label}</p>
+          <div className="mt-2 text-sm">{item.value}</div>
+        </Card>
+      ))}
+    </section>
+  )
+}
+
+const COMPANY_PREVIEW_ROLES: { value: StaffPreviewRole; label: string; detail: string; Icon: typeof ShieldCheck }[] = [
+  { value: 'company_admin', label: 'Company administrator', detail: 'Workspace, billing, people and learning.', Icon: ShieldCheck },
+  { value: 'hr_admin', label: 'HR administrator', detail: 'People, learning and governance.', Icon: HeartHandshake },
+  { value: 'executive', label: 'Executive', detail: 'Strategy, performance and approvals.', Icon: Crown },
+  { value: 'department_head', label: 'Department head', detail: 'Department team and progress.', Icon: BriefcaseBusiness },
+  { value: 'line_manager', label: 'Line manager', detail: 'Direct reports and learning.', Icon: UserCog },
+]
+
+function CompanyRoleChooser({ company, inline = false }: { company: ConsoleCompanyDetail; inline?: boolean }) {
+  const { switchToStaffOrg } = useWorkspace()
+  const navigate = useNavigate()
+  const enter = (role: StaffPreviewRole) => {
+    switchToStaffOrg({ org_id: company.id, name: company.name, slug: company.slug, preview_role: role })
+    navigate('/business')
+  }
+  return (
+    <section className="rounded-2xl border border-primary/25 bg-primary-soft/25 p-4 sm:p-6">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h3 className="text-base font-semibold">Enter company workspace as…</h3>
+        <p className="mt-1 text-xs leading-relaxed text-muted">Choose a role to open its company dashboard.</p>
+        </div>
+        <span className="text-xs text-muted">5 workspace roles</span>
+      </div>
+      <div className={inline ? 'grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5' : 'grid gap-2'}>
+        {COMPANY_PREVIEW_ROLES.map(({ value, label, detail, Icon }) => (
+          <button key={value} type="button" onClick={() => enter(value)} aria-label={`${label}: open workspace dashboard`} className="group flex min-h-36 w-full flex-col rounded-xl border border-border bg-surface p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:bg-primary-soft/30 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+            <span className="flex w-full items-start gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary-soft-text transition-colors group-hover:bg-primary group-hover:text-on-primary"><Icon className="size-4.5" /></span>
+              <span className="min-w-0 flex-1"><span className="block text-sm font-semibold leading-snug">{label}</span><span className="mt-1.5 block text-xs leading-relaxed text-muted">{detail}</span></span>
+            </span>
+            <span className="mt-auto flex w-full items-center justify-between border-t border-border/70 pt-3 text-xs font-medium text-primary">
+              <span>Open dashboard</span>
+              <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function CompanyDetail({ id, inline = false }: { id: string; inline?: boolean }) {
+  const [tab, setTab] = useState<'details' | 'access' | 'admins' | 'subscriptions'>('details')
+  const q = useCompany(id)
+  if (q.isLoading) return <div className="grid gap-3">{Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-16" />)}</div>
+  if (q.error || !q.data) return <ErrorState message={q.error?.message ?? 'Company not found.'} onRetry={() => void q.refetch()} />
+  const c = q.data
+
+  if (inline) {
+    const tabs = [
+      { value: 'details' as const, label: 'Details' },
+      { value: 'access' as const, label: 'Add-ons & access' },
+      { value: 'admins' as const, label: `Admins (${c.admins.length})` },
+      { value: 'subscriptions' as const, label: `Subscriptions (${c.subscriptions.length + c.addon_subscriptions.length})` },
+    ]
+    return (
+      <div className="grid animate-reveal gap-6">
+        <CompanyRoleChooser company={c} inline />
+        <CompanySummary c={c} />
+        <Card className="min-w-0 overflow-hidden">
+          <div className="overflow-x-auto border-b border-border px-3 scrollbar-none sm:px-5" role="tablist" aria-label={`${c.name} management sections`}>
+            <div className="flex min-w-max gap-1">
+              {tabs.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === item.value}
+                  onClick={() => setTab(item.value)}
+                  className={`relative px-3 py-3.5 text-sm font-medium transition-colors ${tab === item.value ? 'text-primary after:absolute after:right-3 after:bottom-0 after:left-3 after:h-0.5 after:rounded-full after:bg-primary after:content-[""]' : 'text-muted hover:text-text'}`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        <div className="min-h-64 p-4 sm:p-6 lg:p-7">
+            {tab === 'details' ? <DetailsSection key={`${c.name}-${c.status}-${c.seat_limit}`} c={c} /> : null}
+            {tab === 'access' ? <AddonsSection c={c} /> : null}
+            {tab === 'admins' ? <AdminsSection c={c} /> : null}
+            {tab === 'subscriptions' ? <SubscriptionsSection c={c} /> : null}
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid animate-reveal gap-6">
+      <CompanyRoleChooser company={c} />
       <div>
         <InfoRow label="Status"><StatusPill status={c.status} label={COMPANY_STATUSES[c.status]} /></InfoRow>
         <InfoRow label="People">{count(c.members)}{c.seat_limit ? ` of ${count(c.seat_limit)} seats` : ''}</InfoRow>
@@ -337,23 +433,7 @@ function CompanyDetail({ id }: { id: string }) {
       <DetailsSection key={`${c.name}-${c.status}-${c.seat_limit}`} c={c} />
       <AddonsSection c={c} />
       <AdminsSection c={c} />
-      <section className="grid gap-2">
-        <h3 className="text-sm font-semibold">Subscriptions</h3>
-        {subs.length ? (
-          <ul className="grid gap-2">
-            {subs.map((s) => (
-              <li key={s.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
-                <span className="font-medium">{s.plan}</span>
-                <StatusPill status={s.status} />
-                <span className="text-xs text-muted">{count(s.seats)} {s.seats === 1 ? 'seat' : 'seats'}</span>
-                {s.current_period_end ? <span className="ml-auto text-xs text-muted">{s.cancel_at_period_end ? 'ends' : 'renews'} {shortDate(s.current_period_end)}</span> : null}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-muted">No subscriptions. Plans are bought from the company's billing page.</p>
-        )}
-      </section>
+      <SubscriptionsSection c={c} />
     </div>
   )
 }
@@ -372,8 +452,7 @@ function CompanyCard({ c, onOpen }: { c: ConsoleCompany; onOpen: () => void }) {
   )
 }
 
-/** Console > Companies (pattern 05): every company with status, seats and add-ons;
- * the detail sheet edits them and manages admins. */
+/** Console > Companies: list and a full-width, reversible inline company profile. */
 export function ConsoleCompaniesPage() {
   const [selected, setSelected] = useParam('company')
   const [status, setStatus] = useParam('status')
@@ -384,20 +463,30 @@ export function ConsoleCompaniesPage() {
   const rows = list.data ?? []
   const filtered = !!(debounced.trim() || status)
   const current = rows.find((r) => r.id === selected)
+  const showingInlineDetail = COMPANY_DETAIL_PRESENTATION === 'inline' && !!selected
   return (
     <>
       <PageHeader
-        title="Companies"
-        description="Business customers: status, seats, add-ons and admins."
+        title={showingInlineDetail ? current?.name ?? 'Company profile' : 'Companies'}
+        description={showingInlineDetail ? current ? `/${current.slug} · Manage workspace access, company settings and administrators.` : 'Manage workspace access, company settings and administrators.' : 'Business customers: status, seats, add-ons and admins.'}
         actions={
-          <Button onClick={() => setCreating(true)}>
-            <Plus /> Add company
-          </Button>
+          showingInlineDetail ? (
+            <Button variant="secondary" onClick={() => setSelected('')}>
+              <ArrowLeft /> All companies
+            </Button>
+          ) : (
+            <Button onClick={() => setCreating(true)}>
+              <Plus /> Add company
+            </Button>
+          )
         }
       />
-      <div className="grid gap-6">
-        <Kpis />
-        <Card className="min-w-0">
+      {showingInlineDetail && selected ? (
+        <CompanyDetail id={selected} inline />
+      ) : (
+        <div className="grid gap-6">
+          <Kpis />
+          <Card className="min-w-0">
           <div className="grid gap-2 border-b border-border p-4 sm:grid-cols-[minmax(0,1fr)_12rem]">
             <Input icon={<Search />} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search companies" aria-label="Search companies" />
             <NativeSelect aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -445,11 +534,14 @@ export function ConsoleCompaniesPage() {
               </div>
             </div>
           )}
-        </Card>
-      </div>
-      <DetailSheet open={!!selected} onOpenChange={(o) => !o && setSelected('')} title={current?.name ?? 'Company'} description={current ? `/${current.slug}` : undefined}>
-        {selected ? <CompanyDetail id={selected} /> : null}
-      </DetailSheet>
+          </Card>
+        </div>
+      )}
+      {COMPANY_DETAIL_PRESENTATION === 'sheet' ? (
+        <DetailSheet open={!!selected} onOpenChange={(o) => !o && setSelected('')} title={current?.name ?? 'Company'} description={current ? `/${current.slug}` : undefined}>
+          {selected ? <CompanyDetail id={selected} /> : null}
+        </DetailSheet>
+      ) : null}
       <CreateCompany open={creating} onOpenChange={setCreating} onCreated={setSelected} />
     </>
   )

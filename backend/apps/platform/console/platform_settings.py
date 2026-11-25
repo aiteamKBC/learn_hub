@@ -4,10 +4,13 @@ with its old and new value."""
 
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 from django.db import transaction
+from django.utils import timezone
 from ninja import Field, Schema
 
+from apps.identity.models import User
 from core.errors import ServiceError
 
 from .. import registry, services
@@ -71,6 +74,21 @@ class ConsoleBrandingOut(Schema):
     url: str
 
 
+class ConsoleStaffOut(Schema):
+    id: UUID
+    name: str
+    email: str
+    role: str
+    active: bool
+    joined_at: datetime
+    last_login: datetime | None
+    is_self: bool
+
+
+class ConsoleStaffGrantIn(Schema):
+    email: str = Field(..., min_length=3, max_length=320)
+
+
 def _all() -> list[dict]:
     rows = {
         s.key: s for s in Setting.objects.filter(key__in=list(registry.BY_KEY)).select_related("updated_by")
@@ -86,6 +104,19 @@ def _all() -> list[dict]:
             "updated_by": (row.updated_by.full_name or row.updated_by.email) if row and row.updated_by else None,
         })  # fmt: skip
     return out
+
+
+def _staff_row(user: User, request) -> dict:
+    return {
+        "id": user.id,
+        "name": user.full_name or user.email,
+        "email": user.email,
+        "role": "platform_admin",
+        "active": user.is_active,
+        "joined_at": user.created_at,
+        "last_login": user.last_login,
+        "is_self": user.id == request.user.id,
+    }
 
 
 @router.get("/settings", response=ConsoleSettingsOut)
@@ -114,6 +145,43 @@ def save_settings(request, body: ConsoleSettingsSaveIn):
                 request, "setting.update", "setting", key, {"from": current.get(key), "to": clean[key]}
             )
     return {"changed": changed}
+
+
+@router.get("/settings/staff", response=list[ConsoleStaffOut])
+def staff_list(request):
+    staff(request)
+    return [_staff_row(user, request) for user in User.objects.filter(is_staff=True).order_by("full_name", "email")]
+
+
+@router.post("/settings/staff", response=ConsoleStaffOut)
+def grant_staff(request, body: ConsoleStaffGrantIn):
+    staff(request)
+    email = body.email.strip().lower()
+    user = User.objects.filter(email=email, anonymized_at__isnull=True).first()
+    if user is None:
+        raise ServiceError("user_not_found", "Create the account first, then grant platform access.", status=404)
+    if not user.is_active:
+        raise ServiceError("inactive_user", "Reactivate this account before granting platform access.")
+    if not user.is_staff:
+        User.objects.filter(pk=user.pk).update(is_staff=True, updated_at=timezone.now())
+        user.is_staff = True
+        audit_request(request, "staff.grant", "user", str(user.id), {"email": user.email, "role": "platform_admin"})
+    return _staff_row(user, request)
+
+
+@router.post("/settings/staff/{user_id}/remove", response=ConsoleOkOut)
+def remove_staff(request, user_id: UUID):
+    staff(request)
+    user = User.objects.filter(pk=user_id, is_staff=True).first()
+    if user is None:
+        raise ServiceError("staff_not_found", "That platform administrator no longer exists.", status=404)
+    if user.id == request.user.id:
+        raise ServiceError("self", "You cannot remove your own platform access.")
+    if User.objects.filter(is_staff=True, is_active=True).count() <= 1:
+        raise ServiceError("last_staff", "Keep at least one active platform administrator.")
+    User.objects.filter(pk=user.pk).update(is_staff=False, updated_at=timezone.now())
+    audit_request(request, "staff.remove", "user", str(user.id), {"email": user.email, "role": "platform_admin"})
+    return {"ok": True}
 
 
 @router.put("/settings/{key}", response=ConsoleOkOut)

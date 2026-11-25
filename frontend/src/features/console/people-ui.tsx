@@ -1,35 +1,7 @@
-import { GraduationCap, Users } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Progress } from '@/components/ui/progress'
-import { cn } from '@/lib/cn'
-import { Link } from '@/lib/router'
-
-/** Students | Instructors switch in the page header (mockup 05: two workspaces, one place). */
-export function PeopleSwitch({ active }: { active: 'students' | 'instructors' }) {
-  const items = [
-    { key: 'students', to: '/console/students', label: 'Students', Icon: Users },
-    { key: 'instructors', to: '/console/instructors', label: 'Instructors', Icon: GraduationCap },
-  ] as const
-  return (
-    <nav aria-label="People" className="inline-flex rounded-lg border border-border bg-surface p-1 shadow-sm">
-      {items.map(({ key, to, label, Icon }) => (
-        <Link
-          key={key}
-          to={to}
-          aria-current={active === key ? 'page' : undefined}
-          className={cn(
-            'inline-flex h-8 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors duration-150 [&_svg]:size-4',
-            active === key ? 'bg-primary-soft text-primary-soft-text' : 'text-muted hover:text-text',
-          )}
-        >
-          <Icon aria-hidden /> {label}
-        </Link>
-      ))}
-    </nav>
-  )
-}
 
 /** A friendly display name: the stored name, or a title-cased guess from the email's local
  * part (e.g. "ahmed.lotfi@…" -> "Ahmed Lotfi"), so people who never set a name still read as

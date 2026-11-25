@@ -223,32 +223,38 @@ class ConsoleAccountPatch(Schema):
     email: str | None = Field(None, min_length=3, max_length=320)
 
 
+def _clean_account_fields(*, user: User, full_name: str | None = None, email: str | None = None) -> dict:
+    """Validate account identity fields once for both student and instructor editors."""
+    from allauth.account.models import EmailAddress
+
+    changes = {}
+    if full_name is not None:
+        name = html.plain(full_name, 200).strip()
+        if not name:
+            raise ServiceError("name_required", "Enter a name.")
+        changes["full_name"] = name
+    if email is not None:
+        clean_email = email.strip().lower()
+        if "@" not in clean_email or " " in clean_email:
+            raise ServiceError("bad_email", "Enter a valid email address.")
+        if clean_email != user.email and User.objects.filter(email__iexact=clean_email).exists():
+            raise ServiceError("email_taken", "Another account uses that email.")
+        if clean_email != user.email:
+            changes["email"] = clean_email
+            EmailAddress.objects.filter(user=user).delete()
+            EmailAddress.objects.create(user=user, email=clean_email, verified=True, primary=True)
+    return changes
+
+
 @router.patch("/people/accounts/{user_id}", response=ConsoleOkOut)
 @transaction.atomic
 def edit_account(request, user_id: UUID, body: ConsoleAccountPatch):
     """Edit name and sign-in email. A new email is marked verified (staff checked it)."""
-    from allauth.account.models import EmailAddress
-
     staff(request)
     user = get_object_or_404(User, pk=user_id)
     if user.anonymized_at:
         raise ServiceError("deleted", "This account was deleted.")
-    changes = {}
-    if body.full_name is not None:
-        name = html.plain(body.full_name, 200).strip()
-        if not name:
-            raise ServiceError("name_required", "Enter a name.")
-        changes["full_name"] = name
-    if body.email is not None:
-        email = body.email.strip().lower()
-        if "@" not in email or " " in email:
-            raise ServiceError("bad_email", "Enter a valid email address.")
-        if email != user.email and User.objects.filter(email__iexact=email).exists():
-            raise ServiceError("email_taken", "Another account uses that email.")
-        if email != user.email:
-            changes["email"] = email
-            EmailAddress.objects.filter(user=user).delete()
-            EmailAddress.objects.create(user=user, email=email, verified=True, primary=True)
+    changes = _clean_account_fields(user=user, full_name=body.full_name, email=body.email)
     if changes:
         User.objects.filter(pk=user.pk).update(**changes, updated_at=timezone.now())
         audit_request(request, "user.edit", "user", str(user_id), changes)
@@ -310,6 +316,16 @@ class ConsoleStudentPageOut(Schema):
     next_cursor: str | None
 
 
+class ConsoleStudentCreateIn(Schema):
+    full_name: str = Field(..., min_length=1, max_length=200)
+    email: str = Field(..., min_length=3, max_length=320)
+    temporary_password: str = Field(..., min_length=8, max_length=128)
+
+
+class ConsoleCreatedOut(Schema):
+    id: UUID
+
+
 def _status(u) -> str:
     return "deleted" if u.anonymized_at else "active" if u.is_active else "suspended"
 
@@ -369,6 +385,27 @@ def student_kpis(request):
     )
     return {"total": agg["total"], "active": agg["active"], "suspended": agg["suspended"],
             "new_30d": kpi(agg["new"], agg["before"])}  # fmt: skip
+
+
+@router.post("/people/students", response=ConsoleCreatedOut)
+@transaction.atomic
+def create_student(request, body: ConsoleStudentCreateIn):
+    """Create a learner account with a temporary password supplied by staff."""
+    from allauth.account.models import EmailAddress
+
+    staff(request)
+    name = html.plain(body.full_name, 200).strip()
+    email = body.email.strip().lower()
+    if not name:
+        raise ServiceError("name_required", "Enter a name.")
+    if "@" not in email or " " in email:
+        raise ServiceError("bad_email", "Enter a valid email address.")
+    if User.objects.filter(email__iexact=email).exists():
+        raise ServiceError("email_taken", "Another account uses that email.")
+    user = User.objects.create_user(email=email, password=body.temporary_password, full_name=name)
+    EmailAddress.objects.create(user=user, email=email, verified=True, primary=True)
+    audit_request(request, "student.create", "user", str(user.id), {"email": email})
+    return {"id": user.id}
 
 
 @router.get("/people/students", response=ConsoleStudentPageOut)
@@ -440,6 +477,81 @@ class ConsoleStudentDetailOut(Schema):
     companies: list[str]
     enrolment_list: list[ConsoleStudentEnrolmentOut]
     activity: list[ConsoleActivityOut]
+
+
+class ConsoleCourseOptionOut(Schema):
+    id: UUID
+    title: str
+    status: str
+
+
+class ConsoleStudentEnrolmentIn(Schema):
+    course_id: UUID
+
+
+class ConsoleStudentEnrolmentPatch(Schema):
+    status: Literal["active", "completed", "expired", "revoked"]
+    progress_pct: float = Field(..., ge=0, le=100)
+
+
+@router.get("/people/students/course-options", response=list[ConsoleCourseOptionOut])
+def student_course_options(request):
+    staff(request)
+    return list(
+        Course.objects.filter(status="published", deleted_at__isnull=True)
+        .order_by("title")
+        .values("id", "title", "status")[:1000]
+    )
+
+
+@router.post("/people/students/{user_id}/enrolments", response=ConsoleCreatedOut)
+@transaction.atomic
+def grant_student_enrolment(request, user_id: UUID, body: ConsoleStudentEnrolmentIn):
+    from apps.learning import services as learning
+    from apps.learning.models import Enrollment
+
+    staff(request)
+    user = get_object_or_404(User, pk=user_id, anonymized_at__isnull=True)
+    course = get_object_or_404(Course, pk=body.course_id, status="published", deleted_at__isnull=True)
+    existing = (
+        Enrollment.objects.filter(user=user, course=course, org__isnull=True)
+        .exclude(status=Enrollment.Status.SUPERSEDED)
+        .first()
+    )
+    if existing and existing.status in (Enrollment.Status.REVOKED, Enrollment.Status.EXPIRED):
+        existing.status = Enrollment.Status.ACTIVE
+        existing.access_expires_at = None
+        existing.save(update_fields=["status", "access_expires_at", "updated_at"])
+        enrolment = existing
+    else:
+        enrolment = learning.enrol(user=user, course=course, source=Enrollment.Source.ADMIN_GRANT)
+    audit_request(request, "student.enrolment_grant", "enrollment", str(enrolment.id),
+                  {"user_id": str(user_id), "course_id": str(course.id)})
+    return {"id": enrolment.id}
+
+
+@router.patch("/people/students/{user_id}/enrolments/{enrolment_id}", response=ConsoleOkOut)
+@transaction.atomic
+def update_student_enrolment(
+    request, user_id: UUID, enrolment_id: UUID, body: ConsoleStudentEnrolmentPatch
+):
+    from apps.learning.models import Enrollment
+
+    staff(request)
+    enrolment = get_object_or_404(Enrollment, pk=enrolment_id, user_id=user_id)
+    progress = Decimal(str(body.progress_pct)).quantize(Decimal("0.01"))
+    enrolment.status = body.status
+    enrolment.progress_pct = Decimal("100.00") if body.status == Enrollment.Status.COMPLETED else progress
+    if body.status == Enrollment.Status.COMPLETED:
+        enrolment.completed_at = enrolment.completed_at or timezone.now()
+        enrolment.completed_version_id = enrolment.completed_version_id or enrolment.course.live_version_id
+    elif body.status == Enrollment.Status.ACTIVE:
+        enrolment.completed_at = None
+        enrolment.completed_version_id = None
+    enrolment.save(update_fields=["status", "progress_pct", "completed_at", "completed_version", "updated_at"])
+    audit_request(request, "student.enrolment_edit", "enrollment", str(enrolment.id),
+                  {"status": body.status, "progress_pct": float(enrolment.progress_pct)})
+    return {"ok": True}
 
 
 @router.get("/people/students/{user_id}", response=ConsoleStudentDetailOut)
@@ -518,6 +630,7 @@ class ConsoleInstructorRowOut(Schema):
     fee_is_custom: bool
     applied_at: datetime
     approved_at: datetime | None
+    can_delete: bool
 
 
 class ConsoleInstructorPageOut(Schema):
@@ -526,7 +639,7 @@ class ConsoleInstructorPageOut(Schema):
 
 
 def _instructors(q: str, status: str, permission: str):
-    qs = InstructorProfile.objects.select_related("user")
+    qs = InstructorProfile.objects.select_related("user").filter(user__anonymized_at__isnull=True)
     if status:
         qs = qs.filter(status=status)
     q = q.strip()[:100]
@@ -559,7 +672,9 @@ def _instructor_rows(profiles) -> list[dict]:
              "earnings_gbp_minor": totals.get(p.user_id) or 0,
              "keeps_pct": pct(10000 - (p.platform_fee_bps if p.platform_fee_bps is not None else default)),
              "fee_is_custom": p.platform_fee_bps is not None, "applied_at": p.created_at,
-             "approved_at": p.approved_at} for p in profiles]  # fmt: skip
+             "approved_at": p.approved_at,
+             "can_delete": not (p.user.is_staff or p.user.anonymized_at or _is_seeded_demo(p.user))}
+            for p in profiles]  # fmt: skip
 
 
 @router.get("/people/instructors/kpis", response=ConsoleInstructorKpisOut)
@@ -567,7 +682,7 @@ def instructor_kpis(request):
     from apps.payouts.models import Earning
 
     staff(request)
-    agg = InstructorProfile.objects.aggregate(
+    agg = InstructorProfile.objects.filter(user__anonymized_at__isnull=True).aggregate(
         active=Count("id", filter=Q(status="approved")),
         suspended=Count("id", filter=Q(status="suspended")),
         pending=Count("id", filter=Q(status="pending")),
@@ -706,6 +821,9 @@ class ConsoleInstructorCourseOut(Schema):
     rating_avg: float
     rating_count: int
     earned_gbp_minor: int
+    can_edit: bool
+    is_visible: bool
+    revenue_share_pct: float
 
 
 class ConsoleInstructorMonthOut(Schema):
@@ -763,6 +881,16 @@ class ConsoleInstructorDetailOut(Schema):
     payouts: list[ConsoleInstructorPayoutOut]
     payout_method: str | None
     payout_verified: bool
+    can_delete: bool
+
+
+@router.get("/people/instructors/course-options", response=list[ConsoleCourseOptionOut])
+def instructor_course_options(request):
+    staff(request)
+    return list(
+        Course.objects.filter(deleted_at__isnull=True).order_by("title")
+        .values("id", "title", "status")[:1000]
+    )
 
 
 @router.get("/people/instructors/{user_id}", response=ConsoleInstructorDetailOut)
@@ -773,7 +901,8 @@ def instructor_detail(request, user_id: UUID):
 
     staff(request)
     p = get_object_or_404(InstructorProfile.objects.select_related("user"), user_id=user_id)
-    course_ids = list(CourseInstructor.objects.filter(user_id=user_id).values_list("course_id", flat=True))
+    links = {link.course_id: link for link in CourseInstructor.objects.filter(user_id=user_id)}
+    course_ids = list(links)
     courses = list(
         Course.objects.filter(pk__in=course_ids, deleted_at__isnull=True).order_by("-student_count")
     )
@@ -823,11 +952,67 @@ def instructor_detail(request, user_id: UUID):
         "permissions": perms,
         "course_list": [{"id": c.id, "title": c.title, "status": c.status, "students": c.student_count,
                          "rating_avg": float(c.rating_avg), "rating_count": c.rating_count,
-                         "earned_gbp_minor": earned.get(c.id) or 0} for c in courses],
+                         "earned_gbp_minor": earned.get(c.id) or 0, "can_edit": links[c.id].can_edit,
+                         "is_visible": links[c.id].is_visible,
+                         "revenue_share_pct": pct(links[c.id].revenue_share_bps)} for c in courses],
         "balance": ledger.balance(user_id=user_id), "by_month": months, "payouts": history[:30],
         "payout_method": account.method if account else None,
         "payout_verified": bool(account and account.verified_at),
+        "can_delete": not (p.user.is_staff or p.user.anonymized_at or p.user_id == request.user.id or
+                           _is_seeded_demo(p.user)),
     }  # fmt: skip
+
+
+class ConsoleInstructorCourseIn(Schema):
+    course_id: UUID
+    can_edit: bool = True
+    is_visible: bool = True
+    revenue_share_pct: float = Field(0, ge=0, le=100)
+
+
+def _save_course_assignment(*, user_id: UUID, body: ConsoleInstructorCourseIn) -> CourseInstructor:
+    get_object_or_404(InstructorProfile, user_id=user_id)
+    course = get_object_or_404(Course, pk=body.course_id, deleted_at__isnull=True)
+    share = round(body.revenue_share_pct * 100)
+    link, _ = CourseInstructor.objects.update_or_create(
+        user_id=user_id,
+        course=course,
+        defaults={"can_edit": body.can_edit, "is_visible": body.is_visible, "revenue_share_bps": share},
+    )
+    return link
+
+
+@router.post("/people/instructors/{user_id}/courses", response=ConsoleOkOut)
+@transaction.atomic
+def assign_instructor_course(request, user_id: UUID, body: ConsoleInstructorCourseIn):
+    staff(request)
+    link = _save_course_assignment(user_id=user_id, body=body)
+    audit_request(request, "instructor.course_assign", "course", str(link.course_id),
+                  {"user_id": str(user_id), "can_edit": link.can_edit, "is_visible": link.is_visible})
+    return {"ok": True}
+
+
+@router.patch("/people/instructors/{user_id}/courses/{course_id}", response=ConsoleOkOut)
+@transaction.atomic
+def edit_instructor_course(
+    request, user_id: UUID, course_id: UUID, body: ConsoleInstructorCourseIn
+):
+    staff(request)
+    if body.course_id != course_id:
+        raise ServiceError("course_mismatch", "The selected course does not match this assignment.")
+    _save_course_assignment(user_id=user_id, body=body)
+    audit_request(request, "instructor.course_edit", "course", str(course_id), {"user_id": str(user_id)})
+    return {"ok": True}
+
+
+@router.post("/people/instructors/{user_id}/courses/{course_id}/remove", response=ConsoleOkOut)
+@transaction.atomic
+def remove_instructor_course(request, user_id: UUID, course_id: UUID):
+    staff(request)
+    link = get_object_or_404(CourseInstructor, user_id=user_id, course_id=course_id)
+    link.delete()
+    audit_request(request, "instructor.course_remove", "course", str(course_id), {"user_id": str(user_id)})
+    return {"ok": True}
 
 
 @router.put("/people/instructors/{user_id}/permissions", response=ConsoleInstructorPermissionsOut)
@@ -845,6 +1030,7 @@ def set_permissions(request, user_id: UUID, body: ConsoleInstructorPermissionsIn
 
 class ConsoleInstructorPatch(Schema):
     full_name: str | None = Field(None, min_length=1, max_length=200)
+    email: str | None = Field(None, min_length=3, max_length=320)
     headline: str | None = Field(None, max_length=160)
     bio: str | None = Field(None, max_length=5000)
     website_url: str | None = Field(None, max_length=500)
@@ -866,12 +1052,12 @@ def edit_instructor(request, user_id: UUID, body: ConsoleInstructorPatch):
         changes["website_url"] = url
     if changes:
         InstructorProfile.objects.filter(pk=p.pk).update(**changes, updated_at=timezone.now())
-    if body.full_name is not None:
-        name = html.plain(body.full_name, 200).strip()
-        if not name:
-            raise ServiceError("name_required", "Enter a name.")
-        User.objects.filter(pk=user_id).update(full_name=name, updated_at=timezone.now())
-        changes["full_name"] = name
+    account_changes = _clean_account_fields(
+        user=p.user, full_name=body.full_name, email=body.email
+    )
+    if account_changes:
+        User.objects.filter(pk=user_id).update(**account_changes, updated_at=timezone.now())
+        changes.update(account_changes)
     audit_request(request, "instructor.edit", "user", str(user_id), changes)
     return {"ok": True}
 

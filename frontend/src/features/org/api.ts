@@ -3,7 +3,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClie
 import { api, unwrap } from '@/api/client'
 import type { components } from '@/api/schema'
 import { useWorkspace } from '@/features/identity/workspace'
-import { currentOrgId } from '@/lib/workspace'
+import { currentOrgId, currentStaffOrgWorkspace } from '@/lib/workspace'
 
 // Shared reads for the business workspace. Each screen adds its own hooks and mutations
 // below; every key starts with 'org' and carries the company id.
@@ -26,7 +26,14 @@ export type OrgResponsibility = components['schemas']['OrgResponsibilityIn']
 export type OrgResponsibilityView = components['schemas']['OrgResponsibilityOut']
 
 export function useRoleCapabilities() {
-  return useQuery({ queryKey: ['org', 'role-capabilities', currentOrgId()], queryFn: fetchRoleCapabilities, enabled: !!currentOrgId() })
+  const staffRole = currentStaffOrgWorkspace()?.preview_role
+  return useQuery({
+    queryKey: ['org', 'role-capabilities', currentOrgId(), staffRole ?? 'member'],
+    queryFn: staffRole && staffRole !== 'company_admin'
+      ? async () => ({ can_manage_responsibilities: staffRole === 'hr_admin', responsibilities: [{ code: staffRole, unit_id: null, unit_name: null }] })
+      : fetchRoleCapabilities,
+    enabled: !!currentOrgId(),
+  })
 }
 
 export function usePersonResponsibilities(memberId: string) {

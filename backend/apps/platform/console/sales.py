@@ -5,9 +5,11 @@ own amounts are in its own currency."""
 
 import csv
 from datetime import date, datetime
+from decimal import Decimal
 from uuid import UUID
 
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
+from django.db.models.functions import TruncDate
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from ninja import Schema
@@ -15,6 +17,7 @@ from ninja import Schema
 from apps.commerce import services as shop
 from apps.commerce.models import Invoice, Order, OrderItem, Payment, Refund
 from core import cursor as keyset
+from core.errors import ServiceError
 
 from ..services import audit_request
 from . import metrics
@@ -63,6 +66,10 @@ class ConsoleSalesKpisOut(Schema):
     subscriptions: ConsoleKpiOut
     refunds: ConsoleKpiOut
     average_order: ConsoleKpiOut
+    net_collected: ConsoleKpiOut
+    gross_list_value: ConsoleKpiOut
+    discounts: ConsoleKpiOut
+    purchasers: ConsoleKpiOut
 
 
 class ConsoleSalesSliceOut(Schema):
@@ -71,41 +78,120 @@ class ConsoleSalesSliceOut(Schema):
     value: int
 
 
+class ConsoleTopCourseOut(Schema):
+    id: UUID
+    title: str
+    orders: int
+    revenue_gbp_minor: int
+
+
 class ConsoleSalesOverviewOut(Schema):
     range: ConsoleRangeOut
     kpis: ConsoleSalesKpisOut
     series: list[ConsolePointOut]  # daily revenue (courses + subscriptions), GBP pence
     by_type: list[ConsoleSalesSliceOut]
+    top_courses: list[ConsoleTopCourseOut]
+
+
+def _sales_orders(start, end, category: UUID | None, product: UUID | None, customer_type: str):
+    qs = metrics.paid_orders(start, end)
+    if category:
+        qs = qs.filter(Q(items__course__category_id=category) | Q(items__course__category__parent_id=category))
+    if product:
+        qs = qs.filter(items__course_id=product)
+    if customer_type == "personal":
+        qs = qs.filter(org__isnull=True)
+    elif customer_type == "business":
+        qs = qs.filter(org__isnull=False)
+    return qs.distinct()
+
+
+def _order_values(qs) -> dict:
+    """Convert each checkout's list value and discount to GBP using its stored checkout rate."""
+    gross = discounts = 0
+    for o in qs.select_related("currency").only(
+        "subtotal_minor", "discount_minor", "gbp_total_minor", "fx_rate", "currency__exponent"
+    ):
+        scale = Decimal(10) ** o.currency.exponent
+        rate = o.fx_rate or Decimal(1)
+        gross += round(Decimal(o.subtotal_minor) / scale / rate * 100)
+        discounts += round(Decimal(o.discount_minor) / scale / rate * 100)
+    return {
+        "gross": gross,
+        "discounts": discounts,
+        "revenue": qs.aggregate(v=Sum("gbp_total_minor"))["v"] or 0,
+        "orders": qs.count(),
+        "purchasers": qs.values("user_id").distinct().count(),
+    }
+
+
+def _filtered_refunds(start, end, category: UUID | None, product: UUID | None, customer_type: str) -> int:
+    qs = OrderItem.objects.filter(refunded_at__gte=start, refunded_at__lt=end)
+    if category:
+        qs = qs.filter(Q(course__category_id=category) | Q(course__category__parent_id=category))
+    if product:
+        qs = qs.filter(course_id=product)
+    if customer_type == "personal":
+        qs = qs.filter(order__org__isnull=True)
+    elif customer_type == "business":
+        qs = qs.filter(order__org__isnull=False)
+    return qs.aggregate(v=Sum("gbp_gross_minor"))["v"] or 0
 
 
 @router.get("/sales/overview", response=ConsoleSalesOverviewOut)
-def sales_overview(request, range: str = "30d", start: date | None = None, end: date | None = None):
+def sales_overview(
+    request, range: str = "30d", start: date | None = None, end: date | None = None,
+    category: UUID | None = None, product: UUID | None = None, customer_type: str = "",
+):
     staff(request)
+    if customer_type not in ("", "personal", "business"):
+        raise ServiceError("bad_filter", "Unknown customer type.")
     r = parse_range(range, start, end)
-    now, before = metrics.sales(r.start, r.end), metrics.sales(r.previous_start, r.previous_end)
-    subs = metrics.subscription_revenue_gbp(r.start, r.end)
-    subs_before = metrics.subscription_revenue_gbp(r.previous_start, r.previous_end)
-    avg = now["gbp"] // now["orders"] if now["orders"] else 0
-    avg_before = before["gbp"] // before["orders"] if before["orders"] else 0
-    courses = metrics.revenue_series(r.start, r.end)
-    plans = {p["day"]: p["value"] for p in metrics.subscription_series(r.start, r.end)}
+    orders_now = _sales_orders(r.start, r.end, category, product, customer_type)
+    orders_before = _sales_orders(r.previous_start, r.previous_end, category, product, customer_type)
+    now, before = _order_values(orders_now), _order_values(orders_before)
+    include_subscriptions = category is None and product is None and customer_type != "business"
+    subs = metrics.subscription_revenue_gbp(r.start, r.end) if include_subscriptions else 0
+    subs_before = metrics.subscription_revenue_gbp(r.previous_start, r.previous_end) if include_subscriptions else 0
+    refunds = _filtered_refunds(r.start, r.end, category, product, customer_type)
+    refunds_before = _filtered_refunds(r.previous_start, r.previous_end, category, product, customer_type)
+    avg = now["revenue"] // now["orders"] if now["orders"] else 0
+    avg_before = before["revenue"] // before["orders"] if before["orders"] else 0
+    course_series = (
+        orders_now.annotate(day=TruncDate("paid_at")).values("day").annotate(value=Sum("gbp_total_minor"))
+    )
+    course_values = {p["day"]: p["value"] or 0 for p in course_series}
+    plans = {p["day"]: p["value"] for p in metrics.subscription_series(r.start, r.end)} if include_subscriptions else {}
+    top = (
+        OrderItem.objects.filter(order__in=orders_now)
+        .values("course_id", "course__title")
+        .annotate(orders=Count("order_id", distinct=True), revenue=Sum("gbp_gross_minor"))
+        .order_by("-revenue", "course__title")[:8]
+    )
     return {
         "range": r.out(),
         "kpis": {
             "total_sales": kpi(now["orders"], before["orders"]),
-            "revenue": kpi(now["gbp"] + subs, before["gbp"] + subs_before),
-            "course_sales": kpi(now["gbp"], before["gbp"]),
+            "revenue": kpi(now["revenue"] + subs, before["revenue"] + subs_before),
+            "course_sales": kpi(now["revenue"], before["revenue"]),
             "subscriptions": kpi(subs, subs_before),
-            "refunds": kpi(
-                metrics.refunds_gbp(r.start, r.end), metrics.refunds_gbp(r.previous_start, r.previous_end)
-            ),
+            "refunds": kpi(refunds, refunds_before),
             "average_order": kpi(avg, avg_before),
+            "net_collected": kpi(now["revenue"] + subs - refunds,
+                                 before["revenue"] + subs_before - refunds_before),
+            "gross_list_value": kpi(now["gross"] + subs, before["gross"] + subs_before),
+            "discounts": kpi(now["discounts"], before["discounts"]),
+            "purchasers": kpi(now["purchasers"], before["purchasers"]),
         },
-        "series": [{"day": p["day"], "value": p["value"] + plans.get(p["day"], 0)} for p in courses],
+        "series": [{"day": day, "value": course_values.get(day, 0) + plans.get(day, 0)}
+                   for day in metrics.days(r.start, r.end)],
         "by_type": [
-            {"key": "courses", "label": "Courses", "value": now["gbp"]},
+            {"key": "courses", "label": "Courses", "value": now["revenue"]},
             {"key": "subscriptions", "label": "Subscriptions", "value": subs},
         ],
+        "top_courses": [{"id": row["course_id"], "title": row["course__title"],
+                         "orders": row["orders"], "revenue_gbp_minor": row["revenue"] or 0}
+                        for row in top],
     }
 
 
@@ -129,6 +215,7 @@ class ConsoleOrderRowOut(Schema):
     created_at: datetime
     paid_at: datetime | None
     payment_intent: str
+    customer_type: str
 
 
 class ConsoleOrderPageOut(Schema):
@@ -137,7 +224,7 @@ class ConsoleOrderPageOut(Schema):
     total: int
 
 
-def _orders(q, status, product, method, currency, user, start, end):
+def _orders(q, status, product, category, customer_type, method, currency, user, start, end):
     qs = Order.objects.exclude(status=Order.Status.EXPIRED)
     if q:
         term = q.strip()[:100]
@@ -150,6 +237,12 @@ def _orders(q, status, product, method, currency, user, start, end):
         qs = qs.filter(status=status)
     if product:
         qs = qs.filter(items__course_id=product)
+    if category:
+        qs = qs.filter(Q(items__course__category_id=category) | Q(items__course__category__parent_id=category))
+    if customer_type == "personal":
+        qs = qs.filter(org__isnull=True)
+    elif customer_type == "business":
+        qs = qs.filter(org__isnull=False)
     if method:
         qs = qs.filter(payment_method_type="" if method == "unknown" else method)
     if currency:
@@ -171,18 +264,20 @@ def _row(o: Order) -> dict:
             "currency": o.currency_id, "exponent": o.currency.exponent, "total_minor": o.total_minor,
             "gbp_total_minor": o.gbp_total_minor, "payment_method": o.payment_method_type,
             "card_brand": o.card_brand, "card_last4": o.card_last4, "created_at": o.created_at,
-            "paid_at": o.paid_at, "payment_intent": o.stripe_payment_intent_id}  # fmt: skip
+            "paid_at": o.paid_at, "payment_intent": o.stripe_payment_intent_id,
+            "customer_type": "business" if o.org_id else "personal"}  # fmt: skip
 
 
 @router.get("/orders", response=ConsoleOrderPageOut)
 def orders(
     request, q: str | None = None, status: str | None = None, product: UUID | None = None,
+    category: UUID | None = None, customer_type: str | None = None,
     method: str | None = None, currency: str | None = None, user: UUID | None = None,
     start: date | None = None, end: date | None = None, cursor: str | None = None, limit: int = 25,
 ):  # fmt: skip
     staff(request)
     limit = clamp(limit, 100)
-    qs = _orders(q, status, product, method, currency, user, start, end).distinct()
+    qs = _orders(q, status, product, category, customer_type, method, currency, user, start, end).distinct()
     total = qs.count() if not cursor else -1
     after = keyset.decode(cursor, 1)
     if after:
@@ -198,10 +293,11 @@ def orders(
 @router.get("/orders/export.csv", include_in_schema=False)
 def orders_csv(
     request, q: str | None = None, status: str | None = None, product: UUID | None = None,
+    category: UUID | None = None, customer_type: str | None = None,
     method: str | None = None, currency: str | None = None, start: date | None = None, end: date | None = None,
 ):  # fmt: skip
     staff(request)
-    qs = _orders(q, status, product, method, currency, None, start, end).distinct()
+    qs = _orders(q, status, product, category, customer_type, method, currency, None, start, end).distinct()
     data = [
         _row(o)
         for o in qs.select_related("user", "currency")
@@ -400,9 +496,16 @@ def invoices(
     }
 
 
+class ConsoleSalesFacetOut(Schema):
+    id: UUID
+    label: str
+
+
 class ConsoleSalesFacetsOut(Schema):
     currencies: list[str]
     methods: list[str]
+    courses: list[ConsoleSalesFacetOut]
+    categories: list[ConsoleSalesFacetOut]
 
 
 @router.get("/sales/facets", response=ConsoleSalesFacetsOut)
@@ -411,5 +514,11 @@ def sales_facets(request):
     staff(request)
     cur = Order.objects.values("currency_id").annotate(n=Count("id")).order_by("currency_id")
     methods = Order.objects.exclude(payment_method_type="").values("payment_method_type").distinct()
+    from apps.catalog.models import Category, Course
+
+    courses = Course.objects.filter(deleted_at__isnull=True).order_by("title").values("id", "title")[:1000]
+    categories = Category.objects.filter(is_active=True).order_by("name").values("id", "name")[:500]
     return {"currencies": [c["currency_id"] for c in cur],
-            "methods": sorted({m["payment_method_type"] for m in methods})}  # fmt: skip
+            "methods": sorted({m["payment_method_type"] for m in methods}),
+            "courses": [{"id": row["id"], "label": row["title"]} for row in courses],
+            "categories": [{"id": row["id"], "label": row["name"]} for row in categories]}  # fmt: skip

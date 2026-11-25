@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
 import { CourseThumb } from '@/components/ui/course-thumb'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { Field, Input, NativeSelect } from '@/components/ui/input'
+import { Field, Input, NativeSelect, Textarea } from '@/components/ui/input'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/components/ui/menu'
 import { EmptyState, ErrorState, PageHeader, Rating, StatCard } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -247,12 +247,100 @@ function PricingAccess({ d, languages }: { d: ConsoleCourseDetail; languages: { 
   )
 }
 
+function CourseDetailsDialog({ d, languages, open, onOpenChange }: { d: ConsoleCourseDetail; languages: { value: string; label: string }[]; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const update = useUpdateCourse(d.id)
+  const cats = useConsoleCategories()
+  const [form, setForm] = useState({
+    title: d.title,
+    subtitle: d.subtitle,
+    description: d.description,
+    thumbnail_url: d.thumbnail_url,
+    category_id: d.category_id ?? '',
+    language: d.language,
+    level: d.level as 'beginner' | 'intermediate' | 'advanced' | 'all',
+    cpd_hours: d.cpd_hours === null ? '' : String(d.cpd_hours),
+    outcomes: d.outcomes.join('\n'),
+    requirements: d.requirements.join('\n'),
+    target_audience: d.target_audience.join('\n'),
+  })
+  useEffect(() => {
+    if (!open) return
+    setForm({
+      title: d.title,
+      subtitle: d.subtitle,
+      description: d.description,
+      thumbnail_url: d.thumbnail_url,
+      category_id: d.category_id ?? '',
+      language: d.language,
+      level: d.level as typeof form.level,
+      cpd_hours: d.cpd_hours === null ? '' : String(d.cpd_hours),
+      outcomes: d.outcomes.join('\n'),
+      requirements: d.requirements.join('\n'),
+      target_audience: d.target_audience.join('\n'),
+    })
+  }, [d, open])
+  const set = (key: keyof typeof form) => (e: { target: { value: string } }) => setForm((current) => ({ ...current, [key]: e.target.value }))
+  const bullets = (value: string) => value.split('\n').map((line) => line.trim()).filter(Boolean).slice(0, 20)
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent title="Edit course details" description="Update the information learners see on the course page." className="max-w-3xl">
+        <form
+          className="grid max-h-[75vh] gap-4 overflow-y-auto pr-1"
+          onSubmit={(e) => {
+            e.preventDefault()
+            const cpd = form.cpd_hours.trim() === '' ? null : Number(form.cpd_hours)
+            if (cpd !== null && (!Number.isFinite(cpd) || cpd < 0 || cpd > 999)) return toast.error('CPD hours must be between 0 and 999.')
+            update.mutate(
+              {
+                title: form.title.trim(), subtitle: form.subtitle.trim(), description: form.description,
+                thumbnail_url: form.thumbnail_url.trim(), category_id: form.category_id || null,
+                language: form.language, level: form.level, cpd_hours: cpd,
+                outcomes: bullets(form.outcomes), requirements: bullets(form.requirements),
+                target_audience: bullets(form.target_audience),
+              },
+              { onSuccess: () => (toast.success('Course details saved'), onOpenChange(false)), onError: (error) => toast.error((error as Error).message) },
+            )
+          }}
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Course title">{(p) => <Input {...p} value={form.title} onChange={set('title')} required minLength={3} maxLength={160} />}</Field>
+            <Field label="Subtitle">{(p) => <Input {...p} value={form.subtitle} onChange={set('subtitle')} maxLength={240} />}</Field>
+          </div>
+          <Field label="Description">{(p) => <Textarea {...p} value={form.description} onChange={set('description')} rows={6} maxLength={20000} />}</Field>
+          <Field label="Thumbnail URL" hint="Use an https:// image URL.">{(p) => <Input {...p} type="url" value={form.thumbnail_url} onChange={set('thumbnail_url')} maxLength={500} placeholder="https://" />}</Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Category">
+              {(p) => <NativeSelect {...p} value={form.category_id} onChange={set('category_id')}><option value="">No category</option>{cats.data?.map((category) => <option key={category.id} value={category.id}>{category.parent_id ? '— ' : ''}{category.name}</option>)}</NativeSelect>}
+            </Field>
+            <Field label="Level">
+              {(p) => <NativeSelect {...p} value={form.level} onChange={(e) => setForm((current) => ({ ...current, level: e.target.value as typeof form.level }))}><option value="all">All levels</option><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></NativeSelect>}
+            </Field>
+            <Field label="Language">
+              {(p) => <NativeSelect {...p} value={form.language} onChange={set('language')}>{languages.map((language) => <option key={language.value} value={language.value}>{language.label}</option>)}</NativeSelect>}
+            </Field>
+            <Field label="CPD hours">{(p) => <Input {...p} type="number" min={0} max={999} step="0.5" value={form.cpd_hours} onChange={set('cpd_hours')} placeholder="Not set" />}</Field>
+          </div>
+          <Field label="Learning outcomes" hint="One item per line, up to 20.">{(p) => <Textarea {...p} value={form.outcomes} onChange={set('outcomes')} rows={4} />}</Field>
+          <Field label="Requirements" hint="One item per line, up to 20.">{(p) => <Textarea {...p} value={form.requirements} onChange={set('requirements')} rows={4} />}</Field>
+          <Field label="Target audience" hint="One item per line, up to 20.">{(p) => <Textarea {...p} value={form.target_audience} onChange={set('target_audience')} rows={4} />}</Field>
+          <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" loading={update.isPending}>Save all details</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function CourseDetail({ id, languages, onClose }: { id: string; languages: { value: string; label: string }[]; onClose: () => void }) {
   const { data: d, error, refetch } = useConsoleCourse(id)
   const status = useCourseStatus(id)
   const dup = useDuplicateCourse()
+  const bulk = useBulkCourses()
   const [tab, setTab] = useState('overview')
-  const [ask, setAsk] = useState<StatusAction | null>(null)
+  const [ask, setAsk] = useState<StatusAction | 'delete' | null>(null)
+  const [editing, setEditing] = useState(false)
   const [, setOpenId] = useParam('course')
   useEffect(() => setTab('overview'), [id])
   if (error) return <ErrorState message={(error as Error).message} onRetry={() => void refetch()} />
@@ -261,7 +349,7 @@ function CourseDetail({ id, languages, onClose }: { id: string; languages: { val
     status.mutate({ action, reason }, { onSuccess: () => (toast.success(action === 'unpublish' ? 'Course unpublished. The instructor has been told.' : action === 'archive' ? 'Course archived' : 'Course published'), setAsk(null)), onError: (e) => toast.error((e as Error).message) })
   const statusValue = d.deleted ? 'deleted' : d.status
   const langLabel = languages.find((l) => l.value === d.language)?.label ?? LANG_FALLBACK[d.language] ?? d.language
-  const editable = d.ownership === 'platform'
+  const editable = d.ownership !== 'organization'
   return (
     <div className="grid gap-4">
       <div className="flex items-start gap-3">
@@ -293,6 +381,8 @@ function CourseDetail({ id, languages, onClose }: { id: string; languages: { val
           <div>
             <InfoRow label="Ownership">{OWNERSHIP[d.ownership]} ({d.instructors.join(', ') || d.owner_name})</InfoRow>
             <InfoRow label="Category">{d.category ?? 'None'}</InfoRow>
+            <InfoRow label="Level">{d.level === 'all' ? 'All levels' : d.level}</InfoRow>
+            <InfoRow label="CPD hours">{d.cpd_hours ?? 'Not set'}</InfoRow>
             <InfoRow label="Price">{priceText(d)}</InfoRow>
             <InfoRow label="Subscription inclusion">{d.in_subscription ? 'Included in subscriptions' : 'Not included'}</InfoRow>
             <InfoRow label="Access duration">{accessDurationLabel(d.access_days)}</InfoRow>
@@ -318,6 +408,10 @@ function CourseDetail({ id, languages, onClose }: { id: string; languages: { val
               </NativeSelect>
             </InfoRow>
           </div>
+          {d.description ? <div className="rounded-lg bg-surface-2 p-3 text-sm text-muted"><p className="mb-1 font-medium text-text">Description</p><p className="whitespace-pre-wrap">{d.description.replace(/<[^>]*>/g, ' ')}</p></div> : null}
+          {d.outcomes.length ? <div><p className="mb-2 text-sm font-medium">Learning outcomes</p><ul className="list-disc space-y-1 pl-5 text-sm text-muted">{d.outcomes.map((item) => <li key={item}>{item}</li>)}</ul></div> : null}
+          {d.requirements.length ? <div><p className="mb-2 text-sm font-medium">Requirements</p><ul className="list-disc space-y-1 pl-5 text-sm text-muted">{d.requirements.map((item) => <li key={item}>{item}</li>)}</ul></div> : null}
+          {d.target_audience.length ? <div><p className="mb-2 text-sm font-medium">Target audience</p><ul className="list-disc space-y-1 pl-5 text-sm text-muted">{d.target_audience.map((item) => <li key={item}>{item}</li>)}</ul></div> : null}
         </TabsContent>
         <TabsContent value="content">
           {d.sections.length ? (
@@ -357,8 +451,9 @@ function CourseDetail({ id, languages, onClose }: { id: string; languages: { val
         </TabsContent>
       </Tabs>
       <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+        {!d.deleted ? <Button variant="secondary" size="sm" onClick={() => setEditing(true)}><Pencil /> Edit details</Button> : null}
         {editable ? (
-          <Button asChild variant="secondary" size="sm"><Link to={`/studio/courses/${d.id}`}><Pencil /> Edit course</Link></Button>
+          <Button asChild variant="secondary" size="sm"><Link to={`/studio/courses/${d.id}`}><LayoutList /> Edit content</Link></Button>
         ) : (
           <Button variant="secondary" size="sm" onClick={() => setTab('pricing')}><Pencil /> Edit course</Button>
         )}
@@ -366,10 +461,13 @@ function CourseDetail({ id, languages, onClose }: { id: string; languages: { val
         <Button variant="secondary" size="sm" onClick={() => setTab('versions')}><History /> Version history</Button>
         {d.status !== 'archived' && !d.deleted ? <Button variant="secondary" size="sm" onClick={() => setAsk('archive')}><Archive /> Archive</Button> : null}
         {(d.status === 'unlisted' || d.status === 'archived') && d.has_live_version && !d.deleted ? <Button size="sm" loading={status.isPending} onClick={() => run('relist')}><Undo2 /> Relist</Button> : null}
+        {!d.deleted ? <Button variant="danger" size="sm" onClick={() => setAsk('delete')}><Trash2 /> Delete</Button> : null}
         <Button variant="ghost" size="sm" className="ml-auto" onClick={onClose}>Close</Button>
       </div>
+      <CourseDetailsDialog d={d} languages={languages} open={editing} onOpenChange={setEditing} />
       <ConfirmDialog open={ask === 'unpublish'} onOpenChange={(o) => !o && setAsk(null)} title={`Unpublish "${d.title}"?`} body="It leaves the marketplace. Learners who have it keep access. The instructor sees your reason." confirmLabel="Unpublish" reason="required" loading={status.isPending} onConfirm={(r) => run('unpublish', r)} />
       <ConfirmDialog open={ask === 'archive'} onOpenChange={(o) => !o && setAsk(null)} title={`Archive "${d.title}"?`} body="It is hidden everywhere except for learners who already have it. You can relist it later." confirmLabel="Archive" loading={status.isPending} onConfirm={() => run('archive')} />
+      <ConfirmDialog open={ask === 'delete'} onOpenChange={(o) => !o && setAsk(null)} title={`Delete "${d.title}"?`} body="The course is removed from all active lists. If it has learners, deletion is blocked and you should archive it instead." confirmLabel="Delete course" phrase="DELETE" loading={bulk.isPending} onConfirm={() => bulk.mutate({ ids: [d.id], action: 'delete' }, { onSuccess: (result) => result.failed.length ? toast.error(result.failed[0]!.message) : (toast.success('Course deleted'), setAsk(null), onClose()), onError: (error) => toast.error((error as Error).message) })} />
     </div>
   )
 }

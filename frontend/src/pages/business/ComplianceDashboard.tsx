@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress'
 import { Ring } from '@/components/ui/ring'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, Td, Th, Tr } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip } from '@/components/ui/tooltip'
 import { type Dashboard, downloadExport, type RequirementSummary, STATUS, type StatusKey, useDashboard, useRemind, useSummary } from '@/features/compliance/api'
 import { useWorkspace } from '@/features/identity/workspace'
@@ -18,6 +19,8 @@ import { cn } from '@/lib/cn'
 import { relativeDate } from '@/lib/format'
 import { useFill, useInView } from '@/lib/motion'
 import { Link } from '@/lib/router'
+
+import { CompanyCommercialOverview, type CompanyViewRole, PeoplePerformanceOverview } from './RolePerformanceOverview'
 
 const ORDER: StatusKey[] = ['compliant', 'expiring_soon', 'in_progress', 'not_started', 'overdue', 'expired', 'exempt']
 
@@ -162,11 +165,21 @@ function Attention({ rows }: { rows: Dashboard['attention'] }) {
 }
 
 export function ComplianceDashboard() {
-  const { org } = useWorkspace()
+  const { org, staffPreviewRole } = useWorkspace()
   const capabilities = useRoleCapabilities()
   const { data: d, isLoading, error, refetch } = useDashboard()
   const roles = new Set(capabilities.data?.responsibilities.map((item) => item.code) ?? [])
-  const roleTitle = roles.has('executive') ? 'Executive overview' : roles.has('hr_admin') ? 'People and learning overview' : roles.has('department_head') ? 'Department overview' : roles.has('line_manager') ? 'Team overview' : 'Compliance overview'
+  const viewRole: CompanyViewRole = roles.has('executive') || staffPreviewRole === 'executive'
+    ? 'executive'
+    : roles.has('hr_admin') || staffPreviewRole === 'hr_admin'
+      ? 'hr_admin'
+      : roles.has('department_head') || staffPreviewRole === 'department_head'
+        ? 'department_head'
+        : roles.has('line_manager') || staffPreviewRole === 'line_manager'
+          ? 'line_manager'
+          : 'company_admin'
+  const totalView = viewRole === 'company_admin' || viewRole === 'executive'
+  const roleTitle = viewRole === 'executive' ? 'Executive overview' : viewRole === 'hr_admin' ? 'People and learning overview' : viewRole === 'department_head' ? 'Department overview' : viewRole === 'line_manager' ? 'Team overview' : 'Company overview'
   const shortcuts = roles.has('hr_admin')
     ? [{ to: '/business/hcm/people', title: 'People & HR', detail: 'Employee records and qualifications' }, { to: '/business/frameworks/roles', title: 'Role frameworks', detail: 'Skills and role expectations' }, { to: '/business/pms/cycles', title: 'Performance', detail: 'Review cycles and objectives' }, { to: '/business/governance/policies', title: 'Policies', detail: 'Company guidance and adoption' }]
     : roles.has('executive')
@@ -179,7 +192,7 @@ export function ComplianceDashboard() {
     <>
       <PageHeader
         title={roleTitle}
-        description={org ? `${org.name} · ${roles.has('executive') || roles.has('hr_admin') ? 'your organisation at a glance' : 'training status for everyone in your area'}` : undefined}
+        description={org ? `${org.name} · ${totalView || viewRole === 'hr_admin' ? 'your organisation at a glance' : 'performance and training in your area'}` : undefined}
         actions={
           <>
             <Button variant="secondary" onClick={() => downloadExport().catch((e: Error) => toast.error(e.message))}>
@@ -193,10 +206,24 @@ export function ComplianceDashboard() {
           </>
         }
       />
-      {error ? (
-        <ErrorState message={(error as Error).message} onRetry={() => void refetch()} />
-      ) : (
-        <div className="grid gap-6">
+      <Tabs defaultValue={viewRole === 'company_admin' ? 'commercial' : 'performance'}>
+        <TabsList aria-label="Company overview sections" className="mb-1">
+          {viewRole !== 'company_admin' ? <TabsTrigger value="performance">{viewRole === 'executive' ? 'Executive dashboard' : viewRole === 'hr_admin' ? 'HR performance' : viewRole === 'line_manager' ? 'Team performance' : 'Department performance'}</TabsTrigger> : null}
+          {viewRole === 'company_admin' ? <TabsTrigger value="commercial">Commercial home</TabsTrigger> : null}
+          <TabsTrigger value="compliance">Compliance & training</TabsTrigger>
+        </TabsList>
+        {viewRole !== 'company_admin' ? <TabsContent value="performance">
+          <PeoplePerformanceOverview
+            role={viewRole}
+            compliance={d ? { headcount: d.headcount, compliance_pct: d.compliance_pct, overdue: d.overdue, expired: d.expired, due_30: d.due_30, expiring_30: d.expiring_30 } : undefined}
+          />
+        </TabsContent> : null}
+        {viewRole === 'company_admin' ? <TabsContent value="commercial"><CompanyCommercialOverview /></TabsContent> : null}
+        <TabsContent value="compliance">
+          {error ? (
+            <ErrorState message={(error as Error).message} onRetry={() => void refetch()} />
+          ) : (
+            <div className="grid gap-6">
           {shortcuts.length ? (
             <section aria-label="Your work areas" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {shortcuts.map((item) => (
@@ -271,8 +298,10 @@ export function ComplianceDashboard() {
           <p className="flex items-center justify-center gap-2 text-xs text-subtle">
             <GraduationCap className="size-3.5" /> Statuses update as people finish courses, and every night at 00:05 UTC.
           </p>
-        </div>
-      )}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </>
   )
 }
