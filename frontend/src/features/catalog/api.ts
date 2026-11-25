@@ -41,6 +41,17 @@ export function useCourse(slug: string) {
   return useQuery({ queryKey: ['course', slug, code, me?.id ?? '', org?.org_id ?? ''], queryFn: () => unwrap(api.GET('/api/v1/catalog/courses/{slug}', { params: { path: { slug }, query: { currency: code } } })) })
 }
 
+/** Other published courses in the same catalog category or with shared course topics. */
+export function useRelatedCourses(slug: string) {
+  const { code } = useCurrency()
+  return useQuery({
+    queryKey: ['courses', 'related', slug, code],
+    queryFn: () => unwrap(api.GET('/api/v1/catalog/courses/{slug}/related', { params: { path: { slug }, query: { currency: code } } })),
+    enabled: !!slug,
+    staleTime: 10 * 60_000,
+  })
+}
+
 export function usePreview(slug: string, key: string | null) {
   return useQuery({
     queryKey: ['preview', slug, key],

@@ -85,25 +85,31 @@ def award_qualification(
     qualification: Qualification,
     awarded_on=None,
     expires_on=None,
+    evidence_asset=None,
 ) -> MemberQualification:
+    """Award a qualification to a member. A second award of the same qualification
+    updates the dates and (if a new certificate is given) replaces the evidence file."""
     if qualification.org_id != org_id:
         raise ServiceError("cross_org", "Qualification is not in this company.", status=400)
     row, created = MemberQualification.objects.get_or_create(
         org_id=org_id,
         member=member,
         qualification=qualification,
-        defaults={"awarded_on": awarded_on, "expires_on": expires_on},
+        defaults={"awarded_on": awarded_on, "expires_on": expires_on, "evidence_asset": evidence_asset},
     )
     if not created:
-        changed = False
+        fields = []
         if awarded_on is not None and row.awarded_on != awarded_on:
             row.awarded_on = awarded_on
-            changed = True
+            fields.append("awarded_on")
         if expires_on is not None and row.expires_on != expires_on:
             row.expires_on = expires_on
-            changed = True
-        if changed:
-            row.save(update_fields=["awarded_on", "expires_on"])
+            fields.append("expires_on")
+        if evidence_asset is not None and row.evidence_asset_id != evidence_asset.id:
+            row.evidence_asset = evidence_asset
+            fields.append("evidence_asset")
+        if fields:
+            row.save(update_fields=fields)
     return row
 
 

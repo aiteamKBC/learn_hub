@@ -69,7 +69,7 @@ function StackedRow({ r, unitId }: { r: RequirementSummary; unitId: string }) {
           {r.requirement__name}
         </Link>
         <span className="shrink-0 text-muted">
-          <CountUp value={r.compliance_pct} format={(n) => `${n.toFixed(0)}%`} className={cn('font-semibold tabular', TONE_TEXT[tone])} /> · {r.total} people
+          <CountUp value={r.compliance_pct} format={(n) => `${n.toFixed(0)}%`} className={cn('font-semibold tabular', TONE_TEXT[tone])} /> · {r.total} required trainings
         </span>
       </div>
       <div className="flex h-3 overflow-hidden rounded-full bg-surface-2" role="group" aria-label={`${r.requirement__name}: ${r.compliance_pct.toFixed(0)}% compliant, ${r.overdue + r.expired} overdue or expired. Select a part to see those people.`}>
@@ -77,7 +77,7 @@ function StackedRow({ r, unitId }: { r: RequirementSummary; unitId: string }) {
           const n = r[key]
           if (!n) return null // empty statuses get no segment, so nothing to click
           const pct = Math.round((n / r.total) * 100)
-          const tip = `${r.requirement__name} · ${STATUS[key].label}: ${n} ${n === 1 ? 'person' : 'people'} (${pct}%)`
+          const tip = `${r.requirement__name} · ${STATUS[key].label}: ${n} ${n === 1 ? 'required training' : 'required trainings'} (${pct}%)`
           return (
             <Tooltip key={key} content={tip}>
               <Link
@@ -138,7 +138,7 @@ function RequirementBars({ unitId }: { unitId: string }) {
 
 // ---------------------------------------------------------------- tab: by requirement
 function ByRequirement({ unitId, setUnitId }: { unitId: string; setUnitId: (v: string) => void }) {
-  const { data: d, isLoading } = useDashboard()
+  const { data: d, isLoading } = useDashboard(unitId || undefined)
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
       <Card className="flex flex-col items-center gap-5 p-6 text-center">
@@ -151,7 +151,7 @@ function ByRequirement({ unitId, setUnitId }: { unitId: string; setUnitId: (v: s
           <div className="animate-reveal flex flex-col items-center gap-5">
             <Ring value={d.compliance_pct} size={160} stroke={14} label="compliant" color={TONE_FILL[complianceTone(d.compliance_pct)]} />
             <p className="text-sm text-muted">
-              {d.ok} of {d.total - d.exempt} required trainings are complete and in date, across {d.headcount} people.
+              {d.ok} of {d.total - d.exempt} required trainings are complete and in date, for {d.headcount} people{unitId ? ' in this location or team' : ' across the company'}.
             </p>
             <dl className="stagger grid w-full grid-cols-3 gap-3 border-t border-border pt-5">
               {(
@@ -165,7 +165,7 @@ function ByRequirement({ unitId, setUnitId }: { unitId: string; setUnitId: (v: s
                   <dt className="text-[11px] text-muted">{label}</dt>
                   <dd className={cn('text-xl font-semibold tabular', n ? cls : '')}>
                     {n ? (
-                      <Link to={`/business/matrix?status=${key}`} className="rounded-sm hover:underline" aria-label={`${n} ${label.toLowerCase()}: see who in the training matrix`}>
+                      <Link to={`/business/matrix?status=${key}${unitId ? `&unit=${encodeURIComponent(unitId)}` : ''}`} className="rounded-sm hover:underline" aria-label={`${n} ${label.toLowerCase()}: see who in the training matrix`}>
                         <CountUp value={n} />
                       </Link>
                     ) : (
@@ -179,7 +179,7 @@ function ByRequirement({ unitId, setUnitId }: { unitId: string; setUnitId: (v: s
         )}
       </Card>
       <Card>
-        <CardHeader title="Compliance by requirement" description="Where each required course stands" action={<UnitSelect value={unitId} onChange={setUnitId} label="Show for location or team" />} className="flex-wrap" />
+        <CardHeader title="Compliance by Requirement" description="Required training status for the selected location or team" action={<UnitSelect value={unitId} onChange={setUnitId} label="Show for location or team" />} className="flex-wrap" />
         <CardBody>
           <RequirementBars unitId={unitId} />
         </CardBody>
@@ -200,7 +200,7 @@ function UnitBar({ u, active, onPick }: { u: Dashboard['units'][number]; active:
         </div>
         <Progress value={u.compliance_pct} tone={tone} className="h-2.5" label={`${u.name} compliance`} />
         <p className="mt-1.5 text-xs text-muted">
-          {u.people_rows} required trainings · {u.overdue_or_expired ? `${u.overdue_or_expired} overdue or expired` : 'all in date'}
+          {u.required_trainings} required trainings · {u.overdue_or_expired ? `${u.overdue_or_expired} overdue or expired` : 'all in date'}
         </p>
       </button>
     </li>
@@ -218,7 +218,7 @@ function ByUnit() {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
       <Card>
-        <CardHeader title="Compliance by location" description="Lowest first. Select one to see its requirements." />
+        <CardHeader title="Compliance by Location" description="Lowest first. Select one to see its required training status." />
         <CardBody>
           {isLoading || !d ? (
             <div className="grid gap-4">
@@ -238,7 +238,7 @@ function ByUnit() {
         </CardBody>
       </Card>
       <Card>
-        <CardHeader title={name ? `${name}: by requirement` : 'By requirement'} description={selected ? 'Includes the teams inside it' : 'Everyone you manage'} action={<UnitSelect value={selected} onChange={setPicked} label="Location or team" />} className="flex-wrap" />
+        <CardHeader title={name ? `${name}: Compliance by Requirement` : 'Compliance by Requirement'} description={selected ? 'Includes the teams inside it' : 'Everyone you manage'} action={<UnitSelect value={selected} onChange={setPicked} label="Location or team" />} className="flex-wrap" />
         <CardBody>{d || picked !== null ? <RequirementBars unitId={selected} /> : <Skeleton className="h-40" />}</CardBody>
       </Card>
     </div>
@@ -282,7 +282,8 @@ const FILTERS = [
   ['invite', 'Invitations'],
   ['training', 'Assigned training'],
   ['job_role', 'Job roles'],
-  ['company', 'Company settings'],
+  ['company.', 'Company settings'],
+  ['corporate', 'Corporate activity'],
 ] as const
 
 const humanise = (action: string) => ACTIONS[action] ?? action.replace(/[._]/g, ' ').replace(/^./, (c) => c.toUpperCase())
@@ -305,7 +306,7 @@ function AuditTrail() {
     <Card>
       <CardHeader
         title="Audit trail"
-        description="Every change and export in your company, newest first"
+        description="Each row is a separate action, newest first. Similar rows may be different events."
         className="flex-wrap"
         action={
           <NativeSelect aria-label="Show actions" value={action} onChange={(e) => setAction(e.target.value)} className="w-full sm:w-56">
@@ -384,7 +385,7 @@ export function ReportsPage() {
     <>
       <PageHeader
         title="Reports"
-        description="Analyse compliance by requirement and by location. Select any part of a bar to see those people in the training matrix."
+        description="Required Training Compliance by requirement and location. Learning activity is shown separately on Overview. Select a bar segment to see matching people in the training matrix."
         actions={
           <>
             <UnitSelect value={unitId} onChange={setUnitId} label="Export for" allLabel="Export: whole company" />
@@ -397,10 +398,10 @@ export function ReportsPage() {
       <Tabs value={tab} onValueChange={(v) => setParams(v === 'requirements' ? {} : { tab: v }, { replace: true })}>
         <TabsList>
           <TabsTrigger value="requirements">
-            <BarChart3 /> Compliance
+            <BarChart3 /> Compliance by Requirement
           </TabsTrigger>
           <TabsTrigger value="units">
-            <Building2 /> By location
+            <Building2 /> Compliance by Location
           </TabsTrigger>
           {admin ? (
             <TabsTrigger value="audit">

@@ -14,7 +14,8 @@ import { CourseThumb } from '@/components/ui/course-thumb'
 import { ErrorState, Rating } from '@/components/ui/misc'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useCategories, useCourse, usePreview, useReviews } from '@/features/catalog/api'
+import { useCategories, useCourse, usePreview, useRelatedCourses, useReviews } from '@/features/catalog/api'
+import { CourseCard, CourseCardSkeleton } from '@/features/catalog/CourseCard'
 import { useAddToCart, useCheckout, useCourseInstalmentOffer, usePlanEnroll, useStartCourseInstalments } from '@/features/commerce/api'
 import { WishlistHeart } from '@/features/commerce/WishlistHeart'
 import { useAccess } from '@/features/b2c/api'
@@ -413,6 +414,7 @@ function CourseSkeleton() {
 export function CoursePage() {
   const { slug = '' } = useParams()
   const { data: c, isLoading, error, refetch } = useCourse(slug)
+  const related = useRelatedCourses(slug)
   const { data: cats } = useCategories()
   const [preview, setPreview] = useState<{ key: string; title: string } | null>(null)
   const navigate = useNavigate()
@@ -509,6 +511,19 @@ export function CoursePage() {
             </div>
           </section>
           <Reviews course={c} />
+          {related.isLoading || (related.data?.length ?? 0) > 0 ? (
+            <section aria-labelledby="related-courses">
+              <div className="mb-4">
+                <h2 id="related-courses" className="text-xl font-semibold tracking-tight">{c.category ? `More in ${c.category}` : 'Similar courses'}</h2>
+                <p className="mt-1 text-sm text-muted">Courses from the same category or covering related topics.</p>
+              </div>
+              <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 xl:grid-cols-3">
+                {related.isLoading
+                  ? Array.from({ length: 3 }, (_, index) => <CourseCardSkeleton key={index} />)
+                  : related.data?.slice(0, 6).map((course) => <CourseCard key={course.id} course={course} />)}
+              </div>
+            </section>
+          ) : null}
         </div>
         <aside className="order-1 lg:order-2 lg:-mt-64">
           <div className="lg:sticky lg:top-24">

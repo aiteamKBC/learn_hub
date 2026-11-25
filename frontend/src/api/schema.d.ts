@@ -684,6 +684,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/catalog/courses/{slug}/related": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Related Courses
+         * @description Suggest other published courses by shared category first, then shared topics.
+         *
+         *     These are catalog relationships, not generated recommendations: every result shares
+         *     the course category or at least one explicit topic with the course being viewed.
+         */
+        get: operations["apps_catalog_api_related_courses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/catalog/courses/{slug}/preview/{lecture_key}": {
         parameters: {
             query?: never;
@@ -3039,11 +3062,125 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Member Qualifications
+         * @description The qualifications an HR admin has awarded a specific person (with certificates).
+         */
+        get: operations["apps_hcm_api_list_member_qualifications"];
         put?: never;
         /** Award Member Qualification */
         post: operations["apps_hcm_api_award_member_qualification"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hcm/people/{member_id}/qualifications/certificate-upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Certificate Upload
+         * @description Step 1 of attaching a certificate: a short-lived, write-only link to Azure.
+         */
+        post: operations["apps_hcm_api_start_certificate_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hcm/member-qualifications/{mq_id}/certificate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Member Qualification Certificate
+         * @description A 1-hour download link for a qualification's certificate. The holder may see
+         *     their own; HR admins may see anyone's in their company.
+         */
+        get: operations["apps_hcm_api_member_qualification_certificate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hcm/people/{member_id}/training-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Training Plan */
+        get: operations["apps_hcm_api_get_training_plan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Training Plan */
+        patch: operations["apps_hcm_api_update_training_plan"];
+        trace?: never;
+    };
+    "/api/v1/hcm/people/{member_id}/training-plan/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Training Plan Item */
+        post: operations["apps_hcm_api_add_training_plan_item"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hcm/people/{member_id}/training-plan/items/{item_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete Training Plan Item */
+        post: operations["apps_hcm_api_complete_training_plan_item"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hcm/people/{member_id}/training-plan/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Training Plan Item */
+        delete: operations["apps_hcm_api_delete_training_plan_item"];
         options?: never;
         head?: never;
         patch?: never;
@@ -11277,8 +11414,8 @@ export interface components {
             unit_id: string;
             /** Name */
             name: string;
-            /** People Rows */
-            people_rows: number;
+            /** Required Trainings */
+            required_trainings: number;
             /** Overdue Or Expired */
             overdue_or_expired: number;
             /** Compliance Pct */
@@ -11433,6 +11570,11 @@ export interface components {
         };
         /** PersonCourseOut */
         PersonCourseOut: {
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
             /** Course Title */
             course_title: string;
             /** Status */
@@ -11550,6 +11692,8 @@ export interface components {
              * Format: uuid
              */
             course_id: string;
+            /** Course Slug */
+            course_slug: string;
             /** Course Title */
             course_title: string;
             /** Renewal Months */
@@ -13866,6 +14010,16 @@ export interface components {
             awarded_on: string | null;
             /** Expires On */
             expires_on: string | null;
+            /**
+             * Has Certificate
+             * @default false
+             */
+            has_certificate: boolean;
+            /**
+             * Certificate Filename
+             * @default
+             */
+            certificate_filename: string;
         };
         /** QualificationOut */
         QualificationOut: {
@@ -13924,6 +14078,164 @@ export interface components {
             awarded_on?: string | null;
             /** Expires On */
             expires_on?: string | null;
+            /** Certificate Asset Id */
+            certificate_asset_id?: string | null;
+        };
+        /** CertificateTicketOut */
+        CertificateTicketOut: {
+            /**
+             * Asset Id
+             * Format: uuid
+             */
+            asset_id: string;
+            /** Upload Url */
+            upload_url: string;
+            /** Method */
+            method: string;
+            /** Headers */
+            headers: {
+                [key: string]: string;
+            };
+            /** Expires In */
+            expires_in: number;
+            /** Max Bytes */
+            max_bytes: number;
+        };
+        /** CertificateUploadIn */
+        CertificateUploadIn: {
+            /** Filename */
+            filename: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /** CertificateUrlOut */
+        CertificateUrlOut: {
+            /** Url */
+            url: string;
+            /** Filename */
+            filename: string;
+        };
+        /** TrainingPlanItemOut */
+        TrainingPlanItemOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Course Id */
+            course_id: string | null;
+            /** Course Slug */
+            course_slug: string | null;
+            /** Title */
+            title: string;
+            /** Provider */
+            provider: string;
+            /** External Url */
+            external_url: string;
+            /** Purpose */
+            purpose: string;
+            /** Source */
+            source: string;
+            /** Source Detail */
+            source_detail: string;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Owner Name */
+            owner_name: string | null;
+            /** Assigned By Name */
+            assigned_by_name: string;
+            /**
+             * Assigned At
+             * Format: date-time
+             */
+            assigned_at: string;
+            /** Due At */
+            due_at: string | null;
+            /** Estimated Hours */
+            estimated_hours: string | null;
+            /** Completed Hours */
+            completed_hours: string | null;
+            /** Status */
+            status: string;
+            /** Completed On */
+            completed_on: string | null;
+        };
+        /** TrainingPlanOut */
+        TrainingPlanOut: {
+            /**
+             * Member Id
+             * Format: uuid
+             */
+            member_id: string;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Owner Name */
+            owner_name: string | null;
+            /** Period Start */
+            period_start: string | null;
+            /** Period End */
+            period_end: string | null;
+            /** Items */
+            items: components["schemas"]["TrainingPlanItemOut"][];
+        };
+        /** TrainingPlanPatch */
+        TrainingPlanPatch: {
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Period Start */
+            period_start?: string | null;
+            /** Period End */
+            period_end?: string | null;
+        };
+        /** TrainingPlanItemIn */
+        TrainingPlanItemIn: {
+            /** Kind */
+            kind: string;
+            /** Course Id */
+            course_id?: string | null;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Provider
+             * @default
+             */
+            provider: string;
+            /**
+             * External Url
+             * @default
+             */
+            external_url: string;
+            /**
+             * Purpose
+             * @default self_directed
+             */
+            purpose: string;
+            /**
+             * Source
+             * @default manager
+             */
+            source: string;
+            /**
+             * Source Detail
+             * @default
+             */
+            source_detail: string;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Due At */
+            due_at?: string | null;
+            /** Estimated Hours */
+            estimated_hours?: number | string | null;
+        };
+        /** TrainingPlanCompleteIn */
+        TrainingPlanCompleteIn: {
+            /** Hours */
+            hours: number | string;
         };
         /** HcmOk */
         HcmOk: {
@@ -24459,6 +24771,30 @@ export interface operations {
             };
         };
     };
+    apps_catalog_api_related_courses: {
+        parameters: {
+            query?: {
+                currency?: string | null;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseCard"][];
+                };
+            };
+        };
+    };
     apps_catalog_api_preview: {
         parameters: {
             query?: never;
@@ -24934,7 +25270,9 @@ export interface operations {
     };
     apps_compliance_api_dashboard: {
         parameters: {
-            query?: never;
+            query?: {
+                unit_id?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -27936,6 +28274,28 @@ export interface operations {
             };
         };
     };
+    apps_hcm_api_list_member_qualifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberQualificationOut"][];
+                };
+            };
+        };
+    };
     apps_hcm_api_award_member_qualification: {
         parameters: {
             query?: never;
@@ -27958,6 +28318,178 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberQualificationOut"];
+                };
+            };
+        };
+    };
+    apps_hcm_api_start_certificate_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CertificateUploadIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CertificateTicketOut"];
+                };
+            };
+        };
+    };
+    apps_hcm_api_member_qualification_certificate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mq_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CertificateUrlOut"];
+                };
+            };
+        };
+    };
+    apps_hcm_api_get_training_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingPlanOut"];
+                };
+            };
+        };
+    };
+    apps_hcm_api_update_training_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrainingPlanPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingPlanOut"];
+                };
+            };
+        };
+    };
+    apps_hcm_api_add_training_plan_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrainingPlanItemIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingPlanItemOut"];
+                };
+            };
+        };
+    };
+    apps_hcm_api_complete_training_plan_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrainingPlanCompleteIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingPlanItemOut"];
+                };
+            };
+        };
+    };
+    apps_hcm_api_delete_training_plan_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HcmOk"];
                 };
             };
         };

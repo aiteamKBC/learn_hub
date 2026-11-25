@@ -1,4 +1,4 @@
-import { AlertOctagon, CalendarClock, ChevronRight, Download, Gauge, Grid3x3, Search, SearchX, ShieldCheck, X } from 'lucide-react'
+import { ChevronRight, Download, Grid3x3, Search, SearchX, ShieldCheck, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from '@/lib/toast'
@@ -7,12 +7,11 @@ import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { CountUp } from '@/components/ui/count-up'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input, NativeSelect } from '@/components/ui/input'
-import { EmptyState, ErrorState, PageHeader, StatCard } from '@/components/ui/misc'
+import { EmptyState, ErrorState } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
-import { complianceTone, downloadExport, type MatrixFilters, type MatrixRow, STATUS, STATUS_ORDER, statusOf, useDashboard, useMatrix, worstStatus } from '@/features/compliance/api'
+import { downloadExport, type MatrixFilters, type MatrixRow, STATUS, STATUS_ORDER, statusOf, useMatrix, worstStatus } from '@/features/compliance/api'
 import { PersonRequirements } from '@/features/compliance/PersonRequirements'
 import { unitLabel, useJobRoles, useUnits } from '@/features/org/api'
 import { cn } from '@/lib/cn'
@@ -20,25 +19,6 @@ import { shortDate } from '@/lib/format'
 import { Link } from '@/lib/router'
 
 const KEYS = ['unit', 'role', 'status', 'req', 'q'] as const
-
-function Kpis() {
-  const { data: d, isLoading } = useDashboard()
-  if (isLoading || !d)
-    return (
-      <div className="grid gap-4 sm:grid-cols-3">
-        {Array.from({ length: 3 }, (_, i) => (
-          <Skeleton key={i} className="h-[118px] rounded-lg" />
-        ))}
-      </div>
-    )
-  return (
-    <div className="stagger grid gap-4 sm:grid-cols-3">
-      <StatCard label="Compliance" value={<CountUp value={d.compliance_pct} format={(n) => `${n.toFixed(0)}%`} />} icon={<Gauge />} tone={complianceTone(d.compliance_pct)} hint={`${d.headcount} people`} />
-      <StatCard label="Overdue" value={d.overdue} icon={<AlertOctagon />} tone="danger" hint={d.expired ? `plus ${d.expired} expired` : 'past their due date'} />
-      <StatCard label="Expiring in 30 days" value={d.expiring_30} icon={<CalendarClock />} tone="warning" hint="renewals coming up" />
-    </div>
-  )
-}
 
 function Legend() {
   return (
@@ -57,7 +37,7 @@ function Legend() {
 
 type Selection = { row: MatrixRow; requirementId?: string; requirementName?: string }
 
-export function MatrixPage() {
+export function TrainingMatrixSection() {
   const [params, setParams] = useSearchParams()
   const filters: MatrixFilters = Object.fromEntries(KEYS.map((k) => [k, params.get(k) ?? undefined]))
   const matrix = useMatrix(filters)
@@ -97,19 +77,17 @@ export function MatrixPage() {
   const stale = matrix.isPlaceholderData && matrix.isFetching
 
   return (
-    <>
-      <PageHeader
-        title="Training matrix"
-        description="Everyone you manage against every requirement. Select a cell to see the details and act."
-        actions={
-          <Button variant="secondary" onClick={() => downloadExport(filters.unit).catch((e: Error) => toast.error(e.message))}>
-            <Download /> Export CSV
-          </Button>
-        }
-      />
-      <div className="grid gap-6">
-        <Kpis />
-
+    <section id="training-matrix" aria-labelledby="training-matrix-title" className="scroll-mt-6">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 id="training-matrix-title" className="text-lg font-semibold tracking-tight">Training matrix</h2>
+          <p className="mt-1 text-sm text-muted">Everyone you manage against every requirement. Select a cell to see the details and act.</p>
+        </div>
+        <Button variant="secondary" onClick={() => downloadExport(filters.unit).catch((e: Error) => toast.error(e.message))}>
+          <Download /> Export CSV
+        </Button>
+      </div>
+      <div className="grid gap-4">
         <Card className="p-4">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(0,1fr))]">
             <Input type="search" icon={<Search />} placeholder="Search people" aria-label="Search people" value={text} onChange={(e) => setText(e.target.value)} />
@@ -321,6 +299,6 @@ export function MatrixPage() {
           </DialogContent>
         ) : null}
       </Dialog>
-    </>
+    </section>
   )
 }

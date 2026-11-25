@@ -74,6 +74,31 @@ from .schemas import (
     UnitPatch,
 )
 
+# Company audit actions are namespaced by feature. Keep the grouped UI filter here
+# so its meaning is enforced by the API (including when the trail is paginated).
+AUDIT_ACTION_FILTERS = {
+    "corporate": (
+        "corporate_",
+        "offering_",
+        "seat_",
+        "purchase_",
+        "programme_",
+        "instalment_",
+        "stage_",
+        "quote_",
+        "attachment_",
+        "live_",
+        "training_request_",
+        "cohort_",
+        "company_",
+        "session_",
+        "tutor_",
+        "departure_",
+        "cancellation_",
+        "refund_",
+    ),
+}
+
 router = Router(tags=["business"], auth=session_auth)
 
 
@@ -815,8 +840,12 @@ def audit(request, action: str | None = None, cursor: str | None = None, limit: 
            "FROM platform.audit_logs a LEFT JOIN identity.users u ON u.id = a.actor_id WHERE a.org_id = %s"]  # fmt: skip
     params: list = [scope.org_id]
     if action:
-        sql.append("AND a.action LIKE %s")
-        params.append(action.replace("%", "") + "%")
+        prefixes = AUDIT_ACTION_FILTERS.get(action, (action,))
+        conditions = []
+        for prefix in prefixes:
+            conditions.append("left(a.action, length(%s)) = %s")
+            params.extend((prefix, prefix))
+        sql.append("AND (" + " OR ".join(conditions) + ")")
     if after:
         sql.append("AND (a.created_at, a.id) < (%s::timestamptz, %s::bigint)")
         params += after

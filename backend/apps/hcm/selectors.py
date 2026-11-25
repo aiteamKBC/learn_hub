@@ -57,7 +57,7 @@ def qualification_catalogue(*, org_id: UUID, include_archived: bool = False):
 def member_qualifications(*, org_id: UUID, member_id: UUID):
     return (
         MemberQualification.objects.filter(org_id=org_id, member_id=member_id)
-        .select_related("qualification")
+        .select_related("qualification", "evidence_asset")
         .order_by("-awarded_on", "qualification__name")
     )
 

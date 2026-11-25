@@ -60,7 +60,7 @@ export const corporateBusinessNav: NavSection[] = [
   {
     title: 'Company training',
     items: [
-      { to: '/business/corporate', label: 'Overview', Icon: LayoutDashboard },
+      { to: '/business/corporate', label: 'Company training', Icon: LayoutDashboard },
       { to: '/business/packages', label: 'Course packages', Icon: Package },
       { to: '/business/purchases-and-seats', label: 'Purchases & seats', Icon: Receipt },
       { to: '/business/live-bookings', label: 'Live training', Icon: Video },

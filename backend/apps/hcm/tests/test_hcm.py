@@ -1,6 +1,7 @@
 """HCM app smoke tests: models, services, and API endpoints."""
 
 from decimal import Decimal
+from unittest import mock
 
 from django.utils import timezone
 
@@ -133,6 +134,73 @@ class HcmApiTest(SchemaTransactionTestCase):
         data = r.json()
         self.assertEqual(data["qualification_name"], "SMSTS")
         self.assertEqual(data["awarded_on"], "2024-06-01")
+        self.assertFalse(data["has_certificate"])
+
+    def test_award_with_certificate_upload(self):
+        """HR uploads a certificate file, awards with it, then anyone entitled can
+        read a download link; the awarded list reports the attachment."""
+        blobs: dict[str, dict] = {}
+        patches = [
+            mock.patch("core.storage.configured", return_value=True),
+            mock.patch("core.storage.upload_url", side_effect=lambda key: f"https://blob.test/{key}?sp=cw"),
+            mock.patch(
+                "core.storage.download_url",
+                side_effect=lambda key, name=None: f"https://blob.test/{key}?sp=r",
+            ),
+            mock.patch("core.storage.properties", side_effect=lambda key: blobs.get(key)),
+            mock.patch("core.storage.delete", side_effect=lambda key: blobs.pop(key, None)),
+        ]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+
+        self.as_(self.hr_user)
+        qual_id = self.post("/hcm/qualifications", {"name": "First Aid at Work", "code": "FAW-3"}).json()[
+            "id"
+        ]
+
+        # a non-PDF/image is refused before any link is issued
+        bad = self.post(
+            f"/hcm/people/{self.m_sara.id}/qualifications/certificate-upload",
+            {"filename": "notes.zip", "size_bytes": 1024},
+        )
+        self.assertEqual(bad.status_code, 400, bad.content)
+
+        # 1) ask for a write-only link
+        ticket = self.post(
+            f"/hcm/people/{self.m_sara.id}/qualifications/certificate-upload",
+            {"filename": "sara-first-aid.png", "size_bytes": 2048},
+        ).json()
+        key = ticket["upload_url"].split("https://blob.test/")[1].split("?")[0]
+        self.assertTrue(key.startswith(f"qualifications/{self.acme.id}/{self.m_sara.id}/"))
+
+        # 2) the browser "uploads" to Azure
+        blobs[key] = {"size": 2048, "content_type": "image/png"}
+
+        # 3) award with the uploaded certificate
+        r = self.post(
+            f"/hcm/people/{self.m_sara.id}/qualifications",
+            {
+                "qualification_id": qual_id,
+                "awarded_on": "2025-01-10",
+                "certificate_asset_id": ticket["asset_id"],
+            },
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        awarded = r.json()
+        self.assertTrue(awarded["has_certificate"])
+        self.assertEqual(awarded["certificate_filename"], "sara-first-aid.png")
+
+        # HR lists the member's qualifications and sees the attachment
+        listed = self.get(f"/hcm/people/{self.m_sara.id}/qualifications").json()
+        self.assertEqual(len(listed), 1)
+        self.assertTrue(listed[0]["has_certificate"])
+
+        # the holder can fetch a download link for their own certificate
+        self.as_(self.member_user)
+        dl = self.get(f"/hcm/member-qualifications/{awarded['id']}/certificate")
+        self.assertEqual(dl.status_code, 200, dl.content)
+        self.assertIn("sp=r", dl.json()["url"])
 
     # ---------------------------------------------------------------- CPD
     def test_add_and_list_cpd(self):

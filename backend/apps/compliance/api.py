@@ -66,8 +66,9 @@ def _status_in_scope(scope: Scope, status_id) -> MemberStatus:
 
 # ---------------------------------------------------------------- read
 @router.get("/dashboard", response=DashboardOut)
-def dashboard(request):
-    return selectors.dashboard(org_scope(request, OrgRole.MANAGER))
+def dashboard(request, unit_id: str | None = None):
+    scope = org_scope(request, OrgRole.MANAGER)
+    return selectors.dashboard(scope, unit=_unit(scope, unit_id))
 
 
 @router.get("/summary", response=list[RequirementSummaryOut])
@@ -148,7 +149,7 @@ def person(request, member_id: str):
             for x in p["exemptions"]
         ],
         "courses": [
-            {"course_title": e.course.title, "status": e.status, "progress_pct": float(e.progress_pct),
+            {"course_id": e.course_id, "course_title": e.course.title, "status": e.status, "progress_pct": float(e.progress_pct),
              "enrolled_at": e.enrolled_at, "completed_at": e.completed_at}
             for e in Enrollment.objects.filter(org_id=scope.org_id, user_id=m.user_id).exclude(status="superseded")
             .select_related("course").order_by("-enrolled_at")[:200]
@@ -166,7 +167,7 @@ def _requirement_out(r: Requirement, stats: dict | None = None) -> dict:
     stats = stats or {}
     return {
         "id": r.id, "name": r.name, "description": r.description, "course_id": r.course_id,
-        "course_title": r.course.title, "renewal_months": r.renewal_months, "due_days": r.due_days,
+        "course_slug": r.course.slug, "course_title": r.course.title, "renewal_months": r.renewal_months, "due_days": r.due_days,
         "expiring_soon_days": r.expiring_soon_days, "reminder_days": r.reminder_days,
         "overdue_every_days": r.overdue_every_days,
         "targets": [{"unit_id": t.unit_id, "unit_name": t.unit.name if t.unit_id else None,

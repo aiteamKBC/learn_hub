@@ -103,11 +103,11 @@ def summary(scope: Scope, *, unit=None) -> list[dict]:
     return sorted(out, key=lambda r: r["requirement__name"])
 
 
-def dashboard(scope: Scope) -> dict:
+def dashboard(scope: Scope, *, unit: OrgUnit | None = None) -> dict:
     """The HR home screen: headline numbers, per-unit compliance and what needs attention.
     4 queries regardless of company size."""
     now = timezone.now()
-    statuses = _scoped_status(scope)
+    statuses = _scoped_status(scope, unit=unit)
     totals = statuses.aggregate(
         total=Count("id"),
         exempt=Count("id", filter=Q(status=S.EXEMPT)),
@@ -121,7 +121,7 @@ def dashboard(scope: Scope) -> dict:
         ),
     )
     counted = totals["total"] - totals["exempt"]
-    members = scoped_members(scope)
+    members = scoped_members(scope, unit=unit)
     from apps.learning.models import Enrollment
 
     learning = Enrollment.objects.filter(
@@ -137,7 +137,7 @@ def dashboard(scope: Scope) -> dict:
         "headcount": members.count(),
         **totals,
         "learning": learning,
-        "units": unit_compliance(scope),
+        "units": unit_compliance(scope) if unit is None else [],
         "attention": list(
             statuses.filter(status__in=[S.OVERDUE, S.EXPIRED])
             .order_by("due_at")
@@ -182,7 +182,7 @@ def unit_compliance(scope: Scope) -> list[dict]:
     out = []
     for r in roots:
         counted, ok, bad = stats.get(str(r["path"]), (0, 0, 0))
-        out.append({"unit_id": r["id"], "name": r["name"], "people_rows": counted, "overdue_or_expired": bad,
+        out.append({"unit_id": r["id"], "name": r["name"], "required_trainings": counted, "overdue_or_expired": bad,
                     "compliance_pct": round(100 * ok / counted, 1) if counted else 100.0})  # fmt: skip
     return sorted(out, key=lambda x: x["compliance_pct"])
 

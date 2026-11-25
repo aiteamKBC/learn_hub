@@ -49,7 +49,7 @@ export const hcmBusinessNav: NavSection[] = [
   {
     title: 'People',
     items: [
-      { to: '/business/hcm/people', label: 'People (HR)', Icon: Users },
+      { to: '/business/hcm/people', label: 'HR Actions', Icon: Users },
       { to: '/business/training-plans', label: 'Training plans', Icon: ListChecks },
       { to: '/business/hcm/qualifications', label: 'Qualifications', Icon: Award },
     ],

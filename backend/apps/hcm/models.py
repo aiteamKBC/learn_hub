@@ -283,6 +283,100 @@ class CpdEntry(TenantModel):
         ]
 
 
+class TrainingPlan(TenantModel):
+    """A member's development plan and its review period, separate from compliance."""
+
+    member = models.OneToOneField("org.OrgMember", on_delete=models.CASCADE, related_name="training_plan")
+    owner = models.ForeignKey(
+        "org.OrgMember", on_delete=models.PROTECT, null=True, blank=True, related_name="owned_training_plans"
+    )
+    period_start = models.DateField(null=True, blank=True)
+    period_end = models.DateField(null=True, blank=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "training_plans")
+        constraints = [
+            models.UniqueConstraint(fields=["org", "id"], name="uq_training_plan_org_id"),
+            models.UniqueConstraint(fields=["org", "member"], name="uq_training_plan_member"),
+            models.CheckConstraint(
+                condition=Q(period_start__isnull=True)
+                | Q(period_end__isnull=True)
+                | Q(period_end__gte=F("period_start")),
+                name="ck_training_plan_period",
+            ),
+        ]
+
+
+class TrainingPlanItem(TenantModel):
+    """An optional or external development item; required compliance stays in compliance.MemberStatus."""
+
+    class Kind(models.TextChoices):
+        COURSE = "course", "Course"
+        EXTERNAL = "external", "External learning"
+
+    class Purpose(models.TextChoices):
+        CORRECTIVE = "corrective", "Corrective"
+        PREVENTIVE = "preventive", "Preventive"
+        SELF_DIRECTED = "self_directed", "Self-directed"
+
+    class Source(models.TextChoices):
+        MANAGER = "manager", "Manager assigned"
+        CAREER_PATH = "career_path", "Career pathway"
+        COMPETENCY_GAP = "competency_gap", "Competency gap"
+        EXTERNAL = "external", "External learning"
+
+    class Status(models.TextChoices):
+        PLANNED = "planned", "Planned"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    plan = models.ForeignKey(TrainingPlan, on_delete=models.CASCADE, related_name="items")
+    kind = models.CharField(max_length=12, choices=Kind.choices)
+    course = models.ForeignKey(
+        "catalog.Course", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    title = models.CharField(max_length=200)
+    provider = models.CharField(max_length=160, blank=True)
+    external_url = models.URLField(blank=True)
+    purpose = models.CharField(max_length=16, choices=Purpose.choices, default=Purpose.SELF_DIRECTED)
+    source = models.CharField(max_length=16, choices=Source.choices, default=Source.MANAGER)
+    source_detail = models.CharField(max_length=300, blank=True)
+    owner = models.ForeignKey(
+        "org.OrgMember", on_delete=models.PROTECT, null=True, blank=True, related_name="owned_training_items"
+    )
+    assigned_by = models.ForeignKey(
+        User, on_delete=models.PROTECT, related_name="assigned_training_plan_items"
+    )
+    assigned_at = models.DateTimeField()
+    due_at = models.DateField(null=True, blank=True)
+    estimated_hours = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    completed_hours = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PLANNED)
+    completed_on = models.DateField(null=True, blank=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "training_plan_items")
+        constraints = [
+            models.UniqueConstraint(fields=["org", "id"], name="uq_training_item_org_id"),
+            models.UniqueConstraint(
+                fields=["plan", "course"], condition=Q(course__isnull=False), name="uq_training_item_course"
+            ),
+            models.CheckConstraint(
+                condition=(Q(kind="course", course__isnull=False) | Q(kind="external", course__isnull=True)),
+                name="ck_training_item_kind_course",
+            ),
+            models.CheckConstraint(
+                condition=Q(estimated_hours__isnull=True) | Q(estimated_hours__gt=0),
+                name="ck_training_item_hours",
+            ),
+            models.CheckConstraint(
+                condition=Q(completed_hours__isnull=True) | Q(completed_hours__gt=0),
+                name="ck_training_item_completed_hours",
+            ),
+        ]
+        indexes = [models.Index(fields=["org", "plan", "status", "due_at"], name="ix_training_item_plan")]
+
+
 class MemberActivity(TenantModel):
     """Minutes-on-activity session: 'this member spent 24m on this lecture at 10:00
     today'. Separate from `learning.ProgressEvent` (sub-lecture video heartbeats)

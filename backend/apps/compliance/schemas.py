@@ -48,6 +48,7 @@ class RequirementOut(Schema):
     name: str
     description: str
     course_id: UUID
+    course_slug: str
     course_title: str
     renewal_months: int | None
     due_days: int
@@ -166,6 +167,7 @@ class PersonExemptionOut(Schema):
 
 
 class PersonCourseOut(Schema):
+    course_id: UUID
     course_title: str
     status: str
     progress_pct: float
@@ -220,7 +222,7 @@ class LearningActivityOut(Schema):
 class UnitComplianceOut(Schema):
     unit_id: UUID
     name: str
-    people_rows: int
+    required_trainings: int
     overdue_or_expired: int
     compliance_pct: float
 

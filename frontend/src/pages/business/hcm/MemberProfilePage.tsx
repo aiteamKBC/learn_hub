@@ -1,4 +1,4 @@
-import { Award, Plus, Save, UserRound } from 'lucide-react'
+import { Award, Download, FileCheck2, Paperclip, Plus, Save, UserRound } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -13,7 +13,7 @@ import { EmptyState, ErrorState, PageHeader } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { shortDate } from '@/lib/format'
 import { Link } from '@/lib/router'
-import { type Profile, TRACK_LABEL, useAwardQualification, useMemberProfile, useQualifications, useUpdateHrProfile } from '@/features/hcm/api'
+import { certificateUrl, type MemberQualification, type Profile, TRACK_LABEL, uploadCertificate, useAwardQualification, useMemberProfile, useMemberQualifications, useQualifications, useUpdateHrProfile } from '@/features/hcm/api'
 import { useIsOrgAdmin, usePeople } from '@/features/org/api'
 
 const TRACKS = ['ic', 'management', 'specialist', 'support']
@@ -125,6 +125,9 @@ function AwardForm({ memberId, onDone }: { memberId: string; onDone: () => void 
   const [qualId, setQualId] = useState('')
   const [awardedOn, setAwardedOn] = useState(() => new Date().toISOString().slice(0, 10))
   const [expiresOn, setExpiresOn] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [progress, setProgress] = useState<number | null>(null)
+  const busy = award.isPending || progress !== null
 
   if (quals.isLoading) return <Skeleton className="h-40 rounded-lg" />
   if (quals.error) return <ErrorState message={(quals.error as Error).message} onRetry={() => void quals.refetch()} />
@@ -142,23 +145,26 @@ function AwardForm({ memberId, onDone }: { memberId: string; onDone: () => void 
       />
     )
 
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      let certificateAssetId: string | undefined
+      if (file) {
+        setProgress(0)
+        certificateAssetId = await uploadCertificate(memberId, file, setProgress)
+      }
+      await award.mutateAsync({ qualification_id: qualId, awarded_on: awardedOn || null, expires_on: expiresOn || null, certificate_asset_id: certificateAssetId ?? null })
+      toast.success('Qualification awarded')
+      onDone()
+    } catch (err) {
+      toast.error((err as Error).message)
+    } finally {
+      setProgress(null)
+    }
+  }
+
   return (
-    <form
-      className="grid gap-4 p-1"
-      onSubmit={(e) => {
-        e.preventDefault()
-        award.mutate(
-          { qualification_id: qualId, awarded_on: awardedOn || null, expires_on: expiresOn || null },
-          {
-            onSuccess: () => {
-              toast.success('Qualification awarded')
-              onDone()
-            },
-            onError: (err) => toast.error((err as Error).message),
-          },
-        )
-      }}
-    >
+    <form className="grid gap-4 p-1" onSubmit={submit}>
       <Field label="Qualification">
         {(p) => (
           <NativeSelect {...p} value={qualId} onChange={(e) => setQualId(e.target.value)}>
@@ -182,12 +188,87 @@ function AwardForm({ memberId, onDone }: { memberId: string; onDone: () => void 
           {(p) => <Input {...p} type="date" value={expiresOn} onChange={(e) => setExpiresOn(e.target.value)} />}
         </Field>
       </div>
+      <Field label="Certificate" hint="Optional. A PDF or image of the certificate (up to 20 MB).">
+        {(p) => (
+          <div className="grid gap-2">
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2.5 text-sm text-muted transition hover:border-primary hover:text-text">
+              <Paperclip className="size-4 shrink-0" />
+              <span className="truncate">{file ? file.name : 'Choose a file to attach'}</span>
+              <input
+                {...p}
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+                className="sr-only"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
+            {progress !== null ? (
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted/20">
+                <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${progress}%` }} />
+              </div>
+            ) : null}
+          </div>
+        )}
+      </Field>
       <div className="mt-2 flex justify-end">
-        <Button type="submit" loading={award.isPending} disabled={!qualId}>
+        <Button type="submit" loading={busy} disabled={!qualId || busy}>
           <Award /> Award qualification
         </Button>
       </div>
     </form>
+  )
+}
+
+async function downloadCertificate(mqId: string) {
+  try {
+    const { url } = await certificateUrl(mqId)
+    window.open(url, '_blank', 'noopener')
+  } catch (err) {
+    toast.error((err as Error).message)
+  }
+}
+
+function QualificationsCard({ memberId }: { memberId: string }) {
+  const { data, isLoading, error, refetch } = useMemberQualifications(memberId)
+  return (
+    <Card>
+      <CardHeader title="Qualifications held" action={<Award className="size-5 text-muted" aria-hidden />} />
+      <CardBody>
+        {error ? (
+          <ErrorState message={(error as Error).message} onRetry={() => void refetch()} />
+        ) : isLoading || !data ? (
+          <Skeleton className="h-24 rounded-lg" />
+        ) : data.length === 0 ? (
+          <p className="text-sm text-muted">None awarded yet. Use “Award qualification”.</p>
+        ) : (
+          <ul className="grid gap-2 stagger">
+            {data.map((q: MemberQualification) => (
+              <li key={q.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/70 px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">
+                    {q.qualification_name}
+                    {q.code ? <span className="text-muted"> · {q.code}</span> : null}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {q.awarded_on ? `Awarded ${shortDate(q.awarded_on)}` : 'Awarded'}
+                    {q.expires_on ? ` · expires ${shortDate(q.expires_on)}` : ''}
+                  </p>
+                </div>
+                {q.has_certificate ? (
+                  <Button size="sm" variant="secondary" onClick={() => void downloadCertificate(q.id)}>
+                    <Download /> Certificate
+                  </Button>
+                ) : (
+                  <Badge tone="neutral">
+                    <FileCheck2 className="size-3.5" /> No file
+                  </Badge>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardBody>
+    </Card>
   )
 }
 
@@ -199,7 +280,7 @@ export function MemberProfilePage() {
 
   const back = (
     <Link to="/business/hcm/people" className="mb-2 inline-flex items-center gap-1 text-sm text-muted hover:text-text">
-      ← People
+      ← HR Actions
     </Link>
   )
 
@@ -270,6 +351,10 @@ export function MemberProfilePage() {
               )}
             </CardBody>
           </Card>
+
+          <div className="lg:col-span-2">
+            <QualificationsCard memberId={memberId} />
+          </div>
         </div>
       )}
 

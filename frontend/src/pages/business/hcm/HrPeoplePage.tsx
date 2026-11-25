@@ -21,7 +21,7 @@ export function HrPeoplePage() {
 
   return (
     <>
-      <PageHeader title="People (HR)" description="Open a person to view and update their HR profile, and to award a qualification." />
+      <PageHeader title="HR Actions" description="Manage employee HR profiles and award qualifications." />
       <Card>
         <div className="border-b border-border p-4">
           <Input icon={<Search />} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or email" aria-label="Search people" type="search" className="sm:max-w-sm" />
