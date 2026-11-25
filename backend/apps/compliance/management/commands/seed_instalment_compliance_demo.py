@@ -74,7 +74,10 @@ class Command(BaseCommand):
                         },
                     )
                     RequirementTarget.objects.get_or_create(
-                        org=company, requirement=requirement, unit=None, job_role=None,
+                        org=company,
+                        requirement=requirement,
+                        unit=None,
+                        job_role=None,
                         defaults={"include_subunits": True},
                     )
                     requirements.append(requirement)
@@ -133,7 +136,9 @@ class Command(BaseCommand):
                     .annotate(count=Count("id"))
                 }
 
-        self.stdout.write(self.style.SUCCESS(
-            f"Seeded {len(requirements)} requirements for {len(members)} people at {company.name}."
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Seeded {len(requirements)} requirements for {len(members)} people at {company.name}."
+            )
+        )
         self.stdout.write(f"Compliance status counts: {counts}")
