@@ -27,7 +27,7 @@ from core.money import request_currency
 
 from . import media, selectors
 from .models import Category, Course, CourseInstructor, Lecture
-from .schemas import CategoryOut, CourseDetail, CoursePage, PlaybackOut
+from .schemas import CategoryOut, CourseCard, CourseDetail, CoursePage, PlaybackOut
 
 router = Router(tags=["catalog"])
 
@@ -254,6 +254,45 @@ def course_detail(request, slug: str, currency: str | None = None):
         "full_course_token_price": derived_token_price,
         "token_pricing_mode": course.token_pricing_mode, "in_subscription": course.in_subscription,
     }  # fmt: skip
+
+
+@router.get("/courses/{slug}/related", response=list[CourseCard], auth=None)
+def related_courses(request, slug: str, currency: str | None = None):
+    """Suggest other published courses by shared category first, then shared topics.
+
+    These are catalog relationships, not generated recommendations: every result shares
+    the course category or at least one explicit topic with the course being viewed.
+    """
+    course = get_object_or_404(
+        Course.objects.select_related("category").prefetch_related("topics"),
+        slug=slug, status="published", live_version__isnull=False, deleted_at__isnull=True,
+    )
+    topic_ids = [topic.id for topic in course.topics.all()]
+    related_to = Q()
+    if course.category_id:
+        related_to |= Q(category_id=course.category_id)
+    if topic_ids:
+        related_to |= Q(topics__id__in=topic_ids)
+    if not course.category_id and not topic_ids:
+        return []
+
+    qs = (
+        _public()
+        .filter(related_to)
+        .exclude(pk=course.pk)
+        .annotate(
+            matching_topics=Count("topics", filter=Q(topics__id__in=topic_ids), distinct=True),
+            same_category=(
+                Case(When(category_id=course.category_id, then=Value(1)), default=Value(0), output_field=IntegerField())
+                if course.category_id else Value(0)
+            ),
+        )
+        .select_related("category")
+        .prefetch_related(_instructor_names())
+        .order_by("-same_category", "-matching_topics", "-rating_avg", "-student_count", "title", "id")[:8]
+    )
+    currency_info = request_currency(request, currency)
+    return _cards(list(qs), currency_info)
 
 
 @router.get("/courses/{slug}/preview/{lecture_key}", response=PlaybackOut, auth=None)

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api, unwrap } from '@/api/client'
 import type { components } from '@/api/schema'
+import { putToAzure } from '@/features/studio/api'
 import { currentOrgId } from '@/lib/workspace'
 
 type S = components['schemas']
@@ -93,6 +94,14 @@ export function useUpdateHrProfile(memberId: string) {
   })
 }
 
+export function useMemberQualifications(memberId?: string) {
+  return useQuery({
+    queryKey: key('people', memberId, 'qualifications'),
+    queryFn: () => unwrap(api.GET('/api/v1/hcm/people/{member_id}/qualifications', { params: { path: { member_id: memberId! } } })),
+    enabled: !!memberId,
+  })
+}
+
 export function useAwardQualification(memberId: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -102,6 +111,78 @@ export function useAwardQualification(memberId: string) {
       qc.invalidateQueries({ queryKey: key('me', 'qualifications') }),
       qc.invalidateQueries({ queryKey: ['frameworks', currentOrgId(), 'readiness'] }),
     ]),
+  })
+}
+
+/** Upload a certificate straight to Azure and return the asset id to award with:
+ * 1) ask the API for a write-only link, 2) PUT the file, 3) hand the id back. */
+export async function uploadCertificate(memberId: string, file: File, onProgress?: (pct: number) => void): Promise<string> {
+  const ticket = await unwrap(
+    api.POST('/api/v1/hcm/people/{member_id}/qualifications/certificate-upload', {
+      params: { path: { member_id: memberId } },
+      body: { filename: file.name, size_bytes: file.size },
+    }),
+  )
+  await putToAzure(ticket, file, onProgress)
+  return ticket.asset_id
+}
+
+/** A fresh 1-hour download link for a member-qualification's certificate. */
+export function certificateUrl(mqId: string) {
+  return unwrap(api.GET('/api/v1/hcm/member-qualifications/{mq_id}/certificate', { params: { path: { mq_id: mqId } } }))
+}
+
+// ---------------------------------------------------------------- company development plans
+const fetchTrainingPlan = (memberId: string) =>
+  unwrap(api.GET('/api/v1/hcm/people/{member_id}/training-plan', { params: { path: { member_id: memberId } } }))
+
+export type TrainingPlan = Awaited<ReturnType<typeof fetchTrainingPlan>>
+export type TrainingPlanItem = TrainingPlan['items'][number]
+
+export function useTrainingPlan(memberId?: string) {
+  return useQuery({
+    queryKey: key('training-plan', memberId),
+    queryFn: () => fetchTrainingPlan(memberId!),
+    enabled: !!memberId,
+  })
+}
+
+export function useUpdateTrainingPlan(memberId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: S['TrainingPlanPatch']) => unwrap(api.PATCH('/api/v1/hcm/people/{member_id}/training-plan', { params: { path: { member_id: memberId } }, body })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: key('training-plan', memberId) }),
+  })
+}
+
+export function useAddTrainingPlanItem(memberId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: S['TrainingPlanItemIn']) => unwrap(api.POST('/api/v1/hcm/people/{member_id}/training-plan/items', { params: { path: { member_id: memberId } }, body })),
+    onSuccess: () => Promise.all([
+      qc.invalidateQueries({ queryKey: key('training-plan', memberId) }),
+      qc.invalidateQueries({ queryKey: ['compliance', 'person', currentOrgId(), memberId] }),
+      qc.invalidateQueries({ queryKey: ['org', 'library', currentOrgId()] }),
+    ]),
+  })
+}
+
+export function useCompleteTrainingPlanItem(memberId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ itemId, hours }: { itemId: string; hours: number }) => unwrap(api.POST('/api/v1/hcm/people/{member_id}/training-plan/items/{item_id}/complete', { params: { path: { member_id: memberId, item_id: itemId } }, body: { hours } })),
+    onSuccess: () => Promise.all([
+      qc.invalidateQueries({ queryKey: key('training-plan', memberId) }),
+      qc.invalidateQueries({ queryKey: key('people', memberId) }),
+    ]),
+  })
+}
+
+export function useDeleteTrainingPlanItem(memberId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (itemId: string) => unwrap(api.DELETE('/api/v1/hcm/people/{member_id}/training-plan/items/{item_id}', { params: { path: { member_id: memberId, item_id: itemId } } })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: key('training-plan', memberId) }),
   })
 }
 

@@ -1,4 +1,6 @@
 import { AlertOctagon, BellRing, CalendarClock, Download, GraduationCap, Network, ShieldAlert, ShieldCheck, UserPlus, Users } from 'lucide-react'
+import { useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { toast } from '@/lib/toast'
 
 import { Avatar } from '@/components/ui/avatar'
@@ -18,6 +20,7 @@ import { cn } from '@/lib/cn'
 import { relativeDate } from '@/lib/format'
 import { useFill, useInView } from '@/lib/motion'
 import { Link } from '@/lib/router'
+import { TrainingMatrixSection } from '@/pages/business/MatrixPage'
 
 const ORDER: StatusKey[] = ['compliant', 'expiring_soon', 'in_progress', 'not_started', 'overdue', 'expired', 'exempt']
 
@@ -162,11 +165,15 @@ function Attention({ rows }: { rows: Dashboard['attention'] }) {
 }
 
 export function ComplianceDashboard() {
+  const location = useLocation()
   const { org } = useWorkspace()
   const capabilities = useRoleCapabilities()
   const { data: d, isLoading, error, refetch } = useDashboard()
   const roles = new Set(capabilities.data?.responsibilities.map((item) => item.code) ?? [])
-  const roleTitle = roles.has('executive') ? 'Executive overview' : roles.has('hr_admin') ? 'People and learning overview' : roles.has('department_head') ? 'Department overview' : roles.has('line_manager') ? 'Team overview' : 'Compliance overview'
+  useEffect(() => {
+    if (location.hash !== '#training-matrix') return
+    requestAnimationFrame(() => document.getElementById('training-matrix')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }, [location.hash])
   const shortcuts = roles.has('hr_admin')
     ? [{ to: '/business/hcm/people', title: 'People & HR', detail: 'Employee records and qualifications' }, { to: '/business/frameworks/roles', title: 'Role frameworks', detail: 'Skills and role expectations' }, { to: '/business/pms/cycles', title: 'Performance', detail: 'Review cycles and objectives' }, { to: '/business/governance/policies', title: 'Policies', detail: 'Company guidance and adoption' }]
     : roles.has('executive')
@@ -178,7 +185,7 @@ export function ComplianceDashboard() {
   return (
     <>
       <PageHeader
-        title={roleTitle}
+        title="Dashboard"
         description={org ? `${org.name} · ${roles.has('executive') || roles.has('hr_admin') ? 'your organisation at a glance' : 'training status for everyone in your area'}` : undefined}
         actions={
           <>
@@ -235,7 +242,7 @@ export function ComplianceDashboard() {
           <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
             <ByRequirement />
             <Card>
-              <CardHeader title="By location" description="Compliance in each unit" />
+              <CardHeader title="Compliance by Location" description="Required training compliance in each unit" />
               <CardBody className={cn('grid gap-5', d && 'stagger')}>
                 {isLoading || !d
                   ? Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-10" />)
@@ -249,25 +256,32 @@ export function ComplianceDashboard() {
                         <p className="mt-1.5 text-xs text-muted">{u.overdue_or_expired ? `${u.overdue_or_expired} overdue or expired` : 'All in date'}</p>
                       </div>
                     ))}
-                {d ? (
-                  <div className="mt-1 grid grid-cols-3 gap-3 border-t border-border pt-5 text-center">
-                    {[
-                      ['Active (30d)', d.learning.active_30],
-                      ['In progress', d.learning.in_progress],
-                      ['Completed (30d)', d.learning.completed_30],
-                    ].map(([label, n]) => (
-                      <div key={label as string}>
-                        <p className="text-xl font-semibold tabular">{n}</p>
-                        <p className="text-[11px] text-muted">{label}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
               </CardBody>
             </Card>
           </div>
 
+          <Card>
+            <CardHeader title="Learning Activity" description="Course activity across your people, separate from required training compliance" />
+            <CardBody>
+              {d ? (
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  {[
+                    ['Active (30d)', d.learning.active_30],
+                    ['In progress', d.learning.in_progress],
+                    ['Completed (30d)', d.learning.completed_30],
+                  ].map(([label, n]) => (
+                    <div key={label as string}>
+                      <p className="text-xl font-semibold tabular">{n}</p>
+                      <p className="text-[11px] text-muted">{label}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : <Skeleton className="h-16" />}
+            </CardBody>
+          </Card>
+
           {d ? <Attention rows={d.attention} /> : <Skeleton className="h-80 rounded-lg" />}
+          <TrainingMatrixSection />
           <p className="flex items-center justify-center gap-2 text-xs text-subtle">
             <GraduationCap className="size-3.5" /> Statuses update as people finish courses, and every night at 00:05 UTC.
           </p>

@@ -1,6 +1,6 @@
 import { BookOpen, Building2, ClipboardCheck, CreditCard, DollarSign, FileBarChart, LayoutDashboard, LifeBuoy, MessageSquare, Network, ShieldCheck, Users, Wallet } from 'lucide-react'
 import { lazy, Suspense, type ReactNode } from 'react'
-import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
+import { createBrowserRouter, Navigate, Outlet, useLocation } from 'react-router-dom'
 
 import { BusinessLayout } from '@/components/layout/BusinessLayout'
 import { LearnerLayout } from '@/components/layout/LearnerLayout'
@@ -57,7 +57,6 @@ const SubscriptionPage = named(() => import('@/pages/b2c/SubscriptionPage'), 'Su
 const PackagesPage = named(() => import('@/pages/b2c/PackagesPage'), 'PackagesPage')
 const CheckoutReviewPage = named(() => import('@/pages/b2c/CheckoutReviewPage'), 'CheckoutReviewPage')
 const ComplianceDashboard = named(() => import('@/pages/business/ComplianceDashboard'), 'ComplianceDashboard')
-const MatrixPage = named(() => import('@/pages/business/MatrixPage'), 'MatrixPage')
 const RequirementsPage = named(() => import('@/pages/business/RequirementsPage'), 'RequirementsPage')
 const ReportsPage = named(() => import('@/pages/business/ReportsPage'), 'ReportsPage')
 const PeoplePage = named(() => import('@/pages/business/PeoplePage'), 'PeoplePage')
@@ -107,12 +106,16 @@ const ConsolePackagesPage = named(() => import('@/pages/console/b2c/AdminPackage
 
 const page = (el: ReactNode) => <Suspense fallback={<PageSpinner />}>{el}</Suspense>
 
+function MatrixRedirect() {
+  const location = useLocation()
+  return <Navigate to={{ pathname: '/business', search: location.search, hash: '#training-matrix' }} replace />
+}
+
 const businessNav: NavSection[] = [
-  { items: [{ to: '/business', label: 'Overview', Icon: LayoutDashboard, end: true }] },
+  { items: [{ to: '/business', label: 'Dashboard', Icon: LayoutDashboard, end: true }] },
   {
     title: 'Compliance',
     items: [
-      { to: '/business/matrix', label: 'Training matrix', Icon: ClipboardCheck },
       { to: '/business/requirements', label: 'Requirements', Icon: ShieldCheck },
       { to: '/business/reports', label: 'Reports', Icon: FileBarChart },
     ],
@@ -261,7 +264,7 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
     ),
     children: [
       { index: true, element: page(<ComplianceDashboard />) },
-      { path: 'matrix', element: page(<MatrixPage />) },
+      { path: 'matrix', element: <MatrixRedirect /> },
       { path: 'requirements', element: page(<RequirementsPage />), handle: { art: 'checklist' } },
       { path: 'reports', element: page(<ReportsPage />), handle: { art: 'chartgrid' } },
       { path: 'people', element: page(<PeoplePage />), handle: { art: 'orgchart' } },

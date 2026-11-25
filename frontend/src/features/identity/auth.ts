@@ -56,7 +56,7 @@ async function call(method: string, path: string, body?: unknown, headers: Recor
     await ensureCsrf(true)
     res = await send()
   }
-  const json = (await res.json().catch(() => ({ status: res.status }))) as AllauthResponse
+                                                                                                                                                                                                                                                          const json = (await res.json().catch(() => ({ status: res.status }))) as AllauthResponse
   return { ...json, status: res.status }
 }
 

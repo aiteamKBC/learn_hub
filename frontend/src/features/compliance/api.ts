@@ -22,7 +22,7 @@ export type AuditEntry = Awaited<ReturnType<typeof fetchAudit>>['items'][number]
 
 export type MatrixFilters = { unit?: string; role?: string; status?: string; req?: string; q?: string }
 
-const fetchDashboard = () => unwrap(api.GET('/api/v1/compliance/dashboard'))
+const fetchDashboard = (unitId?: string) => unwrap(api.GET('/api/v1/compliance/dashboard', { params: { query: { unit_id: unitId || undefined } } }))
 const fetchSummary = (unitId?: string) => unwrap(api.GET('/api/v1/compliance/summary', { params: { query: { unit_id: unitId || undefined } } }))
 const fetchMatrix = (f: MatrixFilters, cursor?: string) =>
   unwrap(
@@ -35,8 +35,8 @@ const fetchRequirements = () => unwrap(api.GET('/api/v1/compliance/requirements'
 const fetchAudit = (action?: string, cursor?: string) => unwrap(api.GET('/api/v1/org/audit', { params: { query: { action: action || undefined, cursor, limit: 30 } } }))
 
 // ---------------------------------------------------------------- reads
-export function useDashboard() {
-  return useQuery({ queryKey: ['compliance', 'dashboard', currentOrgId()], queryFn: fetchDashboard })
+export function useDashboard(unitId?: string) {
+  return useQuery({ queryKey: ['compliance', 'dashboard', currentOrgId(), unitId ?? ''], queryFn: () => fetchDashboard(unitId), placeholderData: keepPreviousData })
 }
 
 /** Per-requirement counts; optionally for one unit (and the units below it). */

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Field, Input, NativeSelect } from '@/components/ui/input'
-import { EmptyState, ErrorState, PageHeader } from '@/components/ui/misc'
+import { EmptyState, ErrorState } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { type Campaign, useCampaignScores, useCampaigns, useCloseCampaign, useCreateCampaign, useMaturityFrameworks, useMaturityVersion } from '@/features/frameworks/api'
 import { fullDateTime } from '@/features/frameworks/format'
@@ -178,7 +178,9 @@ function CampaignCard({ c, admin }: { c: Campaign; admin: boolean }) {
   )
 }
 
-export function MaturityPage() {
+/** The Department maturity body, used as a tab inside the Frameworks library page.
+ * It owns its own heading row and "New campaign" action. */
+export function MaturitySection() {
   const admin = useIsOrgAdmin()
   const frameworks = useMaturityFrameworks()
   const campaigns = useCampaigns()
@@ -186,17 +188,14 @@ export function MaturityPage() {
 
   return (
     <>
-      <PageHeader
-        title="Department maturity"
-        description="Run quarterly maturity reviews by department and see how each one scores."
-        actions={
-          admin ? (
-            <Button onClick={() => setCreating(true)} disabled={!frameworks.data?.some((fw) => fw.published_version_id)}>
-              <Plus /> New campaign
-            </Button>
-          ) : null
-        }
-      />
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <p className="max-w-2xl text-sm text-muted">Run quarterly maturity reviews by department and see how each one scores.</p>
+        {admin ? (
+          <Button onClick={() => setCreating(true)} disabled={!frameworks.data?.some((fw) => fw.published_version_id)}>
+            <Plus /> New campaign
+          </Button>
+        ) : null}
+      </div>
       <div className="grid gap-6">
         <Card>
           <CardHeader title="Maturity frameworks" description="The models your campaigns measure against." action={<Gauge className="size-5 text-muted" aria-hidden />} />

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Field, Input, NativeSelect, Textarea } from '@/components/ui/input'
-import { EmptyState, ErrorState, PageHeader } from '@/components/ui/misc'
+import { EmptyState, ErrorState } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, Td, Th, Tr } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -145,7 +145,9 @@ function CompetencyTable({ items, admin, canEditPlatform, onEdit, onClone, cloni
   )
 }
 
-export function CompetenciesPage() {
+/** The Competencies (KSB catalogue) body, used as a tab inside the Frameworks library
+ * page. It owns its own heading row and "New competency" action. */
+export function CompetenciesSection() {
   const admin = useIsOrgAdmin()
   const { isPlatformAdminView } = useWorkspace()
   const [kind, setKind] = useState('')
@@ -162,17 +164,16 @@ export function CompetenciesPage() {
 
   return (
     <>
-      <PageHeader
-        title="Competencies"
-        description={isPlatformAdminView ? 'The master skills library for the whole platform. New competencies you add here are shared with every company.' : 'The knowledge, skills, behaviours and professional standards your roles are built from.'}
-        actions={
-          admin ? (
-            <Button onClick={() => setCreating(true)}>
-              <Plus /> New competency
-            </Button>
-          ) : null
-        }
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="max-w-2xl text-sm text-muted">
+          {isPlatformAdminView ? 'The master skills library for the whole platform. New competencies you add here are shared with every company.' : 'The knowledge, skills, behaviours and professional standards your roles are built from.'}
+        </p>
+        {admin ? (
+          <Button onClick={() => setCreating(true)}>
+            <Plus /> New competency
+          </Button>
+        ) : null}
+      </div>
       <div className="grid gap-5">
         <div className="flex items-center gap-3">
           <label className="text-sm text-muted" htmlFor="kind-filter">
