@@ -265,7 +265,10 @@ def related_courses(request, slug: str, currency: str | None = None):
     """
     course = get_object_or_404(
         Course.objects.select_related("category").prefetch_related("topics"),
-        slug=slug, status="published", live_version__isnull=False, deleted_at__isnull=True,
+        slug=slug,
+        status="published",
+        live_version__isnull=False,
+        deleted_at__isnull=True,
     )
     topic_ids = [topic.id for topic in course.topics.all()]
     related_to = Q()
@@ -283,8 +286,13 @@ def related_courses(request, slug: str, currency: str | None = None):
         .annotate(
             matching_topics=Count("topics", filter=Q(topics__id__in=topic_ids), distinct=True),
             same_category=(
-                Case(When(category_id=course.category_id, then=Value(1)), default=Value(0), output_field=IntegerField())
-                if course.category_id else Value(0)
+                Case(
+                    When(category_id=course.category_id, then=Value(1)),
+                    default=Value(0),
+                    output_field=IntegerField(),
+                )
+                if course.category_id
+                else Value(0)
             ),
         )
         .select_related("category")
