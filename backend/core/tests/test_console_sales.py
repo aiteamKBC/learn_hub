@@ -112,11 +112,15 @@ class ConsoleSalesTest(CommerceBase):
         self.assertEqual((r["top_courses"][0]["title"], r["top_courses"][0]["orders"]),
                          (self.python.title, 1))  # fmt: skip
         self.assertEqual(
-            self.client.get(f"{API}/sales/overview?range=30d&product={self.sql.id}").json()["kpis"]["total_sales"]["value"],
+            self.client.get(f"{API}/sales/overview?range=30d&product={self.sql.id}").json()["kpis"][
+                "total_sales"
+            ]["value"],
             0,
         )
         self.assertEqual(
-            self.client.get(f"{API}/sales/overview?range=30d&customer_type=business").json()["kpis"]["total_sales"]["value"],
+            self.client.get(f"{API}/sales/overview?range=30d&customer_type=business").json()["kpis"][
+                "total_sales"
+            ]["value"],
             0,
         )
         facets = self.client.get(f"{API}/sales/facets").json()

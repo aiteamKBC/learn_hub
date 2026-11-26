@@ -117,7 +117,9 @@ class ConsolePeopleTest(SchemaTransactionTestCase):
         self.assertEqual(granted.status_code, 200, granted.content)
         enrolment_id = granted.json()["id"]
         detail = self.get(f"/console/people/students/{user_id}").json()
-        self.assertEqual((detail["enrolments"], detail["enrolment_list"][0]["source"]), (1, "Granted by staff"))
+        self.assertEqual(
+            (detail["enrolments"], detail["enrolment_list"][0]["source"]), (1, "Granted by staff")
+        )
 
         updated = self.send(
             "patch",
@@ -139,20 +141,34 @@ class ConsolePeopleTest(SchemaTransactionTestCase):
     def test_global_enrolments_manage_personal_and_company_access(self):
         self.as_(self.staff)
         self.assertEqual(self.get("/console/enrolments/kpis").json()["total"], 0)
-        created = self.post("/console/enrolments", {"user_id": str(self.sara.id), "course_id": str(self.course.id)})
+        created = self.post(
+            "/console/enrolments", {"user_id": str(self.sara.id), "course_id": str(self.course.id)}
+        )
         self.assertEqual(created.status_code, 200, created.content)
         enrolment_id = created.json()["id"]
-        self.assertEqual(self.get("/console/enrolments?scope=personal").json()["items"][0]["source"], "admin_grant")
-        self.assertEqual(self.post("/console/enrolments", {"user_id": str(self.sara.id), "course_id": str(self.course.id)}).json()["error"]["code"], "already_enrolled")
+        self.assertEqual(
+            self.get("/console/enrolments?scope=personal").json()["items"][0]["source"], "admin_grant"
+        )
+        self.assertEqual(
+            self.post(
+                "/console/enrolments", {"user_id": str(self.sara.id), "course_id": str(self.course.id)}
+            ).json()["error"]["code"],
+            "already_enrolled",
+        )
 
         with tenant_context(user_id=self.omar.id, staff=True):
             org = org_services.create_organization(name="Acme", slug="acme-enrolments", owner=self.omar)
             OrgMember.objects.create(org=org, user=self.sara, joined_at=timezone.now())
-        company = self.post("/console/enrolments", {"user_id": str(self.sara.id), "course_id": str(self.course.id), "company_id": str(org.id)})
+        company = self.post(
+            "/console/enrolments",
+            {"user_id": str(self.sara.id), "course_id": str(self.course.id), "company_id": str(org.id)},
+        )
         self.assertEqual(company.status_code, 200, company.content)
         row = self.get("/console/enrolments?scope=company").json()["items"][0]
         self.assertEqual((row["company"], row["source"]), ("Acme", "organization"))
-        updated = self.send("patch", f"/console/enrolments/{enrolment_id}", {"status": "completed", "progress_pct": 20})
+        updated = self.send(
+            "patch", f"/console/enrolments/{enrolment_id}", {"status": "completed", "progress_pct": 20}
+        )
         self.assertEqual(updated.status_code, 200, updated.content)
         with tenant_context(staff=True):
             self.assertEqual(Enrollment.objects.get(pk=enrolment_id).progress_pct, 100)
@@ -227,17 +243,19 @@ class ConsolePeopleTest(SchemaTransactionTestCase):
 
         assigned = self.post(
             f"/console/people/instructors/{self.tom.id}/courses",
-            {"course_id": str(self.course.id), "can_edit": False, "is_visible": False,
-             "revenue_share_pct": 25.5},
+            {
+                "course_id": str(self.course.id),
+                "can_edit": False,
+                "is_visible": False,
+                "revenue_share_pct": 25.5,
+            },
         )
         self.assertEqual(assigned.status_code, 200, assigned.content)
         course = self.get(f"/console/people/instructors/{self.tom.id}").json()["course_list"][0]
         self.assertEqual((course["can_edit"], course["is_visible"], course["revenue_share_pct"]),
                          (False, False, 25.5))  # fmt: skip
 
-        removed = self.post(
-            f"/console/people/instructors/{self.tom.id}/courses/{self.course.id}/remove"
-        )
+        removed = self.post(f"/console/people/instructors/{self.tom.id}/courses/{self.course.id}/remove")
         self.assertEqual(removed.status_code, 200, removed.content)
         self.assertEqual(self.get(f"/console/people/instructors/{self.tom.id}").json()["courses"], 0)
 

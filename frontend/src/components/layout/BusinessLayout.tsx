@@ -78,13 +78,13 @@ export function BusinessLayout({ sections }: { sections: NavSection[] }) {
         <button
           type="button"
           onClick={() => {
-            // Leave the guarded business route first. Clearing the preview while
-            // still on /business makes RequireManager redirect to /learn.
-            navigate('/console/companies', { replace: true, flushSync: true })
+            // Return to this company's role chooser before clearing the preview;
+            // changing workspace while still under /business triggers its route guard.
+            navigate(`/console/companies?company=${encodeURIComponent(org.org_id)}`, { replace: true, flushSync: true })
             switchTo(null)
           }}
-          aria-label="Back to Companies"
-          title="Back to Companies"
+          aria-label="Back to company roles"
+          title="Back to company roles"
           className="group inline-flex h-9 items-center gap-2 px-1 text-[13px] font-semibold text-nav-text transition-colors hover:text-white focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <ArrowLeft className="size-5 transition-transform group-hover:-translate-x-0.5" strokeWidth={2.2} />

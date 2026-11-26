@@ -84,7 +84,9 @@ class ConsoleEnrolmentPatchIn(Schema):
 
 
 def _filtered(q: str, status: str, scope: str, source: str, course: UUID | None, company: UUID | None):
-    rows = Enrollment.objects.select_related("user", "course", "org").exclude(status=Enrollment.Status.SUPERSEDED)
+    rows = Enrollment.objects.select_related("user", "course", "org").exclude(
+        status=Enrollment.Status.SUPERSEDED
+    )
     term = q.strip()
     if term:
         rows = rows.filter(
@@ -151,8 +153,15 @@ def enrolment_kpis(request):
 
 @router.get("/enrolments", response=ConsoleEnrolmentPageOut)
 def enrolment_list(
-    request, q: str = "", status: str = "", scope: str = "", source: str = "",
-    course: UUID | None = None, company: UUID | None = None, cursor: str | None = None, limit: int = 25,
+    request,
+    q: str = "",
+    status: str = "",
+    scope: str = "",
+    source: str = "",
+    course: UUID | None = None,
+    company: UUID | None = None,
+    cursor: str | None = None,
+    limit: int = 25,
 ):
     staff(request)
     limit = clamp(limit)
@@ -162,19 +171,28 @@ def enrolment_list(
         rows = rows.filter(id__lt=after[0])
     found = list(rows.order_by("-id")[: limit + 1])
     page = found[:limit]
-    return {"items": [_row(item) for item in page], "next_cursor": keyset.encode(page[-1].id) if len(found) > limit else None}
+    return {
+        "items": [_row(item) for item in page],
+        "next_cursor": keyset.encode(page[-1].id) if len(found) > limit else None,
+    }
 
 
 @router.get("/enrolments/options", response=ConsoleEnrolmentOptionsOut)
 def enrolment_options(request):
     staff(request)
-    students = User.objects.filter(is_staff=False, is_active=True, anonymized_at__isnull=True).order_by("full_name", "email")[:2000]
+    students = User.objects.filter(is_staff=False, is_active=True, anonymized_at__isnull=True).order_by(
+        "full_name", "email"
+    )[:2000]
     courses = Course.objects.filter(status="published", deleted_at__isnull=True).order_by("title")[:2000]
     companies = Organization.objects.exclude(status=Organization.Status.CANCELLED).order_by("name")[:1000]
     return {
-        "students": [{"id": user.id, "label": user.full_name or user.email, "detail": user.email} for user in students],
+        "students": [
+            {"id": user.id, "label": user.full_name or user.email, "detail": user.email} for user in students
+        ],
         "courses": [{"id": course.id, "label": course.title, "detail": "Published"} for course in courses],
-        "companies": [{"id": org.id, "label": org.name, "detail": org.get_status_display()} for org in companies],
+        "companies": [
+            {"id": org.id, "label": org.name, "detail": org.get_status_display()} for org in companies
+        ],
     }
 
 
@@ -182,22 +200,32 @@ def enrolment_options(request):
 @transaction.atomic
 def create_enrolment(request, body: ConsoleEnrolmentCreateIn):
     staff(request)
-    user = get_object_or_404(User, pk=body.user_id, is_staff=False, is_active=True, anonymized_at__isnull=True)
+    user = get_object_or_404(
+        User, pk=body.user_id, is_staff=False, is_active=True, anonymized_at__isnull=True
+    )
     course = get_object_or_404(Course, pk=body.course_id, status="published", deleted_at__isnull=True)
     org = None
     if body.company_id:
         org = get_object_or_404(Organization, pk=body.company_id)
         if not OrgMember.objects.filter(org=org, user=user, removed_at__isnull=True).exists():
             raise ServiceError("not_company_member", "This student is not an active member of that company.")
-    existing = Enrollment.objects.filter(user=user, course=course, org=org).exclude(status=Enrollment.Status.SUPERSEDED).first()
+    existing = (
+        Enrollment.objects.filter(user=user, course=course, org=org)
+        .exclude(status=Enrollment.Status.SUPERSEDED)
+        .first()
+    )
     if existing and existing.status not in (Enrollment.Status.REVOKED, Enrollment.Status.EXPIRED):
-        raise ServiceError("already_enrolled", "This student is already enrolled on that course in this workspace.")
+        raise ServiceError(
+            "already_enrolled", "This student is already enrolled on that course in this workspace."
+        )
     if existing:
         existing.status = Enrollment.Status.ACTIVE
         existing.access_expires_at = None
         existing.completed_at = None
         existing.completed_version = None
-        existing.save(update_fields=["status", "access_expires_at", "completed_at", "completed_version", "updated_at"])
+        existing.save(
+            update_fields=["status", "access_expires_at", "completed_at", "completed_version", "updated_at"]
+        )
         enrolment = existing
     else:
         enrolment = learning.enrol(
@@ -206,7 +234,13 @@ def create_enrolment(request, body: ConsoleEnrolmentCreateIn):
             source=Enrollment.Source.ORGANIZATION if org else Enrollment.Source.ADMIN_GRANT,
             org_id=org.id if org else None,
         )
-    audit_request(request, "enrolment.create", "enrollment", str(enrolment.id), {"user_id": str(user.id), "course_id": str(course.id), "company_id": str(org.id) if org else None})
+    audit_request(
+        request,
+        "enrolment.create",
+        "enrollment",
+        str(enrolment.id),
+        {"user_id": str(user.id), "course_id": str(course.id), "company_id": str(org.id) if org else None},
+    )
     return {"id": enrolment.id}
 
 
@@ -224,6 +258,14 @@ def update_enrolment(request, enrolment_id: UUID, body: ConsoleEnrolmentPatchIn)
     elif body.status == Enrollment.Status.ACTIVE:
         enrolment.completed_at = None
         enrolment.completed_version = None
-    enrolment.save(update_fields=["status", "progress_pct", "completed_at", "completed_version", "updated_at"])
-    audit_request(request, "enrolment.update", "enrollment", str(enrolment.id), {"status": body.status, "progress_pct": float(enrolment.progress_pct)})
+    enrolment.save(
+        update_fields=["status", "progress_pct", "completed_at", "completed_version", "updated_at"]
+    )
+    audit_request(
+        request,
+        "enrolment.update",
+        "enrollment",
+        str(enrolment.id),
+        {"status": body.status, "progress_pct": float(enrolment.progress_pct)},
+    )
     return {"ok": True}

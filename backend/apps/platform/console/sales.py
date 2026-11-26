@@ -96,7 +96,9 @@ class ConsoleSalesOverviewOut(Schema):
 def _sales_orders(start, end, category: UUID | None, product: UUID | None, customer_type: str):
     qs = metrics.paid_orders(start, end)
     if category:
-        qs = qs.filter(Q(items__course__category_id=category) | Q(items__course__category__parent_id=category))
+        qs = qs.filter(
+            Q(items__course__category_id=category) | Q(items__course__category__parent_id=category)
+        )
     if product:
         qs = qs.filter(items__course_id=product)
     if customer_type == "personal":
@@ -140,8 +142,13 @@ def _filtered_refunds(start, end, category: UUID | None, product: UUID | None, c
 
 @router.get("/sales/overview", response=ConsoleSalesOverviewOut)
 def sales_overview(
-    request, range: str = "30d", start: date | None = None, end: date | None = None,
-    category: UUID | None = None, product: UUID | None = None, customer_type: str = "",
+    request,
+    range: str = "30d",
+    start: date | None = None,
+    end: date | None = None,
+    category: UUID | None = None,
+    product: UUID | None = None,
+    customer_type: str = "",
 ):
     staff(request)
     if customer_type not in ("", "personal", "business"):
@@ -152,7 +159,9 @@ def sales_overview(
     now, before = _order_values(orders_now), _order_values(orders_before)
     include_subscriptions = category is None and product is None and customer_type != "business"
     subs = metrics.subscription_revenue_gbp(r.start, r.end) if include_subscriptions else 0
-    subs_before = metrics.subscription_revenue_gbp(r.previous_start, r.previous_end) if include_subscriptions else 0
+    subs_before = (
+        metrics.subscription_revenue_gbp(r.previous_start, r.previous_end) if include_subscriptions else 0
+    )
     refunds = _filtered_refunds(r.start, r.end, category, product, customer_type)
     refunds_before = _filtered_refunds(r.previous_start, r.previous_end, category, product, customer_type)
     avg = now["revenue"] // now["orders"] if now["orders"] else 0
@@ -161,7 +170,11 @@ def sales_overview(
         orders_now.annotate(day=TruncDate("paid_at")).values("day").annotate(value=Sum("gbp_total_minor"))
     )
     course_values = {p["day"]: p["value"] or 0 for p in course_series}
-    plans = {p["day"]: p["value"] for p in metrics.subscription_series(r.start, r.end)} if include_subscriptions else {}
+    plans = (
+        {p["day"]: p["value"] for p in metrics.subscription_series(r.start, r.end)}
+        if include_subscriptions
+        else {}
+    )
     top = (
         OrderItem.objects.filter(order__in=orders_now)
         .values("course_id", "course__title")
@@ -177,21 +190,30 @@ def sales_overview(
             "subscriptions": kpi(subs, subs_before),
             "refunds": kpi(refunds, refunds_before),
             "average_order": kpi(avg, avg_before),
-            "net_collected": kpi(now["revenue"] + subs - refunds,
-                                 before["revenue"] + subs_before - refunds_before),
+            "net_collected": kpi(
+                now["revenue"] + subs - refunds, before["revenue"] + subs_before - refunds_before
+            ),
             "gross_list_value": kpi(now["gross"] + subs, before["gross"] + subs_before),
             "discounts": kpi(now["discounts"], before["discounts"]),
             "purchasers": kpi(now["purchasers"], before["purchasers"]),
         },
-        "series": [{"day": day, "value": course_values.get(day, 0) + plans.get(day, 0)}
-                   for day in metrics.days(r.start, r.end)],
+        "series": [
+            {"day": day, "value": course_values.get(day, 0) + plans.get(day, 0)}
+            for day in metrics.days(r.start, r.end)
+        ],
         "by_type": [
             {"key": "courses", "label": "Courses", "value": now["revenue"]},
             {"key": "subscriptions", "label": "Subscriptions", "value": subs},
         ],
-        "top_courses": [{"id": row["course_id"], "title": row["course__title"],
-                         "orders": row["orders"], "revenue_gbp_minor": row["revenue"] or 0}
-                        for row in top],
+        "top_courses": [
+            {
+                "id": row["course_id"],
+                "title": row["course__title"],
+                "orders": row["orders"],
+                "revenue_gbp_minor": row["revenue"] or 0,
+            }
+            for row in top
+        ],
     }
 
 
@@ -238,7 +260,9 @@ def _orders(q, status, product, category, customer_type, method, currency, user,
     if product:
         qs = qs.filter(items__course_id=product)
     if category:
-        qs = qs.filter(Q(items__course__category_id=category) | Q(items__course__category__parent_id=category))
+        qs = qs.filter(
+            Q(items__course__category_id=category) | Q(items__course__category__parent_id=category)
+        )
     if customer_type == "personal":
         qs = qs.filter(org__isnull=True)
     elif customer_type == "business":

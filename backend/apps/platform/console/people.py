@@ -525,16 +525,19 @@ def grant_student_enrolment(request, user_id: UUID, body: ConsoleStudentEnrolmen
         enrolment = existing
     else:
         enrolment = learning.enrol(user=user, course=course, source=Enrollment.Source.ADMIN_GRANT)
-    audit_request(request, "student.enrolment_grant", "enrollment", str(enrolment.id),
-                  {"user_id": str(user_id), "course_id": str(course.id)})
+    audit_request(
+        request,
+        "student.enrolment_grant",
+        "enrollment",
+        str(enrolment.id),
+        {"user_id": str(user_id), "course_id": str(course.id)},
+    )
     return {"id": enrolment.id}
 
 
 @router.patch("/people/students/{user_id}/enrolments/{enrolment_id}", response=ConsoleOkOut)
 @transaction.atomic
-def update_student_enrolment(
-    request, user_id: UUID, enrolment_id: UUID, body: ConsoleStudentEnrolmentPatch
-):
+def update_student_enrolment(request, user_id: UUID, enrolment_id: UUID, body: ConsoleStudentEnrolmentPatch):
     from apps.learning.models import Enrollment
 
     staff(request)
@@ -548,9 +551,16 @@ def update_student_enrolment(
     elif body.status == Enrollment.Status.ACTIVE:
         enrolment.completed_at = None
         enrolment.completed_version_id = None
-    enrolment.save(update_fields=["status", "progress_pct", "completed_at", "completed_version", "updated_at"])
-    audit_request(request, "student.enrolment_edit", "enrollment", str(enrolment.id),
-                  {"status": body.status, "progress_pct": float(enrolment.progress_pct)})
+    enrolment.save(
+        update_fields=["status", "progress_pct", "completed_at", "completed_version", "updated_at"]
+    )
+    audit_request(
+        request,
+        "student.enrolment_edit",
+        "enrollment",
+        str(enrolment.id),
+        {"status": body.status, "progress_pct": float(enrolment.progress_pct)},
+    )
     return {"ok": True}
 
 
@@ -888,7 +898,8 @@ class ConsoleInstructorDetailOut(Schema):
 def instructor_course_options(request):
     staff(request)
     return list(
-        Course.objects.filter(deleted_at__isnull=True).order_by("title")
+        Course.objects.filter(deleted_at__isnull=True)
+        .order_by("title")
         .values("id", "title", "status")[:1000]
     )
 
@@ -987,16 +998,19 @@ def _save_course_assignment(*, user_id: UUID, body: ConsoleInstructorCourseIn) -
 def assign_instructor_course(request, user_id: UUID, body: ConsoleInstructorCourseIn):
     staff(request)
     link = _save_course_assignment(user_id=user_id, body=body)
-    audit_request(request, "instructor.course_assign", "course", str(link.course_id),
-                  {"user_id": str(user_id), "can_edit": link.can_edit, "is_visible": link.is_visible})
+    audit_request(
+        request,
+        "instructor.course_assign",
+        "course",
+        str(link.course_id),
+        {"user_id": str(user_id), "can_edit": link.can_edit, "is_visible": link.is_visible},
+    )
     return {"ok": True}
 
 
 @router.patch("/people/instructors/{user_id}/courses/{course_id}", response=ConsoleOkOut)
 @transaction.atomic
-def edit_instructor_course(
-    request, user_id: UUID, course_id: UUID, body: ConsoleInstructorCourseIn
-):
+def edit_instructor_course(request, user_id: UUID, course_id: UUID, body: ConsoleInstructorCourseIn):
     staff(request)
     if body.course_id != course_id:
         raise ServiceError("course_mismatch", "The selected course does not match this assignment.")
@@ -1052,9 +1066,7 @@ def edit_instructor(request, user_id: UUID, body: ConsoleInstructorPatch):
         changes["website_url"] = url
     if changes:
         InstructorProfile.objects.filter(pk=p.pk).update(**changes, updated_at=timezone.now())
-    account_changes = _clean_account_fields(
-        user=p.user, full_name=body.full_name, email=body.email
-    )
+    account_changes = _clean_account_fields(user=p.user, full_name=body.full_name, email=body.email)
     if account_changes:
         User.objects.filter(pk=user_id).update(**account_changes, updated_at=timezone.now())
         changes.update(account_changes)

@@ -150,7 +150,10 @@ def save_settings(request, body: ConsoleSettingsSaveIn):
 @router.get("/settings/staff", response=list[ConsoleStaffOut])
 def staff_list(request):
     staff(request)
-    return [_staff_row(user, request) for user in User.objects.filter(is_staff=True).order_by("full_name", "email")]
+    return [
+        _staff_row(user, request)
+        for user in User.objects.filter(is_staff=True).order_by("full_name", "email")
+    ]
 
 
 @router.post("/settings/staff", response=ConsoleStaffOut)
@@ -159,13 +162,17 @@ def grant_staff(request, body: ConsoleStaffGrantIn):
     email = body.email.strip().lower()
     user = User.objects.filter(email=email, anonymized_at__isnull=True).first()
     if user is None:
-        raise ServiceError("user_not_found", "Create the account first, then grant platform access.", status=404)
+        raise ServiceError(
+            "user_not_found", "Create the account first, then grant platform access.", status=404
+        )
     if not user.is_active:
         raise ServiceError("inactive_user", "Reactivate this account before granting platform access.")
     if not user.is_staff:
         User.objects.filter(pk=user.pk).update(is_staff=True, updated_at=timezone.now())
         user.is_staff = True
-        audit_request(request, "staff.grant", "user", str(user.id), {"email": user.email, "role": "platform_admin"})
+        audit_request(
+            request, "staff.grant", "user", str(user.id), {"email": user.email, "role": "platform_admin"}
+        )
     return _staff_row(user, request)
 
 
@@ -180,7 +187,9 @@ def remove_staff(request, user_id: UUID):
     if User.objects.filter(is_staff=True, is_active=True).count() <= 1:
         raise ServiceError("last_staff", "Keep at least one active platform administrator.")
     User.objects.filter(pk=user.pk).update(is_staff=False, updated_at=timezone.now())
-    audit_request(request, "staff.remove", "user", str(user.id), {"email": user.email, "role": "platform_admin"})
+    audit_request(
+        request, "staff.remove", "user", str(user.id), {"email": user.email, "role": "platform_admin"}
+    )
     return {"ok": True}
 
 
