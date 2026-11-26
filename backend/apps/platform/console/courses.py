@@ -128,9 +128,21 @@ class ConsoleCourseDetailOut(ConsoleCourseRowOut):
     performance: ConsoleCoursePerformanceOut
     versions: list[ConsoleCourseVersionOut]
     tiers: list[ConsoleTierOptionOut]
+    outcomes: list[str]
+    requirements: list[str]
+    target_audience: list[str]
+    cpd_hours: float | None
 
 
 class ConsoleCoursePatch(Schema):
+    title: str | None = Field(None, min_length=3, max_length=160)
+    subtitle: str | None = Field(None, max_length=240)
+    description: str | None = Field(None, max_length=20000)
+    thumbnail_url: str | None = Field(None, max_length=500)
+    outcomes: list[str] | None = Field(None, max_length=20)
+    requirements: list[str] | None = Field(None, max_length=20)
+    target_audience: list[str] | None = Field(None, max_length=20)
+    cpd_hours: float | None = Field(None, ge=0, le=999)
     category_id: UUID | None = None
     language: str | None = None
     access_days: int | None = Field(None, ge=1, le=3650)
@@ -327,6 +339,8 @@ def course_detail(request, course_id: UUID):
     return {
         **row, "subtitle": c.subtitle, "description": c.description, "level": c.level, "language": c.language,
         "access_days": c.access_days, "in_business": c.in_business,
+        "outcomes": c.outcomes, "requirements": c.requirements, "target_audience": c.target_audience,
+        "cpd_hours": float(c.cpd_hours) if c.cpd_hours is not None else None,
         "price_tier_id": price.tier_id if price else None,
         "certificate_template": template.name if template else None, "created_at": c.created_at,
         "published_at": c.published_at, "instructors": names,

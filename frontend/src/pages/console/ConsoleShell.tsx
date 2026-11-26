@@ -1,4 +1,4 @@
-import { Award, BadgePercent, ShieldCheck, BarChart3, BookOpen, Building2, Coins, CreditCard, GraduationCap, History, LayoutDashboard, MessageSquare, Package as PackageIcon, Percent, Receipt, Settings, Stamp, Star, Tags, Users, Wallet, WalletCards, BriefcaseBusiness } from 'lucide-react'
+import { Award, BadgePercent, ShieldCheck, BarChart3, BookOpen, Building2, ClipboardList, Coins, CreditCard, GraduationCap, History, LayoutDashboard, MessageSquare, Package as PackageIcon, Percent, Receipt, Settings, Stamp, Star, Tags, Users, Wallet, WalletCards, BriefcaseBusiness } from 'lucide-react'
 
 import { ApiError } from '@/api/client'
 import { Backdrop } from '@/components/art/backdrops'
@@ -33,6 +33,7 @@ const consoleNav: NavSection[] = [
       { to: '/console/courses', label: 'Courses', Icon: BookOpen },
       { to: '/console/instructors', label: 'Instructors', Icon: GraduationCap },
       { to: '/console/students', label: 'Students', Icon: Users },
+      { to: '/console/enrolments', label: 'Enrolments', Icon: ClipboardList },
     ],
   },
   {

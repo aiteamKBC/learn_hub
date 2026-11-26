@@ -1,4 +1,4 @@
-import { BarChart3, Coins, CreditCard, Download, ExternalLink, FileText, Receipt, RotateCcw, ShoppingCart, TrendingUp, Undo2, User, Wallet } from 'lucide-react'
+import { BarChart3, Building2, Coins, CreditCard, Download, ExternalLink, FileText, Receipt, RotateCcw, ShoppingCart, TicketPercent, TrendingUp, Undo2, User, Wallet } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from '@/lib/toast'
 
@@ -36,7 +36,9 @@ const TABS = ['overview', 'orders', 'refunds', 'invoices'] as const
 // ---------------------------------------------------------------- overview
 function Overview() {
   const [range, setRange] = useRangeParam()
-  const q = useSalesOverview(range)
+  const [filters, setFilters] = useState<Pick<OrderFilters, 'category' | 'product' | 'customer_type'>>({})
+  const facets = useSalesFacets()
+  const q = useSalesOverview({ ...range, ...filters })
   const d = q.data
   if (q.error) return <ErrorState message={(q.error as Error).message} onRetry={() => void q.refetch()} />
   const total = d ? d.by_type.reduce((s, x) => s + x.value, 0) : 0
@@ -45,15 +47,40 @@ function Overview() {
       <div className="flex justify-end sm:hidden">
         <DateRangeSelect value={range} onChange={setRange} />
       </div>
+      <Card className="p-3">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[repeat(3,minmax(11rem,1fr))_auto]">
+          <NativeSelect aria-label="Course category" value={filters.category ?? ''} onChange={(e) => setFilters((current) => ({ ...current, category: e.target.value || undefined, product: undefined }))}>
+            <option value="">All categories</option>
+            {(facets.data?.categories ?? []).map((category) => <option key={category.id} value={category.id}>{category.label}</option>)}
+          </NativeSelect>
+          <NativeSelect aria-label="Course" value={filters.product ?? ''} onChange={(e) => setFilters((current) => ({ ...current, product: e.target.value || undefined }))}>
+            <option value="">All courses</option>
+            {(facets.data?.courses ?? []).map((course) => <option key={course.id} value={course.id}>{course.label}</option>)}
+          </NativeSelect>
+          <NativeSelect aria-label="Customer type" value={filters.customer_type ?? ''} onChange={(e) => setFilters((current) => ({ ...current, customer_type: e.target.value || undefined }))}>
+            <option value="">Personal and company purchases</option>
+            <option value="personal">Personal purchases</option>
+            <option value="business">Company purchases</option>
+          </NativeSelect>
+          <Button variant="secondary" onClick={() => setFilters({})}><RotateCcw /> Reset</Button>
+        </div>
+      </Card>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3 shadow-sm">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary-soft-text"><Building2 className="size-4" /></span>
+          <div><p className="text-sm font-semibold">Commercial purchases only</p><p className="text-xs text-muted">Personal and company purchases are counted. Workplace-assigned learning and internal staff training are excluded from revenue.</p></div>
+        </div>
+        <div className="flex rounded-lg border border-border bg-surface-2 p-1 text-xs"><span className="rounded-md bg-surface px-3 py-1.5 font-medium shadow-sm">Personal purchases</span><span className="px-3 py-1.5 text-muted">Company purchases</span></div>
+      </div>
       <section aria-label="Sales figures" className={cn('grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6', d && 'stagger')}>
         {!d ? (
           Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-[118px]" />)
         ) : (
           <>
             <KpiCard label="Total sales" kpi={d.kpis.total_sales} icon={<ShoppingCart />} />
-            <KpiCard label="Total revenue" kpi={d.kpis.revenue} icon={<Coins />} format={gbp} tone="success" />
-            <KpiCard label="Course sales" kpi={d.kpis.course_sales} icon={<Receipt />} format={gbp} tone="info" />
-            <KpiCard label="Subscriptions" kpi={d.kpis.subscriptions} icon={<CreditCard />} format={gbp} />
+            <KpiCard label="Net collected" kpi={d.kpis.net_collected} icon={<Coins />} format={gbp} tone="success" />
+            <KpiCard label="Gross list value" kpi={d.kpis.gross_list_value} icon={<Receipt />} format={gbp} tone="info" />
+            <KpiCard label="Discounts" kpi={d.kpis.discounts} icon={<TicketPercent />} format={gbp} />
             <KpiCard label="Refunds" kpi={d.kpis.refunds} icon={<RotateCcw />} format={gbp} tone="danger" lowerIsBetter />
             <KpiCard label="Average order value" kpi={d.kpis.average_order} icon={<Wallet />} format={gbp} tone="warning" />
           </>
@@ -82,19 +109,25 @@ function Overview() {
           </CardBody>
         </Card>
       </div>
-      <OrdersCard compact />
+      {d?.top_courses.length ? (
+        <Card>
+          <CardHeader title="Bestselling courses" description="Live paid-order performance for the selected period." />
+          <Table className="mt-3"><thead><tr><Th>Course</Th><Th className="text-right">Orders</Th><Th className="text-right">Revenue</Th></tr></thead><tbody>{d.top_courses.map((course) => <Tr key={course.id}><Td><a href={`/console/courses?course=${course.id}`} className="font-medium text-primary hover:underline">{course.title}</a></Td><Td className="text-right tabular">{course.orders}</Td><Td className="text-right font-medium tabular">{gbp(course.revenue_gbp_minor)}</Td></Tr>)}</tbody></Table>
+        </Card>
+      ) : null}
+      <OrdersCard compact scope={{ ...filters, start: d?.range.start, end: d?.range.end }} />
     </div>
   )
 }
 
 // ---------------------------------------------------------------- orders
-function OrdersCard({ compact }: { compact?: boolean }) {
+function OrdersCard({ compact, scope = {} }: { compact?: boolean; scope?: Partial<OrderFilters> }) {
   const [, setOrder] = useParam('order')
   const [user, setUser] = useParam('user')
   const [text, setText] = useState('')
   const [f, setF] = useState<OrderFilters>({})
   const q = useDebounced(text, 300)
-  const filters: OrderFilters = { ...f, q: q.trim() || undefined, user: user || undefined }
+  const filters: OrderFilters = { ...scope, ...f, q: q.trim() || undefined, user: user || undefined }
   const list = useConsoleOrders(filters)
   const facets = useSalesFacets()
   const rows = list.data?.pages.flatMap((p) => p.items) ?? []
@@ -114,6 +147,19 @@ function OrdersCard({ compact }: { compact?: boolean }) {
           <option value="">All statuses</option>
           {Object.entries(ORDER_STATUSES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </NativeSelect>
+        <NativeSelect aria-label="Category" value={f.category ?? scope.category ?? ''} onChange={set('category')} className="w-full sm:w-48">
+          <option value="">All categories</option>
+          {(facets.data?.categories ?? []).map((category) => <option key={category.id} value={category.id}>{category.label}</option>)}
+        </NativeSelect>
+        <NativeSelect aria-label="Course" value={f.product ?? scope.product ?? ''} onChange={set('product')} className="w-full sm:w-48">
+          <option value="">All courses</option>
+          {(facets.data?.courses ?? []).map((course) => <option key={course.id} value={course.id}>{course.label}</option>)}
+        </NativeSelect>
+        <NativeSelect aria-label="Customer type" value={f.customer_type ?? scope.customer_type ?? ''} onChange={set('customer_type')} className="w-full sm:w-48">
+          <option value="">All customer types</option>
+          <option value="personal">Personal purchase</option>
+          <option value="business">Company purchase</option>
+        </NativeSelect>
         <NativeSelect aria-label="Payment method" value={f.method ?? ''} onChange={set('method')} className="w-full sm:w-48">
           <option value="">All payment methods</option>
           {(facets.data?.methods ?? []).map((m) => <option key={m} value={m}>{METHOD_LABEL[m] ?? m}</option>)}
@@ -123,6 +169,7 @@ function OrdersCard({ compact }: { compact?: boolean }) {
           <option value="">All currencies</option>
           {(facets.data?.currencies ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
         </NativeSelect>
+        <Button variant="secondary" onClick={() => (setText(''), setF({}), setUser(''))}><RotateCcw /> Reset</Button>
       </Toolbar>
       {list.error ? (
         <ErrorState message={(list.error as Error).message} onRetry={() => void list.refetch()} />
@@ -138,6 +185,7 @@ function OrdersCard({ compact }: { compact?: boolean }) {
                 <Th>Order</Th>
                 <Th>Customer</Th>
                 <Th>Products</Th>
+                <Th>Customer type</Th>
                 <Th className="text-right">Amount</Th>
                 <Th>Payment method</Th>
                 <Th>Status</Th>
@@ -168,6 +216,7 @@ function OrderRow({ o, onOpen }: { o: ConsoleOrderRow; onOpen: () => void }) {
         <span className="block max-w-48 truncate text-xs text-muted">{o.email}</span>
       </Td>
       <Td className="max-w-56 truncate">{o.products}</Td>
+      <Td>{o.customer_type === 'business' ? <span className="inline-flex items-center gap-1.5"><Building2 className="size-3.5 text-muted" /> Company</span> : 'Personal'}</Td>
       <Td className="text-right font-medium whitespace-nowrap tabular">{money(o.total_minor, o.currency, o.exponent)}</Td>
       <Td><PaymentMethod method={o.payment_method} brand={o.card_brand} last4={o.card_last4} /></Td>
       <Td><StatusPill status={o.status} label={ORDER_STATUSES[o.status]} /></Td>

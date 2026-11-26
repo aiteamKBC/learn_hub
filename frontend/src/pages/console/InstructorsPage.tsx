@@ -1,4 +1,4 @@
-import { BookOpen, Check, Coins, Download, GraduationCap, Inbox, MailPlus, MoreHorizontal, Pause, Pencil, Play, Search, Send, ShieldCheck, Wallet, X } from 'lucide-react'
+import { BookOpen, BookPlus, Check, Coins, Download, GraduationCap, Inbox, MailPlus, MoreHorizontal, Pause, Pencil, Play, Search, Send, ShieldCheck, Trash2, Wallet, X } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from '@/lib/toast'
 
@@ -24,27 +24,32 @@ import {
   type InstructorPermissions,
   type InstructorRow,
   saveCsv,
+  useAssignInstructorCourse,
   useApplications,
   useDecideApplication,
+  useDeleteAccount,
   useEditInstructor,
+  useEditInstructorCourse,
   useInstructor,
+  useInstructorCourseOptions,
   useInstructorKpis,
   useCancelInvite,
   useInstructors,
   useInviteInstructor,
   usePendingInvites,
   useReactivateInstructor,
+  useRemoveInstructorCourse,
   useResendInvite,
   useSetPermissions,
   useSuspendInstructor,
 } from '@/features/console/people'
-import { PeopleSwitch, PersonCell, personStatus } from '@/features/console/people-ui'
+import { PersonCell, personStatus } from '@/features/console/people-ui'
 import { METHOD_NAME, REQUEST_STATUS } from '@/features/console/payouts'
 import { ConfirmDialog, DetailSheet, gbp, InfoRow, LoadMore, StatusPill, useParam, useTabParam } from '@/features/console/ui'
 import { useDebounced } from '@/features/org/ui'
 import { Link } from '@/lib/router'
 
-type Pending = { kind: 'suspend' | 'reactivate' | 'edit'; id: string; name: string } | null
+type Pending = { kind: 'suspend' | 'reactivate' | 'delete'; id: string; name: string; email: string } | null
 
 // ---------------------------------------------------------------- KPIs
 function Kpis() {
@@ -106,11 +111,11 @@ function InviteDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
 
 function EditInstructorDialog({ d, open, onOpenChange }: { d: InstructorDetail | undefined; open: boolean; onOpenChange: (o: boolean) => void }) {
   const edit = useEditInstructor()
-  const [form, setForm] = useState({ full_name: '', headline: '', bio: '', website_url: '' })
+  const [form, setForm] = useState({ full_name: '', email: '', headline: '', bio: '', website_url: '' })
   const [key, setKey] = useState('')
   if (open && d && key !== d.user_id) {
     setKey(d.user_id)
-    setForm({ full_name: d.name, headline: d.headline, bio: d.bio, website_url: d.website_url })
+    setForm({ full_name: d.name, email: d.email, headline: d.headline, bio: d.bio, website_url: d.website_url })
   }
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }))
   return (
@@ -124,6 +129,7 @@ function EditInstructorDialog({ d, open, onOpenChange }: { d: InstructorDetail |
           }}
         >
           <Field label="Full name">{(p) => <Input {...p} value={form.full_name} onChange={set('full_name')} required maxLength={200} />}</Field>
+          <Field label="Email">{(p) => <Input {...p} type="email" value={form.email} onChange={set('email')} required maxLength={320} />}</Field>
           <Field label="Headline">{(p) => <Input {...p} value={form.headline} onChange={set('headline')} maxLength={160} />}</Field>
           <Field label="Bio">{(p) => <Textarea {...p} value={form.bio} onChange={set('bio')} maxLength={5000} rows={5} />}</Field>
           <Field label="Website" hint="An https:// link.">{(p) => <Input {...p} type="url" value={form.website_url} onChange={set('website_url')} maxLength={500} placeholder="https://" />}</Field>
@@ -223,6 +229,115 @@ function CommissionEditor({ d }: { d: InstructorDetail }) {
   )
 }
 
+type InstructorCourse = InstructorDetail['course_list'][number]
+
+function CourseAssignmentDialog({ instructorId, item, open, onOpenChange }: { instructorId: string; item: InstructorCourse | null; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const options = useInstructorCourseOptions(open && !item)
+  const assign = useAssignInstructorCourse()
+  const edit = useEditInstructorCourse()
+  const [form, setForm] = useState({ course_id: '', can_edit: true, is_visible: true, revenue_share_pct: '0' })
+  const [key, setKey] = useState('')
+  const nextKey = item?.id ?? 'new'
+  if (open && key !== nextKey) {
+    setKey(nextKey)
+    setForm({ course_id: item?.id ?? '', can_edit: item?.can_edit ?? true, is_visible: item?.is_visible ?? true, revenue_share_pct: String(item?.revenue_share_pct ?? 0) })
+  }
+  const close = () => {
+    onOpenChange(false)
+    setKey('')
+  }
+  return (
+    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
+      <DialogContent title={item ? 'Edit course assignment' : 'Assign course'} description="Control which course the instructor can manage and how they appear on it.">
+        <form
+          className="grid gap-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!form.course_id) return toast.error('Choose a course.')
+            const share = Number(form.revenue_share_pct)
+            if (!Number.isFinite(share) || share < 0 || share > 100) return toast.error('Revenue share must be between 0 and 100%.')
+            const body = { course_id: form.course_id, can_edit: form.can_edit, is_visible: form.is_visible, revenue_share_pct: share }
+            const options = { onSuccess: () => (toast.success(item ? 'Course assignment updated' : 'Course assigned'), close()), onError: (error: Error) => toast.error(error.message) }
+            if (item) edit.mutate({ userId: instructorId, courseId: item.id, body }, options)
+            else assign.mutate({ userId: instructorId, body }, options)
+          }}
+        >
+          <Field label="Course">
+            {(p) => item ? <Input {...p} value={item.title} disabled /> : (
+              <NativeSelect {...p} value={form.course_id} onChange={(e) => setForm((current) => ({ ...current, course_id: e.target.value }))} required>
+                <option value="">Choose a course</option>
+                {(options.data ?? []).map((course) => <option key={course.id} value={course.id}>{course.title} ({course.status})</option>)}
+              </NativeSelect>
+            )}
+          </Field>
+          <Field label="Revenue share (%)" hint="This assignment's share of course revenue.">
+            {(p) => <Input {...p} type="number" min={0} max={100} step="0.01" value={form.revenue_share_pct} onChange={(e) => setForm((current) => ({ ...current, revenue_share_pct: e.target.value }))} />}
+          </Field>
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
+            <div><Label htmlFor="course-can-edit">Can edit course</Label><p className="text-xs text-muted">Allows studio access to course content.</p></div>
+            <Switch id="course-can-edit" checked={form.can_edit} onCheckedChange={(value) => setForm((current) => ({ ...current, can_edit: value }))} />
+          </div>
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
+            <div><Label htmlFor="course-visible">Visible as instructor</Label><p className="text-xs text-muted">Shows this instructor on the public course page.</p></div>
+            <Switch id="course-visible" checked={form.is_visible} onCheckedChange={(value) => setForm((current) => ({ ...current, is_visible: value }))} />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={close}>Cancel</Button>
+            <Button type="submit" loading={assign.isPending || edit.isPending}>{item ? 'Save assignment' : 'Assign course'}</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function InstructorCourses({ d }: { d: InstructorDetail }) {
+  const remove = useRemoveInstructorCourse()
+  const [dialog, setDialog] = useState<{ open: boolean; item: InstructorCourse | null }>({ open: false, item: null })
+  const [removing, setRemoving] = useState<InstructorCourse | null>(null)
+  return (
+    <div className="grid gap-3">
+      <div className="flex justify-end"><Button size="sm" onClick={() => setDialog({ open: true, item: null })}><BookPlus /> Assign course</Button></div>
+      {d.course_list.length === 0 ? (
+        <EmptyState icon={<BookOpen />} title="No courses yet" body="Assign an existing course to this instructor." className="py-6" />
+      ) : (
+        <ul className="stagger grid gap-2">
+          {d.course_list.map((course) => (
+            <li key={course.id} className="rounded-lg border border-border p-3 text-sm">
+              <div className="flex items-start justify-between gap-3">
+                <Link to={`/console/courses?course=${course.id}`} className="min-w-0 truncate font-medium hover:text-primary">{course.title}</Link>
+                <StatusPill status={course.status} />
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+                <span>{course.students.toLocaleString('en-GB')} students</span>
+                {course.rating_count ? <Rating value={course.rating_avg} count={course.rating_count} /> : <span>No ratings</span>}
+                <span>Earned {gbp(course.earned_gbp_minor)}</span>
+                <span>{course.revenue_share_pct}% share</span>
+                <span>{course.can_edit ? 'Can edit' : 'View only'}</span>
+                <span>{course.is_visible ? 'Publicly visible' : 'Hidden'}</span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" onClick={() => setDialog({ open: true, item: course })}><Pencil /> Edit assignment</Button>
+                <Button size="sm" variant="ghost" onClick={() => setRemoving(course)}><Trash2 /> Remove</Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      <CourseAssignmentDialog instructorId={d.user_id} item={dialog.item} open={dialog.open} onOpenChange={(open) => setDialog((current) => ({ ...current, open }))} />
+      <ConfirmDialog
+        open={!!removing}
+        onOpenChange={(open) => !open && setRemoving(null)}
+        title={`Remove ${removing?.title ?? 'this course'}?`}
+        body="The course and its learners stay in place, but this instructor loses access and is removed from the course page."
+        confirmLabel="Remove assignment"
+        loading={remove.isPending}
+        onConfirm={() => remove.mutate({ userId: d.user_id, courseId: removing!.id }, { onSuccess: () => (toast.success('Course assignment removed'), setRemoving(null)), onError: (error) => toast.error((error as Error).message) })}
+      />
+    </div>
+  )
+}
+
 function InstructorPanel({ id, onAction }: { id: string; onAction: (p: Pending) => void }) {
   const q = useInstructor(id)
   const d = q.data
@@ -270,27 +385,7 @@ function InstructorPanel({ id, onAction }: { id: string; onAction: (p: Pending) 
           ) : null}
         </TabsContent>
         <TabsContent value="courses">
-          {d.course_list.length === 0 ? (
-            <EmptyState icon={<BookOpen />} title="No courses yet" className="py-6" />
-          ) : (
-            <ul className="stagger grid gap-2">
-              {d.course_list.map((c) => (
-                <li key={c.id} className="rounded-lg border border-border p-3 text-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <Link to={`/console/courses?course=${c.id}`} className="min-w-0 truncate font-medium hover:text-primary">
-                      {c.title}
-                    </Link>
-                    <StatusPill status={c.status} />
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-                    <span>{c.students.toLocaleString('en-GB')} students</span>
-                    {c.rating_count ? <Rating value={c.rating_avg} count={c.rating_count} /> : <span>No ratings</span>}
-                    <span>Earned {gbp(c.earned_gbp_minor)}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          <InstructorCourses d={d} />
         </TabsContent>
         <TabsContent value="permissions">
           <PermissionsForm key={JSON.stringify(d.permissions)} d={d} />
@@ -355,14 +450,17 @@ function InstructorPanel({ id, onAction }: { id: string; onAction: (p: Pending) 
           <ShieldCheck /> Set permissions
         </Button>
         {d.status === 'approved' ? (
-          <Button variant="danger" size="sm" onClick={() => onAction({ kind: 'suspend', id: d.user_id, name: d.name })}>
+          <Button variant="danger" size="sm" onClick={() => onAction({ kind: 'suspend', id: d.user_id, name: d.name, email: d.email })}>
             <Pause /> Suspend
           </Button>
         ) : d.status === 'suspended' ? (
-          <Button variant="secondary" size="sm" onClick={() => onAction({ kind: 'reactivate', id: d.user_id, name: d.name })}>
+          <Button variant="secondary" size="sm" onClick={() => onAction({ kind: 'reactivate', id: d.user_id, name: d.name, email: d.email })}>
             <Play /> Reactivate
           </Button>
         ) : null}
+        <Button variant="danger" size="sm" disabled={!d.can_delete} title={d.can_delete ? undefined : 'This protected account cannot be deleted'} onClick={() => onAction({ kind: 'delete', id: d.user_id, name: d.name, email: d.email })}>
+          <Trash2 /> Delete account
+        </Button>
       </div>
       <EditInstructorDialog d={d} open={editing} onOpenChange={setEditing} />
     </div>
@@ -439,12 +537,17 @@ function RowMenu({ r, onOpen, onAction }: { r: InstructorRow; onOpen: () => void
           <ShieldCheck /> Details and permissions
         </MenuItem>
         {r.status === 'approved' ? (
-          <MenuItem onSelect={() => onAction({ kind: 'suspend', id: r.user_id, name: r.name })}>
+          <MenuItem onSelect={() => onAction({ kind: 'suspend', id: r.user_id, name: r.name, email: r.email })}>
             <Pause /> Suspend
           </MenuItem>
         ) : r.status === 'suspended' ? (
-          <MenuItem onSelect={() => onAction({ kind: 'reactivate', id: r.user_id, name: r.name })}>
+          <MenuItem onSelect={() => onAction({ kind: 'reactivate', id: r.user_id, name: r.name, email: r.email })}>
             <Play /> Reactivate
+          </MenuItem>
+        ) : null}
+        {r.can_delete ? (
+          <MenuItem onSelect={() => onAction({ kind: 'delete', id: r.user_id, name: r.name, email: r.email })}>
+            <Trash2 /> Delete account
           </MenuItem>
         ) : null}
       </MenuContent>
@@ -534,6 +637,7 @@ export function ConsoleInstructorsPage() {
   const [exporting, setExporting] = useState(false)
   const suspend = useSuspendInstructor()
   const reactivate = useReactivateInstructor()
+  const del = useDeleteAccount()
   const filtered = !!(q || status || permission)
 
   async function exportCsv() {
@@ -554,7 +658,7 @@ export function ConsoleInstructorsPage() {
 
   return (
     <>
-      <PageHeader title="Instructor management" description="Manage instructors, their permissions, courses, commission rates and payouts." actions={<PeopleSwitch active="instructors" />} />
+      <PageHeader title="Instructor management" description="Manage instructors, their permissions, courses, commission rates and payouts." />
       <div className="grid gap-6">
         <Kpis />
         <Card>
@@ -731,6 +835,16 @@ export function ConsoleInstructorsPage() {
         tone="primary"
         loading={reactivate.isPending}
         onConfirm={() => reactivate.mutate(pending!.id, { onSuccess: () => (toast.success('Instructor reactivated'), setPending(null)), onError: (e) => toast.error((e as Error).message) })}
+      />
+      <ConfirmDialog
+        open={pending?.kind === 'delete'}
+        onOpenChange={(o) => !o && setPending(null)}
+        title={`Delete ${pending?.name || 'this instructor'}?`}
+        body={<><strong className="text-danger">This can't be undone.</strong> Their sign-in identity is removed permanently. Courses, earnings, payouts and learning records remain as anonymous audit history.</>}
+        confirmLabel="Delete account"
+        phrase="DELETE"
+        loading={del.isPending}
+        onConfirm={() => del.mutate(pending!.id, { onSuccess: () => (toast.success('Instructor account deleted'), setPending(null), setUserId('')), onError: (e) => toast.error((e as Error).message) })}
       />
     </>
   )

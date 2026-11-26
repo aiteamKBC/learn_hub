@@ -48,7 +48,7 @@ function Curriculum({ sections, onPreview }: { sections: Detail['sections']; onP
   const total = sections.reduce((n, s) => n + s.lectures.reduce((m, l) => m + l.duration_sec, 0), 0)
   const allOpen = open.size === sections.length
   return (
-    <section aria-labelledby="curriculum">
+    <section aria-labelledby="curriculum" className="scroll-mt-24">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 id="curriculum" className="text-xl font-semibold tracking-tight">Course content</h2>
@@ -163,7 +163,7 @@ function ReviewList({ courseId }: { courseId: string }) {
 function Reviews({ course }: { course: Detail }) {
   const total = Object.values(course.rating_breakdown).reduce((a, b) => a + b, 0)
   return (
-    <section aria-labelledby="reviews">
+    <section aria-labelledby="reviews" className="scroll-mt-24">
       <h2 id="reviews" className="text-xl font-semibold tracking-tight">Learner feedback</h2>
       {!course.rating_count ? (
         <p className="mt-3 rounded-lg border border-dashed border-border bg-surface p-5 text-sm text-muted">No ratings yet. Learners can rate the course once they have started it.</p>
@@ -224,7 +224,7 @@ function PreviewDialog({ slug, lecture, onClose }: { slug: string; lecture: { ke
   )
 }
 
-function BuyBox({ course, onPreview }: { course: Detail; onPreview?: () => void }) {
+function BuyBox({ course }: { course: Detail }) {
   const { data: me } = useMe()
   const navigate = useNavigate()
   const location = useLocation()
@@ -271,20 +271,8 @@ function BuyBox({ course, onPreview }: { course: Detail; onPreview?: () => void 
   }
 
   return (
-    <Card className="overflow-hidden shadow-lg">
-      <div className="relative" style={{ viewTransitionName: 'course-cover' }}>
-        <CourseThumb src={course.thumbnail_url} title={course.title} category={course.category} className="rounded-none" />
-        {onPreview ? (
-          <button type="button" onClick={onPreview} className="group absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/10 text-white transition-colors hover:bg-black/25">
-            <span className="flex size-14 items-center justify-center rounded-full bg-white text-primary shadow-lg transition-transform group-hover:scale-110">
-              <PlayCircle className="size-7" />
-            </span>
-            <span className="text-sm font-semibold drop-shadow">Preview this course</span>
-          </button>
-        ) : null}
-        <WishlistHeart courseId={course.id} slug={course.slug} title={course.title} initialSaved={v.in_wishlist} className="absolute top-4 right-4 z-10" />
-      </div>
-      <div className="p-5">
+    <Card className="overflow-hidden rounded-2xl shadow-sm">
+      <div className="p-5 sm:p-6">
         {v.enrollment_id ? (
           <>
             <p className="text-sm font-medium">You're enrolled</p>
@@ -376,7 +364,7 @@ function BuyBox({ course, onPreview }: { course: Detail; onPreview?: () => void 
             <p className="mt-2 text-xs text-muted">Payments are not collected here yet. Paid stages become available after payment is confirmed.</p>
           </div>
         ) : null}
-        <ul className="mt-5 grid gap-2.5 border-t border-border pt-5 text-sm">
+        <ul className="mt-5 grid gap-3 border-t border-border pt-5 text-sm">
           {[
             [PlayCircle, `${duration(course.total_duration_sec)} of content`],
             [BarChart3, `${course.lecture_count} lectures`],
@@ -429,109 +417,102 @@ export function CoursePage() {
     <div className="relative isolate">
       {/* The shared learner/workspace artwork, fixed behind the whole page (same as "My learning"). */}
       <DashboardBackdrop className="animate-fade-in fixed inset-0 -z-10" />
-      <section className="relative overflow-hidden">
-        <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_360px] lg:py-12">
-          <div>
-            <Button variant="secondary" size="sm" onClick={goBack} className="mb-4">
-              <ArrowLeft /> Back
-            </Button>
-            <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-[13px] text-muted">
-              <Link to="/courses" className="hover:text-primary">Courses</Link>
-              <span aria-hidden>/</span>
-              {c.category ? <Link to={catSlug ? `/courses?category=${catSlug}` : '/courses'} className="font-medium text-primary">{c.category}</Link> : null}
-            </nav>
-            <h1 className="mt-3 text-2xl leading-tight font-bold tracking-tight sm:text-4xl" style={{ viewTransitionName: 'course-title' }}>{c.title}</h1>
-            <p className="mt-3 max-w-2xl text-lg text-muted">{c.subtitle}</p>
-            <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-              {c.student_count > 50 ? <Badge tone="warning">Bestseller</Badge> : null}
-              <Rating value={c.rating_avg} count={c.rating_count} size="md" />
-              <span className="inline-flex items-center gap-1.5 text-muted">
-                <Users className="size-4" /> {count(c.student_count)} learners
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-muted">
-                <Clock className="size-4" /> {duration(c.total_duration_sec)}
-              </span>
-            </div>
-            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted">
-              <span>
-                Created by{' '}
-                {c.instructor_profiles.map((i, n) => (
-                  <span key={i.id} className="font-medium text-primary">
-                    {n ? ', ' : ''}
-                    {i.name}
-                  </span>
-                ))}
-              </span>
-              {c.updated_at ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <RefreshCw className="size-3.5" /> Updated {shortDate(c.updated_at)}
-                </span>
-              ) : null}
-              <span className="inline-flex items-center gap-1.5">
-                <Globe className="size-3.5" /> English
-              </span>
-            </div>
-          </div>
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+        <div className="mb-5 flex flex-wrap items-center gap-3">
+          <Button variant="secondary" size="sm" onClick={goBack}><ArrowLeft /> Back</Button>
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-[13px] text-muted">
+            <Link to="/courses" className="hover:text-primary">Courses</Link>
+            {c.category ? <><span aria-hidden>/</span><Link to={catSlug ? `/courses?category=${catSlug}` : '/courses'} className="font-medium text-primary">{c.category}</Link></> : null}
+          </nav>
         </div>
-      </section>
 
-      <div className="relative">
-        <div className="relative mx-auto grid max-w-7xl animate-reveal gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_360px]">
-          <div className="order-2 grid min-w-0 gap-10 lg:order-1">
-          {c.topics.length ? (
-            <section className="rounded-lg border border-border bg-surface p-6">
-              <h2 className="text-lg font-semibold tracking-tight">Topics covered</h2>
-              <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
-                {c.topics.map((t) => (
-                  <li key={t} className="flex items-start gap-2.5 text-sm">
-                    <Check className="mt-0.5 size-4 shrink-0 text-success" /> {t}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-          <Curriculum sections={c.sections} onPreview={setPreview} />
-          <section aria-labelledby="about">
-            <h2 id="about" className="text-xl font-semibold tracking-tight">About this course</h2>
-            {/* description is sanitised on the server (nh3) before it is stored */}
-            <div className="mt-3 max-w-none text-[15px] leading-relaxed text-muted [&_a]:text-primary [&_li]:ml-5 [&_li]:list-disc [&_p]:mb-3" dangerouslySetInnerHTML={{ __html: c.description }} />
-          </section>
-          <section aria-labelledby="instructors">
-            <h2 id="instructors" className="text-xl font-semibold tracking-tight">Instructor{c.instructor_profiles.length > 1 ? 's' : ''}</h2>
-            <div className="mt-4 grid gap-4">
-              {c.instructor_profiles.map((i) => (
-                <div key={i.id} className="flex items-center gap-4">
-                  <Avatar name={i.name} src={i.avatar_url} size="lg" />
-                  <div>
-                    <p className="font-semibold text-primary">{i.name}</p>
-                    <p className="text-sm text-muted">{i.headline || 'LearnHub instructor'}</p>
-                  </div>
-                </div>
-              ))}
+        <section className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+          <div className="grid gap-5 p-4 sm:p-6 lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.4fr)] lg:items-center lg:gap-8">
+            <div className="relative isolate aspect-video overflow-hidden rounded-xl bg-nav" style={{ viewTransitionName: 'course-cover' }}>
+              <CourseThumb src={c.thumbnail_url} title={c.title} category={c.category} className="absolute inset-0 size-full rounded-none" />
+              <WishlistHeart courseId={c.id} slug={c.slug} title={c.title} initialSaved={c.viewer.in_wishlist} className="absolute top-3 right-3 z-10" />
+              {firstPreview ? (
+                <button type="button" onClick={() => setPreview({ key: firstPreview.key, title: firstPreview.title })} className="group absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/10 text-white transition-colors hover:bg-black/25">
+                  <span className="flex size-14 items-center justify-center rounded-full bg-white text-primary shadow-lg transition-transform group-hover:scale-110"><PlayCircle className="size-7" /></span>
+                  <span className="text-sm font-semibold drop-shadow">Preview course</span>
+                </button>
+              ) : null}
             </div>
-          </section>
-          <Reviews course={c} />
-          {related.isLoading || (related.data?.length ?? 0) > 0 ? (
-            <section aria-labelledby="related-courses">
-              <div className="mb-4">
-                <h2 id="related-courses" className="text-xl font-semibold tracking-tight">{c.category ? `More in ${c.category}` : 'Similar courses'}</h2>
-                <p className="mt-1 text-sm text-muted">Courses from the same category or covering related topics.</p>
+            <div className="min-w-0 py-1">
+              <div className="flex flex-wrap items-center gap-2">
+                {c.category ? <Badge tone="primary">{c.category}</Badge> : null}
+                {c.student_count > 50 ? <Badge tone="warning">Bestseller</Badge> : null}
               </div>
-              <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 xl:grid-cols-3">
-                {related.isLoading
-                  ? Array.from({ length: 3 }, (_, index) => <CourseCardSkeleton key={index} />)
-                  : related.data?.slice(0, 6).map((course) => <CourseCard key={course.id} course={course} />)}
+              <h1 className="mt-3 text-2xl leading-tight font-bold tracking-tight sm:text-3xl lg:text-4xl" style={{ viewTransitionName: 'course-title' }}>{c.title}</h1>
+              {c.subtitle ? <p className="mt-3 max-w-3xl text-base leading-relaxed text-muted sm:text-lg">{c.subtitle}</p> : null}
+              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
+                <Rating value={c.rating_avg} count={c.rating_count} size="md" />
+                <span className="inline-flex items-center gap-1.5 text-muted"><Users className="size-4" /> {count(c.student_count)} learners</span>
+                <span className="inline-flex items-center gap-1.5 text-muted"><Clock className="size-4" /> {duration(c.total_duration_sec)}</span>
               </div>
-            </section>
-          ) : null}
-        </div>
-        <aside className="order-1 lg:order-2 lg:-mt-64">
-          <div className="lg:sticky lg:top-24">
-            <BuyBox course={c} onPreview={firstPreview ? () => setPreview({ key: firstPreview.key, title: firstPreview.title }) : undefined} />
-            <TeamBuy courseId={c.id} title={c.title} />
+              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border pt-4 text-sm text-muted">
+                {c.instructor_profiles.length ? <span>By {c.instructor_profiles.map((i, n) => <span key={i.id} className="font-medium text-primary">{n ? ', ' : ''}{i.name}</span>)}</span> : null}
+                {c.updated_at ? <span className="inline-flex items-center gap-1.5"><RefreshCw className="size-3.5" /> Updated {shortDate(c.updated_at)}</span> : null}
+                <span className="inline-flex items-center gap-1.5"><Globe className="size-3.5" /> English</span>
+              </div>
+            </div>
           </div>
+        </section>
+
+        <nav aria-label="Course sections" className="mt-5 overflow-x-auto border-b border-border scrollbar-none">
+          <div className="flex min-w-max gap-2">
+            {[
+              ['#overview', 'Overview'],
+              ['#curriculum', 'Course content'],
+              ['#reviews', 'Learner feedback'],
+            ].map(([href, label]) => <a key={href} href={href} className="border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted transition-colors hover:border-primary/40 hover:text-primary">{label}</a>)}
+          </div>
+        </nav>
+
+        <div className="mt-6 grid animate-reveal min-w-0 gap-6 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)_340px]">
+          <div id="overview" className="grid min-w-0 content-start gap-6 scroll-mt-24">
+            {c.topics.length ? (
+              <section className="rounded-2xl border border-primary/15 bg-primary-soft/20 p-5 sm:p-6">
+                <h2 className="text-lg font-semibold tracking-tight">What you’ll learn</h2>
+                <ul className="mt-4 grid gap-3">
+                  {c.topics.map((t) => <li key={t} className="flex items-start gap-2.5 text-sm leading-relaxed"><Check className="mt-0.5 size-4 shrink-0 text-success" /> <span>{t}</span></li>)}
+                </ul>
+              </section>
+            ) : null}
+            <section aria-labelledby="about" className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
+              <h2 id="about" className="text-lg font-semibold tracking-tight">About this course</h2>
+              {/* description is sanitised on the server (nh3) before it is stored */}
+              <div className="mt-3 max-w-none text-sm leading-relaxed text-muted [&_a]:text-primary [&_li]:ml-5 [&_li]:list-disc [&_p]:mb-3" dangerouslySetInnerHTML={{ __html: c.description }} />
+            </section>
+            {c.instructor_profiles.length ? (
+              <section aria-labelledby="instructors" className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
+                <h2 id="instructors" className="text-lg font-semibold tracking-tight">Instructor{c.instructor_profiles.length > 1 ? 's' : ''}</h2>
+                <div className="mt-4 grid gap-4">
+                  {c.instructor_profiles.map((i) => <div key={i.id} className="flex items-center gap-3"><Avatar name={i.name} src={i.avatar_url} size="md" /><div className="min-w-0"><p className="truncate text-sm font-semibold text-primary">{i.name}</p><p className="text-xs text-muted">{i.headline || 'LearnHub instructor'}</p></div></div>)}
+                </div>
+              </section>
+            ) : null}
+          </div>
+
+          <div className="grid min-w-0 content-start gap-6">
+            <Curriculum sections={c.sections} onPreview={setPreview} />
+            <Reviews course={c} />
+          </div>
+
+          <aside className="min-w-0 xl:sticky xl:top-24 xl:self-start">
+            <BuyBox course={c} />
+            <TeamBuy courseId={c.id} title={c.title} />
           </aside>
         </div>
+
+        {related.isLoading || (related.data?.length ?? 0) > 0 ? (
+          <section aria-labelledby="related-courses" className="mt-10 border-t border-border pt-8">
+            <div className="mb-4"><h2 id="related-courses" className="text-xl font-semibold tracking-tight">{c.category ? `More in ${c.category}` : 'Similar courses'}</h2><p className="mt-1 text-sm text-muted">Courses from the same category or covering related topics.</p></div>
+            <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 xl:grid-cols-3">
+              {related.isLoading ? Array.from({ length: 3 }, (_, index) => <CourseCardSkeleton key={index} />) : related.data?.slice(0, 6).map((course) => <CourseCard key={course.id} course={course} />)}
+            </div>
+          </section>
+        ) : null}
       </div>
       <PreviewDialog slug={c.slug} lecture={preview} onClose={() => setPreview(null)} />
     </div>
