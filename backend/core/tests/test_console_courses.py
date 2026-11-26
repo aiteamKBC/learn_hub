@@ -79,9 +79,30 @@ class ConsoleCoursesTest(SchemaTransactionTestCase):
 
     def test_pricing_access_and_access_duration(self):
         self.assertEqual(self.patch(f"/courses/{self.py.id}", {"language": "xx"}).status_code, 400)
-        self.patch(f"/courses/{self.py.id}", {"language": "fr", "access_days": 90, "in_subscription": False})
+        self.patch(
+            f"/courses/{self.py.id}",
+            {
+                "title": "Python for teams",
+                "subtitle": "A complete introduction",
+                "description": "Build practical Python skills.",
+                "thumbnail_url": "https://cdn.example.com/python.jpg",
+                "outcomes": ["Write clear Python"],
+                "requirements": ["No experience required"],
+                "target_audience": ["New developers"],
+                "cpd_hours": 4.5,
+                "level": "beginner",
+                "language": "fr",
+                "access_days": 90,
+                "in_subscription": False,
+            },
+        )
         c = Course.objects.get(pk=self.py.id)
-        self.assertEqual((c.language, c.access_days, c.in_subscription), ("fr", 90, False))
+        self.assertEqual((c.title, c.language, c.access_days, c.in_subscription),
+                         ("Python for teams", "fr", 90, False))  # fmt: skip
+        self.assertEqual((c.outcomes, c.requirements, c.target_audience),
+                         (["Write clear Python"], ["No experience required"], ["New developers"]))  # fmt: skip
+        detail = self.get(f"/courses/{self.py.id}").json()
+        self.assertEqual((detail["cpd_hours"], detail["level"]), (4.5, "beginner"))
         with tenant_context(user_id=self.sara.id):
             e = learning.enrol(user=self.sara, course=c, source="purchase")
         self.assertAlmostEqual(

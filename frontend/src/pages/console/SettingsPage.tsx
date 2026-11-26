@@ -1,8 +1,9 @@
-import { Bell, Check, CreditCard, Eye, GraduationCap, ImageUp, Info, RotateCcw, Settings2, ShieldCheck, SlidersHorizontal, Trash2, Users, type LucideIcon } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Bell, Check, CreditCard, Eye, GraduationCap, ImageUp, Info, Plug, RotateCcw, Settings2, ShieldCheck, SlidersHorizontal, Trash2, UserCog, Users, type LucideIcon } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Field, Input, NativeSelect } from '@/components/ui/input'
 import { LogoMark } from '@/components/ui/logo'
@@ -11,12 +12,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useCurrencies } from '@/features/commerce/api'
-import { type BrandingKind, type SettingDef, type SettingValue, useBrandingRemove, useBrandingUpload, useConsoleSettings, useSaveSettings } from '@/features/console/settings'
-import { ConfirmDialog, useTabParam } from '@/features/console/ui'
+import { type BrandingKind, type SettingDef, type SettingValue, useBrandingRemove, useBrandingUpload, useConsoleSettings, useGrantPlatformStaff, useIntegrationHealth, usePlatformStaff, useRemovePlatformStaff, useSaveSettings } from '@/features/console/settings'
+import { ConfirmDialog, StatusPill, useTabParam } from '@/features/console/ui'
 import { cn } from '@/lib/cn'
 import { relativeDate } from '@/lib/format'
 
-type TabKey = 'general' | 'payment' | 'learning' | 'notification' | 'instructor' | 'security'
+type TabKey = 'general' | 'payment' | 'learning' | 'notification' | 'instructor' | 'security' | 'roles' | 'integrations'
 const TABS: { key: TabKey; label: string; icon: LucideIcon; hint: string; groups: string[] }[] = [
   { key: 'general', label: 'General', icon: Settings2, hint: 'Platform name, logo, language and regional preferences.', groups: ['general', 'access'] },
   { key: 'payment', label: 'Payment', icon: CreditCard, hint: 'Refunds, tax, discounts, regional prices and payouts.', groups: ['payment', 'pricing', 'payout'] },
@@ -24,6 +25,8 @@ const TABS: { key: TabKey; label: string; icon: LucideIcon; hint: string; groups
   { key: 'notification', label: 'Notification', icon: Bell, hint: 'Email copies, digests and staff alerts.', groups: ['notification'] },
   { key: 'instructor', label: 'Instructor', icon: Users, hint: 'Course limits and coupons for instructors.', groups: ['instructor'] },
   { key: 'security', label: 'Security', icon: ShieldCheck, hint: 'Passwords, sign-in length, email checks and 2-step sign-in.', groups: ['security'] },
+  { key: 'roles', label: 'Roles & permissions', icon: UserCog, hint: 'Who can open the platform admin console and what that role includes.', groups: [] },
+  { key: 'integrations', label: 'Integrations', icon: Plug, hint: 'Connection status for payments, email, storage and video services.', groups: [] },
 ]
 const TAB_KEYS = TABS.map((t) => t.key)
 
@@ -198,7 +201,71 @@ function Preview({ name, tagline, logo }: { name: string; tagline: string; logo:
   )
 }
 
-/** Console > Settings (mockup 18): every platform setting in six tabs, saved together;
+function RolesPermissions() {
+  const staff = usePlatformStaff()
+  const grant = useGrantPlatformStaff()
+  const remove = useRemovePlatformStaff()
+  const [email, setEmail] = useState('')
+  const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null)
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    grant.mutate(email.trim(), {
+      onSuccess: () => (toast.success('Platform access granted'), setEmail('')),
+      onError: (error) => toast.error(error.message),
+    })
+  }
+  return (
+    <div className="grid gap-5">
+      <div className="rounded-lg border border-primary/20 bg-primary-soft/35 p-4">
+        <div className="flex flex-wrap items-center gap-2"><Badge tone="primary">Platform administrator</Badge><span className="text-xs text-muted">Full admin-console access</span></div>
+        <p className="mt-2 text-sm text-muted">Platform administrators can manage courses, people, companies, money, quality, settings and audit records. Company roles are selected from Companies and do not grant platform access.</p>
+      </div>
+      <form className="grid gap-3 rounded-lg border border-border p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end" onSubmit={submit}>
+        <Field label="Grant platform access" hint="The person must already have an active account.">{(field) => <Input {...field} type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" required />}</Field>
+        <Button type="submit" loading={grant.isPending} disabled={!email.trim()}><UserCog /> Add administrator</Button>
+      </form>
+      <section>
+        <h3 className="mb-3 text-sm font-semibold">Platform administrators</h3>
+        {staff.error ? <ErrorState message={staff.error.message} onRetry={() => void staff.refetch()} /> : staff.isLoading ? <div className="grid gap-2">{Array.from({ length: 3 }, (_, index) => <Skeleton key={index} className="h-16" />)}</div> : (
+          <ul className="grid gap-2">
+            {staff.data?.map((person) => (
+              <li key={person.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-3 py-3">
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary-soft-text">{person.name.slice(0, 1).toUpperCase()}</span>
+                <span className="min-w-0 flex-1"><span className="flex items-center gap-2 truncate text-sm font-medium">{person.name}{person.is_self ? <Badge tone="neutral">You</Badge> : null}</span><span className="block truncate text-xs text-muted">{person.email} · {person.last_login ? `last signed in ${relativeDate(person.last_login)}` : 'has not signed in yet'}</span></span>
+                <StatusPill status={person.active ? 'active' : 'suspended'} />
+                <Button variant="ghost" size="sm" onClick={() => setRemoving({ id: person.id, name: person.name })} disabled={person.is_self}><Trash2 /> Remove access</Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <ConfirmDialog open={!!removing} onOpenChange={(open) => !open && setRemoving(null)} title={`Remove ${removing?.name ?? 'this administrator'}?`} body="They keep their normal account but immediately lose access to the platform admin console." confirmLabel="Remove access" loading={remove.isPending} onConfirm={() => removing && remove.mutate(removing.id, { onSuccess: () => (toast.success('Platform access removed'), setRemoving(null)), onError: (error) => toast.error(error.message) })} />
+    </div>
+  )
+}
+
+function Integrations() {
+  const health = useIntegrationHealth()
+  const external = health.data?.tiles.filter((tile) => ['storage', 'video', 'email', 'payments'].includes(tile.key)) ?? []
+  if (health.error) return <ErrorState message={health.error.message} onRetry={() => void health.refetch()} />
+  if (health.isLoading) return <div className="grid gap-3 sm:grid-cols-2">{Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-28" />)}</div>
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {external.map((integration) => (
+          <div key={integration.key} className="rounded-xl border border-border p-4">
+            <div className="flex items-start justify-between gap-3"><span className="flex items-center gap-2 font-semibold"><Plug className="size-4 text-primary" /> {integration.label}</span><Badge dot tone={integration.status === 'ok' ? 'success' : integration.status === 'warning' ? 'warning' : 'danger'}>{integration.status === 'ok' ? 'Connected' : integration.status === 'warning' ? 'Needs setup' : 'Unavailable'}</Badge></div>
+            <p className="mt-2 text-sm text-muted">{integration.detail}</p>
+            {integration.latency_ms != null ? <p className="mt-2 text-xs text-subtle tabular">Responded in {integration.latency_ms} ms</p> : null}
+          </div>
+        ))}
+      </div>
+      <div className="rounded-lg border border-border bg-surface-2/50 p-4 text-sm text-muted">Credentials stay in the secure server environment and are never shown in the browser. This page reports the live connection state only.</div>
+    </div>
+  )
+}
+
+/** Console > Settings (mockup 18): every platform setting in tabs, saved together;
  * the general tab also has the logo, favicon, a live preview and the site switches. */
 export function ConsoleSettingsPage() {
   const q = useConsoleSettings()
@@ -263,7 +330,7 @@ export function ConsoleSettingsPage() {
                 </div>
               </div>
               <div key={tab} className="stagger mt-5 grid gap-5">
-                {tab === 'general' ? (
+                {tab === 'roles' ? <RolesPermissions /> : tab === 'integrations' ? <Integrations /> : tab === 'general' ? (
                   <>
                     <div className="grid gap-4 sm:grid-cols-2">
                       {byGroup('general').slice(0, 2).map((d) => <Editor key={d.key} def={d} value={value(d.key)} onChange={(v) => set(d.key, v)} />)}
@@ -289,7 +356,7 @@ export function ConsoleSettingsPage() {
                   ))
                 )}
               </div>
-              <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border pt-5">
+              {tab !== 'roles' && tab !== 'integrations' ? <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border pt-5">
                 <Button onClick={onSave} loading={save.isPending && !confirmMaintenance} disabled={!changed.length}>
                   <Check /> Save changes
                 </Button>
@@ -299,7 +366,7 @@ export function ConsoleSettingsPage() {
                 <span className="text-xs text-muted" aria-live="polite">
                   {changed.length ? `${changed.length} unsaved ${changed.length === 1 ? 'change' : 'changes'}` : last ? `Last changed ${relativeDate(last.updated_at!)}${last.updated_by ? ` by ${last.updated_by}` : ''}` : 'All settings are at their defaults.'}
                 </span>
-              </div>
+              </div> : null}
             </Card>
 
             {tab === 'general' ? (

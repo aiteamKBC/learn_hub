@@ -75,7 +75,23 @@ export function useDuplicateCourse() {
   })
 }
 
-export type CoursePatch = { category_id?: string | null; language?: string; access_days?: number | null; lifetime_access?: boolean; in_subscription?: boolean; in_business?: boolean; level?: 'beginner' | 'intermediate' | 'advanced' | 'all' }
+export type CoursePatch = {
+  title?: string
+  subtitle?: string
+  description?: string
+  thumbnail_url?: string
+  outcomes?: string[]
+  requirements?: string[]
+  target_audience?: string[]
+  cpd_hours?: number | null
+  category_id?: string | null
+  language?: string
+  access_days?: number | null
+  lifetime_access?: boolean
+  in_subscription?: boolean
+  in_business?: boolean
+  level?: 'beginner' | 'intermediate' | 'advanced' | 'all'
+}
 
 export function useUpdateCourse(id: string) {
   const done = useCoursesChanged()

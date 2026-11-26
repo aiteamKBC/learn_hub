@@ -18,15 +18,19 @@ import { UserMenu } from './UserMenu'
 export type NavItem = { to: string; label: string; Icon: LucideIcon; end?: boolean; badge?: ReactNode }
 export type NavSection = { title?: string; items: NavItem[] }
 
-function SideNav({ sections, area, onNavigate }: { sections: NavSection[]; area: string; onNavigate?: () => void }) {
+function SideNav({ sections, area, sidebarTop, onNavigate }: { sections: NavSection[]; area: string; sidebarTop?: ReactNode; onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col bg-nav text-nav-text">
-      <p className="mx-5 mt-5 mb-1.5 inline-flex w-fit rounded-full bg-white/8 px-2.5 py-0.5 text-[11px] font-medium tracking-wide text-nav-text uppercase">{area}</p>
-      <nav data-lenis-prevent className="flex-1 overflow-y-auto px-3 pb-4" aria-label={area}>
+      {sidebarTop ? (
+        <div className="px-3 pt-4 pb-1">{sidebarTop}</div>
+      ) : (
+        <p className="mx-5 mt-4 mb-1 inline-flex w-fit rounded-full bg-white/8 px-2.5 py-0.5 text-[10.5px] font-medium tracking-wide text-nav-text uppercase">{area}</p>
+      )}
+      <nav data-lenis-prevent className="sidebar-scroll flex-1 overflow-y-auto px-3 pb-2" aria-label={area}>
         {sections.map((s, i) => (
-          <div key={i} className="mt-3 first:mt-1.5">
-            {s.title ? <p className="px-3 pb-1 text-[10.5px] font-medium tracking-wider text-nav-text-muted uppercase">{s.title}</p> : null}
-            <ul className="grid gap-0.5">
+          <div key={i} className="mt-2 first:mt-1">
+            {s.title ? <p className="px-3 pb-0.5 text-[10px] font-medium tracking-wider text-nav-text-muted uppercase">{s.title}</p> : null}
+            <ul className="grid">
               {s.items.map(({ to, label, Icon, end, badge }) => (
                 <li key={to}>
                   <NavLink
@@ -35,14 +39,14 @@ function SideNav({ sections, area, onNavigate }: { sections: NavSection[]; area:
                     onClick={onNavigate}
                     className={({ isActive }) =>
                       cn(
-                        'relative flex h-9 items-center gap-3 rounded-md px-3 text-[13.5px] font-medium transition-colors',
+                        'relative flex h-8 items-center gap-2.5 rounded-md px-3 text-[13px] font-medium transition-colors',
                         isActive
                           ? "bg-nav-active text-nav-text-active before:absolute before:top-1/2 before:left-0 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-nav-active-bar before:content-['']"
                           : 'hover:bg-nav-hover hover:text-white',
                       )
                     }
                   >
-                    <Icon className="size-[18px]" strokeWidth={1.9} />
+                    <Icon className="size-[17px]" strokeWidth={1.9} />
                     <span className="flex-1 truncate">{label}</span>
                     {badge}
                   </NavLink>
@@ -80,7 +84,7 @@ export type WorkspaceSearch = { placeholder: string; to: (q: string) => string }
  * choose its own with `handle: { art }` in its route. `topBar` is an optional full-width row
  * above the whole frame (e.g. the marketplace nav on the admin console); the sidebar and header
  * then stick just below it. */
-export function WorkspaceLayout({ area, sections, header, search, topBar, centerHeader = false, style }: { area: string; sections: NavSection[]; header?: ReactNode; art?: BackdropVariant; search?: WorkspaceSearch; topBar?: ReactNode; centerHeader?: boolean; style?: CSSProperties }) {
+export function WorkspaceLayout({ area, sections, header, search, topBar, sidebarTop, centerHeader = false, style }: { area: string; sections: NavSection[]; header?: ReactNode; art?: BackdropVariant; search?: WorkspaceSearch; topBar?: ReactNode; sidebarTop?: ReactNode; centerHeader?: boolean; style?: CSSProperties }) {
   const [open, setOpen] = useState(false)
   const hasTop = !!topBar
   const headerContent = header ?? (search ? <HeaderSearch {...search} /> : null)
@@ -102,7 +106,7 @@ export function WorkspaceLayout({ area, sections, header, search, topBar, center
             </div>
           )}
           <div className="min-h-0 flex-1">
-            <SideNav sections={sections} area={area} />
+            <SideNav sections={sections} area={area} sidebarTop={sidebarTop} />
           </div>
         </aside>
       </div>
@@ -116,7 +120,7 @@ export function WorkspaceLayout({ area, sections, header, search, topBar, center
               </Link>
             </div>
             <div className="min-h-0 flex-1">
-              <SideNav sections={sections} area={area} onNavigate={() => setOpen(false)} />
+              <SideNav sections={sections} area={area} sidebarTop={sidebarTop} onNavigate={() => setOpen(false)} />
             </div>
           </div>
         </DialogContent>
@@ -158,13 +162,13 @@ export function WorkspaceLayout({ area, sections, header, search, topBar, center
     return (
       <div className="flex min-h-dvh flex-col" style={style}>
         {topBar}
-        <div className="flex-1 lg:grid lg:grid-cols-[264px_1fr]">{body}</div>
+        <div className="flex-1 lg:grid lg:grid-cols-[272px_1fr]">{body}</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[264px_1fr]" style={style}>
+    <div className="min-h-dvh lg:grid lg:grid-cols-[272px_1fr]" style={style}>
       {body}
     </div>
   )

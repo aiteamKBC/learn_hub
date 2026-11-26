@@ -39,6 +39,13 @@ export function useStudent(id: string) {
   return useQuery({ queryKey: ['console', 'people', 'students', 'detail', id], queryFn: () => fetchStudent(id), enabled: !!id })
 }
 
+const fetchStudentCourseOptions = () => unwrap(api.GET('/api/v1/console/people/students/course-options'))
+export type PeopleCourseOption = Awaited<ReturnType<typeof fetchStudentCourseOptions>>[number]
+
+export function useStudentCourseOptions(enabled = true) {
+  return useQuery({ queryKey: ['console', 'people', 'students', 'course-options'], queryFn: fetchStudentCourseOptions, enabled })
+}
+
 export function useInstructorKpis() {
   return useQuery({ queryKey: ['console', 'people', 'instructors', 'kpis'], queryFn: () => unwrap(api.GET('/api/v1/console/people/instructors/kpis')) })
 }
@@ -73,6 +80,38 @@ export function useEditAccount() {
   })
 }
 
+export function useCreateStudent() {
+  const done = usePeopleChanged()
+  return useMutation({
+    mutationFn: (body: { full_name: string; email: string; temporary_password: string }) =>
+      unwrap(api.POST('/api/v1/console/people/students', { body })),
+    onSuccess: done,
+  })
+}
+
+export function useGrantStudentEnrolment() {
+  const done = usePeopleChanged()
+  return useMutation({
+    mutationFn: (v: { userId: string; courseId: string }) =>
+      unwrap(api.POST('/api/v1/console/people/students/{user_id}/enrolments', {
+        params: { path: { user_id: v.userId } }, body: { course_id: v.courseId },
+      })),
+    onSuccess: done,
+  })
+}
+
+export function useUpdateStudentEnrolment() {
+  const done = usePeopleChanged()
+  return useMutation({
+    mutationFn: (v: { userId: string; enrolmentId: string; status: 'active' | 'completed' | 'expired' | 'revoked'; progress_pct: number }) =>
+      unwrap(api.PATCH('/api/v1/console/people/students/{user_id}/enrolments/{enrolment_id}', {
+        params: { path: { user_id: v.userId, enrolment_id: v.enrolmentId } },
+        body: { status: v.status, progress_pct: v.progress_pct },
+      })),
+    onSuccess: done,
+  })
+}
+
 export function useSuspendAccount() {
   const done = usePeopleChanged()
   return useMutation({
@@ -103,6 +142,47 @@ export function useEditInstructor() {
   const done = usePeopleChanged()
   return useMutation({
     mutationFn: (v: { id: string; body: components['schemas']['ConsoleInstructorPatch'] }) => unwrap(api.PATCH('/api/v1/console/people/instructors/{user_id}', { params: { path: { user_id: v.id } }, body: v.body })),
+    onSuccess: done,
+  })
+}
+
+const fetchInstructorCourseOptions = () => unwrap(api.GET('/api/v1/console/people/instructors/course-options'))
+
+export function useInstructorCourseOptions(enabled = true) {
+  return useQuery({ queryKey: ['console', 'people', 'instructors', 'course-options'], queryFn: fetchInstructorCourseOptions, enabled })
+}
+
+export type InstructorCourseInput = { course_id: string; can_edit: boolean; is_visible: boolean; revenue_share_pct: number }
+
+export function useAssignInstructorCourse() {
+  const done = usePeopleChanged()
+  return useMutation({
+    mutationFn: (v: { userId: string; body: InstructorCourseInput }) =>
+      unwrap(api.POST('/api/v1/console/people/instructors/{user_id}/courses', {
+        params: { path: { user_id: v.userId } }, body: v.body,
+      })),
+    onSuccess: done,
+  })
+}
+
+export function useEditInstructorCourse() {
+  const done = usePeopleChanged()
+  return useMutation({
+    mutationFn: (v: { userId: string; courseId: string; body: InstructorCourseInput }) =>
+      unwrap(api.PATCH('/api/v1/console/people/instructors/{user_id}/courses/{course_id}', {
+        params: { path: { user_id: v.userId, course_id: v.courseId } }, body: v.body,
+      })),
+    onSuccess: done,
+  })
+}
+
+export function useRemoveInstructorCourse() {
+  const done = usePeopleChanged()
+  return useMutation({
+    mutationFn: (v: { userId: string; courseId: string }) =>
+      unwrap(api.POST('/api/v1/console/people/instructors/{user_id}/courses/{course_id}/remove', {
+        params: { path: { user_id: v.userId, course_id: v.courseId } },
+      })),
     onSuccess: done,
   })
 }

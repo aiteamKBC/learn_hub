@@ -17,8 +17,13 @@ export function useWorkspace() {
   const memberships = useMemo(() => me?.memberships ?? [], [me])
   const membership = memberships.find((m) => m.org_id === stored) ?? null
   const staffWorkspace = me?.is_staff ? currentStaffOrgWorkspace() : null
+  const previewRole = staffWorkspace?.preview_role ?? 'company_admin'
+  // Every role selected from the platform Companies drawer is a managed
+  // company-workspace preview. Treating HR or Executive as a learner makes the
+  // business route guard redirect them to /learn instead of their dashboard.
+  const previewOrgRole = previewRole === 'company_admin' ? 'owner' : 'manager'
   const platformOrg = staffWorkspace?.org_id === stored
-    ? { ...staffWorkspace, role: 'owner', logo_url: '', primary_color: '' }
+    ? { ...staffWorkspace, role: previewOrgRole, logo_url: '', primary_color: '' }
     : null
   const org = membership ?? platformOrg
 
@@ -43,5 +48,5 @@ export function useWorkspace() {
     [qc],
   )
 
-  return { org, memberships, switchTo, switchToStaffOrg, isPlatformAdminView: !!platformOrg, canManage: !!org && ['owner', 'admin', 'manager'].includes(org.role) }
+  return { org, memberships, switchTo, switchToStaffOrg, isPlatformAdminView: !!platformOrg, staffPreviewRole: platformOrg ? previewRole : null, canManage: !!org && ['owner', 'admin', 'manager'].includes(org.role) }
 }

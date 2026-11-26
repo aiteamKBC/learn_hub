@@ -7488,6 +7488,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/enrolments/kpis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Enrolment Kpis */
+        get: operations["apps_platform_console_enrolments_enrolment_kpis"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/enrolments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Enrolment List */
+        get: operations["apps_platform_console_enrolments_enrolment_list"];
+        put?: never;
+        /** Create Enrolment */
+        post: operations["apps_platform_console_enrolments_create_enrolment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/enrolments/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Enrolment Options */
+        get: operations["apps_platform_console_enrolments_enrolment_options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/enrolments/{enrolment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Enrolment */
+        patch: operations["apps_platform_console_enrolments_update_enrolment"];
+        trace?: never;
+    };
     "/api/v1/console/moderation/summary": {
         parameters: {
             query?: never;
@@ -8128,7 +8197,11 @@ export interface paths {
         /** Students */
         get: operations["apps_platform_console_people_students"];
         put?: never;
-        post?: never;
+        /**
+         * Create Student
+         * @description Create a learner account with a temporary password supplied by staff.
+         */
+        post: operations["apps_platform_console_people_create_student"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8153,6 +8226,57 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/people/students/course-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Student Course Options */
+        get: operations["apps_platform_console_people_student_course_options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/people/students/{user_id}/enrolments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Grant Student Enrolment */
+        post: operations["apps_platform_console_people_grant_student_enrolment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/people/students/{user_id}/enrolments/{enrolment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Student Enrolment */
+        patch: operations["apps_platform_console_people_update_student_enrolment"];
         trace?: never;
     };
     "/api/v1/console/people/students/{user_id}": {
@@ -8298,6 +8422,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/people/instructors/course-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Instructor Course Options */
+        get: operations["apps_platform_console_people_instructor_course_options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/people/instructors/{user_id}": {
         parameters: {
             query?: never;
@@ -8314,6 +8455,57 @@ export interface paths {
         head?: never;
         /** Edit Instructor */
         patch: operations["apps_platform_console_people_edit_instructor"];
+        trace?: never;
+    };
+    "/api/v1/console/people/instructors/{user_id}/courses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Assign Instructor Course */
+        post: operations["apps_platform_console_people_assign_instructor_course"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/people/instructors/{user_id}/courses/{course_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit Instructor Course */
+        patch: operations["apps_platform_console_people_edit_instructor_course"];
+        trace?: never;
+    };
+    "/api/v1/console/people/instructors/{user_id}/courses/{course_id}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove Instructor Course */
+        post: operations["apps_platform_console_people_remove_instructor_course"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/console/people/instructors/{user_id}/permissions": {
@@ -8408,6 +8600,41 @@ export interface paths {
         /** Set Setting */
         put: operations["apps_platform_console_platform_settings_set_setting"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/settings/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Staff List */
+        get: operations["apps_platform_console_platform_settings_staff_list"];
+        put?: never;
+        /** Grant Staff */
+        post: operations["apps_platform_console_platform_settings_grant_staff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/settings/staff/{user_id}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove Staff */
+        post: operations["apps_platform_console_platform_settings_remove_staff"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19783,6 +20010,14 @@ export interface components {
             versions: components["schemas"]["ConsoleCourseVersionOut"][];
             /** Tiers */
             tiers: components["schemas"]["ConsoleTierOptionOut"][];
+            /** Outcomes */
+            outcomes: string[];
+            /** Requirements */
+            requirements: string[];
+            /** Target Audience */
+            target_audience: string[];
+            /** Cpd Hours */
+            cpd_hours: number | null;
         };
         /** ConsoleCoursePerformanceOut */
         ConsoleCoursePerformanceOut: {
@@ -19864,6 +20099,22 @@ export interface components {
         };
         /** ConsoleCoursePatch */
         ConsoleCoursePatch: {
+            /** Title */
+            title?: string | null;
+            /** Subtitle */
+            subtitle?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Thumbnail Url */
+            thumbnail_url?: string | null;
+            /** Outcomes */
+            outcomes?: string[] | null;
+            /** Requirements */
+            requirements?: string[] | null;
+            /** Target Audience */
+            target_audience?: string[] | null;
+            /** Cpd Hours */
+            cpd_hours?: number | null;
             /** Category Id */
             category_id?: string | null;
             /** Language */
@@ -20271,6 +20522,132 @@ export interface components {
             type: string;
             /** Error */
             error: string;
+        };
+        /** ConsoleEnrolmentKpisOut */
+        ConsoleEnrolmentKpisOut: {
+            /** Total */
+            total: number;
+            /** Active */
+            active: number;
+            /** Completed */
+            completed: number;
+            /** Personal */
+            personal: number;
+            /** Company */
+            company: number;
+            /** Cancelled */
+            cancelled: number;
+        };
+        /** ConsoleEnrolmentPageOut */
+        ConsoleEnrolmentPageOut: {
+            /** Items */
+            items: components["schemas"]["ConsoleEnrolmentRowOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** ConsoleEnrolmentRowOut */
+        ConsoleEnrolmentRowOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Student */
+            student: string;
+            /** Email */
+            email: string;
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Course */
+            course: string;
+            /** Company Id */
+            company_id: string | null;
+            /** Company */
+            company: string | null;
+            /** Scope */
+            scope: string;
+            /** Source */
+            source: string;
+            /** Source Label */
+            source_label: string;
+            /** Status */
+            status: string;
+            /** Progress Pct */
+            progress_pct: number;
+            /**
+             * Enrolled At
+             * Format: date-time
+             */
+            enrolled_at: string;
+            /** Last Accessed At */
+            last_accessed_at: string | null;
+            /** Completed At */
+            completed_at: string | null;
+        };
+        /** ConsoleEnrolmentCreatedOut */
+        ConsoleEnrolmentCreatedOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /** ConsoleEnrolmentCreateIn */
+        ConsoleEnrolmentCreateIn: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Company Id */
+            company_id?: string | null;
+        };
+        /** ConsoleEnrolmentOptionOut */
+        ConsoleEnrolmentOptionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+        };
+        /** ConsoleEnrolmentOptionsOut */
+        ConsoleEnrolmentOptionsOut: {
+            /** Students */
+            students: components["schemas"]["ConsoleEnrolmentOptionOut"][];
+            /** Courses */
+            courses: components["schemas"]["ConsoleEnrolmentOptionOut"][];
+            /** Companies */
+            companies: components["schemas"]["ConsoleEnrolmentOptionOut"][];
+        };
+        /** ConsoleEnrolmentPatchIn */
+        ConsoleEnrolmentPatchIn: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "completed" | "expired" | "revoked";
+            /** Progress Pct */
+            progress_pct: number;
         };
         /** ConsoleModSummaryOut */
         ConsoleModSummaryOut: {
@@ -20926,6 +21303,23 @@ export interface components {
             suspended: number;
             new_30d: components["schemas"]["ConsoleKpiOut"];
         };
+        /** ConsoleCreatedOut */
+        ConsoleCreatedOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /** ConsoleStudentCreateIn */
+        ConsoleStudentCreateIn: {
+            /** Full Name */
+            full_name: string;
+            /** Email */
+            email: string;
+            /** Temporary Password */
+            temporary_password: string;
+        };
         /** ConsoleStudentPageOut */
         ConsoleStudentPageOut: {
             /** Items */
@@ -20959,6 +21353,36 @@ export interface components {
             last_login: string | null;
             /** Is Instructor */
             is_instructor: boolean;
+        };
+        /** ConsoleCourseOptionOut */
+        ConsoleCourseOptionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+        };
+        /** ConsoleStudentEnrolmentIn */
+        ConsoleStudentEnrolmentIn: {
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+        };
+        /** ConsoleStudentEnrolmentPatch */
+        ConsoleStudentEnrolmentPatch: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "completed" | "expired" | "revoked";
+            /** Progress Pct */
+            progress_pct: number;
         };
         /** ConsoleActivityOut */
         ConsoleActivityOut: {
@@ -21148,6 +21572,8 @@ export interface components {
             applied_at: string;
             /** Approved At */
             approved_at: string | null;
+            /** Can Delete */
+            can_delete: boolean;
         };
         /** ConsoleInstructorBalanceOut */
         ConsoleInstructorBalanceOut: {
@@ -21179,6 +21605,12 @@ export interface components {
             rating_count: number;
             /** Earned Gbp Minor */
             earned_gbp_minor: number;
+            /** Can Edit */
+            can_edit: boolean;
+            /** Is Visible */
+            is_visible: boolean;
+            /** Revenue Share Pct */
+            revenue_share_pct: number;
         };
         /** ConsoleInstructorDetailOut */
         ConsoleInstructorDetailOut: {
@@ -21234,6 +21666,8 @@ export interface components {
             payout_method: string | null;
             /** Payout Verified */
             payout_verified: boolean;
+            /** Can Delete */
+            can_delete: boolean;
         };
         /** ConsoleInstructorMonthOut */
         ConsoleInstructorMonthOut: {
@@ -21300,12 +21734,37 @@ export interface components {
         ConsoleInstructorPatch: {
             /** Full Name */
             full_name?: string | null;
+            /** Email */
+            email?: string | null;
             /** Headline */
             headline?: string | null;
             /** Bio */
             bio?: string | null;
             /** Website Url */
             website_url?: string | null;
+        };
+        /** ConsoleInstructorCourseIn */
+        ConsoleInstructorCourseIn: {
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /**
+             * Can Edit
+             * @default true
+             */
+            can_edit: boolean;
+            /**
+             * Is Visible
+             * @default true
+             */
+            is_visible: boolean;
+            /**
+             * Revenue Share Pct
+             * @default 0
+             */
+            revenue_share_pct: number;
         };
         /** ConsoleInstructorPermissionsIn */
         ConsoleInstructorPermissionsIn: {
@@ -21380,6 +21839,36 @@ export interface components {
             /** Is Public */
             is_public?: boolean | null;
         };
+        /** ConsoleStaffOut */
+        ConsoleStaffOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Email */
+            email: string;
+            /** Role */
+            role: string;
+            /** Active */
+            active: boolean;
+            /**
+             * Joined At
+             * Format: date-time
+             */
+            joined_at: string;
+            /** Last Login */
+            last_login: string | null;
+            /** Is Self */
+            is_self: boolean;
+        };
+        /** ConsoleStaffGrantIn */
+        ConsoleStaffGrantIn: {
+            /** Email */
+            email: string;
+        };
         /** ConsoleBrandingUploadOut */
         ConsoleBrandingUploadOut: {
             /** Key */
@@ -21420,6 +21909,10 @@ export interface components {
             subscriptions: components["schemas"]["ConsoleKpiOut"];
             refunds: components["schemas"]["ConsoleKpiOut"];
             average_order: components["schemas"]["ConsoleKpiOut"];
+            net_collected: components["schemas"]["ConsoleKpiOut"];
+            gross_list_value: components["schemas"]["ConsoleKpiOut"];
+            discounts: components["schemas"]["ConsoleKpiOut"];
+            purchasers: components["schemas"]["ConsoleKpiOut"];
         };
         /** ConsoleSalesOverviewOut */
         ConsoleSalesOverviewOut: {
@@ -21429,6 +21922,8 @@ export interface components {
             series: components["schemas"]["ConsolePointOut"][];
             /** By Type */
             by_type: components["schemas"]["ConsoleSalesSliceOut"][];
+            /** Top Courses */
+            top_courses: components["schemas"]["ConsoleTopCourseOut"][];
         };
         /** ConsoleSalesSliceOut */
         ConsoleSalesSliceOut: {
@@ -21438,6 +21933,20 @@ export interface components {
             label: string;
             /** Value */
             value: number;
+        };
+        /** ConsoleTopCourseOut */
+        ConsoleTopCourseOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Orders */
+            orders: number;
+            /** Revenue Gbp Minor */
+            revenue_gbp_minor: number;
         };
         /** ConsoleOrderPageOut */
         ConsoleOrderPageOut: {
@@ -21495,6 +22004,8 @@ export interface components {
             paid_at: string | null;
             /** Payment Intent */
             payment_intent: string;
+            /** Customer Type */
+            customer_type: string;
         };
         /** ConsoleOrderDetailOut */
         ConsoleOrderDetailOut: {
@@ -21637,12 +22148,26 @@ export interface components {
              */
             issued_at: string;
         };
+        /** ConsoleSalesFacetOut */
+        ConsoleSalesFacetOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+        };
         /** ConsoleSalesFacetsOut */
         ConsoleSalesFacetsOut: {
             /** Currencies */
             currencies: string[];
             /** Methods */
             methods: string[];
+            /** Courses */
+            courses: components["schemas"]["ConsoleSalesFacetOut"][];
+            /** Categories */
+            categories: components["schemas"]["ConsoleSalesFacetOut"][];
         };
         /** ConsoleCurrencyOut */
         ConsoleCurrencyOut: {
@@ -34792,6 +35317,125 @@ export interface operations {
             };
         };
     };
+    apps_platform_console_enrolments_enrolment_kpis: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleEnrolmentKpisOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_enrolments_enrolment_list: {
+        parameters: {
+            query?: {
+                q?: string;
+                status?: string;
+                scope?: string;
+                source?: string;
+                course?: string | null;
+                company?: string | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleEnrolmentPageOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_enrolments_create_enrolment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleEnrolmentCreateIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleEnrolmentCreatedOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_enrolments_enrolment_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleEnrolmentOptionsOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_enrolments_update_enrolment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                enrolment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleEnrolmentPatchIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
     apps_platform_console_moderation_summary: {
         parameters: {
             query?: never;
@@ -35748,6 +36392,30 @@ export interface operations {
             };
         };
     };
+    apps_platform_console_people_create_student: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleStudentCreateIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleCreatedOut"];
+                };
+            };
+        };
+    };
     apps_platform_console_people_export_students: {
         parameters: {
             query?: {
@@ -35768,6 +36436,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConsoleStudentRowOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_people_student_course_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleCourseOptionOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_people_grant_student_enrolment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleStudentEnrolmentIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleCreatedOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_people_update_student_enrolment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                enrolment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleStudentEnrolmentPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
                 };
             };
         };
@@ -35952,6 +36693,26 @@ export interface operations {
             };
         };
     };
+    apps_platform_console_people_instructor_course_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleCourseOptionOut"][];
+                };
+            };
+        };
+    };
     apps_platform_console_people_instructor_detail: {
         parameters: {
             query?: never;
@@ -35988,6 +36749,82 @@ export interface operations {
                 "application/json": components["schemas"]["ConsoleInstructorPatch"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_people_assign_instructor_course: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleInstructorCourseIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_people_edit_instructor_course: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleInstructorCourseIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_people_remove_instructor_course: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -36144,6 +36981,72 @@ export interface operations {
             };
         };
     };
+    apps_platform_console_platform_settings_staff_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleStaffOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_platform_settings_grant_staff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleStaffGrantIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleStaffOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_platform_settings_remove_staff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
     apps_platform_console_platform_settings_branding_upload: {
         parameters: {
             query?: never;
@@ -36224,6 +37127,9 @@ export interface operations {
                 range?: string;
                 start?: string | null;
                 end?: string | null;
+                category?: string | null;
+                product?: string | null;
+                customer_type?: string;
             };
             header?: never;
             path?: never;
@@ -36248,6 +37154,8 @@ export interface operations {
                 q?: string | null;
                 status?: string | null;
                 product?: string | null;
+                category?: string | null;
+                customer_type?: string | null;
                 method?: string | null;
                 currency?: string | null;
                 user?: string | null;

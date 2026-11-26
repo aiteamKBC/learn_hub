@@ -6,11 +6,12 @@ import type { RangeQuery } from './ui'
 
 // Console > Sales & orders (mockup 22). Keys start with ['console', 'sales', …].
 
-export type OrderFilters = { q?: string; status?: string; method?: string; currency?: string; product?: string; user?: string; start?: string; end?: string }
+export type OrderFilters = { q?: string; status?: string; method?: string; currency?: string; product?: string; category?: string; customer_type?: string; user?: string; start?: string; end?: string }
+export type SalesOverviewFilters = RangeQuery & { product?: string; category?: string; customer_type?: string }
 
 const clean = <T extends Record<string, unknown>>(o: T) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== '' && v !== undefined)) as Partial<T>
 
-const fetchOverview = (r: RangeQuery) => unwrap(api.GET('/api/v1/console/sales/overview', { params: { query: r } }))
+const fetchOverview = (r: SalesOverviewFilters) => unwrap(api.GET('/api/v1/console/sales/overview', { params: { query: r } }))
 export type SalesOverview = Awaited<ReturnType<typeof fetchOverview>>
 const fetchOrders = (f: OrderFilters, cursor?: string) => unwrap(api.GET('/api/v1/console/orders', { params: { query: { ...clean(f), cursor, limit: 25 } } }))
 export type ConsoleOrderRow = Awaited<ReturnType<typeof fetchOrders>>['items'][number]
@@ -24,7 +25,7 @@ export type ConsoleInvoiceRow = Awaited<ReturnType<typeof fetchInvoices>>['items
 export const ORDER_STATUSES: Record<string, string> = { paid: 'Paid', pending: 'Awaiting payment', partially_refunded: 'Partly refunded', refunded: 'Refunded', failed: 'Payment failed' }
 export const METHOD_LABEL: Record<string, string> = { card: 'Card', paypal: 'PayPal', link: 'Link', bacs_debit: 'Bacs Direct Debit', sepa_debit: 'SEPA Direct Debit', unknown: 'Not recorded' }
 
-export function useSalesOverview(r: RangeQuery) {
+export function useSalesOverview(r: SalesOverviewFilters) {
   return useQuery({
     queryKey: ['console', 'sales', 'overview', r],
     queryFn: () => fetchOverview(r),

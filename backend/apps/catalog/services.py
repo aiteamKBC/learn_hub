@@ -500,7 +500,7 @@ def update_course(*, course: Course, **changes) -> Course:
         if url and not url.startswith("https://"):
             raise ServiceError("bad_url", "Images must use https://")
         course.thumbnail_url = url
-    for field in ("outcomes", "requirements"):  # short plain-text bullet lists
+    for field in ("outcomes", "requirements", "target_audience"):  # short plain-text bullet lists
         if field in changes:
             items = [html.plain(v, 200).strip() for v in changes.pop(field) or []]
             setattr(course, field, [v for v in items if v][:20])

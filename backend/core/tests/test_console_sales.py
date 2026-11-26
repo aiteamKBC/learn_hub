@@ -46,6 +46,7 @@ class ConsoleSalesTest(CommerceBase):
         self.assertEqual(page["total"], 1)
         row = page["items"][0]
         self.assertEqual(row["card_brand"], "visa")
+        self.assertEqual(row["customer_type"], "personal")
         self.assertTrue(row["number"].startswith("ORD-"))
         self.assertEqual(self.client.get(f"{API}/orders?q={row['number']}").json()["total"], 1)
         self.assertEqual(self.client.get(f"{API}/orders?currency=USD").json()["total"], 0)
@@ -102,5 +103,25 @@ class ConsoleSalesTest(CommerceBase):
         self.assertEqual(r["kpis"]["total_sales"]["value"], 1)
         self.assertEqual(r["kpis"]["course_sales"]["value"], 3499)
         self.assertEqual(r["kpis"]["average_order"]["value"], 3499)
+        self.assertEqual(r["kpis"]["net_collected"]["value"], 3499)
+        self.assertEqual(r["kpis"]["gross_list_value"]["value"], 3499)
+        self.assertEqual(r["kpis"]["discounts"]["value"], 0)
+        self.assertEqual(r["kpis"]["purchasers"]["value"], 1)
         self.assertEqual(sum(p["value"] for p in r["series"]), 3499)
         self.assertEqual(r["by_type"][0]["value"], 3499)
+        self.assertEqual((r["top_courses"][0]["title"], r["top_courses"][0]["orders"]),
+                         (self.python.title, 1))  # fmt: skip
+        self.assertEqual(
+            self.client.get(f"{API}/sales/overview?range=30d&product={self.sql.id}").json()["kpis"][
+                "total_sales"
+            ]["value"],
+            0,
+        )
+        self.assertEqual(
+            self.client.get(f"{API}/sales/overview?range=30d&customer_type=business").json()["kpis"][
+                "total_sales"
+            ]["value"],
+            0,
+        )
+        facets = self.client.get(f"{API}/sales/facets").json()
+        self.assertIn(self.python.title, [course["label"] for course in facets["courses"]])

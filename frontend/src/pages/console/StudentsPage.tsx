@@ -1,4 +1,4 @@
-import { Activity, Award, BookOpen, CalendarDays, Download, MoreHorizontal, Pause, Pencil, Play, Search, Trash2, TrendingUp, UserPlus, Users } from 'lucide-react'
+import { Activity, Award, BookOpen, BookPlus, CalendarDays, Download, MoreHorizontal, Pause, Pencil, Play, Search, Trash2, TrendingUp, UserPlus, Users } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from '@/lib/toast'
 
@@ -19,15 +19,19 @@ import {
   type StudentFilters,
   type StudentRow,
   saveCsv,
+  useCreateStudent,
   useDeleteAccount,
   useEditAccount,
+  useGrantStudentEnrolment,
   useReactivateAccount,
   useStudent,
+  useStudentCourseOptions,
   useStudentKpis,
   useStudents,
   useSuspendAccount,
+  useUpdateStudentEnrolment,
 } from '@/features/console/people'
-import { PeopleSwitch, PersonCell, ProgressCell, personStatus } from '@/features/console/people-ui'
+import { PersonCell, ProgressCell, personStatus } from '@/features/console/people-ui'
 import { ConfirmDialog, DetailSheet, InfoRow, KpiCard, LoadMore, StatusPill, useParam } from '@/features/console/ui'
 import { useDebounced } from '@/features/org/ui'
 import { Link } from '@/lib/router'
@@ -120,6 +124,115 @@ function EditAccountDialog({ pending, onClose }: { pending: Pending; onClose: ()
   )
 }
 
+function AddStudentDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const create = useCreateStudent()
+  const [form, setForm] = useState({ full_name: '', email: '', temporary_password: '' })
+  const set = (key: keyof typeof form) => (e: { target: { value: string } }) => setForm((current) => ({ ...current, [key]: e.target.value }))
+  const close = () => {
+    onOpenChange(false)
+    setForm({ full_name: '', email: '', temporary_password: '' })
+  }
+  return (
+    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
+      <DialogContent title="Add student" description="Create a learner account and give them a temporary password.">
+        <form
+          className="grid gap-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            create.mutate(
+              { full_name: form.full_name.trim(), email: form.email.trim(), temporary_password: form.temporary_password },
+              { onSuccess: () => (toast.success('Student added'), close()), onError: (error) => toast.error((error as Error).message) },
+            )
+          }}
+        >
+          <Field label="Full name">{(p) => <Input {...p} value={form.full_name} onChange={set('full_name')} required maxLength={200} autoComplete="off" />}</Field>
+          <Field label="Email">{(p) => <Input {...p} type="email" value={form.email} onChange={set('email')} required maxLength={320} autoComplete="off" />}</Field>
+          <Field label="Temporary password" hint="At least 8 characters. The student can change it later.">
+            {(p) => <Input {...p} type="password" value={form.temporary_password} onChange={set('temporary_password')} required minLength={8} maxLength={128} autoComplete="new-password" />}
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={close}>Cancel</Button>
+            <Button type="submit" loading={create.isPending}><UserPlus /> Add student</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+type StudentEnrolment = StudentDetail['enrolment_list'][number]
+
+function EnrolmentDialog({ studentId, enrolment, open, onOpenChange }: { studentId: string; enrolment: StudentEnrolment | null; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const options = useStudentCourseOptions(open && !enrolment)
+  const grant = useGrantStudentEnrolment()
+  const update = useUpdateStudentEnrolment()
+  const [courseId, setCourseId] = useState('')
+  const [status, setStatus] = useState<'active' | 'completed' | 'expired' | 'revoked'>('active')
+  const [progress, setProgress] = useState('0')
+  const [key, setKey] = useState('')
+  const nextKey = enrolment?.id ?? 'new'
+  if (open && key !== nextKey) {
+    setKey(nextKey)
+    setCourseId('')
+    setStatus((enrolment?.status as typeof status) ?? 'active')
+    setProgress(String(enrolment?.progress_pct ?? 0))
+  }
+  const close = () => {
+    onOpenChange(false)
+    setKey('')
+  }
+  return (
+    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
+      <DialogContent title={enrolment ? 'Edit enrolment' : 'Add enrolment'} description={enrolment ? 'Update course access and recorded progress.' : 'Grant this student direct access to a published course.'}>
+        <form
+          className="grid gap-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!enrolment) {
+              if (!courseId) return toast.error('Choose a course.')
+              grant.mutate({ userId: studentId, courseId }, { onSuccess: () => (toast.success('Course access added'), close()), onError: (error) => toast.error((error as Error).message) })
+              return
+            }
+            const value = Number(progress)
+            if (!Number.isFinite(value) || value < 0 || value > 100) return toast.error('Progress must be between 0 and 100.')
+            update.mutate({ userId: studentId, enrolmentId: enrolment.id, status, progress_pct: value }, { onSuccess: () => (toast.success('Enrolment updated'), close()), onError: (error) => toast.error((error as Error).message) })
+          }}
+        >
+          {enrolment ? (
+            <>
+              <Field label="Course">{(p) => <Input {...p} value={enrolment.course} disabled />}</Field>
+              <Field label="Access status">
+                {(p) => (
+                  <NativeSelect {...p} value={status} onChange={(e) => setStatus(e.target.value as typeof status)}>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="expired">Expired</option>
+                    <option value="revoked">Revoked</option>
+                  </NativeSelect>
+                )}
+              </Field>
+              <Field label="Progress (%)">{(p) => <Input {...p} type="number" min={0} max={100} step="0.01" value={progress} onChange={(e) => setProgress(e.target.value)} disabled={status === 'completed'} />}</Field>
+            </>
+          ) : (
+            <Field label="Course">
+              {(p) => (
+                <NativeSelect {...p} value={courseId} onChange={(e) => setCourseId(e.target.value)} required>
+                  <option value="">Choose a published course</option>
+                  {(options.data ?? []).map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}
+                </NativeSelect>
+              )}
+            </Field>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={close}>Cancel</Button>
+            <Button type="submit" loading={grant.isPending || update.isPending}>{enrolment ? 'Save enrolment' : 'Add course access'}</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ---------------------------------------------------------------- KPIs
 function Kpis() {
   const q = useStudentKpis()
@@ -145,6 +258,9 @@ function Kpis() {
 function StudentPanel({ id, onAction }: { id: string; onAction: (p: Pending) => void }) {
   const q = useStudent(id)
   const s = q.data
+  const updateEnrolment = useUpdateStudentEnrolment()
+  const [enrolmentDialog, setEnrolmentDialog] = useState<{ open: boolean; item: StudentEnrolment | null }>({ open: false, item: null })
+  const [removing, setRemoving] = useState<StudentEnrolment | null>(null)
   if (q.error) return <ErrorState message={(q.error as Error).message} onRetry={() => void q.refetch()} />
   if (!s) return <Skeleton className="h-72" />
   const p = { id: s.id, name: s.name, email: s.email }
@@ -189,7 +305,12 @@ function StudentPanel({ id, onAction }: { id: string; onAction: (p: Pending) => 
           ) : null}
         </TabsContent>
         <TabsContent value="enrolments">
-          <EnrolmentList s={s} />
+          <EnrolmentList
+            s={s}
+            onAdd={() => setEnrolmentDialog({ open: true, item: null })}
+            onEdit={(item) => setEnrolmentDialog({ open: true, item })}
+            onRemove={setRemoving}
+          />
         </TabsContent>
         <TabsContent value="progress">
           {s.enrolment_list.length === 0 ? (
@@ -251,16 +372,28 @@ function StudentPanel({ id, onAction }: { id: string; onAction: (p: Pending) => 
           </Button>
         </div>
       ) : null}
+      <EnrolmentDialog studentId={s.id} enrolment={enrolmentDialog.item} open={enrolmentDialog.open} onOpenChange={(open) => setEnrolmentDialog((current) => ({ ...current, open }))} />
+      <ConfirmDialog
+        open={!!removing}
+        onOpenChange={(open) => !open && setRemoving(null)}
+        title={`Remove access to ${removing?.course ?? 'this course'}?`}
+        body="The learning record is kept for audit purposes, but the student can no longer open the course."
+        confirmLabel="Remove access"
+        loading={updateEnrolment.isPending}
+        onConfirm={() => updateEnrolment.mutate({ userId: s.id, enrolmentId: removing!.id, status: 'revoked', progress_pct: removing!.progress_pct }, { onSuccess: () => (toast.success('Course access removed'), setRemoving(null)), onError: (error) => toast.error((error as Error).message) })}
+      />
     </div>
   )
 }
 
-function EnrolmentList({ s }: { s: StudentDetail }) {
-  if (s.enrolment_list.length === 0) return <EmptyState icon={<BookOpen />} title="No enrolments yet" className="py-6" />
+function EnrolmentList({ s, onAdd, onEdit, onRemove }: { s: StudentDetail; onAdd: () => void; onEdit: (item: StudentEnrolment) => void; onRemove: (item: StudentEnrolment) => void }) {
+  if (s.enrolment_list.length === 0) return <EmptyState icon={<BookOpen />} title="No enrolments yet" className="py-6" action={<Button size="sm" onClick={onAdd}><BookPlus /> Add course</Button>} />
   return (
-    <ul className="stagger grid gap-2">
-      {s.enrolment_list.map((e) => (
-        <li key={e.id} className="rounded-lg border border-border p-3 text-sm">
+    <div className="grid gap-3">
+      <div className="flex justify-end"><Button size="sm" onClick={onAdd}><BookPlus /> Add course</Button></div>
+      <ul className="stagger grid gap-2">
+        {s.enrolment_list.map((e) => (
+          <li key={e.id} className="rounded-lg border border-border p-3 text-sm">
           <div className="flex items-start justify-between gap-3">
             <Link to={`/console/courses?course=${e.course_id}`} className="min-w-0 truncate font-medium hover:text-primary">
               {e.course}
@@ -277,9 +410,14 @@ function EnrolmentList({ s }: { s: StudentDetail }) {
               </>
             ) : null}
           </p>
-        </li>
-      ))}
-    </ul>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button size="sm" variant="secondary" onClick={() => onEdit(e)}><Pencil /> Edit</Button>
+              {e.status !== 'revoked' ? <Button size="sm" variant="ghost" onClick={() => onRemove(e)}><Trash2 /> Remove access</Button> : null}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
@@ -307,6 +445,9 @@ function RowMenu({ r, onAction }: { r: StudentRow; onAction: (p: Pending) => voi
             <Play /> Reactivate
           </MenuItem>
         )}
+        <MenuItem onSelect={() => onAction({ kind: 'delete', ...p })}>
+          <Trash2 /> Delete account
+        </MenuItem>
       </MenuContent>
     </Menu>
   )
@@ -322,6 +463,7 @@ export function ConsoleStudentsPage() {
   const list = useStudents(filters)
   const rows = list.data?.pages.flatMap((p) => p.items) ?? []
   const [pending, setPending] = useState<Pending>(null)
+  const [adding, setAdding] = useState(false)
   const [exporting, setExporting] = useState(false)
   const filtered = !!(q || status || enrolment)
 
@@ -343,7 +485,7 @@ export function ConsoleStudentsPage() {
 
   return (
     <>
-      <PageHeader title="Student management" description="Manage student accounts, see enrolments and progress, and control account status." actions={<PeopleSwitch active="students" />} />
+      <PageHeader title="Student management" description="Manage student accounts, see enrolments and progress, and control account status." />
       <div className="grid gap-6">
         <Kpis />
         <Card>
@@ -362,9 +504,10 @@ export function ConsoleStudentsPage() {
               <option value="completed">Completed a course</option>
               <option value="none">Not enrolled</option>
             </NativeSelect>
-            <Button variant="secondary" className="sm:ml-auto" loading={exporting} onClick={() => void exportCsv()}>
-              {exporting ? null : <Download />} Export
-            </Button>
+            <div className="flex flex-wrap gap-2 sm:ml-auto">
+              <Button onClick={() => setAdding(true)}><UserPlus /> Add student</Button>
+              <Button variant="secondary" loading={exporting} onClick={() => void exportCsv()}>{exporting ? null : <Download />} Export</Button>
+            </div>
           </Toolbar>
           {list.error ? (
             <ErrorState message={(list.error as Error).message} onRetry={() => void list.refetch()} />
@@ -384,7 +527,7 @@ export function ConsoleStudentsPage() {
                   <Button variant="secondary" onClick={() => (setQText(''), setStatus(''), setEnrolment(''))}>
                     Clear filters
                   </Button>
-                ) : undefined
+                ) : <Button onClick={() => setAdding(true)}><UserPlus /> Add student</Button>
               }
             />
           ) : (
@@ -459,6 +602,7 @@ export function ConsoleStudentsPage() {
         {userId ? <StudentPanel id={userId} onAction={setPending} /> : null}
       </DetailSheet>
       <AccountDialogs pending={pending} onClose={() => setPending(null)} />
+      <AddStudentDialog open={adding} onOpenChange={setAdding} />
     </>
   )
 }

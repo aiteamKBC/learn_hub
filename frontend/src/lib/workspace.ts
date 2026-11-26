@@ -3,7 +3,8 @@
 const KEY = 'orgId'
 const STAFF_KEY = 'staffOrgWorkspace'
 
-export type StaffOrgWorkspace = { org_id: string; name: string; slug: string }
+export type StaffPreviewRole = 'company_admin' | 'hr_admin' | 'executive' | 'department_head' | 'line_manager'
+export type StaffOrgWorkspace = { org_id: string; name: string; slug: string; preview_role?: StaffPreviewRole }
 
 export function currentOrgId(): string | null {
   try {
@@ -30,8 +31,11 @@ export function currentStaffOrgWorkspace(): StaffOrgWorkspace | null {
     const raw = localStorage.getItem(STAFF_KEY)
     if (!raw) return null
     const value = JSON.parse(raw) as Partial<StaffOrgWorkspace>
+    const previewRole = ['company_admin', 'hr_admin', 'executive', 'department_head', 'line_manager'].includes(value.preview_role ?? '')
+      ? value.preview_role as StaffPreviewRole
+      : undefined
     return value.org_id && value.name && typeof value.slug === 'string'
-      ? { org_id: value.org_id, name: value.name, slug: value.slug }
+      ? { org_id: value.org_id, name: value.name, slug: value.slug, preview_role: previewRole }
       : null
   } catch {
     return null
