@@ -379,7 +379,7 @@ function BuyBox({ course }: { course: Detail }) {
             [PlayCircle, `${duration(course.total_duration_sec)} of content`],
             [BarChart3, `${course.lecture_count} lectures`],
             [Smartphone, 'Learn on phone and desktop'],
-            [InfinityIcon, 'Lifetime access'],
+            [InfinityIcon, course.access_days ? `${course.access_days} days of access` : 'Open access, no expiry'],
             ...(course.cpd_hours ? [[Award, `Certificate · ${course.cpd_hours} CPD hours`]] : [[Award, 'Certificate of completion']]),
           ].map(([Icon, text]) => {
             const I = Icon as LucideIcon
