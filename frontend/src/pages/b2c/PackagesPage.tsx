@@ -15,8 +15,7 @@ import { Link } from '@/lib/router'
 const SUCCESS = '/learn?welcome=package'
 const CANCEL = '/packages'
 
-/** Cash course bundles: pay once, keep the courses. A full-price alternative to unlocking
- * with tokens or subscribing. */
+/** Cash course bundles, independent of the temporary token content unlock restriction. */
 export function PackagesPage() {
   const { data, isLoading, error, refetch } = useCashPackages()
   const navigate = useNavigate()
@@ -37,7 +36,7 @@ export function PackagesPage() {
 
   return (
     <>
-      <PageHeader title="Course bundles" description="Buy a themed set of courses together, in one payment." />
+      <PageHeader title="Course bundles" description="Buy a themed set of courses together, in one payment. New content unlocks with tokens are temporarily unavailable; existing access rights are unchanged." />
 
         {isLoading ? (
           <div className="grid gap-4 md:grid-cols-2">
@@ -51,7 +50,7 @@ export function PackagesPage() {
             <EmptyState
               icon={<Package />}
               title="No bundles available"
-              body="There aren't any course bundles right now. You can still unlock courses with tokens or subscribe."
+              body="There aren't any course bundles right now. Browse individual courses or view the available subscription plans."
               action={
                 <Button asChild>
                   <Link to="/courses">Browse courses</Link>

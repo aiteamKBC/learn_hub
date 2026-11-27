@@ -246,12 +246,38 @@ def mark_read(request, body: MarkReadIn):
 @router.get("/notifications/preferences", response=list[PreferenceOut], auth=session_auth)
 def preferences(request):
     from .models import NotificationTemplate
+    from .wording import DEFAULTS
+    from apps.org.models import OrgMember
+
+    memberships = list(OrgMember.objects.filter(user=request.user, removed_at__isnull=True).values_list("role", flat=True))
+    audiences = {"learner"}
+    if request.user.is_staff:
+        audiences.add("staff")
+    instructor = getattr(request.user, "instructor_profile", None)
+    if instructor and instructor.status in {"approved", "suspended"}:
+        audiences.add("instructor")
+    if any(role in {"owner", "admin", "manager"} for role in memberships):
+        audiences.add("company_admin")
+    labels = {
+        "announcement": "Course announcements", "broadcast": "Platform announcements",
+        "question_posted": "New learner questions", "answer_posted": "Answers to your questions",
+        "work_marked": "Assignment grades and feedback", "badge_awarded": "Achievement badges",
+        "course_assigned": "Company training assignments", "ticket_reply": "Support replies",
+        "ticket_opened": "Support request confirmations", "ticket_resolved": "Resolved support requests",
+        "staff_access_granted": "Staff access changes",
+        "mfa_enabled": "Two-step sign-in enabled", "mfa_disabled": "Two-step sign-in disabled",
+        "course_instalment_manual_payment": "Course instalment payment reminders",
+    }
 
     saved = {p.kind: p for p in NotificationPreference.objects.filter(user=request.user)}
     return [
-        {"kind": t.code, "title": t.title, "email": saved[t.code].email if t.code in saved else True,
+        {"kind": t.code, "title": labels.get(t.code, t.code.replace("_", " ").capitalize()), "email": saved[t.code].email if t.code in saved else True,
          "in_app": saved[t.code].in_app if t.code in saved else True, "email_available": t.email_enabled}
         for t in NotificationTemplate.objects.filter(is_active=True).order_by("code")
+        if (DEFAULTS.get(t.code, ("learner",))[0] in audiences
+            or (instructor and t.code in {"instructor_approved", "instructor_rejected"}))
+        and (t.code != "course_assigned" or memberships)
+        and (t.code != "staff_access_granted" or request.user.is_staff)
     ]  # fmt: skip
 
 

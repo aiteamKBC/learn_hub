@@ -15,7 +15,7 @@ import { Menu, MenuContent, MenuItem, MenuTrigger } from '@/components/ui/menu'
 import { EmptyState, ErrorState } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StarBorder } from '@/components/ui/star-border'
-import { useCashPackages } from '@/features/b2c/api'
+import { useCashPackages, useSubscriptionPlans } from '@/features/b2c/api'
 import { type CourseCardData, useCatalogStats, useCategories, useCourses, usePlans } from '@/features/catalog/api'
 import { cn } from '@/lib/cn'
 import { duration, money } from '@/lib/format'
@@ -380,21 +380,22 @@ const MEMBERSHIP_FEATURES = {
   teams: ['Everything in Practitioner', 'Seat management and SSO', 'Team progress analytics', 'Private cohort pathways', 'Dedicated success lead'],
 }
 
-/** Evidrise-style membership section (dark). Real plan prices; annual figure is monthly × 12. */
+/** Membership prices and trials use the same personal plans as Subscription. */
 function Membership() {
   const { data, isLoading } = usePlans()
   const { data: free } = useCourses({ price: 'free', limit: 1 }, true, false)
-  const personal = data?.find((p) => p.audience === 'personal')
+  const personalPlans = useSubscriptionPlans()
   const team = data?.find((p) => p.audience === 'team')
   const [yearly, setYearly] = useState(true)
+  const personal = personalPlans.data?.find((p) => p.interval === (yearly ? 'year' : 'month'))
   // Real starter-course count, derived from the live catalogue so it never drifts from
   // the actual free courses on the site.
   const starterLine = free?.total ? `${free.total === 1 ? '1 starter course' : `${free.total} starter courses`}` : 'Starter courses included'
 
   const practitioner = personal
     ? yearly
-      ? { price: money(personal.amount_minor * 12, personal.currency, personal.exponent), unit: '/year', note: 'billed annually' }
-      : { price: money(personal.amount_minor, personal.currency, personal.exponent), unit: '/month', note: personal.trial_days ? `${personal.trial_days}-day free trial` : 'billed monthly' }
+      ? { price: money(personal.amount_minor, personal.currency), unit: '/year', note: personal.trial_days ? `Includes a ${personal.trial_days}-day trial.` : 'billed annually · no trial' }
+      : { price: money(personal.amount_minor, personal.currency), unit: '/month', note: personal.trial_days ? `Includes a ${personal.trial_days}-day trial.` : 'billed monthly · no trial' }
     : null
   // Real team price when the plan is in the data; a genuine "contact sales" state otherwise
   // (never an empty box). While plans are still loading we leave price undefined so the card
@@ -405,7 +406,7 @@ function Membership() {
 
   const tiers = [
     { name: 'Explorer', tagline: 'For getting your bearings.', price: 'Free', unit: '', note: '', features: [starterLine, ...MEMBERSHIP_FEATURES.explorer], cta: 'Start free', to: '/signup', featured: false, badge: '' },
-    { name: 'Practitioner', tagline: 'For the work you are doing now.', price: practitioner?.price, unit: practitioner?.unit, note: practitioner?.note, features: MEMBERSHIP_FEATURES.practitioner, cta: 'Choose Practitioner', to: '/plans', featured: true, badge: 'Most chosen' },
+    { name: 'Practitioner', tagline: 'For the work you are doing now.', price: practitioner?.price ?? (personalPlans.isLoading ? undefined : 'Unavailable'), unit: practitioner?.unit, note: practitioner?.note, features: MEMBERSHIP_FEATURES.practitioner, cta: 'View subscriptions', to: '/subscription', featured: true, badge: 'Most chosen' },
     { name: 'Teams', tagline: 'For groups building together.', price: teams?.price, unit: teams?.unit, note: teams?.note, features: MEMBERSHIP_FEATURES.teams, cta: 'Talk to us', to: '/plans', featured: false, badge: '' },
   ]
 

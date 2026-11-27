@@ -163,7 +163,7 @@ function Plans({ justCheckedOut }: { justCheckedOut: boolean }) {
             <Feature>New courses added to your plan</Feature>
             <Feature>Cancel at any time in the billing portal</Feature>
           </ul>
-          {p.trial_days > 0 ? <p className="mt-3 text-xs text-muted">Includes a {p.trial_days}-day trial.</p> : null}
+          <p className="mt-3 text-xs text-muted">{p.trial_days > 0 ? `Includes a ${p.trial_days}-day trial.` : 'No trial included.'}</p>
           <Button className="mt-5" onClick={() => subscribe(p)}>
             Choose {p.interval === 'year' ? 'yearly' : 'monthly'}
           </Button>
