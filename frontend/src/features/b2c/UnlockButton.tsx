@@ -22,6 +22,15 @@ const SOURCE_LABEL: Record<string, string> = {
 
 const SCOPE_NOUN: Record<UnlockScope, string> = { course: 'course', lecture: 'lecture', material: 'material' }
 
+/** K02 blocker: `unlock_course` and `unlock_lecture` grant a ContentEntitlement but create
+ * no Enrollment, and the player redirects anyone without one back to the course page. A
+ * learner who spent tokens would therefore have nothing to open. Spending stays disabled
+ * here until the "start learning from an entitlement" endpoint lands.
+ *
+ * This gates the BUY path only. The backend endpoints are untouched, and anyone who
+ * already holds an entitlement still sees it and keeps their access. */
+const TOKEN_SPENDING_READY = false
+
 /** The single gate for paid B2C content. The server's access resolver decides whether to
  * show an unlock prompt at all — so a person who already has access (through a subscription,
  * a package, a legacy purchase or a previous unlock) is never asked to pay again. Spending is
@@ -64,6 +73,16 @@ export function UnlockButton({
     return (
       <Badge tone="neutral" className={className}>
         <Lock /> Locked
+      </Badge>
+    )
+  }
+
+  // Spending is not wired end to end yet: show the price, but never take tokens for
+  // content the learner could not then open.
+  if (!TOKEN_SPENDING_READY) {
+    return (
+      <Badge tone="neutral" className={className} title="Token unlock is not available yet">
+        <Coins /> {count(tokenPrice)} {tokenPrice === 1 ? 'token' : 'tokens'} · coming soon
       </Badge>
     )
   }
