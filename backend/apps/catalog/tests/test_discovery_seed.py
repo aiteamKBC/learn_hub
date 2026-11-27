@@ -30,14 +30,27 @@ from .test_catalog import CatalogTestBase
 TEST_SLUGS = tuple(f"disc-course-{i}" for i in range(5))
 
 
-def _patch_demo_slugs():
-    """Point the seed at the test courses and keep its stable-identity invariants."""
-    return mock.patch.multiple(
-        seed_discovery_demo,
-        DEMO_SLUGS=TEST_SLUGS,
-        FREE_SLUGS=TEST_SLUGS[:2],
-        ADVANCED_SLUGS=TEST_SLUGS[-3:],
-    )
+class _patch_demo_slugs:
+    """Point the seed at the test courses and keep its stable-identity invariants.
+
+    Also forces `settings.DEBUG=True` for the duration: Django's test runner sets
+    DEBUG=False by default, which would otherwise trip the production guard."""
+
+    def __enter__(self):
+        self._slugs = mock.patch.multiple(
+            seed_discovery_demo,
+            DEMO_SLUGS=TEST_SLUGS,
+            FREE_SLUGS=TEST_SLUGS[:2],
+            ADVANCED_SLUGS=TEST_SLUGS[-3:],
+        )
+        self._debug = mock.patch.object(seed_discovery_demo.settings, "DEBUG", True)
+        self._slugs.start()
+        self._debug.start()
+        return self
+
+    def __exit__(self, *exc):
+        self._debug.stop()
+        self._slugs.stop()
 
 
 class DiscoverySeedTest(CatalogTestBase):

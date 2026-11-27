@@ -99,6 +99,11 @@ function Curriculum({ sections, onPreview }: { sections: Detail['sections']; onP
                           <span className="flex-1">{l.title}</span>
                         )}
                         {l.is_preview ? <Badge tone="primary">Preview</Badge> : null}
+                        {/* The price is shown, not sold, here. unlock_lecture grants a
+                            LECTURE-scoped entitlement and creates no enrolment, and the
+                            player still requires one — so a buy button would take tokens
+                            and leave the learner with nothing to open. Re-enable once the
+                            "start learning from an entitlement" endpoint exists (K02). */}
                         {!l.is_preview && l.token_price ? (
                           <Badge tone="neutral" title="Unlock this lecture with tokens">
                             <Coins /> {count(l.token_price)}
@@ -244,6 +249,11 @@ function BuyBox({ course }: { course: Detail }) {
   const access = useAccess('course', course.id, b2cEligible)
   const alreadyHasAccess = b2cEligible && access.data?.allowed === true
   const tokenCoursePrice = course.full_course_token_price ?? null
+  // Buying with cash unlocks the whole course, and replay is free for as long as access
+  // lasts. `access_days` is admin-configured; none set means no expiry.
+  const accessLine = course.access_days
+    ? `Full course · rewatch for ${course.access_days} days`
+    : 'Full course · rewatch any time, no expiry'
 
   const fail = (e: unknown) => toast.error((e as Error).message)
   const add = () => addToCart.mutate(course.id, { onSuccess: () => authAlert({ kind: 'cart', title: 'Added to your cart', text: course.title, autoClose: 3500, action: { label: 'View cart', onClick: () => navigate('/cart') } }), onError: fail })
@@ -322,7 +332,7 @@ function BuyBox({ course }: { course: Detail }) {
             <Button size="lg" variant="soft" className="mt-2 w-full" onClick={() => (me ? navigate(`/checkout/pay/${course.slug}`) : needLogin())}>
               Buy now
             </Button>
-            <p className="mt-3 text-center text-xs text-muted">30-day refund policy · secure checkout by Stripe</p>
+            <p className="mt-3 text-center text-xs text-muted">{accessLine} · refunds reviewed by our team</p>
             {tokenCoursePrice ? (
               <div className="mt-4 border-t border-border pt-4">
                 <p className="mb-2 text-xs font-medium text-muted">Or unlock the whole course with tokens</p>

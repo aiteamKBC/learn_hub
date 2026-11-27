@@ -10677,6 +10677,8 @@ export interface components {
              * @default true
              */
             in_subscription: boolean;
+            /** Access Days */
+            access_days?: number | null;
         };
         /** InstructorBrief */
         InstructorBrief: {

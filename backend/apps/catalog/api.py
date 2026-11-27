@@ -298,6 +298,7 @@ def course_detail(request, slug: str, currency: str | None = None):
         "rating_breakdown": breakdown, "sections": sections, "viewer": viewer,
         "full_course_token_price": derived_token_price,
         "token_pricing_mode": course.token_pricing_mode, "in_subscription": course.in_subscription,
+        "access_days": course.access_days,
     }  # fmt: skip
 
 

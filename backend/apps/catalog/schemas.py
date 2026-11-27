@@ -111,6 +111,9 @@ class CourseDetail(CourseCard):
     full_course_token_price: int | None = None
     token_pricing_mode: str | None = None
     in_subscription: bool = True
+    # How long a cash purchase grants access for, so the learner can see the replay window
+    # before buying. None = open-ended access (no expiry configured).
+    access_days: int | None = None
 
 
 class PlaybackOut(Schema):
