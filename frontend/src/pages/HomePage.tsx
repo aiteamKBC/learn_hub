@@ -49,7 +49,9 @@ function Hero() {
   const [ready, setReady] = useState(false)
   const [videoOpen, setVideoOpen] = useState(false)
   const { data: stats } = useCatalogStats()
-  const learnersLine = stats?.learners ? `${stats.learners.toLocaleString('en-GB')} learners · ` : ''
+  // Enrolment total (sum of per-course student_count), labelled accurately — not a
+  // unique-learner count. Hidden if the figure is unavailable.
+  const enrolmentsLine = stats?.enrollments ? `${stats.enrollments.toLocaleString('en-GB')} enrolments · ` : ''
   useEffect(() => {
     const t = window.setTimeout(() => setReady(true), 80)
     return () => window.clearTimeout(t)
@@ -98,7 +100,7 @@ function Hero() {
               <PlayCircle className="size-4 text-primary" /> Watch video
             </Button>
           </div>
-          <p className="mt-5 font-mono text-[9.5px] tracking-[0.2em] text-white/55 uppercase">{learnersLine}CPD certificates · Compliance training for teams</p>
+          <p className="mt-5 font-mono text-[9.5px] tracking-[0.2em] text-white/55 uppercase">{enrolmentsLine}CPD certificates · Compliance training for teams</p>
         </div>
       </div>
 
@@ -371,7 +373,9 @@ function CategorySection() {
 }
 
 const MEMBERSHIP_FEATURES = {
-  explorer: ['Three starter courses', 'Weekly learning digest', 'Community reading room', 'Progress tracking'],
+  // The explorer starter-courses line is derived from the real catalogue (see Membership
+  // below), so this fixed list omits it — it would otherwise drift from the seed.
+  explorer: ['Weekly learning digest', 'Community reading room', 'Progress tracking'],
   practitioner: ['Every course and programme', 'Graded capstone projects', 'Verified certificates', 'Live critique sessions', 'Downloadable evidence packs'],
   teams: ['Everything in Practitioner', 'Seat management and SSO', 'Team progress analytics', 'Private cohort pathways', 'Dedicated success lead'],
 }
@@ -379,9 +383,13 @@ const MEMBERSHIP_FEATURES = {
 /** Evidrise-style membership section (dark). Real plan prices; annual figure is monthly × 12. */
 function Membership() {
   const { data, isLoading } = usePlans()
+  const { data: free } = useCourses({ price: 'free', limit: 1 }, true, false)
   const personal = data?.find((p) => p.audience === 'personal')
   const team = data?.find((p) => p.audience === 'team')
   const [yearly, setYearly] = useState(true)
+  // Real starter-course count, derived from the live catalogue so it never drifts from
+  // the actual free courses on the site.
+  const starterLine = free?.total ? `${free.total === 1 ? '1 starter course' : `${free.total} starter courses`}` : 'Starter courses included'
 
   const practitioner = personal
     ? yearly
@@ -396,7 +404,7 @@ function Membership() {
     : { price: isLoading ? undefined : 'Custom', unit: '', note: isLoading ? '' : 'Billed per seat · from 5 seats' }
 
   const tiers = [
-    { name: 'Explorer', tagline: 'For getting your bearings.', price: 'Free', unit: '', note: '', features: MEMBERSHIP_FEATURES.explorer, cta: 'Start free', to: '/signup', featured: false, badge: '' },
+    { name: 'Explorer', tagline: 'For getting your bearings.', price: 'Free', unit: '', note: '', features: [starterLine, ...MEMBERSHIP_FEATURES.explorer], cta: 'Start free', to: '/signup', featured: false, badge: '' },
     { name: 'Practitioner', tagline: 'For the work you are doing now.', price: practitioner?.price, unit: practitioner?.unit, note: practitioner?.note, features: MEMBERSHIP_FEATURES.practitioner, cta: 'Choose Practitioner', to: '/plans', featured: true, badge: 'Most chosen' },
     { name: 'Teams', tagline: 'For groups building together.', price: teams?.price, unit: teams?.unit, note: teams?.note, features: MEMBERSHIP_FEATURES.teams, cta: 'Talk to us', to: '/plans', featured: false, badge: '' },
   ]
@@ -792,7 +800,7 @@ function BundleCard({ pkg }: { pkg: CashPkg }) {
 }
 
 function Offers() {
-  const { data, isLoading } = useCashPackages()
+  const { data, isLoading, isError } = useCashPackages()
   const packages = data ?? []
 
   if (isLoading) {
@@ -804,13 +812,13 @@ function Offers() {
       </div>
     )
   }
-  if (!packages.length) {
+  if (isError || !packages.length) {
     return (
       <div className="rounded-2xl border border-border bg-surface/80">
         <EmptyState
           icon={<Package />}
-          title="No bundles just now"
-          body="Course bundles will appear here when they're available."
+          title={isError ? 'Bundles are unavailable just now' : 'No bundles just now'}
+          body={isError ? 'We could not load bundles — browse the full catalogue instead.' : "Course bundles will appear here when they're available."}
           action={
             <Button variant="secondary" asChild>
               <Link to="/courses">Browse all courses</Link>
@@ -846,13 +854,11 @@ function Offers() {
 }
 
 /** "Why LearnHub": value prop + real catalogue stats from the live API. */
-const TEAMS = ['Meridian Health', 'Northwind Labs', 'Banque Atlas', 'Kite Logistics']
-
 function WhyLearnHub() {
-  const { data: stats } = useCatalogStats()
+  const { data: stats, isLoading, isError } = useCatalogStats()
   const asOf = new Date().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
   const tiles = [
-    { n: stats?.learners ?? 0, format: (v: number) => Math.round(v).toLocaleString('en-GB'), label: 'Learners', note: 'Enrolments across our courses' },
+    { n: stats?.enrollments ?? 0, format: (v: number) => Math.round(v).toLocaleString('en-GB'), label: 'Enrolments', note: 'Across published courses' },
     { n: stats?.courses ?? 0, format: (v: number) => Math.round(v).toLocaleString('en-GB'), label: 'Courses', note: 'Published and growing' },
     { n: stats?.instructors ?? 0, format: (v: number) => Math.round(v).toLocaleString('en-GB'), label: 'Instructors', note: 'Practitioners who teach here' },
     { n: stats?.rating_avg ?? 0, format: (v: number) => `${v.toFixed(1)}/5`, label: 'Average rating', note: stats?.rating_count ? `Across ${stats.rating_count.toLocaleString('en-GB')} reviews` : 'From learner reviews' },
@@ -876,12 +882,6 @@ function WhyLearnHub() {
               <a href="/#instructors">Meet the instructors</a>
             </Button>
           </div>
-          <div className="mt-8 flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[10px] tracking-[0.14em] text-subtle uppercase">Teams we teach</span>
-            {TEAMS.map((t) => (
-              <span key={t} className="rounded-full bg-primary-soft px-2.5 py-1 text-[12px] font-medium text-primary-soft-text">{t}</span>
-            ))}
-          </div>
         </div>
 
         <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-surface to-primary-soft/40 p-6 shadow-sm sm:p-8">
@@ -891,19 +891,23 @@ function WhyLearnHub() {
             </span>
             <span>{asOf}</span>
           </div>
-          <div className="mt-6 grid grid-cols-2 gap-6">
-            {tiles.map((s) => (
-              <div key={s.label} className="border-t border-border pt-4">
-                {stats ? (
-                  <CountUp value={s.n} format={s.format} className="block text-[clamp(26px,4vw,36px)] font-bold tracking-tight text-text tabular" />
-                ) : (
-                  <Skeleton className="h-9 w-24" />
-                )}
-                <p className="mt-1 text-sm font-semibold text-text">{s.label}</p>
-                <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted">{s.note}</p>
-              </div>
-            ))}
-          </div>
+          {isError ? (
+            <p className="mt-6 text-sm text-muted">Live figures are unavailable just now — browse the catalogue to see the real content.</p>
+          ) : (
+            <div className="mt-6 grid grid-cols-2 gap-6">
+              {tiles.map((s) => (
+                <div key={s.label} className="border-t border-border pt-4">
+                  {stats && !isLoading ? (
+                    <CountUp value={s.n} format={s.format} className="block text-[clamp(26px,4vw,36px)] font-bold tracking-tight text-text tabular" />
+                  ) : (
+                    <Skeleton className="h-9 w-24" />
+                  )}
+                  <p className="mt-1 text-sm font-semibold text-text">{s.label}</p>
+                  <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted">{s.note}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>

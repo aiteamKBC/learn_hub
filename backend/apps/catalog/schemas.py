@@ -53,9 +53,14 @@ class CoursePage(Schema):
 
 
 class CatalogStatsOut(Schema):
-    """Real headline figures for the public home page (no hard-coded marketing numbers)."""
+    """Real headline figures for the public home page (no hard-coded marketing numbers).
 
-    learners: int  # total enrolments across published public courses
+    `enrollments` is the sum of each course's denormalised `student_count`; a learner
+    enrolled on three courses counts three times. It is not a unique-learner count: that
+    would need a distinct user-id aggregation across enrolment rows, which is out of
+    scope for this endpoint."""
+
+    enrollments: int
     courses: int
     instructors: int
     rating_avg: float  # rating-count-weighted mean across the catalogue

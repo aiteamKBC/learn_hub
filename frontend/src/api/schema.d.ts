@@ -10512,10 +10512,15 @@ export interface components {
         /**
          * CatalogStatsOut
          * @description Real headline figures for the public home page (no hard-coded marketing numbers).
+         *
+         *     `enrollments` is the sum of each course's denormalised `student_count`; a learner
+         *     enrolled on three courses counts three times. It is not a unique-learner count: that
+         *     would need a distinct user-id aggregation across enrolment rows, which is out of
+         *     scope for this endpoint.
          */
         CatalogStatsOut: {
-            /** Learners */
-            learners: number;
+            /** Enrollments */
+            enrollments: number;
             /** Courses */
             courses: number;
             /** Instructors */

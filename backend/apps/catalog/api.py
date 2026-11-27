@@ -109,7 +109,9 @@ def stats(request):
     pub = _public()
     agg = pub.aggregate(
         courses=Count("id", distinct=True),
-        learners=Coalesce(Sum("student_count"), 0),
+        # `student_count` is denormalised per course, so a learner on three courses is
+        # counted three times. That is an enrolment total, not a unique-learner count.
+        enrollments=Coalesce(Sum("student_count"), 0),
         rating_total=Coalesce(Sum("rating_count"), 0),
         weighted=Coalesce(
             Sum(
@@ -125,7 +127,7 @@ def stats(request):
     rating_count = agg["rating_total"] or 0
     rating_avg = round(float(agg["weighted"]) / rating_count, 2) if rating_count else 0.0
     return {
-        "learners": agg["learners"] or 0,
+        "enrollments": agg["enrollments"] or 0,
         "courses": agg["courses"] or 0,
         "instructors": instructors,
         "rating_avg": rating_avg,
