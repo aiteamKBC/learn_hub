@@ -66,8 +66,9 @@ def _snapshot_map(course_ids) -> dict:
 
 
 def _validate_courses(course_ids: list) -> tuple[set, dict]:
-    """Keep only platform-owned, PUBLISHED, live courses; return their ids and price snapshots.
-    Draft/unpublished courses can't be sold, so they must not go in a sellable bundle."""
+    """Require every selected course to be published and sellable."""
+    if not course_ids:
+        raise ServiceError("no_courses", "Choose at least one published course for this package.")
     ids = set(
         Course.objects.filter(
             pk__in=course_ids,
@@ -77,8 +78,8 @@ def _validate_courses(course_ids: list) -> tuple[set, dict]:
             live_version__isnull=False,
         ).values_list("id", flat=True)
     )
-    if course_ids and not ids:
-        raise ServiceError("no_courses", "None of the chosen courses are published and sellable.")
+    if ids != set(course_ids):
+        raise ServiceError("invalid_courses", "Some chosen courses are not published and sellable.")
     return ids, _snapshot_map(ids)
 
 
