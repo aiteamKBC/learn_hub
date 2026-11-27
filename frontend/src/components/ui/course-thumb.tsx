@@ -1,6 +1,6 @@
 import { Briefcase, Code2, HeartPulse, Megaphone, Palette, Server, ShieldCheck, Sparkles, type LucideIcon } from 'lucide-react'
 
-import { useId } from 'react'
+import { useId, useState } from 'react'
 
 import { cn } from '@/lib/cn'
 
@@ -32,8 +32,11 @@ function slugOf(category?: string | null) {
 
 export function CourseThumb({ src, title, category, className }: { src?: string | null; title: string; category?: string | null; className?: string }) {
   const pid = useId()
-  if (src) {
-    return <img src={src} alt="" loading="lazy" decoding="async" className={cn('aspect-video w-full rounded-md object-cover', className)} />
+  // If a real image is given, show it — but fall back to the generated cover if it fails to
+  // load (e.g. an external host is unreachable), so a card is never left blank.
+  const [broken, setBroken] = useState(false)
+  if (src && !broken) {
+    return <img src={src} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} className={cn('aspect-video w-full rounded-md object-cover', className)} />
   }
   const { from, to, Icon } = covers[slugOf(category)] ?? fallback
   return (

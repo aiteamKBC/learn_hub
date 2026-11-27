@@ -220,6 +220,11 @@ class WellbeingSurvey(TenantModel):
     stay_intent = models.DecimalField(max_digits=4, decimal_places=3, null=True, blank=True)
     satisfaction = models.DecimalField(max_digits=4, decimal_places=3, null=True, blank=True)
     note = models.CharField(max_length=500, blank=True)
+    # Raw per-item Likert answers from the questionnaire, keyed by item code
+    # (e.g. {"H1": 4, "C3": 2, ...}, each 1..5). The 0..100 sub-scale columns
+    # above are derived from these at submit time; keeping the raw answers lets
+    # HR see the full response, like a completed assessment.
+    answers = models.JSONField(default=dict, blank=True)
 
     class Meta:
         db_table = table(SCHEMA, "wellbeing_surveys")

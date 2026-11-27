@@ -19,7 +19,7 @@ from apps.frameworks import services as framework_services
 from apps.frameworks.models import RoleFramework
 from apps.frameworks.models.competency import Competency
 from apps.governance import services as governance_services
-from apps.governance.models import PolicyAllocation, PolicyDoc, Strategy
+from apps.governance.models import PolicyAllocation, PolicyDoc, Strategy, TechQuestion
 from apps.hcm import services as hcm_services
 from apps.hcm.models import CpdEntry, MemberProfile, MemberQualification, Qualification, WellbeingSurvey
 from apps.identity.models import User
@@ -85,7 +85,7 @@ class Command(BaseCommand):
                         org, roles["Facilities Supervisor"], units["Operations"], staff
                     )
                     self._performance(org, members, competency, users)
-                    self._governance(org, members, users)
+                    self._governance(org, members, users, competency)
 
         self.stdout.write(self.style.SUCCESS(f"Workforce demo is ready: {org.name} ({org.slug})."))
         self.stdout.write("Company: workforce.owner@learnhub.example")
@@ -400,7 +400,7 @@ class Command(BaseCommand):
                 progress_pct=50,
             )
 
-    def _governance(self, org, members, users):
+    def _governance(self, org, members, users, competency=None):
         strategy_name = f"{MARK} Safer service delivery"
         strategy = Strategy.objects.filter(org=org, name=strategy_name).first()
         if strategy is None:
@@ -466,3 +466,57 @@ class Command(BaseCommand):
             allocation.published_version = 1
             allocation.published_at = timezone.now()
             allocation.save(update_fields=["published_version", "published_at", "updated_at"])
+
+        # Question bank: a few technical questions for the demo, linked to the competency.
+        competency_id = competency.id if competency is not None else None
+        questions = [
+            {
+                "dept": "Operations",
+                "q_type": "mcq",
+                "prompt": f"{MARK} What is the first thing you do when you spot a hazard on site?",
+                "options": [
+                    "Carry on and finish the task",
+                    "Stop the work and report the hazard",
+                    "Wait for the next shift to deal with it",
+                ],
+                "answer_index": 1,
+                "rationale": "Unsafe work must stop and the hazard be reported before work resumes.",
+                "mark": 1,
+                "level": 1,
+                "course_ref": "DEMO-HS-01",
+            },
+            {
+                "dept": "Operations",
+                "q_type": "mcq",
+                "prompt": f"{MARK} How often should a planned safety inspection be recorded?",
+                "options": [
+                    "Only when something goes wrong",
+                    "Once a year",
+                    "On the planned schedule, every time",
+                ],
+                "answer_index": 2,
+                "rationale": "The KPI tracks on-time completion of every planned inspection.",
+                "mark": 2,
+                "level": 2,
+                "course_ref": "DEMO-HS-01",
+            },
+            {
+                "dept": "Operations",
+                "q_type": "rubric",
+                "prompt": f"{MARK} Describe how you would hand over an unfinished task safely at the end of a shift.",
+                "expected": "Clear written handover, hazards flagged, next steps and responsible person named.",
+                "rationale": "Look for: records the state of work, flags any hazard, names who takes it on next.",
+                "mark": 5,
+                "level": 3,
+                "course_ref": "DEMO-HS-01",
+            },
+        ]
+        existing = set(
+            TechQuestion.objects.filter(org=org, prompt__startswith=MARK).values_list("prompt", flat=True)
+        )
+        for q in questions:
+            if q["prompt"] in existing:
+                continue
+            governance_services.create_question(
+                org_id=org.id, data={**q, "competency_id": competency_id}
+            )

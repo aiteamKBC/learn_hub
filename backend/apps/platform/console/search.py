@@ -20,6 +20,7 @@ from apps.engagement.models import ContentReport, Ticket
 from apps.identity.models import InstructorProfile, User
 from apps.learning.models import Certificate
 from apps.payouts.models import PayoutRequest
+from core import cache
 
 from .common import router, staff
 
@@ -100,10 +101,16 @@ def search(request, q: str = "", limit: int = 5):
 def nav_counts(request):
     """Badges in the console sidebar (polled once a minute)."""
     staff(request)
-    return {
-        "approvals": CourseVersion.objects.filter(status="in_review").count()
-        + CertificateTemplate.objects.filter(status="pending").count(),
-        "tickets_open": Ticket.objects.filter(status__in=["open", "progress"]).count(),
-        "reports_open": ContentReport.objects.filter(status="open").count(),
-        "payout_requests": PayoutRequest.objects.filter(status="pending").count(),
-    }
+    # These are sidebar badges, not a financial ledger.  A short shared cache
+    # prevents four remote aggregate queries on every console navigation.
+    return cache.get_or_set(
+        "console-nav", "counts",
+        lambda: {
+            "approvals": CourseVersion.objects.filter(status="in_review").count()
+            + CertificateTemplate.objects.filter(status="pending").count(),
+            "tickets_open": Ticket.objects.filter(status__in=["open", "progress"]).count(),
+            "reports_open": ContentReport.objects.filter(status="open").count(),
+            "payout_requests": PayoutRequest.objects.filter(status="pending").count(),
+        },
+        timeout=20,
+    )

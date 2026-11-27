@@ -45,6 +45,11 @@ class PmsKpiOut(Schema):
     latest_value: Decimal | None
     attainment: float | None
     series: list[PmsKpiPoint]
+    # Course the KPI is linked to (source = /courses/<slug>), and the owner's real
+    # progress in it. course_enrolled is False when the owner has no company enrolment.
+    course_slug: str = ""
+    course_enrolled: bool = False
+    course_progress_pct: Decimal | None = None
 
 
 class PmsProposalIn(Schema):

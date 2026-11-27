@@ -550,7 +550,11 @@ function CourseList({ tab }: { tab: CourseTab }) {
         ) : !list.data ? (
           <div className="grid gap-2 p-5">{Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-12" />)}</div>
         ) : rows.length === 0 ? (
-          <EmptyState icon={<BookOpen />} title="No courses match" body="Try another filter or search." />
+          <EmptyState
+            icon={<BookOpen />}
+            title={tab === 'archived' ? (term || status || category ? 'No archived courses match' : 'No archived courses yet') : 'No courses match'}
+            body={tab === 'archived' && !term && !status && !category ? 'Archived or deleted courses will appear here.' : 'Try another filter or search.'}
+          />
         ) : (
           <>
             {/* phone: cards */}

@@ -278,10 +278,13 @@ def courses(request, tab: str = "all", status: str = "", category: UUID | None =
     if tab not in TABS or (status and status not in STATUSES):
         raise ServiceError("bad_filter", "Unknown filter.")
     limit = clamp(limit, 100)
-    live = Course.objects.filter(deleted_at__isnull=True)
-    k = live.aggregate(total=Count("id"), published=Count("id", filter=Q(status="published")),
-                       drafts=Count("id", filter=Q(status="draft")),
-                       archived=Count("id", filter=Q(status="archived")))  # fmt: skip
+    k = Course.objects.aggregate(
+        total=Count("id", filter=Q(deleted_at__isnull=True)),
+        published=Count("id", filter=Q(deleted_at__isnull=True, status="published")),
+        drafts=Count("id", filter=Q(deleted_at__isnull=True, status="draft")),
+        archived=Count("id", filter=Q(status="archived", deleted_at__isnull=True)
+                       | Q(deleted_at__isnull=False)),
+    )
     k["pending"] = CourseVersion.objects.filter(status="in_review", course__deleted_at__isnull=True).count()
     qs = _filtered(tab, status, category, q).distinct()
     after = keyset.decode(cursor, 1)

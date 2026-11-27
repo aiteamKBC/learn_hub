@@ -971,3 +971,22 @@ The staged B2B source migrations (`corporate.0016_recorded_stage_instalments`, `
 - Final focused rerun: 8 tests passed, including the employer acceptance endpoint and remaining-quota response.
 - Follow-up migration commerce 0013 records when a Team Live cap takes effect. New and changed caps affect offers created from that timestamp onward; older offers retain their previous checkout option. Zero is rejected by the Admin API and UI, and an invalid zero value does not count as coverage.
 - Final PM-review verification: 10 focused tests passed, including zero-cap validation and preservation of offers created before a Team Live cap took effect.
+
+## B2C-01 Discovery fixes (2026-11-27)
+
+Follow-up to the read-only B2C-01 Home & Course Discovery audit. No reset, no reseed, no destructive SQL.
+
+- Backend: new `GET /api/v1/catalog/stats` (auth=None) returns the real marketplace headline figures derived from the live public catalogue — learners, courses, instructors, rating_avg, rating_count. Added `CatalogStatsOut` schema; two aggregate queries. Public catalog lookups (course_detail, related, preview) now raise the standard `ServiceError("not_found", …, status=404)` envelope (not Django's `{"detail": …}`), and `_require(obj, message)` is the single gate. `GET /api/v1/commerce/tokens/packages` now exposes a `full_minor` "was" price per bundle (sum of the courses' quoted list prices) so the home Offers can show a real saving.
+- Seed (additive, idempotent): `core/management/commands/seed_discovery_demo.py`. Publishes hidden reviews via `engagement.moderate_review`, which lets the existing DB counter trigger light up `rating_avg` / `rating_count`; marks the two least-popular public courses free; spreads a real price ladder (£14.99–£49.99) across the paid catalogue; adds a few "advanced" levels and deterministic `picsum.photos/seed/<slug>/800/450` covers on every other course; creates three active `CashPackage` bundles (`discovery-starter-pack`, `discovery-career-boost`, `discovery-pro-track`) through the same validation the admin console uses, each priced below the sum of its courses. Fixed slugs make re-runs idempotent (no duplicates). Nothing is deleted or hidden; the command only ever adds rows or sets fields on existing demo records. Runs under `tenant_context(user_id=admin.id, staff=True)`.
+- Frontend: `HomePage.tsx` no longer hard-codes the headline stats, bundle prices or offers. It reads `useCatalogStats()` for the 4 real tiles (Live catalogue data, dynamic as-of date, Skeleton while loading) and `useCashPackages()` for the Offers strip (real `amount_minor` + `full_minor` → computed % saved, CTA routes to `/packages`, the real bundle checkout flow). Featured course cards show "New" when `rating_count === 0` and use `CourseThumb` with an `onError` fallback (brokens fall back to the generated cover). Working search/filters/sorting/pagination/categories path is untouched.
+- Runtime observations from the audit:
+  - "UUID-404 on /courses/fire-safety-awareness" was `/commerce/instalments/offer/{course_id}` 404-ing for courses without an instalment plan (payment-internal, signed-in only). Not a catalog bug; no change.
+  - Duplicate CSRF and course-detail requests are dev-only React StrictMode double-invoke in `providers.tsx`. Production fires once. StrictMode was NOT disabled.
+  - Discovery API latency is network-bound (local → Neon RTT), not code-shaped; no code change.
+  - Header/nav breakpoints: desktop at `lg` (≥1024px), hamburger below — no intermediate gap.
+- Verification: `python manage.py test apps.catalog.tests.test_discovery_seed core.tests.test_api_contract apps.catalog.tests --keepdb --noinput` → exit 0. `ruff check` clean for every touched file. `/api/v1/catalog/stats` is covered by the new contract test (unique schema, typed 200).
+- Seed command (to be run by the user against a database they are allowed to write to — local Postgres or the Neon dev branch with approval; **not** production):
+  ```
+  python manage.py seed_discovery_demo
+  ```
+  Safe to re-run. Idempotent. No destructive SQL.

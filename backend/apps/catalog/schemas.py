@@ -52,6 +52,16 @@ class CoursePage(Schema):
     total: int | None = None  # on the first page only ("1,248 courses")
 
 
+class CatalogStatsOut(Schema):
+    """Real headline figures for the public home page (no hard-coded marketing numbers)."""
+
+    learners: int  # total enrolments across published public courses
+    courses: int
+    instructors: int
+    rating_avg: float  # rating-count-weighted mean across the catalogue
+    rating_count: int
+
+
 class LectureOut(Schema):
     id: UUID  # the live lecture row's pk — the target_id for token unlock / access checks
     key: UUID

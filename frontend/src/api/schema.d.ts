@@ -642,6 +642,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/catalog/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stats
+         * @description Real marketplace headline figures for the public home page, derived from the live
+         *     catalogue only (no hard-coded numbers). Cheap: two aggregate queries.
+         */
+        get: operations["apps_catalog_api_stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/catalog/courses": {
         parameters: {
             query?: never;
@@ -3055,6 +3076,27 @@ export interface paths {
         patch: operations["apps_hcm_api_update_hr_profile"];
         trace?: never;
     };
+    "/api/v1/hcm/people/{member_id}/wellbeing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Member Wellbeing
+         * @description A member's wellbeing check-ins, for the member themselves or an HR admin.
+         *     RLS already limits raw rows to the member and their managers.
+         */
+        get: operations["apps_hcm_api_member_wellbeing"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/hcm/people/{member_id}/qualifications": {
         parameters: {
             query?: never;
@@ -3609,7 +3651,11 @@ export interface paths {
         /** List Kpis */
         get: operations["apps_pms_api_list_kpis"];
         put?: never;
-        post?: never;
+        /**
+         * Create Kpi
+         * @description Create an active KPI directly, in one step (no approval chain). Admin only.
+         */
+        post: operations["apps_pms_api_create_kpi"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8589,23 +8635,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/console/settings/{key}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Set Setting */
-        put: operations["apps_platform_console_platform_settings_set_setting"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/console/settings/staff": {
         parameters: {
             query?: never;
@@ -8635,6 +8664,23 @@ export interface paths {
         put?: never;
         /** Remove Staff */
         post: operations["apps_platform_console_platform_settings_remove_staff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/settings/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Setting */
+        put: operations["apps_platform_console_platform_settings_set_setting"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -10462,6 +10508,22 @@ export interface components {
             name: string;
             /** Icon */
             icon: string;
+        };
+        /**
+         * CatalogStatsOut
+         * @description Real headline figures for the public home page (no hard-coded marketing numbers).
+         */
+        CatalogStatsOut: {
+            /** Learners */
+            learners: number;
+            /** Courses */
+            courses: number;
+            /** Instructors */
+            instructors: number;
+            /** Rating Avg */
+            rating_avg: number;
+            /** Rating Count */
+            rating_count: number;
         };
         /** CourseFilters */
         CourseFilters: {
@@ -12386,6 +12448,11 @@ export interface components {
             description: string;
             /** Amount Minor */
             amount_minor: number;
+            /**
+             * Full Minor
+             * @default 0
+             */
+            full_minor: number;
             /** Currency */
             currency: string;
             /**
@@ -13925,6 +13992,10 @@ export interface components {
             satisfaction: string | null;
             /** Note */
             note: string;
+            /** Answers */
+            answers?: {
+                [key: string]: number;
+            };
         };
         /** WellbeingIn */
         WellbeingIn: {
@@ -13947,6 +14018,10 @@ export interface components {
              * @default
              */
             note: string;
+            /** Answers */
+            answers?: {
+                [key: string]: number;
+            };
         };
         /** CpdOut */
         CpdOut: {
@@ -14855,6 +14930,18 @@ export interface components {
             attainment: number | null;
             /** Series */
             series: components["schemas"]["PmsKpiPoint"][];
+            /**
+             * Course Slug
+             * @default
+             */
+            course_slug: string;
+            /**
+             * Course Enrolled
+             * @default false
+             */
+            course_enrolled: boolean;
+            /** Course Progress Pct */
+            course_progress_pct?: string | null;
         };
         /** PmsKpiPoint */
         PmsKpiPoint: {
@@ -14864,6 +14951,76 @@ export interface components {
             period_index: number;
             /** Value */
             value: string;
+        };
+        /** PmsProposalIn */
+        PmsProposalIn: {
+            /** Name */
+            name: string;
+            /**
+             * Scope
+             * @default department
+             */
+            scope: string;
+            /** Parent Kpi Id */
+            parent_kpi_id?: string | null;
+            /**
+             * Objective Code
+             * @default
+             */
+            objective_code: string;
+            /**
+             * Objective Title
+             * @default
+             */
+            objective_title: string;
+            /**
+             * Dept
+             * @default
+             */
+            dept: string;
+            /** Owner Id */
+            owner_id?: string | null;
+            /**
+             * Definition
+             * @default
+             */
+            definition: string;
+            /**
+             * Unit
+             * @default
+             */
+            unit: string;
+            /** Baseline */
+            baseline?: number | string | null;
+            /** Target */
+            target?: number | string | null;
+            /**
+             * Higher Better
+             * @default true
+             */
+            higher_better: boolean;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /**
+             * Cadence
+             * @default monthly
+             */
+            cadence: string;
+            /**
+             * Period
+             * @default
+             */
+            period: string;
+            /** Review Date */
+            review_date?: string | null;
+            /**
+             * Weight
+             * @default 10
+             */
+            weight: number;
         };
         /** PmsMeasurementOut */
         PmsMeasurementOut: {
@@ -14956,76 +15113,6 @@ export interface components {
             ai_draft: boolean;
             /** Active Kpi Id */
             active_kpi_id: string | null;
-        };
-        /** PmsProposalIn */
-        PmsProposalIn: {
-            /** Name */
-            name: string;
-            /**
-             * Scope
-             * @default department
-             */
-            scope: string;
-            /** Parent Kpi Id */
-            parent_kpi_id?: string | null;
-            /**
-             * Objective Code
-             * @default
-             */
-            objective_code: string;
-            /**
-             * Objective Title
-             * @default
-             */
-            objective_title: string;
-            /**
-             * Dept
-             * @default
-             */
-            dept: string;
-            /** Owner Id */
-            owner_id?: string | null;
-            /**
-             * Definition
-             * @default
-             */
-            definition: string;
-            /**
-             * Unit
-             * @default
-             */
-            unit: string;
-            /** Baseline */
-            baseline?: number | string | null;
-            /** Target */
-            target?: number | string | null;
-            /**
-             * Higher Better
-             * @default true
-             */
-            higher_better: boolean;
-            /**
-             * Source
-             * @default
-             */
-            source: string;
-            /**
-             * Cadence
-             * @default monthly
-             */
-            cadence: string;
-            /**
-             * Period
-             * @default
-             */
-            period: string;
-            /** Review Date */
-            review_date?: string | null;
-            /**
-             * Weight
-             * @default 10
-             */
-            weight: number;
         };
         /** PmsProposalPatch */
         PmsProposalPatch: {
@@ -21825,20 +21912,6 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** ConsoleSettingIn */
-        ConsoleSettingIn: {
-            /** Value */
-            value: {
-                [key: string]: unknown;
-            } | unknown[] | string | number | boolean;
-            /**
-             * Description
-             * @default
-             */
-            description: string;
-            /** Is Public */
-            is_public?: boolean | null;
-        };
         /** ConsoleStaffOut */
         ConsoleStaffOut: {
             /**
@@ -21868,6 +21941,20 @@ export interface components {
         ConsoleStaffGrantIn: {
             /** Email */
             email: string;
+        };
+        /** ConsoleSettingIn */
+        ConsoleSettingIn: {
+            /** Value */
+            value: {
+                [key: string]: unknown;
+            } | unknown[] | string | number | boolean;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Is Public */
+            is_public?: boolean | null;
         };
         /** ConsoleBrandingUploadOut */
         ConsoleBrandingUploadOut: {
@@ -24712,6 +24799,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CategoryOut"][];
+                };
+            };
+        };
+    };
+    apps_catalog_api_stats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogStatsOut"];
                 };
             };
         };
@@ -28274,6 +28381,28 @@ export interface operations {
             };
         };
     };
+    apps_hcm_api_member_wellbeing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WellbeingOut"][];
+                };
+            };
+        };
+    };
     apps_hcm_api_list_member_qualifications: {
         parameters: {
             query?: never;
@@ -29184,6 +29313,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PmsKpiOut"][];
+                };
+            };
+        };
+    };
+    apps_pms_api_create_kpi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PmsProposalIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsKpiOut"];
                 };
             };
         };
@@ -36955,32 +37108,6 @@ export interface operations {
             };
         };
     };
-    apps_platform_console_platform_settings_set_setting: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConsoleSettingIn"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConsoleOkOut"];
-                };
-            };
-        };
-    };
     apps_platform_console_platform_settings_staff_list: {
         parameters: {
             query?: never;
@@ -37035,6 +37162,32 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_platform_settings_set_setting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleSettingIn"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

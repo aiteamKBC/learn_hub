@@ -1,4 +1,4 @@
-import { Award, Download, FileCheck2, Paperclip, Plus, Save, UserRound } from 'lucide-react'
+import { Award, Download, FileCheck2, HeartPulse, Paperclip, Plus, Save, UserRound } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -13,7 +13,8 @@ import { EmptyState, ErrorState, PageHeader } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { shortDate } from '@/lib/format'
 import { Link } from '@/lib/router'
-import { certificateUrl, type MemberQualification, type Profile, TRACK_LABEL, uploadCertificate, useAwardQualification, useMemberProfile, useMemberQualifications, useQualifications, useUpdateHrProfile } from '@/features/hcm/api'
+import { certificateUrl, type MemberQualification, type Profile, TRACK_LABEL, uploadCertificate, useAwardQualification, useMemberProfile, useMemberQualifications, useMemberWellbeing, useQualifications, useUpdateHrProfile, wbBand } from '@/features/hcm/api'
+import { WellbeingResult } from '@/features/hcm/wellbeing-result'
 import { useIsOrgAdmin, usePeople } from '@/features/org/api'
 
 const TRACKS = ['ic', 'management', 'specialist', 'support']
@@ -272,6 +273,49 @@ function QualificationsCard({ memberId }: { memberId: string }) {
   )
 }
 
+function WellbeingCard({ memberId }: { memberId: string }) {
+  const { data, isLoading, error, refetch } = useMemberWellbeing(memberId)
+  const [latest, ...earlier] = data ?? []
+  return (
+    <Card>
+      <CardHeader title="Wellbeing" description="Their most recent check-in result." action={<HeartPulse className="size-5 text-muted" aria-hidden />} />
+      <CardBody>
+        {error ? (
+          <ErrorState message={(error as Error).message} onRetry={() => void refetch()} />
+        ) : isLoading || !data ? (
+          <Skeleton className="h-56 rounded-lg" />
+        ) : !latest ? (
+          <EmptyState icon={<HeartPulse />} title="No check-ins yet" body="This person has not completed a wellbeing check-in." />
+        ) : (
+          <div className="grid gap-6">
+            <WellbeingResult survey={latest} />
+            {earlier.length ? (
+              <div className="grid gap-2">
+                <p className="text-xs font-medium tracking-wide text-muted uppercase">Earlier check-ins</p>
+                <ul className="grid gap-1.5">
+                  {earlier.map((w) => {
+                    const band = wbBand(w.overall)
+                    return (
+                      <li key={w.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/70 px-3 py-2 text-sm">
+                        <span className="text-muted">{shortDate(w.submitted_at)}</span>
+                        <span className="inline-flex items-center gap-2">
+                          <Badge tone={band.tone}>{band.label}</Badge>
+                          <span className="font-semibold tabular">{w.overall}</span>
+                          <span className="text-xs text-muted">/ 100</span>
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  )
+}
+
 export function MemberProfilePage() {
   const { memberId = '' } = useParams()
   const admin = useIsOrgAdmin()
@@ -351,6 +395,10 @@ export function MemberProfilePage() {
               )}
             </CardBody>
           </Card>
+
+          <div className="lg:col-span-2">
+            <WellbeingCard memberId={memberId} />
+          </div>
 
           <div className="lg:col-span-2">
             <QualificationsCard memberId={memberId} />

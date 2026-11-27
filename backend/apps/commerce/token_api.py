@@ -377,6 +377,7 @@ class CashPackageOut(Schema):
     slug: str
     description: str
     amount_minor: int
+    full_minor: int = 0  # the included courses' combined list price (the "was" / saving baseline)
     currency: str
     owned_count: int = 0  # how many of this package's courses the viewer already has
     courses: list[PackageCourseOut]

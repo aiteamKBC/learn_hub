@@ -206,12 +206,91 @@ export const CPD_KIND_LABEL: Record<string, string> = {
   other: 'Other',
 }
 
-/** 1 (low) to 5 (high) for the four wellbeing measures. */
-export const WELLBEING_SCALE = [1, 2, 3, 4, 5] as const
-export const WELLBEING_FIELDS = [
-  { name: 'hope', label: 'Hope', help: 'I can see ways to reach my goals at work.' },
-  { name: 'efficacy', label: 'Confidence', help: 'I feel able to do my work well.' },
-  { name: 'resilience', label: 'Resilience', help: 'I bounce back after setbacks.' },
-  { name: 'optimism', label: 'Optimism', help: 'I expect good things at work.' },
-  { name: 'overall', label: 'Overall', help: 'How I feel about work just now.' },
-] as const
+// ---------------------------------------------------------------- wellbeing assessment
+/** The wellbeing check-in is a short psychological-capital questionnaire: four
+ * measures (hope, confidence, resilience, optimism), five statements each. Each
+ * statement is rated on a 5-point agree scale. A few are written "negatively"
+ * and scored in reverse (`reverse: true`), so people have to read each one. */
+
+export type WbDimension = 'hope' | 'efficacy' | 'resilience' | 'optimism'
+
+export const WB_DIMENSIONS: { key: WbDimension; label: string; blurb: string }[] = [
+  { key: 'hope', label: 'Hope', blurb: 'Seeing routes to your goals, and the drive to pursue them.' },
+  { key: 'efficacy', label: 'Confidence', blurb: 'Belief in your ability to take on and do your work.' },
+  { key: 'resilience', label: 'Resilience', blurb: 'Bouncing back and carrying on after setbacks.' },
+  { key: 'optimism', label: 'Optimism', blurb: 'Expecting good things at work, now and ahead.' },
+]
+
+export type WbQuestion = { code: string; dimension: WbDimension; text: string; reverse?: boolean }
+
+/** 20 items, five per measure, in a fixed shuffled order so the measures are
+ * interleaved rather than grouped. Reverse-scored items are marked. */
+export const WB_QUESTIONS: WbQuestion[] = [
+  { code: 'H1', dimension: 'hope', text: 'I can think of several ways to reach my goals at work.' },
+  { code: 'C1', dimension: 'efficacy', text: 'I feel confident doing my job well.' },
+  { code: 'R1', dimension: 'resilience', text: 'When something goes wrong at work, I bounce back quickly.' },
+  { code: 'O1', dimension: 'optimism', text: 'I am optimistic about my future at work.' },
+  { code: 'C3', dimension: 'efficacy', text: 'I often doubt whether I can handle hard tasks at work.', reverse: true },
+  { code: 'H2', dimension: 'hope', text: 'I feel energised about the goals I am working towards.' },
+  { code: 'O3', dimension: 'optimism', text: 'At work, I rarely expect things to go my way.', reverse: true },
+  { code: 'R2', dimension: 'resilience', text: 'I can get through tough patches because I have managed hard things before.' },
+  { code: 'C2', dimension: 'efficacy', text: 'I feel confident sharing my ideas in meetings.' },
+  { code: 'H4', dimension: 'hope', text: 'Lately I cannot see how to move my work forward.', reverse: true },
+  { code: 'O2', dimension: 'optimism', text: 'I usually expect things at work to turn out well.' },
+  { code: 'R3', dimension: 'resilience', text: 'I find it hard to recover when work does not go to plan.', reverse: true },
+  { code: 'H3', dimension: 'hope', text: 'If I hit a dead end on a task, I can find another way around it.' },
+  { code: 'C4', dimension: 'efficacy', text: 'I feel confident helping to set goals for my area.' },
+  { code: 'O4', dimension: 'optimism', text: 'When things are uncertain at work, I look on the bright side.' },
+  { code: 'R4', dimension: 'resilience', text: 'I can handle a lot going on at once at work.' },
+  { code: 'H5', dimension: 'hope', text: 'I am meeting the goals I set for myself at work.' },
+  { code: 'C5', dimension: 'efficacy', text: 'I feel confident talking about my work to people outside my team.' },
+  { code: 'R5', dimension: 'resilience', text: 'I take setbacks at work in my stride.' },
+  { code: 'O5', dimension: 'optimism', text: 'I expect good things to come from my work.' },
+]
+
+export const WB_SCALE: { value: number; label: string }[] = [
+  { value: 1, label: 'Strongly disagree' },
+  { value: 2, label: 'Disagree' },
+  { value: 3, label: 'Neutral' },
+  { value: 4, label: 'Agree' },
+  { value: 5, label: 'Strongly agree' },
+]
+
+export type WbAnswers = Record<string, number>
+
+const effective = (q: WbQuestion, raw: number) => (q.reverse ? 6 - raw : raw)
+
+/** Mean of a measure's answered items, mapped from the 1..5 scale to 0..100.
+ * Returns null if none of that measure's items are answered. */
+export function wbSubscale(answers: WbAnswers, dimension: WbDimension): number | null {
+  const items = WB_QUESTIONS.filter((q) => q.dimension === dimension && answers[q.code] != null)
+  if (!items.length) return null
+  const mean = items.reduce((s, q) => s + effective(q, answers[q.code]), 0) / items.length
+  return Math.round(((mean - 1) / 4) * 100)
+}
+
+/** The four 0..100 sub-scales plus an overall (their mean). */
+export function wbScores(answers: WbAnswers) {
+  const subs = WB_DIMENSIONS.map((d) => wbSubscale(answers, d.key) ?? 0)
+  const [hope, efficacy, resilience, optimism] = subs
+  const overall = Math.round(subs.reduce((s, n) => s + n, 0) / subs.length)
+  return { hope, efficacy, resilience, optimism, overall }
+}
+
+/** A plain-language band for a 0..100 score, like a quiz result, with a tone
+ * shared by `Badge` and `Progress`. */
+export function wbBand(score: number): { label: string; tone: 'success' | 'primary' | 'warning' | 'danger' } {
+  if (score >= 75) return { label: 'Flourishing', tone: 'success' }
+  if (score >= 55) return { label: 'Steady', tone: 'primary' }
+  if (score >= 40) return { label: 'Under strain', tone: 'warning' }
+  return { label: 'Needs support', tone: 'danger' }
+}
+
+/** A member's own check-ins, or any member's for an HR admin (same endpoint). */
+export function useMemberWellbeing(memberId?: string) {
+  return useQuery({
+    queryKey: key('people', memberId, 'wellbeing'),
+    queryFn: () => unwrap(api.GET('/api/v1/hcm/people/{member_id}/wellbeing', { params: { path: { member_id: memberId! } } })),
+    enabled: !!memberId,
+  })
+}

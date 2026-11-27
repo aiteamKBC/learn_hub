@@ -19,6 +19,23 @@ def _set(cur, key: str, value: str) -> None:
     cur.execute("SELECT set_config(%s, %s, true)", [f"app.{key}", value])
 
 
+def _set_many(cur, values: dict[str, str]) -> None:
+    """Set the request's RLS context in one database round trip.
+
+    The application database is deliberately a transaction-pooled Neon connection.
+    Calling ``set_config`` once per value therefore made every authenticated request
+    wait for two to five WAN round trips before its view code even started.  The
+    settings are still transaction-local; only the transport shape changes.
+    """
+    if not values:
+        return
+    selects = ", ".join("set_config(%s, %s, true)" for _ in values)
+    params: list[str] = []
+    for key, value in values.items():
+        params.extend((f"app.{key}", value))
+    cur.execute(f"SELECT {selects}", params)
+
+
 def _parse_org(raw: str | None) -> UUID | None:
     if not raw:
         return None
@@ -41,7 +58,7 @@ class TenantMiddleware:
 
         with transaction.atomic():
             with connection.cursor() as cur:
-                _set(cur, "user_id", str(user.id))
+                context = {"user_id": str(user.id)}
                 org_id = _parse_org(request.META.get(ORG_HEADER))
                 platform_org_access = bool(
                     user.is_staff
@@ -53,9 +70,7 @@ class TenantMiddleware:
                     # company without creating a fake employee membership.  The
                     # separate header prevents an ordinary X-Org-Id from silently
                     # becoming elevated access.
-                    _set(cur, "platform_staff", "on")
-                    _set(cur, "org_id", str(org_id))
-                    _set(cur, "org_role", "owner")
+                    context.update({"platform_staff": "on", "org_id": str(org_id), "org_role": "owner"})
                     request.org_id = org_id
                     request.org_role = "owner"
                     request.platform_staff = True
@@ -64,18 +79,22 @@ class TenantMiddleware:
                     # nothing but their own memberships, so this cannot be spoofed.
                     from apps.org.selectors import active_member_scope
 
+                    # The membership lookup itself is protected by RLS, so it is
+                    # the one case that must see user_id before the final batched
+                    # context assignment below.
+                    _set_many(cur, context)
+                    context = {}
                     scope = active_member_scope(user_id=user.id, org_id=org_id)
                     if scope is not None:
                         member_id, role = scope
-                        _set(cur, "org_id", str(org_id))
-                        _set(cur, "member_id", str(member_id))
-                        _set(cur, "org_role", role)
+                        context.update({"org_id": str(org_id), "member_id": str(member_id), "org_role": role})
                         request.org_id = org_id
                         request.member_id = member_id
                         request.org_role = role
                 if user.is_staff and request.path.startswith(CONSOLE_PREFIX):
-                    _set(cur, "platform_staff", "on")
+                    context["platform_staff"] = "on"
                     request.platform_staff = True
+                _set_many(cur, context)
             return self.get_response(request)
 
 

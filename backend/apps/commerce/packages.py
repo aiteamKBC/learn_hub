@@ -86,6 +86,12 @@ def list_active_packages(currency_code: str, user=None) -> list[dict]:
         )
         ids = [cid for cid, *_ in courses]
         owned = owned_course_ids(user, ids)
+        # "was" price: what the included courses cost bought separately, in the SAME currency as
+        # the package price — lets the UI show the saving. Never below the package price.
+        from . import pricing
+
+        quotes = pricing.quote(ids, currency) if ids else {}
+        full_minor = sum((q.get("list_minor") or 0) for q in quotes.values())
         packages.append(
             {
                 "id": pkg.id,
@@ -93,6 +99,7 @@ def list_active_packages(currency_code: str, user=None) -> list[dict]:
                 "slug": pkg.slug,
                 "description": pkg.description,
                 "amount_minor": amount,
+                "full_minor": max(full_minor, amount),
                 "currency": currency,
                 "price_tier_id": pkg.price_tier_id,
                 "owned_count": len(owned),

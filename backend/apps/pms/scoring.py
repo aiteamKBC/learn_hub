@@ -55,6 +55,9 @@ def kpi_payload(
     recent: list[KpiMeasurement] | None = None,
     source: str | None = None,
     source_title: str = "",
+    course_slug: str = "",
+    course_enrolled: bool = False,
+    course_progress_pct=None,
 ) -> dict:
     if recent is None:
         recent = list(
@@ -104,6 +107,9 @@ def kpi_payload(
         "attainment": kpi_attainment(
             value=value, baseline=kpi.baseline, target=kpi.target, higher_better=kpi.higher_better
         ),
+        "course_slug": course_slug,
+        "course_enrolled": course_enrolled,
+        "course_progress_pct": course_progress_pct,
     }
 
 
