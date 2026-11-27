@@ -7,6 +7,7 @@ Stripe checkout is server-authoritative: the client never sends amounts.
 from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from ninja import Field, Router, Schema
 
@@ -205,6 +206,17 @@ class UnlockOut(Schema):
 
 @router.post("/unlock", response=UnlockOut)
 def unlock_content(request, body: UnlockIn):
+    # K02 has not yet made these entitlements usable in the learner player.
+    # Refuse before dispatching to an unlock service, which is where debits and
+    # entitlement grants occur. Existing entitlements and all other wallet uses
+    # remain untouched. Re-enable only after the K02 bridge is delivered.
+    if not settings.PERSONAL_TOKEN_CONTENT_UNLOCKS_ENABLED:
+        raise ServiceError(
+            "content_unlocks_temporarily_unavailable",
+            "Token content unlocks are temporarily unavailable while learner access is being completed.",
+            status=403,
+        )
+
     from apps.commerce.unlock import AlreadyUnlocked, NoPriceSet
 
     from . import unlock

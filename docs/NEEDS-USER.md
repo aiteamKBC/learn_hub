@@ -12,9 +12,12 @@ K02-1. **[blocker] Token entitlements never become enrolments, so unlocked conte
    endpoint, and it must keep lecture scope intact (unlocking one lecture must not open the course,
    per Khaled's rule 3).
    **Interim measure taken:** token *spending* is disabled in the learner UI via `TOKEN_SPENDING_READY`
-   in `features/b2c/UnlockButton.tsx`. Prices still show, marked "coming soon". Backend endpoints are
-   untouched, and anyone who already holds an entitlement keeps their access and still sees it.
-   **Owner:** K02 backend. Flip the flag when the endpoint lands.
+   and at `POST /api/v1/commerce/tokens/unlock` by the secure-default
+   `PERSONAL_TOKEN_CONTENT_UNLOCKS_ENABLED` setting. The API refuses course, lecture and material
+   unlocks before a debit or entitlement grant. Prices still show, marked "coming soon", and anyone
+   who already holds an entitlement keeps that access. Re-enable the setting only after K02-1 is
+   delivered and manually accepted end-to-end.
+   **Owner:** K02 backend.
 
 K02-2. **[blocker] Access expiry is not applied to token entitlements.**
    `Course.access_days` is admin-configured and now surfaces on the course page (B2C-01), and
@@ -33,8 +36,9 @@ REFUND-1. **[blocker] Learner refunds moved real money with no admin approval.**
    exposed this as a self-service "Refund" button with an "Refund issued" toast. That contradicts
    Khaled's rule 7 (*"مراجعة الأدمين قبل الاسترداد"* — admin review **before** the refund).
    **Interim measure taken:** the learner-facing button now reads "Ask about a refund" and links to
-   `/contact`; the page reports refund status only. No backend change — staff can still refund from
-   console > Sales exactly as before.
+   `/contact`; the page reports refund status only. `POST /api/v1/commerce/orders/items/{item_id}/refund`
+   now refuses learner self-service before creating a refund, contacting Stripe or revoking access.
+   Staff can still refund through console > Sales exactly as before.
    **What a proper fix needs** (not done here — admin workflow, out of the current B2C scope):
    `Refund.Status.PENDING` already exists and is the model default, and `GET /console/refunds` already
    lists pending rows — but there is **no console endpoint to approve one**. `console/sales.py:417`

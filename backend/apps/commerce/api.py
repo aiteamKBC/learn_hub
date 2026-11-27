@@ -26,7 +26,6 @@ from .models import (
     Currency,
     Invoice,
     Order,
-    OrderItem,
     Plan,
     PlanPrice,
     Subscription,
@@ -255,9 +254,13 @@ def order(request, order_id: str):
 
 @router.post("/orders/items/{item_id}/refund", response=RefundOut, auth=session_auth)
 def refund(request, item_id: str, body: RefundIn):
-    item = get_object_or_404(OrderItem, pk=item_id, user=request.user, order__org__isnull=True)
-    r = services.request_refund(item=item, by=request.user, reason=body.reason)
-    return {"ok": True, "status": r.status}
+    # The staff console retains the authorised refund operation. Learners must not
+    # trigger money movement or access revocation before that review exists.
+    raise ServiceError(
+        "refund_review_required",
+        "Refunds require administrator review. Please contact support.",
+        status=403,
+    )
 
 
 @router.post("/plan/enroll", response=PlanEnrollOut, auth=session_auth)
