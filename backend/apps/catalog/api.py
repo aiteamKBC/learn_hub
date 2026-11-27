@@ -82,7 +82,7 @@ def _cards(courses: list[Course], currency: dict, quotes: dict | None = None) ->
     """Price every course on the page with ONE quote (4 queries for any page size).
     Callers that already priced the courses (the cart) pass their quotes in."""
     if quotes is None:
-        quotes = pricing.quote([c.id for c in courses], currency["code"]) if courses else {}
+        quotes = pricing.quote([c.id for c in courses], currency["code"], resolved_currency=currency) if courses else {}
     out = []
     for c in courses:
         q = quotes.get(c.id)

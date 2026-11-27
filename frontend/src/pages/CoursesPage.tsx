@@ -104,7 +104,7 @@ function Filters({ params, set }: { params: URLSearchParams; set: Setter }) {
 }
 
 /** The page's own search: course names only. Results update as you type. */
-function CourseSearch({ initial, onSearch, onType }: { initial: string; onSearch: (q: string) => void; onType: (q: string | null) => void }) {
+function CourseSearch({ initial, onSearch }: { initial: string; onSearch: (q: string) => void }) {
   const [v, setV] = useState(initial)
   const term = useDebounced(v.trim(), 400)
   const first = useRef(true)
@@ -112,7 +112,6 @@ function CourseSearch({ initial, onSearch, onType }: { initial: string; onSearch
   useEffect(() => {
     if (initial !== term) {
       setV(initial)
-      onType(null) // the URL search leads again
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the URL search changes
   }, [initial])
@@ -126,14 +125,14 @@ function CourseSearch({ initial, onSearch, onType }: { initial: string; onSearch
       <Search aria-hidden className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted transition-colors group-focus-within:text-primary" />
       <input
         value={v}
-        onChange={(e) => (setV(e.target.value), onType(e.target.value))}
+        onChange={(e) => setV(e.target.value)}
         placeholder="Search course names"
         aria-label="Search course names"
         autoComplete="off"
         className="h-11 w-full rounded-full border border-border bg-surface pr-10 pl-11 text-sm text-text shadow-sm transition-[box-shadow,border-color] duration-200 outline-none placeholder:text-subtle focus:border-primary focus:ring-4 focus:ring-primary/15"
       />
       {v ? (
-        <button type="button" aria-label="Clear search" onClick={() => (setV(''), onType(''), onSearch(''))} className="absolute top-1/2 right-3 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-text">
+        <button type="button" aria-label="Clear search" onClick={() => (setV(''), onSearch(''))} className="absolute top-1/2 right-3 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-text">
           <X className="size-3.5" />
         </button>
       ) : null}
@@ -164,17 +163,8 @@ export function CoursesPage() {
   }
   const feed = useCourseFeed(filters)
   const { data: cats } = useCategories()
-  const serverItems = feed.data?.pages.flatMap((p) => p.items) ?? []
-  // Instant search: the same list without the search text (cached by React Query). When it
-  // is complete (one page), course-name matches are filtered right here on each key press,
-  // so results change at once instead of waiting for the server round trip.
-  const base = useCourseFeed({ ...filters, q: undefined, search_in: undefined })
-  const baseItems = base.data?.pages.flatMap((p) => p.items) ?? []
-  const [typed, setTyped] = useState<string | null>(null)
-  const instant = !!base.data && !base.hasNextPage && (typed != null || filters.search_in === 'courses')
-  const needle = (typed ?? filters.q ?? '').trim().toLowerCase()
-  const items = instant ? (needle ? baseItems.filter((c) => c.title.toLowerCase().includes(needle)) : baseItems) : serverItems
-  const total = instant ? items.length : feed.data?.pages[0]?.total
+  const items = feed.data?.pages.flatMap((p) => p.items) ?? []
+  const total = feed.data?.pages[0]?.total
 
   const set: Setter = (key, value) => {
     const next = new URLSearchParams(params)
@@ -247,7 +237,7 @@ export function CoursesPage() {
           </div>
         </div>
 
-        <CourseSearch initial={filters.search_in === 'courses' ? (filters.q ?? '') : ''} onType={setTyped} onSearch={(v) => set('q', v || undefined)} />
+        <CourseSearch initial={filters.search_in === 'courses' ? (filters.q ?? '') : ''} onSearch={(v) => set('q', v || undefined)} />
 
         <div className="mt-6 lg:grid lg:grid-cols-[248px_1fr] lg:gap-8">
           <aside className="hidden lg:block" aria-label="Filters">
@@ -278,7 +268,7 @@ export function CoursesPage() {
             <div className={cn('transition-opacity duration-200', feed.isFetching && !feed.isFetchingNextPage && !feed.isLoading && 'opacity-60')}>
               {feed.error ? (
                 <ErrorState message={(feed.error as Error).message} onRetry={() => void feed.refetch()} />
-              ) : (instant ? base.isLoading : feed.isLoading) ? (
+              ) : feed.isLoading ? (
                 <div className={view === 'grid' ? 'grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 xl:grid-cols-3' : 'grid gap-3'}>
                   {Array.from({ length: 6 }, (_, i) => (view === 'grid' ? <CourseCardSkeleton key={i} /> : <Skeleton key={i} className="h-36 rounded-lg" />))}
                 </div>

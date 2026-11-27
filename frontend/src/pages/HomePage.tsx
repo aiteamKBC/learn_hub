@@ -861,7 +861,7 @@ function WhyLearnHub() {
     { n: stats?.enrollments ?? 0, format: (v: number) => Math.round(v).toLocaleString('en-GB'), label: 'Enrolments', note: 'Across published courses' },
     { n: stats?.courses ?? 0, format: (v: number) => Math.round(v).toLocaleString('en-GB'), label: 'Courses', note: 'Published and growing' },
     { n: stats?.instructors ?? 0, format: (v: number) => Math.round(v).toLocaleString('en-GB'), label: 'Instructors', note: 'Practitioners who teach here' },
-    { n: stats?.rating_avg ?? 0, format: (v: number) => `${v.toFixed(1)}/5`, label: 'Average rating', note: stats?.rating_count ? `Across ${stats.rating_count.toLocaleString('en-GB')} reviews` : 'From learner reviews' },
+    { n: stats?.rating_avg ?? 0, format: (v: number) => stats?.rating_count ? `${v.toFixed(1)}/5` : 'Not rated yet', label: 'Average rating', note: stats?.rating_count ? `Across ${stats.rating_count.toLocaleString('en-GB')} reviews` : 'From learner reviews' },
   ]
   return (
     <section className="scroll-mt-20 border-t border-border bg-[#f6f4f0] dark:bg-surface-2">
