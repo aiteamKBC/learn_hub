@@ -159,14 +159,19 @@ export function useCashPackages() {
 
 export function usePackageCheckout() {
   return useMutation({
-    mutationFn: (v: { packageId: string; successPath: string; cancelPath: string; customerEmail?: string }) =>
-      unwrap(
-        api.POST('/api/v1/commerce/tokens/packages/{package_id}/checkout', {
+    mutationFn: async (v: { packageId: string; successPath: string; cancelPath: string; customerEmail?: string }) => {
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const result = await unwrap(api.POST('/api/v1/commerce/tokens/packages/{package_id}/checkout', {
           params: { path: { package_id: v.packageId } },
           body: { success_url: returnUrl(v.successPath), cancel_url: returnUrl(v.cancelPath), customer_email: v.customerEmail },
           headers: PERSONAL,
-        }),
-      ),
+        }))
+        if (result.url) return { url: result.url }
+        if (!result.pending) break
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+      }
+      throw new Error('Checkout is still being prepared. Try again shortly to resume the same purchase.')
+    },
   })
 }
 

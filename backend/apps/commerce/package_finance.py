@@ -9,6 +9,17 @@ from . import pricing, services
 from .models import CoursePrice, Currency, Order, OrderItem, PriceSnapshot
 
 
+def guard_package_refund(order_id):
+    """P06 is unresolved: stop before money, ledger, enrolment or certificate writes.
+
+    Course snapshots also identify package orders created before the explicit pack
+    marker. Independent purchases are not classified by current entitlements.
+    """
+    if PriceSnapshot.objects.filter(source_ref_kind="order", source_ref=str(order_id),
+                                    scope__in=["course", "pack"]).exists():
+        raise ServiceError("P06_BLOCKED", "Package refunds require policy approval and manual review. No payment or access rights were changed.", status=409)
+
+
 def allocate(total: int, weights: dict) -> dict:
     """Integer pro-rata allocation; largest fractions receive the remaining pennies.
 

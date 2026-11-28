@@ -20,6 +20,7 @@ from apps.identity.models import InstructorProfile, User
 from apps.payouts import selectors as ledger
 from apps.payouts import services as payouts
 from apps.payouts.models import CommissionRule, Earning, RevenueShare
+from apps.payouts.pool_status import subscription_pool_status
 from core import cache
 from core import cursor as keyset
 from core.errors import ServiceError
@@ -93,6 +94,8 @@ def set_instructor_fee(request, user_id: str, body: ConsoleInstructorFeeIn):
 
 # ---------------------------------------------------------------- overview and settings
 class ConsoleCommissionOverviewOut(Schema):
+    pool_settlement_status: Literal["blocked"]
+    pool_settlement_reason: str
     default_keeps_pct: float
     default_fee_pct: float
     pool_pct: float
@@ -132,6 +135,7 @@ def commission_overview(request):
             t=Sum("amount_gbp_minor")).order_by("-period")[:2])
         rates = _rates()
         return {
+            **subscription_pool_status(),
             "default_keeps_pct": pct(rates.get(C.MARKETPLACE, 10000)),
             "default_fee_pct": pct(10000 - rates.get(C.MARKETPLACE, 10000)),
             "pool_pct": pct(rates.get(C.SUBSCRIPTION_POOL, 0)),
@@ -142,7 +146,8 @@ def commission_overview(request):
             "active_instructors": InstructorProfile.objects.filter(status="approved").count(),
             "active_rules": CommissionRule.objects.filter(is_active=True).count(),
         }
-    return cache.get_or_set("console-commissions", "overview", build, timeout=20)
+    # Policy status must also be present on responses served from an older cache.
+    return cache.get_or_set("console-commissions", "overview", build, timeout=20) | subscription_pool_status()
 
 
 @router.put("/commissions/settings", response=ConsoleCommissionOverviewOut)

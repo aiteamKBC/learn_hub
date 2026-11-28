@@ -516,6 +516,9 @@ def request_refund(*, item: OrderItem, by, reason: str = "") -> Refund:
     staff may refund at any time (console > Sales, always with a reason)."""
     order = Order.objects.select_for_update().get(pk=item.order_id)
     item = OrderItem.objects.get(pk=item.pk)  # re-read under the order lock: no double refunds
+    from .package_finance import guard_package_refund
+
+    guard_package_refund(order.id)
     if order.status not in (Order.Status.PAID, Order.Status.PARTIALLY_REFUNDED) or item.refunded_at:
         raise ServiceError("not_refundable", "This purchase cannot be refunded.")
     days = refund_window_days()

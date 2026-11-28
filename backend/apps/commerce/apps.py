@@ -26,3 +26,8 @@ class CommerceConfig(AppConfig):
         from django.core.signals import request_started
 
         request_started.connect(_remember_buyer_country, dispatch_uid="commerce.buyer_country")
+        from apps.platform import outbox
+
+        from .package_checkout import TOPIC, dispatch_checkout
+
+        outbox.subscribe(TOPIC)(dispatch_checkout)

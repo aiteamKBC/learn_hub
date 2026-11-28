@@ -626,6 +626,7 @@ export function ConsoleCommissionsPage() {
           </Button>
         }
       />
+      {o.data?.pool_settlement_status === 'blocked' ? <div role="status" className="mb-5 rounded-lg border border-warning/30 bg-surface-2 p-4 text-sm"><strong>Subscription pool settlement blocked</strong><p className="mt-1">{o.data.pool_settlement_reason}</p></div> : null}
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
         <TabsList aria-label="Commission sections" className="mb-5">
           <TabsTrigger value="overview">
@@ -688,13 +689,11 @@ export function ConsoleCommissionsPage() {
               </CardBody>
             </Card>
             <div className="grid content-start gap-5 lg:col-span-5">
-              {o.data ? <KpiCard label="Paid to instructors (last settled month)" kpi={o.data.pool_month} icon={<Crown />} format={gbp} tone="info" /> : <Skeleton className="h-[118px]" />}
+              {o.data ? <KpiCard label="Instructor allocations (last settled month)" kpi={o.data.pool_month} icon={<Crown />} format={gbp} tone="info" /> : <Skeleton className="h-[118px]" />}
               <Card>
-                <CardHeader title="How the monthly pool is shared" description="A simple example using a £20 personal subscription and a 25% pool." />
+                <CardHeader title="Settlement status" description="Configuration does not enable settlement." />
                 <CardBody className="grid gap-3 text-sm">
-                  <div className="rounded-lg bg-surface-2 p-3"><strong>1. Build the pool</strong><p className="mt-1 text-muted">£20 subscription × 25% = £5 for instructors. The remaining £15 belongs to the platform before its operating costs.</p></div>
-                  <div className="rounded-lg bg-surface-2 p-3"><strong>2. Measure learning</strong><p className="mt-1 text-muted">At month end, we total recorded learning time on instructor-owned courses watched through the personal plan.</p></div>
-                  <div className="rounded-lg bg-surface-2 p-3"><strong>3. Pay by share of learning</strong><p className="mt-1 text-muted">If learners spent 60% of their time in Ahmed’s courses and 40% in Sara’s, Ahmed receives £3 and Sara receives £2 from this subscription’s pool.</p></div>
+                  {o.data ? <><Badge tone="warning">{o.data.pool_settlement_status}</Badge><p>{o.data.pool_settlement_reason}</p><p className="text-muted">Configured pool: {o.data.pool_pct}%. Historical allocations below are not evidence of a new settlement or a completed payout.</p></> : o.error ? <p>Settlement status could not be loaded.</p> : <Skeleton className="h-20" />}
                 </CardBody>
               </Card>
             </div>

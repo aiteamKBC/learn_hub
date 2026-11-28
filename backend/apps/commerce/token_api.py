@@ -526,7 +526,12 @@ class PackageCheckoutIn(Schema):
     customer_email: str | None = None
 
 
-@router.post("/packages/{package_id}/checkout", response=CheckoutUrlOut)
+class PackageCheckoutOut(Schema):
+    url: str | None
+    pending: bool
+
+
+@router.post("/packages/{package_id}/checkout", response=PackageCheckoutOut)
 def package_checkout(request, package_id: UUID, body: PackageCheckoutIn):
     from . import packages
 
@@ -539,4 +544,4 @@ def package_checkout(request, package_id: UUID, body: PackageCheckoutIn):
         cancel_url=body.cancel_url,
         customer_email=body.customer_email,
     )
-    return {"url": result["url"]}
+    return result

@@ -12696,6 +12696,10 @@ export interface components {
              */
             promo_code: string;
         };
+        PackageCheckoutOut: {
+            url: string | null;
+            pending: boolean;
+        };
         /** PackageCheckoutIn */
         PackageCheckoutIn: {
             /** Success Url */
@@ -17981,6 +17985,8 @@ export interface components {
         };
         /** ConsoleCommissionOverviewOut */
         ConsoleCommissionOverviewOut: {
+            pool_settlement_status: "blocked";
+            pool_settlement_reason: string;
             /** Default Keeps Pct */
             default_keeps_pct: number;
             /** Default Fee Pct */
@@ -26857,7 +26863,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CheckoutUrlOut"];
+                    "application/json": components["schemas"]["PackageCheckoutOut"];
                 };
             };
         };

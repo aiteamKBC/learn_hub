@@ -1109,6 +1109,38 @@ Supersedes the package/pool implementation findings above; runtime acceptance re
 - Course Payments, Payouts and Reports concurrent edits are preserved. Only this session's
   changes are included in its commit, including partial staging of the shared package file.
 
+### Final scoped Commissions corrections — 2026-11-28
+
+- Admin Commissions now exposes and displays the backend's blocked subscription settlement
+  status, including when overview data came from an older cache. Removed the hypothetical
+  distribution example; historical pool earnings are labelled allocations, not completed
+  payouts. F03/C06 remains blocked and the configured pool percentage is unchanged.
+- P06 guard rejects package refunds before provider, Refund, earning, enrolment, entitlement
+  or certificate changes. It recognizes both new explicit package markers and older package
+  order snapshots. Independent cash orders are not classified using current entitlements.
+  No automatic package refund or historical access repair is introduced.
+- Checkout takes a transaction lock per buyer/package, persists an order and package marker,
+  and publishes one immutable checkout request through the existing transactional outbox.
+  Provider calls occur only after reservation commit. Concurrent clicks and retries resume
+  the same saved checkout; changing currency does not create another attempt. The worker
+  locks the order and reuses the same provider arguments/idempotency key. Completed attempts
+  do not call the provider again. An ambiguous attempt older than one hour fails closed
+  rather than reissuing a charge; closed/legacy-uncertain attempts require manual review.
+  No schema, rate, historical earning, K02 or F02 changes.
+- The frontend waits for the reserved checkout URL for up to 30 seconds. It can safely
+  resume the same reservation on a later click. This uses the existing outbox worker;
+  worker availability was not changed or provisioned in this task.
+- Coordination: the agent registry exposed only this agent. Other sessions' shared-file
+  and staged edits were preserved; this session uses an isolated index to commit only
+  its own changes, without resetting or staging their work.
+- Validation: targeted database-free tests (dummy DB backend, dotenv loading disabled,
+  socket connections blocked), Ruff, TypeScript and whitespace checks. No database writes,
+  provider requests, browser automation, environment setup or full suite run.
+- Remaining acceptance: F03/C06 weighting and historical usage evidence; P06 certificate,
+  package refund and independent-rights policy; provider reconciliation for legacy or
+  ambiguous attempts; real PostgreSQL transaction/RLS concurrency, worker failure/recovery,
+  webhook ordering and sandbox-payment/UI acceptance. These were not runtime-verified.
+
 ## Reports and analytics corrections — 2026-11-28
 
 Implemented Reports-only receipt projections, explicit financial-data limitations, personal/company scopes, activity evidence, historical course rows, current subscription billing status, applied-filter exports with complete rows and native-currency totals, and chart date-label correction. See [reports-completion.md](reports-completion.md) for five-tab status, reconciliation differences, validation and unresolved financial-data/runtime blockers. Ten offline regression tests pass; database and browser acceptance remain pending. No schema changes or external writes; K02/F02 unchanged.

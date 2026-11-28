@@ -14,8 +14,8 @@ from django.utils import timezone
 
 from apps.platform.models import ContentEntitlement
 from apps.platform.services import audit
+from core.tenancy import tenant_context
 
-from . import gateway
 from .models import CashPackage, CashPackageCourse, PriceTierAmount, Subscription
 
 
@@ -134,6 +134,7 @@ def list_active_packages(currency_code: str, user=None) -> list[dict]:
     return packages
 
 
+@transaction.atomic
 def create_package_checkout(
     *,
     user,
@@ -146,6 +147,13 @@ def create_package_checkout(
     from .pricing import checkout_currency
 
     checkout_currency(currency_code)
+    from . import package_checkout
+
+    package_checkout.lock_checkout(user.id, package_id)
+    with tenant_context(user_id=user.id, staff=True):
+        existing = package_checkout.existing_checkout(user.id, package_id)
+    if existing is not None:
+        return existing
     pkg = CashPackage.objects.select_related("price_tier").filter(pk=package_id, is_active=True).first()
     if pkg is None:
         from core.errors import ServiceError
@@ -198,7 +206,7 @@ def create_package_checkout(
         user=user, course_ids=course_ids, currency_code=currency, amount=amount, quotes=quotes,
     )
     idempotency_key = f"cash_package_order:{order.id}"
-    session = gateway.create_checkout_session(
+    request = dict(
         mode="payment",
         line_items=[
             {
@@ -222,10 +230,7 @@ def create_package_checkout(
         cancel_url=cancel_url,
         idempotency_key=idempotency_key,
     )
-    from .models import Order
-
-    Order.objects.filter(pk=order.id).update(stripe_session_id=session["id"])
-    return {"url": session["url"]}
+    return package_checkout.reserve(order=order, package_id=package_id, request=request)
 
 
 @transaction.atomic
