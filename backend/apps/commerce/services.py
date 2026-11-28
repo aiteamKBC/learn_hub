@@ -655,17 +655,26 @@ def subscription_notice(sub: Subscription, what: str, *, date=None) -> None:
 
 
 def plan_covers(plan: Plan, course: Course) -> bool:
-    """Personal unlimited plans include every course explicitly marked for subscription."""
+    """Canonical eligibility for a personal unlimited plan.
+
+    A plan never makes a company course, a deleted/unpublished draft, or a course without
+    a live version available.  PlanCourse remains a Team-plan configuration detail; it is
+    deliberately not an override for ``unlimited_b2c``.
+    """
     return (
         plan.audience == Plan.Audience.PERSONAL
         and plan.kind == Plan.Kind.UNLIMITED_B2C
         and course.in_subscription
+        and course.owner_org_id is None
+        and course.deleted_at is None
+        and course.status == "published"
+        and course.live_version_id is not None
     )
 
 
 def enrol_with_plan(*, user, course: Course) -> Enrollment:
     """Personal-plan learners enrol without buying; access ends with the subscription."""
-    sub = (
+    subscriptions = list(
         Subscription.objects.filter(
             user=user,
             org__isnull=True,
@@ -673,9 +682,15 @@ def enrol_with_plan(*, user, course: Course) -> Enrollment:
             plan__kind=Plan.Kind.UNLIMITED_B2C,
             status__in=["trialing", "active"],
         )
-        .order_by("-current_period_end")
-        .first()
+        .order_by("-current_period_end")[:2]
     )
+    if len(subscriptions) > 1:
+        raise ServiceError(
+            "multiple_active_subscriptions",
+            "More than one active personal subscription needs support review.",
+            status=409,
+        )
+    sub = subscriptions[0] if subscriptions else None
     if sub is None or not sub.current_period_end:
         raise ServiceError("no_plan", "Subscribe to a plan to enrol in this course.", status=402)
     if course.owner_org_id is not None or course.live_version_id is None:

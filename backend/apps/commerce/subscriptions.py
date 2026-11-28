@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -49,7 +50,7 @@ def list_unlimited_plans(currency_code: str) -> list[dict]:
 
 def get_active_subscription(user) -> dict | None:
     now = timezone.now()
-    sub = (
+    subscriptions = list(
         Subscription.objects.filter(
             user=user,
             org__isnull=True,
@@ -58,8 +59,17 @@ def get_active_subscription(user) -> dict | None:
         )
         .filter(Q(current_period_end__isnull=True) | Q(current_period_end__gt=now))
         .select_related("plan")
-        .first()
+        .order_by("-current_period_end", "-created_at")[:2]
     )
+    if len(subscriptions) > 1:
+        from core.errors import ServiceError
+
+        raise ServiceError(
+            "multiple_active_subscriptions",
+            "More than one active personal subscription needs support review.",
+            status=409,
+        )
+    sub = subscriptions[0] if subscriptions else None
     if sub is None:
         return None
     return {
@@ -89,33 +99,34 @@ def create_subscription_checkout(
         raise ServiceError("not_found", "Plan not found or inactive.", status=404)
 
     now = timezone.now()
-    existing = (
-        Subscription.objects.filter(
-            user=user,
-            org__isnull=True,
-            plan__kind="unlimited_b2c",
-            status__in=("active", "trialing"),
-        )
-        .filter(Q(current_period_end__isnull=True) | Q(current_period_end__gt=now))
-        .exists()
-    )
-    if existing:
-        raise ServiceError(
-            "already_subscribed", "You already have an active unlimited subscription.", status=409
-        )
-
     price_row = PlanPrice.objects.filter(plan=plan, currency_id=currency_code).first()
     if price_row is None:
         price_row = PlanPrice.objects.filter(plan=plan, currency_id="GBP").first()
     if price_row is None:
         raise ServiceError("no_price", "No price configured for this plan.", status=400)
 
-    sub = Subscription.objects.create(
-        user=user,
-        plan=plan,
-        currency_id=price_row.currency_id,
-        status="incomplete",
-    )
+    # Lock the learner's subscription rows for the duplicate-checkout decision.  An
+    # incomplete checkout may be retried only after Stripe marks it terminal; this avoids
+    # creating two fulfilment candidates from double-clicks or concurrent requests.
+    with transaction.atomic():
+        existing = Subscription.objects.select_for_update().filter(
+            user=user,
+            org__isnull=True,
+            plan__kind="unlimited_b2c",
+            status__in=("incomplete", "active", "trialing", "past_due"),
+        ).filter(Q(current_period_end__isnull=True) | Q(current_period_end__gt=now)).exists()
+        if existing:
+            raise ServiceError(
+                "already_subscribed",
+                "You already have a subscription checkout or active unlimited subscription.",
+                status=409,
+            )
+        sub = Subscription.objects.create(
+            user=user,
+            plan=plan,
+            currency_id=price_row.currency_id,
+            status="incomplete",
+        )
 
     session = gateway.create_checkout_session(
         mode="subscription",

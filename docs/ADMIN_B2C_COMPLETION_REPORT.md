@@ -30,3 +30,11 @@ Publication/free enrollment, learner completion and certificate issuance were ob
 ## Static checks
 
 Frontend `npm run typecheck` and `git diff --check` were run. Ruff on the changed backend modules passed; the broader Ruff invocation reported existing harness import-order/`noqa` style issues in `tools/harness/e2e_course.py`. No additional test suites or audits were run after the stop instruction.
+
+## Personal subscription follow-up (2026-11-28)
+
+- **Canonical eligibility:** Personal unlimited access now consistently requires a published, live, public course marked `in_subscription`. The access resolver, plan enrolment and console included-course count use this definition. Private company courses, drafts and deleted courses are not exposed by a personal subscription. Subscription access remains live-evaluated; it does not create a permanent purchase entitlement.
+- **Plans and configuration:** New personal console plans are created as `unlimited_b2c`; their legacy course-list rows are neither used nor editable. Personal plan course views show the actual eligible catalogue. Team plan behaviour and its course/seat configuration remain unchanged.
+- **Subscriber safety:** Learner subscription status and course enrolment no longer select one of multiple active personal plans arbitrarily. The account API reports the integrity issue for support review, while the access resolver may still establish access from any qualifying unlimited plan. Checkout rejects an existing incomplete, active, trialling or past-due personal checkout/subscription to prevent duplicate fulfilment candidates; expired or asynchronously failed Checkout attempts are marked cancelled so they do not block a legitimate retry.
+- **Financial reporting:** Overview, plan totals and revenue charts now count only stored invoices whose status is `paid`. Payment history continues to display each invoice's recorded amount and currency, so an older yearly £19.99 invoice is preserved as history rather than overwritten with the current plan price.
+- **Validation:** This follow-up ran only the requested static checks (targeted Ruff, frontend TypeScript and `git diff --check`); no Django suite, browser automation, live Stripe request, migration, Neon write or email was run.

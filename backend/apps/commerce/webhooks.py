@@ -67,12 +67,22 @@ def dispatch(event: dict) -> None:
         _session_completed(obj, meta)
     elif kind == "checkout.session.expired" and meta.get("kind") == "order":
         services.expire_order(order_id=meta["id"])
+    elif kind == "checkout.session.expired" and meta.get("kind") == "subscription":
+        # A hosted Checkout session can expire before Stripe creates a subscription.
+        # Release this incomplete local attempt so it cannot block a legitimate retry.
+        Subscription.objects.filter(pk=meta["id"], status="incomplete").update(
+            status="canceled", canceled_at=timezone.now(), updated_at=timezone.now()
+        )
     elif kind == "checkout.session.expired" and meta.get("kind") in ("corporate_recorded", "corporate_live"):
         from apps.corporate.fulfillment import expire_purchase
 
         expire_purchase(obj, meta)
     elif kind == "checkout.session.async_payment_failed" and meta.get("kind") == "order":
         services.fail_order(order_id=meta["id"])
+    elif kind == "checkout.session.async_payment_failed" and meta.get("kind") == "subscription":
+        Subscription.objects.filter(pk=meta["id"], status="incomplete").update(
+            status="canceled", canceled_at=timezone.now(), updated_at=timezone.now()
+        )
     elif kind == "checkout.session.async_payment_failed" and meta.get("kind") in (
         "corporate_recorded",
         "corporate_live",

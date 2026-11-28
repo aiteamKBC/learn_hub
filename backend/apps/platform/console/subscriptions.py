@@ -69,9 +69,7 @@ class ConsoleSubsOverviewOut(Schema):
 
 
 def _plan_revenue(start=None, end=None) -> dict:
-    qs = Invoice.objects.filter(subscription__isnull=False).exclude(
-        status__in=("void", "uncollectible", "draft")
-    )
+    qs = Invoice.objects.filter(subscription__isnull=False, status="paid")
     if start:
         qs = qs.filter(issued_at__gte=start, issued_at__lt=end)
     rows = qs.values_list("subscription__plan_id", "currency_id").annotate(minor=Sum("amount_minor"))
@@ -162,8 +160,10 @@ def _plans_out(plans) -> list[dict]:
     )
     revenue = _plan_revenue()
     exp = dict(Currency.objects.values_list("code", "exponent"))
-    in_sub = Course.objects.filter(in_subscription=True, live_version__isnull=False, deleted_at__isnull=True,
-                                   owner_org_id__isnull=True).count()  # fmt: skip
+    in_sub = Course.objects.filter(
+        in_subscription=True, status="published", live_version__isnull=False,
+        deleted_at__isnull=True, owner_org_id__isnull=True,
+    ).count()
     return [{"id": p.id, "code": p.code, "name": p.name, "description": p.description, "audience": p.audience,
              "interval": p.interval, "trial_days": p.trial_days, "min_seats": p.min_seats, "renewal": p.renewal,
              "live_seat_cap": p.live_seat_cap if p.audience == Plan.Audience.TEAM else None,
@@ -257,10 +257,12 @@ def create_plan(request, body: ConsolePlanIn):
         live_seat_cap=body.live_seat_cap if body.audience == Plan.Audience.TEAM else None,
         live_seat_cap_effective_at=timezone.now() if body.audience == Plan.Audience.TEAM and body.live_seat_cap else None,
         renewal=body.renewal,
+        kind=Plan.Kind.UNLIMITED_B2C if body.audience == Plan.Audience.PERSONAL else Plan.Kind.STANDARD,
     )  # fmt: skip
     for p in body.prices:
         _set_price(plan, p)
-    _set_courses(plan, body.course_ids)
+    if body.audience == Plan.Audience.TEAM:
+        _set_courses(plan, body.course_ids)
     audit_request(request, "plan.create", "plan", plan.id, body.dict() | {"course_ids": len(body.course_ids)})
     return {"id": plan.id}
 
@@ -377,6 +379,15 @@ class ConsolePlanCoursesIn(Schema):
 def plan_courses(request, plan_id: UUID):
     staff(request)
     plan = get_object_or_404(Plan, pk=plan_id)
+    if plan.audience == Plan.Audience.PERSONAL:
+        qs = Course.objects.filter(
+            in_subscription=True, status="published", live_version__isnull=False,
+            deleted_at__isnull=True, owner_org_id__isnull=True,
+        )
+        return {"mode": "all_marked", "courses": [
+            {"id": c.id, "title": c.title, "in_subscription": c.in_subscription}
+            for c in qs.order_by("title")[:2000]
+        ]}
     ids = list(plan.course_links.values_list("course_id", flat=True))
     qs = Course.objects.filter(pk__in=ids) if ids else Course.objects.filter(
         in_subscription=True, live_version__isnull=False, deleted_at__isnull=True, owner_org_id__isnull=True)  # fmt: skip
@@ -390,6 +401,11 @@ def set_plan_courses(request, plan_id: UUID, body: ConsolePlanCoursesIn):
     """An empty list = every course marked "in subscription" (the behaviour before M5)."""
     staff(request)
     plan = get_object_or_404(Plan, pk=plan_id)
+    if plan.audience == Plan.Audience.PERSONAL:
+        raise ServiceError(
+            "personal_plan_courses_managed_by_course",
+            "Personal unlimited plans use each eligible course's subscription setting.",
+        )
     n = _set_courses(plan, body.course_ids)
     audit_request(request, "plan.courses", "plan", plan_id, {"courses": n})
     return {"ok": True}
