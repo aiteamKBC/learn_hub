@@ -7,6 +7,7 @@ this module provides the learner-facing read + checkout layer.
 
 from __future__ import annotations
 
+from datetime import timedelta
 from uuid import UUID
 
 from django.db import transaction
@@ -17,6 +18,8 @@ from apps.platform.services import audit
 
 from . import gateway
 from .models import Plan, PlanPrice, Subscription
+
+_PENDING_CHECKOUT_MAX_AGE = timedelta(hours=25)
 
 
 def list_unlimited_plans(currency_code: str) -> list[dict]:
@@ -99,54 +102,101 @@ def create_subscription_checkout(
         raise ServiceError("not_found", "Plan not found or inactive.", status=404)
 
     now = timezone.now()
-    price_row = PlanPrice.objects.filter(plan=plan, currency_id=currency_code).first()
-    if price_row is None:
-        price_row = PlanPrice.objects.filter(plan=plan, currency_id="GBP").first()
-    if price_row is None:
-        raise ServiceError("no_price", "No price configured for this plan.", status=400)
+    # A lock on Subscription rows alone does not serialize two first checkouts: there
+    # may be no row yet.  Lock the existing learner record instead, which is stable for
+    # every personal checkout and leaves company/B2B checkout behaviour untouched.
+    from apps.identity.models import User
 
-    # Lock the learner's subscription rows for the duplicate-checkout decision.  An
-    # incomplete checkout may be retried only after Stripe marks it terminal; this avoids
-    # creating two fulfilment candidates from double-clicks or concurrent requests.
     with transaction.atomic():
-        existing = Subscription.objects.select_for_update().filter(
+        User.objects.select_for_update().get(pk=user.pk)
+        active = (
+            Subscription.objects.filter(
+                user=user,
+                org__isnull=True,
+                plan__kind="unlimited_b2c",
+                status__in=("active", "trialing", "past_due"),
+            )
+            .filter(Q(current_period_end__isnull=True) | Q(current_period_end__gt=now))
+            .exists()
+        )
+        if active:
+            raise ServiceError(
+                "already_subscribed",
+                "You already have an active unlimited subscription.",
+                status=409,
+            )
+
+        # Checkout sessions expire within a day.  This fallback releases stale local
+        # attempts when Stripe's expiry webhook was delayed or unavailable, while never
+        # touching an attempt already linked to a Stripe subscription.
+        stale = Subscription.objects.filter(
             user=user,
             org__isnull=True,
             plan__kind="unlimited_b2c",
-            status__in=("incomplete", "active", "trialing", "past_due"),
-        ).filter(Q(current_period_end__isnull=True) | Q(current_period_end__gt=now)).exists()
-        if existing:
-            raise ServiceError(
-                "already_subscribed",
-                "You already have a subscription checkout or active unlimited subscription.",
-                status=409,
-            )
-        sub = Subscription.objects.create(
-            user=user,
-            plan=plan,
-            currency_id=price_row.currency_id,
             status="incomplete",
+            stripe_subscription_id__isnull=True,
+            created_at__lt=now - _PENDING_CHECKOUT_MAX_AGE,
         )
+        stale.update(status="canceled", canceled_at=now, updated_at=now)
 
-    session = gateway.create_checkout_session(
-        mode="subscription",
-        line_items=[
-            {
-                "price": price_row.stripe_price_id,
-                "quantity": 1,
-            }
-        ],
-        metadata={
-            "kind": "subscription",
-            "id": str(sub.id),
-        },
-        customer_email=customer_email or user.email,
-        success_url=success_url,
-        cancel_url=cancel_url,
-        subscription_data={
-            "trial_period_days": plan.trial_days if plan.trial_days > 0 else None,
-        },
-    )
+        # A current incomplete row is retried with its original ID. Stripe receives the
+        # same idempotency key, so a timeout with an uncertain provider outcome cannot
+        # create another Checkout Session or charge.
+        sub = (
+            Subscription.objects.select_for_update()
+            .select_related("plan")
+            .filter(
+                user=user,
+                org__isnull=True,
+                plan__kind="unlimited_b2c",
+                status="incomplete",
+                created_at__gte=now - _PENDING_CHECKOUT_MAX_AGE,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if sub is None:
+            price_row = PlanPrice.objects.filter(plan=plan, currency_id=currency_code).first()
+            if price_row is None:
+                price_row = PlanPrice.objects.filter(plan=plan, currency_id="GBP").first()
+            if price_row is None:
+                raise ServiceError("no_price", "No price configured for this plan.", status=400)
+            sub = Subscription.objects.create(
+                user=user,
+                plan=plan,
+                currency_id=price_row.currency_id,
+                status="incomplete",
+            )
+        else:
+            plan = sub.plan
+            price_row = PlanPrice.objects.filter(plan=plan, currency_id=sub.currency_id).first()
+            if price_row is None:
+                # A staff price deletion cannot turn an uncertain existing checkout
+                # into a new charge.  Keep the pending row for its expiry webhook.
+                raise ServiceError(
+                    "no_price", "The pending subscription price is no longer configured.", status=409
+                )
+
+    try:
+        session = gateway.create_checkout_session(
+            mode="subscription",
+            line_items=[{"price": price_row.stripe_price_id, "quantity": 1}],
+            metadata={"kind": "subscription", "id": str(sub.id)},
+            customer_email=customer_email or user.email,
+            success_url=success_url,
+            cancel_url=cancel_url,
+            trial_days=plan.trial_days,
+            idempotency_key=f"subscription-checkout-{sub.id}",
+        )
+    except ServiceError as exc:
+        # This error is raised before a provider request, so the local attempt is safe
+        # to release. Other errors may be an ambiguous network/provider outcome and
+        # deliberately retain the row for a retry with the same idempotency key.
+        if exc.code == "payments_unavailable":
+            Subscription.objects.filter(pk=sub.pk, status="incomplete").update(
+                status="canceled", canceled_at=timezone.now(), updated_at=timezone.now()
+            )
+        raise
 
     Subscription.objects.filter(pk=sub.pk).update(
         stripe_session_id=session.get("id"),

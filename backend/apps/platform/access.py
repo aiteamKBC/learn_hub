@@ -103,7 +103,10 @@ def _legacy_enrollment_allows(user, course_id, now) -> bool:
             org__isnull=True,
             status__in=(Enrollment.Status.ACTIVE, Enrollment.Status.COMPLETED),
         )
-        .exclude(source=Enrollment.Source.INSTALMENT)
+        # Subscription enrolments are a temporary player record, never a legacy
+        # purchase right. They must continue to the live subscription branch below
+        # so current eligibility, period expiry and lecture exclusions are enforced.
+        .exclude(source__in=(Enrollment.Source.INSTALMENT, Enrollment.Source.SUBSCRIPTION))
         .filter(Q(access_expires_at__isnull=True) | Q(access_expires_at__gt=now))
     )
     return qs.exists()
@@ -118,9 +121,11 @@ def _subscription_allows(user, course_id, now, *, scope: str = "", target_id=Non
         from apps.commerce.models import Subscription
     except Exception:  # noqa: BLE001 - this optional resolver lookup must fail closed
         return False
-    course = Course.objects.filter(pk=course_id).only(
-        "in_subscription", "owner_org_id", "deleted_at", "status", "live_version_id"
-    ).first()
+    course = (
+        Course.objects.filter(pk=course_id)
+        .only("in_subscription", "owner_org_id", "deleted_at", "status", "live_version_id")
+        .first()
+    )
     from apps.commerce.services import plan_covers
 
     # Keep the resolver on the same eligibility rule used by enrolment and the
