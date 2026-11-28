@@ -1,13 +1,6 @@
-/**
- * Admin "Home page layout" — reorder and show/hide the marketing home sections, and pick
- * which page is the default landing.
- *
- * NOTE (docs/NEEDS-USER.md, UI-3): this screen is VISUAL ONLY. Nothing is persisted — there
- * is no backend yet to store a home layout, so changes reset on reload. Built at the user's
- * explicit request as a placeholder, to be wired when a layout-settings API exists.
- */
-import { ArrowDown, ArrowUp, Eye, EyeOff, GripVertical, Home, Info, RotateCcw } from 'lucide-react'
-import { useState } from 'react'
+/** Admin controls backed by the existing platform settings contract. */
+import { ArrowDown, ArrowUp, Eye, EyeOff, GripVertical, Home, RotateCcw } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/ui/misc'
 import { cn } from '@/lib/cn'
+import { useSaveSettings } from '@/features/console/settings'
+import { usePublicSettings } from '@/features/platform/api'
 
 type Section = { id: string; label: string; note: string; visible: boolean; locked?: boolean }
 
@@ -24,9 +19,9 @@ const INITIAL: Section[] = [
   { id: 'courses', label: 'Featured courses', note: 'Courses built around skills', visible: true },
   { id: 'sales', label: 'Course bundles', note: 'Offers, priced like a decision', visible: true },
   { id: 'new', label: 'New and noteworthy', note: 'The latest published courses', visible: true },
+  { id: 'why', label: 'Why LearnHub', note: 'Catalogue statistics and teaching approach', visible: true },
   { id: 'instructors', label: 'Instructors', note: 'Taught by people who ship it', visible: true },
   { id: 'membership', label: 'Membership', note: 'One membership, every course', visible: true },
-  { id: 'plans', label: 'Plans', note: 'Choose how you want to learn', visible: true },
 ]
 
 const LANDING = [
@@ -36,19 +31,47 @@ const LANDING = [
 ]
 
 export function ConsoleHomeLayoutPage() {
+  const { settings, isLoading } = usePublicSettings()
+  const save = useSaveSettings()
   const [sections, setSections] = useState<Section[]>(INITIAL)
   const [landing, setLanding] = useState('home')
-  const dirty = JSON.stringify(sections) !== JSON.stringify(INITIAL) || landing !== 'home'
+  const [hydrated, setHydrated] = useState(false)
+  const storedOrder = settings['home.section_order'].split(',')
+  const storedHidden = settings['home.hidden_sections'].split(',').filter(Boolean)
+  const storedSections = storedOrder.map((id) => INITIAL.find((section) => section.id === id)).filter((section): section is Section => !!section)
+    .map((section) => ({ ...section, visible: !storedHidden.includes(section.id) }))
+  const validStored = storedSections.length === INITIAL.length
+  const baseline = validStored ? storedSections : INITIAL
+  const dirty = JSON.stringify(sections) !== JSON.stringify(baseline) || landing !== settings['home.default_landing']
+
+  useEffect(() => {
+    if (isLoading || hydrated) return
+    setSections(baseline)
+    setLanding(settings['home.default_landing'])
+    setHydrated(true)
+  }, [isLoading, hydrated, settings['home.section_order'], settings['home.hidden_sections'], settings['home.default_landing']])
 
   const move = (i: number, dir: -1 | 1) => {
     const j = i + dir
-    if (j < 0 || j >= sections.length) return
+    if (j < 0 || j >= sections.length || sections[i].locked || sections[j].locked) return
     const next = [...sections]
     ;[next[i], next[j]] = [next[j], next[i]]
     setSections(next)
   }
   const toggle = (id: string) => setSections((s) => s.map((x) => (x.id === id ? { ...x, visible: !x.visible } : x)))
   const reset = () => (setSections(INITIAL), setLanding('home'))
+  const saveLayout = async () => {
+    try {
+      await save.mutateAsync({
+        'home.section_order': sections.map((section) => section.id).join(','),
+        'home.hidden_sections': sections.filter((section) => !section.visible).map((section) => section.id).join(','),
+        'home.default_landing': landing,
+      })
+      toast.success('Home layout saved')
+    } catch {
+      toast.error('Could not save the home layout')
+    }
+  }
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -60,17 +83,12 @@ export function ConsoleHomeLayoutPage() {
             <Button variant="ghost" onClick={reset} disabled={!dirty}>
               <RotateCcw /> Reset
             </Button>
-            <Button onClick={() => toast.success('Layout preview updated (not saved — preview only)')} disabled={!dirty}>
+            <Button onClick={() => void saveLayout()} disabled={!dirty || save.isPending || isLoading}>
               Save layout
             </Button>
           </>
         }
       />
-
-      <div className="mb-5 flex items-start gap-2.5 rounded-lg border border-border bg-info-soft/40 px-4 py-3 text-sm text-muted">
-        <Info className="mt-0.5 size-4 shrink-0 text-info" />
-        <p>Preview only for now — reordering isn't saved to the live site yet. This screen is ready for when the layout settings are wired to the backend.</p>
-      </div>
 
       <Card className="p-2 sm:p-3">
         <ul className="grid gap-1.5">
@@ -92,10 +110,10 @@ export function ConsoleHomeLayoutPage() {
                 <Button variant="ghost" size="icon" aria-label={s.visible ? `Hide ${s.label}` : `Show ${s.label}`} onClick={() => toggle(s.id)} disabled={s.locked}>
                   {s.visible ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
                 </Button>
-                <Button variant="ghost" size="icon" aria-label={`Move ${s.label} up`} onClick={() => move(i, -1)} disabled={i === 0}>
+                <Button variant="ghost" size="icon" aria-label={`Move ${s.label} up`} onClick={() => move(i, -1)} disabled={i === 0 || !!s.locked || !!sections[i - 1]?.locked}>
                   <ArrowUp className="size-4" />
                 </Button>
-                <Button variant="ghost" size="icon" aria-label={`Move ${s.label} down`} onClick={() => move(i, 1)} disabled={i === sections.length - 1}>
+                <Button variant="ghost" size="icon" aria-label={`Move ${s.label} down`} onClick={() => move(i, 1)} disabled={i === sections.length - 1 || !!s.locked || !!sections[i + 1]?.locked}>
                   <ArrowDown className="size-4" />
                 </Button>
               </div>

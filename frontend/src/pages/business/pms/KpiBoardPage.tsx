@@ -1,4 +1,4 @@
-import { Download, Gauge, TrendingDown, TrendingUp } from 'lucide-react'
+import { Download, Gauge } from 'lucide-react'
 import { useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
@@ -13,7 +13,7 @@ import { type Kpi, useKpis } from '@/features/pms/api'
 import { useIsOrgAdmin } from '@/features/org/api'
 import { Link } from '@/lib/router'
 
-import { RecordDialog } from './KpisPage'
+import { RecordDialog } from './RecordDialog'
 import { CreateProposalDialog } from './ProposalsPage'
 
 type Scope = 'department' | 'individual'
@@ -22,6 +22,25 @@ const displayName = (name: string) => name.replace(/^\[WORKFORCE DEMO\]\s*/, '')
 function RelatedCourse({ source, title }: { source: string; title: string }) {
   const slug = source.startsWith('/courses/') ? source.slice('/courses/'.length) : ''
   return slug ? <Link to={`/courses/${slug}`} className="text-primary underline">{title || 'Related course'}</Link> : <>{source || '—'}</>
+}
+
+/** The course linked to this goal and how far this person has got in it (live enrolment). */
+function CourseProgressCell({ kpi }: { kpi: Kpi }) {
+  if (!kpi.course_slug) return <span className="text-xs text-muted">No course linked</span>
+  const pct = Math.round(Number(kpi.course_progress_pct ?? 0))
+  return (
+    <div className="grid gap-1.5">
+      <Link to={`/courses/${kpi.course_slug}`} className="text-xs font-medium text-primary underline underline-offset-2">{kpi.source_title || 'Course'}</Link>
+      {kpi.course_enrolled ? (
+        <div className="flex items-center gap-2" aria-label={`${pct}% of course complete`}>
+          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-border"><div className="h-full rounded-full bg-[var(--chart-2)]" style={{ width: `${pct}%` }} /></div>
+          <span className="tabular text-xs font-medium">{pct}%</span>
+        </div>
+      ) : (
+        <span className="text-xs text-muted">Not started</span>
+      )}
+    </div>
+  )
 }
 
 function quarter(kpi: Kpi, index: number) {
@@ -45,7 +64,7 @@ function colour(pct: number | null) {
   return pct == null ? 'var(--border-strong)' : pct >= 90 ? 'var(--chart-5)' : pct >= 60 ? 'var(--chart-1)' : 'var(--chart-3)'
 }
 
-type Row = { kpi: Kpi; actual: number | null; pct: number | null; owner: string; improving: boolean | null }
+type Row = { kpi: Kpi; actual: number | null; pct: number | null; owner: string }
 
 function exportCsv(rows: Row[], period: string) {
   const quote = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`
@@ -81,9 +100,7 @@ export function KpiBoardPage({ initialScope = 'department' }: { initialScope?: S
     const point = points.at(-1)
     const actual = point ? Number(point.value) : null
     const pct = attainment(kpi, actual)
-    const previous = point ? kpi.series[kpi.series.findIndex((p) => p.period_year === point.period_year && p.period_index === point.period_index) - 1] : undefined
-    const improving = previous && actual != null ? (kpi.higher_better ? actual >= Number(previous.value) : actual <= Number(previous.value)) : null
-    return { kpi, actual, pct, owner: kpi.owner_name, improving }
+    return { kpi, actual, pct, owner: kpi.owner_name }
   })
   const counts = { on: rows.filter((r) => status(r.pct) === 'On track').length, risk: rows.filter((r) => status(r.pct) === 'At risk').length, off: rows.filter((r) => status(r.pct) === 'Off track').length }
   const chartData = rows.map((r, index) => ({ label: `KPI ${index + 1}`, full: displayName(r.kpi.name), pct: r.pct ?? 0, fill: colour(r.pct) }))
@@ -91,11 +108,10 @@ export function KpiBoardPage({ initialScope = 'department' }: { initialScope?: S
   const loading = department.isLoading || individual.isLoading
 
   return <>
-    <PageHeader title={scope === 'department' ? 'Department KPIs' : 'Individual KPIs'} description="Department results and individual goals linked to strategic objectives, with targets, weights and recorded actuals." actions={admin ? <CreateProposalDialog defaultScope={scope} label="Add KPI" /> : null} />
+    <PageHeader title={scope === 'department' ? 'Department KPIs' : 'Individual KPIs'} description="Department results and individual goals linked to strategic objectives, with targets, weights and recorded actuals." actions={admin ? <CreateProposalDialog direct defaultScope={scope} label="Add KPI" /> : null} />
     <div className="mb-4 flex flex-wrap items-center gap-2">
       <Button asChild variant={scope === 'department' ? 'primary' : 'secondary'}><Link to="/business/pms/kpis">Department KPIs ({department.data?.length ?? 0})</Link></Button>
       <Button asChild variant={scope === 'individual' ? 'primary' : 'secondary'}><Link to="/business/pms/individual-kpis">Individual KPIs ({individual.data?.length ?? 0})</Link></Button>
-      <Button asChild variant="ghost"><Link to="/business/pms/proposals">Approval queue</Link></Button>
     </div>
     {error ? <ErrorState message={(error as Error).message} onRetry={() => { void department.refetch(); void individual.refetch() }} /> : loading ? <Skeleton className="h-96 rounded-lg" /> : <div className="animate-reveal grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -113,10 +129,10 @@ export function KpiBoardPage({ initialScope = 'department' }: { initialScope?: S
           <h2 className="font-semibold">Attainment vs target</h2><p className="mb-3 text-xs text-muted">100% means the target was reached. Progress is measured from baseline to target.</p>
           <div className="h-64 w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" /><XAxis dataKey="label" tick={{ fontSize: 10 }} /><YAxis domain={[0, 100]} tick={{ fontSize: 11 }} /><Tooltip formatter={(value) => [`${value}%`, 'Attainment']} labelFormatter={(_, payload) => payload?.[0]?.payload?.full ?? ''} /><ReferenceLine y={100} stroke="var(--chart-3)" strokeDasharray="4 4" /><Bar dataKey="pct" radius={[5, 5, 0, 0]}>{chartData.map((d, i) => <Cell key={i} fill={d.fill} />)}</Bar></BarChart></ResponsiveContainer></div>
         </Card>
-        <Card className="overflow-hidden"><Table className="min-w-[1080px]"><thead><Tr><Th>KPI / objective</Th><Th>Department</Th><Th>{scope === 'individual' ? 'Person' : 'Owner'}</Th><Th>Weight</Th><Th>Target</Th><Th>Actual</Th><Th>Trend</Th><Th>Status</Th><Th>History</Th></Tr></thead><tbody>{rows.map(({ kpi, actual, pct, owner, improving }) => <Tr key={kpi.id}>
-          <Td className="min-w-64"><p className="font-medium">{displayName(kpi.name)}</p><p className="mt-0.5 text-xs text-muted">{kpi.objective_code} · {kpi.objective_title} · baseline {kpi.baseline ?? '—'} {kpi.unit}</p>{kpi.parent_kpi_id ? <p className="mt-1 text-xs text-primary">Parent: {parentNames.get(kpi.parent_kpi_id) ?? 'Department KPI'}</p> : null}<p className="mt-1 text-xs"><RelatedCourse source={kpi.source} title={kpi.source_title} /></p></Td>
+        <Card className="overflow-hidden"><Table className="min-w-[940px]"><thead><Tr><Th>KPI / objective</Th><Th>Department</Th><Th>{scope === 'individual' ? 'Person' : 'Owner'}</Th><Th>Weight</Th><Th>Target</Th><Th>Actual</Th>{scope === 'individual' ? <Th>Course progress</Th> : null}<Th>Status</Th><Th>History</Th></Tr></thead><tbody>{rows.map(({ kpi, actual, pct, owner }) => <Tr key={kpi.id}>
+          <Td className="min-w-64"><p className="font-medium">{displayName(kpi.name)}</p><p className="mt-0.5 text-xs text-muted">Supports {kpi.objective_title || kpi.objective_code.replace(/^DEMO-/, '')}</p>{scope === 'individual' && kpi.parent_kpi_id ? <p className="mt-0.5 text-xs text-muted">Rolls up to {parentNames.get(kpi.parent_kpi_id) ?? 'department KPI'}</p> : null}{scope === 'department' && kpi.source ? <p className="mt-1 text-xs"><RelatedCourse source={kpi.source} title={kpi.source_title} /></p> : null}</Td>
           <Td>{kpi.dept}</Td><Td className="min-w-32">{owner}</Td><Td className="tabular">{kpi.weight}%</Td><Td className="whitespace-nowrap font-medium tabular">{kpi.target ?? '—'} {kpi.unit}</Td><Td className="whitespace-nowrap font-semibold tabular">{actual ?? '—'} {actual == null ? '' : kpi.unit}</Td>
-          <Td>{improving == null ? '—' : improving ? <TrendingUp className="size-4 text-success" aria-label="Improving" /> : <TrendingDown className="size-4 text-danger" aria-label="Declining" />}</Td>
+          {scope === 'individual' ? <Td className="min-w-44"><CourseProgressCell kpi={kpi} /></Td> : null}
           <Td><Badge tone={pct == null ? 'neutral' : pct >= 90 ? 'success' : pct >= 60 ? 'warning' : 'danger'}>{status(pct)}{pct == null ? '' : ` · ${pct}%`}</Badge></Td>
           <Td><RecordDialog kpi={kpi} admin={admin} /></Td>
         </Tr>)}</tbody></Table></Card>

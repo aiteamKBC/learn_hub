@@ -31,7 +31,7 @@ export function TokenBuyPage() {
     <>
       <PageHeader
         title="Buy tokens"
-        description="Top up your wallet, then spend tokens to unlock exactly what you want."
+        description="Top up your wallet. New personal content unlocks are temporarily unavailable while learner access is completed."
         back={
           <Button variant="ghost" size="sm" asChild>
             <a href="/wallet">← Wallet</a>
@@ -53,6 +53,7 @@ export function TokenBuyPage() {
 
 function Packs({ onReview }: { onReview: (item: ReviewItem) => void }) {
   const { data, isLoading, error, refetch } = useTokenPacks()
+  const rate = useTokenRate()
 
   if (isLoading)
     return (
@@ -70,8 +71,13 @@ function Packs({ onReview }: { onReview: (item: ReviewItem) => void }) {
     <section className="mt-4">
       <h2 className="text-sm font-semibold text-muted">Token packs</h2>
       <div className="stagger mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {data.map((p) => (
-          <Card key={p.id} className="flex flex-col p-5 transition-shadow hover:shadow-md">
+        {data.map((p) => {
+          // The configured token rate is GBP-based.  Savings are only comparable
+          // when the pack is also quoted in GBP; other currencies may include FX.
+          const standardMinor = rate.data && p.currency === 'GBP' ? Math.round(p.token_amount / Number(rate.data.tokens_per_gbp_minor)) : null
+          const savingMinor = standardMinor != null ? standardMinor - p.amount_minor : null
+          const savingPercent = savingMinor != null && standardMinor != null && standardMinor > 0 ? Math.round((savingMinor / standardMinor) * 100) : null
+          return <Card key={p.id} className="flex flex-col p-5 transition-shadow hover:shadow-md">
             <div className="flex items-center gap-2 text-primary">
               <Coins className="size-5" />
               <span className="text-lg font-bold tabular-nums">{count(p.token_amount)}</span>
@@ -79,6 +85,8 @@ function Packs({ onReview }: { onReview: (item: ReviewItem) => void }) {
             </div>
             <p className="mt-1 text-sm font-medium">{p.name}</p>
             <p className="mt-4 text-2xl font-bold tracking-tight">{money(p.amount_minor, p.currency)}</p>
+            <p className="mt-1 text-xs text-muted">{money(Math.round(p.amount_minor / p.token_amount), p.currency)} per token</p>
+            {savingMinor != null && savingMinor > 0 ? <p className="mt-2 text-xs font-medium text-success">Save {money(savingMinor, p.currency)} ({savingPercent}%) against standard token value</p> : null}
             <Button
               className="mt-4"
               onClick={() =>
@@ -97,7 +105,7 @@ function Packs({ onReview }: { onReview: (item: ReviewItem) => void }) {
               Buy pack
             </Button>
           </Card>
-        ))}
+        })}
       </div>
     </section>
   )
@@ -176,7 +184,7 @@ function CustomTopUp({ onReview }: { onReview: (item: ReviewItem) => void }) {
                     {max != null ? `Maximum ${money(max, currency, exponent)}` : ''}
                   </>
                 ) : (
-                  'Enter any amount to top up.'
+                  'No limit policy is configured for this currency. The payment service will validate the amount before checkout.'
                 )}
               </p>
               {belowMin ? <p className="text-sm text-danger">That's below the minimum of {money(min!, currency, exponent)}.</p> : null}

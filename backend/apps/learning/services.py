@@ -75,13 +75,38 @@ def _check_access(enrollment: Enrollment) -> None:
         raise ServiceError("no_access", "This enrolment is not active.", status=403)
     if enrollment.access_expires_at and enrollment.access_expires_at < timezone.now() and not staged:
         raise ServiceError("access_expired", "Access to this course has ended.", status=403)
+    if enrollment.source == Enrollment.Source.SUBSCRIPTION:
+        # A subscription enrolment is not an independent purchase. Recheck the live
+        # resolver before service-level writes as well as player reads.
+        from apps.platform import access
+
+        decision = access.resolve(enrollment.user, access.SCOPE_COURSE, enrollment.course_id)
+        # A later independent purchase/legacy right still wins in the resolver and
+        # must remain usable after a subscription lapses.
+        if not decision.allowed:
+            raise ServiceError("no_access", "Your subscription no longer includes this course.", status=403)
+
+
+def _check_subscription_lecture(enrollment: Enrollment, lecture: Lecture) -> None:
+    """Keep service-level progress writes behind the lecture resolver too.
+
+    Player endpoints already do this lookup, but quiz/assignment completion can resume
+    after a plan or lecture setting changes. A subscription enrolment must therefore
+    not retain a legacy-style path around ``excluded_from_subscription``.
+    """
+    if enrollment.source != Enrollment.Source.SUBSCRIPTION:
+        return
+    from apps.platform import access
+
+    if not access.resolve(enrollment.user, access.SCOPE_LECTURE, lecture.id).allowed:
+        raise ServiceError("no_access", "Your subscription no longer includes this lecture.", status=403)
 
 
 # ---------------------------------------------------------------- completion
 @transaction.atomic
 def complete_lecture(*, enrollment: Enrollment, lecture_key) -> None:
     _check_access(enrollment)
-    _live_lecture(enrollment, lecture_key)
+    _check_subscription_lecture(enrollment, _live_lecture(enrollment, lecture_key))
     progress, _ = LectureProgress.objects.get_or_create(enrollment=enrollment, lecture_key=lecture_key)
     if progress.completed_at is None:
         progress.completed_at = timezone.now()
@@ -227,6 +252,7 @@ def start_attempt(*, enrollment: Enrollment, quiz: Quiz) -> QuizAttempt:
     lecture = quiz.lecture
     if lecture.version_id != enrollment.course.live_version_id:
         raise ServiceError("not_in_course", "This quiz is not part of the live course.")
+    _check_subscription_lecture(enrollment, lecture)
     open_attempt = QuizAttempt.objects.filter(enrollment=enrollment, quiz=quiz, status="in_progress").first()
     if open_attempt:
         return open_attempt
@@ -250,6 +276,8 @@ def start_attempt(*, enrollment: Enrollment, quiz: Quiz) -> QuizAttempt:
 @transaction.atomic
 def submit_attempt(*, attempt: QuizAttempt, answers: dict) -> QuizAttempt:
     attempt = QuizAttempt.objects.select_for_update().get(pk=attempt.pk)  # no double submit
+    _check_access(attempt.enrollment)
+    _check_subscription_lecture(attempt.enrollment, attempt.quiz.lecture)
     if attempt.status != QuizAttempt.Status.IN_PROGRESS:
         raise ServiceError("already_submitted", "This attempt was already submitted.")
     now = timezone.now()
@@ -321,6 +349,7 @@ def submit_assignment(
     lecture = assignment.lecture
     if lecture.version_id != enrollment.course.live_version_id:
         raise ServiceError("not_in_course", "This assignment is not part of the live course.")
+    _check_subscription_lecture(enrollment, lecture)
     allowed = set(assignment.submission_types)
     if (
         (text_body and "text" not in allowed)

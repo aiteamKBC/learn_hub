@@ -52,10 +52,15 @@ def _forward_backfill(apps, schema_editor):
         return
     from django.utils import timezone
 
+    # Migrations run on the owner alias. The app/default alias may still point
+    # at another database while Django is preparing a fresh test database.
+    database = schema_editor.connection.alias
     now = timezone.now()
-    rows = Enrollment.objects.filter(
-        org__isnull=True, status__in=("active", "completed")
-    ).values_list("user_id", "course_id", "enrolled_at", "access_expires_at", "id")
+    rows = (
+        Enrollment.objects.using(database)
+        .filter(org__isnull=True, status__in=("active", "completed"))
+        .values_list("user_id", "course_id", "enrolled_at", "access_expires_at", "id")
+    )
 
     bulk = []
     seen = set()
@@ -78,10 +83,10 @@ def _forward_backfill(apps, schema_editor):
             )
         )
         if len(bulk) >= 500:
-            ContentEntitlement.objects.bulk_create(bulk, ignore_conflicts=True)
+            ContentEntitlement.objects.using(database).bulk_create(bulk, ignore_conflicts=True)
             bulk.clear()
     if bulk:
-        ContentEntitlement.objects.bulk_create(bulk, ignore_conflicts=True)
+        ContentEntitlement.objects.using(database).bulk_create(bulk, ignore_conflicts=True)
 
 
 def _reverse_noop(apps, schema_editor):
@@ -90,7 +95,6 @@ def _reverse_noop(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("platform", "0004_accessauditlog_contententitlement"),
         ("learning", "0005_console_a_verify"),

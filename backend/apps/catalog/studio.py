@@ -546,6 +546,7 @@ def price_tiers(request):
 
 
 @router.put("/courses/{course_id}/price", response=OkOut)
+@transaction.atomic
 def set_price(request, course_id: str, body: PriceIn):
     c = editable(request, course_id)
     if c.ownership == Course.Ownership.ORGANIZATION:
@@ -553,6 +554,7 @@ def set_price(request, course_id: str, body: PriceIn):
     tier = None if body.free else get_object_or_404(PriceTier, pk=body.tier_id, is_active=True)
     with tenant_context(user_id=request.user.id, staff=True):  # narrow write after the editor check
         CoursePrice.objects.update_or_create(course=c, defaults={"is_free": body.free, "tier": tier})
+        Course.objects.filter(pk=c.pk).update(is_free=body.free, updated_at=timezone.now())
     return {"ok": True}
 
 

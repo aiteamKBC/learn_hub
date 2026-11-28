@@ -102,6 +102,7 @@ def _wb_payload(row) -> dict:
         "stay_intent": row.stay_intent,
         "satisfaction": row.satisfaction,
         "note": row.note,
+        "answers": row.answers or {},
     }
 
 
@@ -201,6 +202,15 @@ def update_hr_profile(request, member_id: UUID, data: HrProfilePatch):
         org_id=require_org(request),
     )
     return selectors.profile_payload(profile)
+
+
+@router.get("/people/{member_id}/wellbeing", response=list[WellbeingOut])
+def member_wellbeing(request, member_id: UUID):
+    """A member's wellbeing check-ins, for the member themselves or an HR admin.
+    RLS already limits raw rows to the member and their managers."""
+    perms.require_self_or_hr(request, member_id)
+    org_id = require_org(request)
+    return [_wb_payload(r) for r in selectors.recent_wellbeing(org_id=org_id, member_id=member_id)]
 
 
 @router.get("/people/{member_id}/qualifications", response=list[MemberQualificationOut])

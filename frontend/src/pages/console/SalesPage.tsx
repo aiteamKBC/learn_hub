@@ -115,7 +115,7 @@ function Overview() {
           <Table className="mt-3"><thead><tr><Th>Course</Th><Th className="text-right">Orders</Th><Th className="text-right">Revenue</Th></tr></thead><tbody>{d.top_courses.map((course) => <Tr key={course.id}><Td><a href={`/console/courses?course=${course.id}`} className="font-medium text-primary hover:underline">{course.title}</a></Td><Td className="text-right tabular">{course.orders}</Td><Td className="text-right font-medium tabular">{gbp(course.revenue_gbp_minor)}</Td></Tr>)}</tbody></Table>
         </Card>
       ) : null}
-      <OrdersCard compact scope={{ ...filters, start: d?.range.start, end: d?.range.end }} />
+      <OrdersCard compact scope={{ ...filters, start: d?.range.start?.slice(0, 10), end: d?.range.end?.slice(0, 10) }} />
     </div>
   )
 }

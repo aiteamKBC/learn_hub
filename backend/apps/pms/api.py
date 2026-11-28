@@ -129,30 +129,73 @@ def list_kpis(request, dept: str | None = None, scope: str = "department"):
             org_id=org_id, id__in=[k.source_proposal_id for k in kpis if k.source_proposal_id]
         ).values_list("id", "source")
     )
-    slugs = {
-        source.removeprefix("/courses/") for source in sources.values() if source.startswith("/courses/")
-    }
-    course_titles = (
-        dict(
-            Course.objects.filter(slug__in=slugs, status="published")
+
+    def _kpi_slug(k: Kpi) -> str:
+        src = sources.get(k.source_proposal_id, "")
+        return src.removeprefix("/courses/") if src.startswith("/courses/") else ""
+
+    slugs = {_kpi_slug(k) for k in kpis}
+    slugs.discard("")
+    courses = (
+        {
+            row["slug"]: row
+            for row in Course.objects.filter(slug__in=slugs, status="published")
             .filter(Q(owner_org_id=org_id) | Q(owner_org__isnull=True))
-            .values_list("slug", "title")
-        )
+            .values("slug", "id", "title")
+        }
         if slugs
         else {}
     )
-    return [
-        scoring.kpi_payload(
-            k,
-            org_id=org_id,
-            recent=readings.get(k.id, []),
-            source=sources.get(k.source_proposal_id, ""),
-            source_title=course_titles.get(
-                sources.get(k.source_proposal_id, "").removeprefix("/courses/"), ""
-            ),
+    # Owner's real progress in the linked course (company enrolment), for individual
+    # KPIs. One batched query (no N+1); keep the furthest progress per owner+course.
+    progress_by_user_course: dict[tuple[UUID, UUID], object] = {}
+    if scope == Kpi.Scope.INDIVIDUAL and courses:
+        from apps.learning.models import Enrollment
+
+        course_ids = [c["id"] for c in courses.values()]
+        user_ids = [k.owner.user_id for k in kpis if k.owner_id]
+        if user_ids:
+            for row in Enrollment.objects.filter(
+                org_id=org_id, user_id__in=user_ids, course_id__in=course_ids
+            ).values("user_id", "course_id", "progress_pct"):
+                key = (row["user_id"], row["course_id"])
+                prev = progress_by_user_course.get(key)
+                if prev is None or row["progress_pct"] > prev:
+                    progress_by_user_course[key] = row["progress_pct"]
+
+    payloads = []
+    for k in kpis:
+        slug = _kpi_slug(k)
+        course = courses.get(slug)
+        enrolled = False
+        progress = None
+        if course and k.owner_id:
+            key = (k.owner.user_id, course["id"])
+            if key in progress_by_user_course:
+                enrolled = True
+                progress = progress_by_user_course[key]
+        payloads.append(
+            scoring.kpi_payload(
+                k,
+                org_id=org_id,
+                recent=readings.get(k.id, []),
+                source=sources.get(k.source_proposal_id, ""),
+                source_title=course["title"] if course else "",
+                course_slug=slug,
+                course_enrolled=enrolled,
+                course_progress_pct=progress,
+            )
         )
-        for k in kpis
-    ]
+    return payloads
+
+
+@router.post("/kpis", response=PmsKpiOut)
+def create_kpi(request, data: PmsProposalIn):
+    """Create an active KPI directly, in one step (no approval chain). Admin only."""
+    org_id = require_org(request)
+    perms.require_pms_admin(request)
+    kpi = services.create_kpi_direct(org_id=org_id, by_user_id=request.user.id, data=data.dict())
+    return scoring.kpi_payload(kpi, org_id=org_id)
 
 
 @router.post("/kpis/{kpi_id}/measurements", response=PmsMeasurementOut)

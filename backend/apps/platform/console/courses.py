@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Literal
 from uuid import UUID
 
+from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -278,10 +279,14 @@ def courses(request, tab: str = "all", status: str = "", category: UUID | None =
     if tab not in TABS or (status and status not in STATUSES):
         raise ServiceError("bad_filter", "Unknown filter.")
     limit = clamp(limit, 100)
-    live = Course.objects.filter(deleted_at__isnull=True)
-    k = live.aggregate(total=Count("id"), published=Count("id", filter=Q(status="published")),
-                       drafts=Count("id", filter=Q(status="draft")),
-                       archived=Count("id", filter=Q(status="archived")))  # fmt: skip
+    k = Course.objects.aggregate(
+        total=Count("id", filter=Q(deleted_at__isnull=True)),
+        published=Count("id", filter=Q(deleted_at__isnull=True, status="published")),
+        drafts=Count("id", filter=Q(deleted_at__isnull=True, status="draft")),
+        archived=Count(
+            "id", filter=Q(status="archived", deleted_at__isnull=True) | Q(deleted_at__isnull=False)
+        ),
+    )
     k["pending"] = CourseVersion.objects.filter(status="in_review", course__deleted_at__isnull=True).count()
     qs = _filtered(tab, status, category, q).distinct()
     after = keyset.decode(cursor, 1)
@@ -373,6 +378,7 @@ def update_course(request, course_id: UUID, body: ConsoleCoursePatch):
 
 
 @router.put("/courses/{course_id}/price", response=ConsoleOkOut)
+@transaction.atomic
 def set_price(request, course_id: UUID, body: ConsoleCoursePriceIn):
     staff(request)
     from apps.commerce.models import CoursePrice, PriceTier
@@ -383,6 +389,7 @@ def set_price(request, course_id: UUID, body: ConsoleCoursePriceIn):
     tier = None if body.free else get_object_or_404(PriceTier, pk=body.tier_id, is_active=True)
     old = CoursePrice.objects.filter(course=c).values("is_free", "tier_id").first()
     CoursePrice.objects.update_or_create(course=c, defaults={"is_free": body.free, "tier": tier})
+    Course.objects.filter(pk=c.pk).update(is_free=body.free, updated_at=timezone.now())
     audit_request(request, "course.price", "course", c.id,
                   {"from": {k: str(v) for k, v in (old or {}).items()}, "free": body.free, "tier": str(tier.id) if tier else None})  # fmt: skip
     return {"ok": True}

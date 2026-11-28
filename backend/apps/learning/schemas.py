@@ -73,7 +73,7 @@ class LiveOut(Schema):
     provider: str = "manual"
 
 
-class MyLiveSessionOut(Schema):
+class LearnerCourseLiveSessionOut(Schema):
     """One scheduled live session in a course the learner is enrolled in."""
 
     enrollment_id: UUID

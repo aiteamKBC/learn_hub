@@ -52,6 +52,21 @@ class CoursePage(Schema):
     total: int | None = None  # on the first page only ("1,248 courses")
 
 
+class CatalogStatsOut(Schema):
+    """Real headline figures for the public home page (no hard-coded marketing numbers).
+
+    `enrollments` is the sum of each course's denormalised `student_count`; a learner
+    enrolled on three courses counts three times. It is not a unique-learner count: that
+    would need a distinct user-id aggregation across enrolment rows, which is out of
+    scope for this endpoint."""
+
+    enrollments: int
+    courses: int
+    instructors: int
+    rating_avg: float  # rating-count-weighted mean across the catalogue
+    rating_count: int
+
+
 class LectureOut(Schema):
     id: UUID  # the live lecture row's pk — the target_id for token unlock / access checks
     key: UUID
@@ -96,6 +111,9 @@ class CourseDetail(CourseCard):
     full_course_token_price: int | None = None
     token_pricing_mode: str | None = None
     in_subscription: bool = True
+    # How long a cash purchase grants access for, so the learner can see the replay window
+    # before buying. None = open-ended access (no expiry configured).
+    access_days: int | None = None
 
 
 class PlaybackOut(Schema):

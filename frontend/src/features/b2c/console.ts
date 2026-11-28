@@ -194,6 +194,14 @@ export function useAdminPackages() {
   return useQuery({ queryKey: ['b2c-admin-packages'], queryFn: () => unwrap(api.GET('/api/v1/console/packages')) })
 }
 
+export function useEligiblePackageCourses(q: string, page: number) {
+  return useQuery({
+    queryKey: ['b2c-package-eligible-courses', q, page],
+    queryFn: () => unwrap(api.GET('/api/v1/console/packages/eligible-courses', { params: { query: { q, page, limit: 20 } } })),
+    placeholderData: (previous) => previous,
+  })
+}
+
 export function useCreatePackage() {
   const refresh = useInvalidate(['b2c-admin-packages', 'b2c-admin-audit'])
   return useMutation({
@@ -254,8 +262,8 @@ export function useAdminWalletLedger(userId: string | null) {
 export function useAdjustWallet() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (v: { userId: string; amount: number; note: string }) =>
-      unwrap(api.POST('/api/v1/console/wallet/user/{user_id}/adjust', { params: { path: { user_id: v.userId } }, body: { amount: v.amount, note: v.note } })),
+    mutationFn: (v: { userId: string; amount: number; note: string; idempotencyKey: string }) =>
+      unwrap(api.POST('/api/v1/console/wallet/user/{user_id}/adjust', { params: { path: { user_id: v.userId } }, body: { amount: v.amount, note: v.note, idempotency_key: v.idempotencyKey } })),
     onSuccess: (_d, v) => qc.invalidateQueries({ predicate: (q) => ['b2c-admin-wallet', 'b2c-admin-wallet-ledger'].includes(String(q.queryKey[0])) && q.queryKey[1] === v.userId }),
   })
 }

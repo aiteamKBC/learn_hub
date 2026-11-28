@@ -30,6 +30,15 @@ export function useKpis(scope: 'department' | 'individual' = 'department') {
   return useQuery({ queryKey: key('kpis', scope), queryFn: () => unwrap(api.GET('/api/v1/pms/kpis', { params: { query: { scope } } })) })
 }
 
+/** Create an active KPI directly, in one step (no approval chain). Admin only. */
+export function useCreateKpi() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: ProposalIn) => unwrap(api.POST('/api/v1/pms/kpis', { body })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: key('kpis') }),
+  })
+}
+
 export function useMeasurements(kpiId?: string) {
   return useQuery({
     queryKey: key('measurements', kpiId),

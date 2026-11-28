@@ -41,7 +41,7 @@ import { SettingRows } from './PricingPage'
 const TABS = ['codes', 'campaigns', 'rules', 'first', 'eligibility', 'settings'] as const
 type Tab = (typeof TABS)[number]
 const fail = (e: unknown) => toast.error((e as Error).message)
-const createLabelForKind = (kind: string) => kind === 'campaign' ? 'Create campaign' : kind === 'subscription' ? 'Create subscription' : kind === 'first_purchase' ? 'Create first-purchase offer' : 'Create promo code'
+const createLabelForKind = (kind: string) => kind === 'campaign' ? 'Create campaign' : kind === 'subscription' ? 'Create subscription discount' : kind === 'first_purchase' ? 'Create first-purchase offer' : 'Create promo code'
 const period = (p: ConsolePromotion) => `${day(p.starts_at)} – ${day(p.ends_at)}`
 const usage = (p: ConsolePromotion) => `${p.redeemed_count.toLocaleString('en-GB')} / ${p.max_redemptions === null ? '∞' : p.max_redemptions.toLocaleString('en-GB')}`
 
@@ -164,11 +164,11 @@ function PromotionForm({ promo, initialKind, onDone }: { promo: ConsolePromotion
     kind: promo?.kind ?? initialKind,
     code: promo?.code ?? '',
     description: promo?.description ?? '',
-    percent: String(promo?.percent_off ?? 20),
+    percent: promo ? String(promo.percent_off) : '',
     starts: toLocalInput(promo?.starts_at ?? now.toISOString()),
     ends: toLocalInput(promo?.ends_at ?? new Date(now.getTime() + 30 * 86_400_000).toISOString()),
     max: promo?.max_redemptions != null ? String(promo.max_redemptions) : '',
-    perUser: promo?.per_user_limit != null ? String(promo.per_user_limit) : '1',
+    perUser: promo?.per_user_limit != null ? String(promo.per_user_limit) : '',
     minOrder: promo?.min_order_minor ? toMajor(promo.min_order_minor) : '',
     draft: promo ? promo.status === 'draft' : false,
   }))
@@ -186,12 +186,16 @@ function PromotionForm({ promo, initialKind, onDone }: { promo: ConsolePromotion
   const options: Pick[] = scope === 'course' ? (opts.data?.courses ?? []) : scope === 'category' ? (opts.data?.categories ?? []) : scope === 'plan' ? (opts.data?.plans ?? []) : []
   const pct = Number(v.percent)
   const minOrder = v.minOrder.trim() ? toMinor(v.minOrder) : 0
+  const totalUses = v.max.trim() ? Number(v.max) : null
+  const perPerson = v.perUser.trim() ? Number(v.perUser) : null
+  const validLimit = (n: number | null) => n === null || (Number.isInteger(n) && n > 0)
   const errors = {
     code: v.kind === 'promo_code' && !v.code.trim() ? 'A promo code needs a code buyers can type.' : undefined,
     percent: !(pct >= 1 && pct <= 95 && Number.isInteger(pct)) ? 'Between 1 and 95.' : undefined,
     ends: v.starts && v.ends && v.ends <= v.starts ? 'The end must be after the start.' : undefined,
     targets: scope !== 'all' && picks.length === 0 ? 'Choose at least one.' : undefined,
     minOrder: minOrder === null ? 'Enter an amount, like 50.' : undefined,
+    limits: !validLimit(totalUses) || !validLimit(perPerson) || (totalUses !== null && perPerson !== null && perPerson > totalUses) ? 'Use positive whole numbers; uses per person cannot exceed total uses.' : undefined,
   }
   const ok = v.name.trim() && v.starts && v.ends && !Object.values(errors).some(Boolean)
   const submit = (e: FormEvent) => {
@@ -209,13 +213,13 @@ function PromotionForm({ promo, initialKind, onDone }: { promo: ConsolePromotion
       percent_off: pct,
       starts_at: new Date(v.starts).toISOString(),
       ends_at: new Date(v.ends).toISOString(),
-      max_redemptions: v.max.trim() ? Number(v.max) : null,
-      per_user_limit: v.perUser.trim() ? Number(v.perUser) : null,
+      max_redemptions: totalUses,
+      per_user_limit: perPerson,
       min_order_minor: minOrder ?? 0,
       draft: v.draft,
       targets,
     }
-    if (promo) update.mutate({ id: promo.id, body }, { onSuccess: () => (toast.success('Promotion saved.'), onDone(promo.id)), onError: fail })
+    if (promo) update.mutate({ id: promo.id, body }, { onSuccess: () => (toast.success(!promo.is_active && !v.draft ? 'Promotion activated.' : 'Promotion saved.'), onDone(promo.id)), onError: fail })
     else create.mutate(body, { onSuccess: (r) => (toast.success(v.draft ? 'Saved as a draft.' : 'Promotion created.'), onDone((r as { id: string }).id)), onError: fail })
   }
   return (
@@ -268,6 +272,7 @@ function PromotionForm({ promo, initialKind, onDone }: { promo: ConsolePromotion
           <Field label="Ends" error={errors.ends}>{(p) => <Input {...p} type="datetime-local" value={v.ends} onChange={set('ends')} />}</Field>
           <Field label="Total uses (optional)" hint="Empty means no limit.">{(p) => <Input {...p} type="number" min={1} value={v.max} onChange={set('max')} inputMode="numeric" />}</Field>
           <Field label="Uses per person (optional)" hint="Empty means no limit.">{(p) => <Input {...p} type="number" min={1} value={v.perUser} onChange={set('perUser')} inputMode="numeric" />}</Field>
+          {errors.limits ? <p className="text-[13px] text-danger sm:col-span-2" role="alert">{errors.limits}</p> : null}
           {v.kind !== 'subscription' ? (
             <Field label="Minimum order in pounds (optional)" error={errors.minOrder}>{(p) => <Input {...p} value={v.minOrder} onChange={set('minOrder')} inputMode="decimal" placeholder="0.00" />}</Field>
           ) : null}
@@ -278,7 +283,7 @@ function PromotionForm({ promo, initialKind, onDone }: { promo: ConsolePromotion
         <Checkbox checked={v.draft} onCheckedChange={(on) => setV({ ...v, draft: !!on })} /> Save as a draft (not live yet)
       </label>
       <div className="flex justify-end">
-        <Button type="submit" loading={create.isPending || update.isPending} disabled={!ok}>{promo ? 'Save changes' : createLabelForKind(v.kind)}</Button>
+        <Button type="submit" loading={create.isPending || update.isPending} disabled={!ok}>{promo ? !promo.is_active && !v.draft ? 'Save and activate' : 'Save changes' : createLabelForKind(v.kind)}</Button>
       </div>
     </form>
   )

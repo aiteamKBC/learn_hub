@@ -48,6 +48,11 @@ class StudioApiTest(SchemaTransactionTestCase):
 
         self.as_(self.teacher)
         c = self.call("post", "/courses", {"title": "Clean Code <b>Now</b>"}).json()
+        # Content publishing requires an explicit cash/free choice and, when later
+        # priced, a valid token price. Match the standard API course fixtures.
+        self.assertEqual(self.call("put", f"/courses/{c['id']}/price", {"free": True}).status_code, 200)
+        with tenant_context(user_id=self.staff.id, staff=True):
+            Course.objects.filter(pk=c["id"]).update(full_course_token_price=500)
         course = self.call("get", f"/courses/{c['id']}").json()
         self.assertEqual(course["title"], "Clean Code Now")  # tags stripped from plain fields
         v = course["working_version"]["id"]
@@ -469,6 +474,8 @@ class PrerequisiteTest(SchemaTransactionTestCase):
             return getattr(self.client, method)(API + path, data=data or {}, content_type="application/json")
 
         c = call("post", "/courses", {"title": "Steps"}).json()
+        with tenant_context(user_id=staff.id, staff=True):
+            CoursePrice.objects.create(course_id=c["id"], is_free=True)
         v = call("get", f"/courses/{c['id']}").json()["working_version"]["id"]
         sec = call("post", f"/versions/{v}/sections", {"title": "One"}).json()["id"]
         first, second = (
@@ -499,7 +506,6 @@ class PrerequisiteTest(SchemaTransactionTestCase):
         with tenant_context(user_id=staff.id, staff=True):
             cat.approve(version=CourseVersion.objects.get(pk=v), reviewer=staff)
             course = Course.objects.get(pk=c["id"])
-            CoursePrice.objects.create(course=course, is_free=True)
             enrol = learning.enrol(user=sara, course=course, source="free").id
 
         self.client.force_login(sara)

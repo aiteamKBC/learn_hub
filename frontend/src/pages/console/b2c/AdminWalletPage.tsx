@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/switch'
 import { Card, CardHeader } from '@/components/ui/card'
 import { Field, Input, Textarea } from '@/components/ui/input'
 import { ErrorState, PageHeader, StatCard } from '@/components/ui/misc'
@@ -236,19 +237,23 @@ function AdjustForm({ userId, rate }: { userId: string; rate: number | undefined
   const [sign, setSign] = useState<1 | -1>(1)
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
+  const [confirmed, setConfirmed] = useState(false)
+  const [submissionKey, setSubmissionKey] = useState(() => crypto.randomUUID())
 
   const n = parseInt(amount, 10)
-  const valid = Number.isFinite(n) && n > 0 && note.trim().length >= 3
+  const valid = Number.isFinite(n) && n > 0 && note.trim().length >= 3 && confirmed
 
   const submit = () => {
     if (!valid) return
     adjust.mutate(
-      { userId, amount: sign * n, note: note.trim() },
+      { userId, amount: sign * n, note: note.trim(), idempotencyKey: submissionKey },
       {
         onSuccess: () => {
           toast.success(`Wallet ${sign > 0 ? 'credited' : 'debited'} by ${n} tokens.`)
           setAmount('')
           setNote('')
+          setConfirmed(false)
+          setSubmissionKey(crypto.randomUUID())
         },
         onError: (e) => toast.error((e as Error).message),
       },
@@ -275,6 +280,16 @@ function AdjustForm({ userId, rate }: { userId: string; rate: number | undefined
           <Field label="Reason (required)" hint="Shown in the audit trail and the learner's ledger.">
             {(p) => <Textarea {...p} value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Why are you adjusting this balance?" />}
           </Field>
+          <div className="rounded-md bg-surface-2 p-3 text-sm">
+            <p className="font-medium">Review adjustment</p>
+            <p className="mt-1 text-muted">
+              This will {sign > 0 ? 'add' : 'remove'} {Number.isFinite(n) && n > 0 ? count(n) : '—'} tokens. The current balance is refreshed after the authorised ledger entry is written.
+            </p>
+            <label className="mt-3 flex cursor-pointer items-start gap-2 text-sm">
+              <Checkbox checked={confirmed} onCheckedChange={(value) => setConfirmed(value === true)} />
+              <span>I have checked the learner and reason, and confirm this adjustment.</span>
+            </label>
+          </div>
           <div>
             <Button disabled={!valid} loading={adjust.isPending} onClick={submit}>
               Apply adjustment

@@ -1,8 +1,9 @@
-import { ArrowLeft, Award, BookOpenText, ChevronDown, ChevronLeft, ChevronRight, Info, ListTree, Lock, Megaphone, MessagesSquare, NotebookPen, PartyPopper, Star, Target } from 'lucide-react'
+import { ArrowLeft, Award, BookOpenText, CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Info, ListTree, Lock, Megaphone, MessagesSquare, NotebookPen, PartyPopper, Star, Target } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from '@/lib/toast'
 
+import { ApiError } from '@/api/client'
 import { Backdrop } from '@/components/art/backdrops'
 import { DashboardBackdrop } from '@/components/art/dashboard-backdrop'
 import { Button } from '@/components/ui/button'
@@ -118,6 +119,7 @@ export function PlayerPage() {
   const all = p?.sections.flatMap((s) => s.lectures) ?? []
   const doneCount = all.filter((l) => l.completed).length
   const error = lookup.error ?? player.error
+  const expired = error instanceof ApiError && error.code === 'access_expired'
   const secondaryTabs = [
     { value: 'overview', label: 'Overview', Icon: BookOpenText },
     { value: 'notes', label: 'Notes', Icon: NotebookPen },
@@ -134,7 +136,22 @@ export function PlayerPage() {
 
       {error ? (
         <div className="mx-auto max-w-[1600px] p-6 lg:px-14">
-          <ErrorState message={error.message} onRetry={() => void (lookup.refetch(), player.refetch())} />
+          {/* Expired access is not a loading failure: retrying can only fail again, so
+              send the learner to the course page where they can buy access again. */}
+          {expired ? (
+            <EmptyState
+              icon={<CalendarClock />}
+              title="Your access to this course has ended"
+              body="The access period set for this course has finished. Your progress is kept, so buying it again picks up where you left off."
+              action={
+                <Button asChild>
+                  <Link to={`/courses/${route.slug}`}>View this course</Link>
+                </Button>
+              }
+            />
+          ) : (
+            <ErrorState message={error.message} onRetry={() => void (lookup.refetch(), player.refetch())} />
+          )}
         </div>
       ) : (
         <div className="mx-auto grid w-full max-w-[1600px] gap-7 px-0 py-5 sm:px-6 lg:grid-cols-[minmax(0,2.05fr)_minmax(360px,0.95fr)] lg:px-14">

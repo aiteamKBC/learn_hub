@@ -7,17 +7,19 @@ from django.db.models import (
     BooleanField,
     Case,
     Count,
+    DecimalField,
     Exists,
     F,
     IntegerField,
     OuterRef,
     Prefetch,
     Q,
+    Sum,
     Value,
     When,
 )
 from django.db.models.expressions import RawSQL
-from django.shortcuts import get_object_or_404
+from django.db.models.functions import Coalesce
 from ninja import Field, Query, Router, Schema
 
 from apps.commerce import pricing
@@ -27,7 +29,16 @@ from core.money import request_currency
 
 from . import media, selectors
 from .models import Category, Course, CourseInstructor, Lecture
-from .schemas import CategoryOut, CourseCard, CourseDetail, CoursePage, PlaybackOut
+from .schemas import CatalogStatsOut, CategoryOut, CourseCard, CourseDetail, CoursePage, PlaybackOut
+
+
+def _require(obj, message="Not found."):
+    """One error shape for public lookups: a missing course/lecture raises the standard
+    ServiceError envelope, not Django's bare {"detail": ...} 404."""
+    if obj is None:
+        raise ServiceError("not_found", message, status=404)
+    return obj
+
 
 router = Router(tags=["catalog"])
 
@@ -71,7 +82,11 @@ def _cards(courses: list[Course], currency: dict, quotes: dict | None = None) ->
     """Price every course on the page with ONE quote (4 queries for any page size).
     Callers that already priced the courses (the cart) pass their quotes in."""
     if quotes is None:
-        quotes = pricing.quote([c.id for c in courses], currency["code"]) if courses else {}
+        quotes = (
+            pricing.quote([c.id for c in courses], currency["code"], resolved_currency=currency)
+            if courses
+            else {}
+        )
     out = []
     for c in courses:
         q = quotes.get(c.id)
@@ -89,6 +104,39 @@ def _cards(courses: list[Course], currency: dict, quotes: dict | None = None) ->
 @router.get("/categories", response=list[CategoryOut], auth=None)
 def categories(request):
     return Category.objects.filter(is_active=True, parent__isnull=True).order_by("sort_order")
+
+
+@router.get("/stats", response=CatalogStatsOut, auth=None)
+def stats(request):
+    """Real marketplace headline figures for the public home page, derived from the live
+    catalogue only (no hard-coded numbers). Cheap: two aggregate queries."""
+    pub = _public()
+    agg = pub.aggregate(
+        courses=Count("id", distinct=True),
+        # `student_count` is denormalised per course, so a learner on three courses is
+        # counted three times. That is an enrolment total, not a unique-learner count.
+        enrollments=Coalesce(Sum("student_count"), 0),
+        rating_total=Coalesce(Sum("rating_count"), 0),
+        weighted=Coalesce(
+            Sum(
+                F("rating_avg") * F("rating_count"),
+                output_field=DecimalField(max_digits=18, decimal_places=2),
+            ),
+            Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)),
+        ),
+    )
+    instructors = (
+        CourseInstructor.objects.filter(is_visible=True, course__in=pub).values("user_id").distinct().count()
+    )
+    rating_count = agg["rating_total"] or 0
+    rating_avg = round(float(agg["weighted"]) / rating_count, 2) if rating_count else 0.0
+    return {
+        "enrollments": agg["enrollments"] or 0,
+        "courses": agg["courses"] or 0,
+        "instructors": instructors,
+        "rating_avg": rating_avg,
+        "rating_count": rating_count,
+    }
 
 
 @router.get("/courses", response=CoursePage, auth=None)
@@ -193,12 +241,13 @@ def _plan_covers(user, course) -> bool:
 def course_detail(request, slug: str, currency: str | None = None):
     """The course landing page. A company's private course is visible only inside that
     company (RLS), so a guessed slug just returns 404."""
-    course = get_object_or_404(
-        Course.objects.select_related("category", "live_version", "cash_price_tier").prefetch_related(
-            _instructor_names(), "topics"
-        ),
-        slug=slug, status="published", live_version__isnull=False, deleted_at__isnull=True,
-    )  # fmt: skip
+    course = _require(
+        Course.objects.select_related("category", "live_version", "cash_price_tier")
+        .prefetch_related(_instructor_names(), "topics")
+        .filter(slug=slug, status="published", live_version__isnull=False, deleted_at__isnull=True)
+        .first(),
+        "Course not found.",
+    )
     cur = request_currency(request, currency)
     card = _cards([course], cur)[0]
     if course.owner_org_id is not None:
@@ -253,6 +302,7 @@ def course_detail(request, slug: str, currency: str | None = None):
         "rating_breakdown": breakdown, "sections": sections, "viewer": viewer,
         "full_course_token_price": derived_token_price,
         "token_pricing_mode": course.token_pricing_mode, "in_subscription": course.in_subscription,
+        "access_days": course.access_days,
     }  # fmt: skip
 
 
@@ -263,12 +313,12 @@ def related_courses(request, slug: str, currency: str | None = None):
     These are catalog relationships, not generated recommendations: every result shares
     the course category or at least one explicit topic with the course being viewed.
     """
-    course = get_object_or_404(
-        Course.objects.select_related("category").prefetch_related("topics"),
-        slug=slug,
-        status="published",
-        live_version__isnull=False,
-        deleted_at__isnull=True,
+    course = _require(
+        Course.objects.select_related("category")
+        .prefetch_related("topics")
+        .filter(slug=slug, status="published", live_version__isnull=False, deleted_at__isnull=True)
+        .first(),
+        "Course not found.",
     )
     topic_ids = [topic.id for topic in course.topics.all()]
     related_to = Q()
@@ -306,9 +356,13 @@ def related_courses(request, slug: str, currency: str | None = None):
 @router.get("/courses/{slug}/preview/{lecture_key}", response=PlaybackOut, auth=None)
 def preview(request, slug: str, lecture_key: str):
     """Free sample lectures play without enrolling."""
-    lecture = get_object_or_404(
-        Lecture.objects.select_related("video__library"),
-        version__course__slug=slug, version__course__live_version=F("version"), lecture_key=lecture_key,
-        is_preview=True, kind="video",
+    lecture = _require(
+        Lecture.objects.select_related("video__library")
+        .filter(
+            version__course__slug=slug, version__course__live_version=F("version"), lecture_key=lecture_key,
+            is_preview=True, kind="video",
+        )
+        .first(),
+        "Preview not found.",
     )  # fmt: skip
     return media.playback(lecture.video)

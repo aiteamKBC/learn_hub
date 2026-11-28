@@ -150,6 +150,19 @@ def _bump_cpd_cache(*, org_id: UUID, member_id: UUID) -> None:
 
 
 # ---------------------------------------------------------------- wellbeing
+def _clean_answers(raw: dict | None) -> dict[str, int]:
+    """Keep only sane 1..5 integer answers; drop anything malformed."""
+    out: dict[str, int] = {}
+    for key, value in (raw or {}).items():
+        try:
+            v = int(value)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= v <= 5 and isinstance(key, str) and len(key) <= 16:
+            out[key] = v
+    return out
+
+
 @transaction.atomic
 def submit_wellbeing(*, org_id: UUID, member: OrgMember, data: dict) -> WellbeingSurvey:
     survey = WellbeingSurvey.objects.create(
@@ -164,6 +177,7 @@ def submit_wellbeing(*, org_id: UUID, member: OrgMember, data: dict) -> Wellbein
         stay_intent=data.get("stay_intent"),
         satisfaction=data.get("satisfaction"),
         note=(data.get("note") or "").strip(),
+        answers=_clean_answers(data.get("answers")),
     )
     # Mirror the latest scalars onto the profile so dashboards don't need a join.
     updates = {}

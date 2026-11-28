@@ -93,7 +93,8 @@ def retrieve_payment_intent(pi_id: str) -> dict:
 
 def retrieve_checkout_session(session_id: str) -> dict:
     s = _client().v1.checkout.sessions.retrieve(session_id)
-    return {"id": s.id, "payment_status": s.payment_status, "payment_intent": s.payment_intent or "",
+    return {"id": s.id, "status": s.status, "payment_status": s.payment_status,
+            "payment_intent": s.payment_intent or "",
             "amount_total": s.amount_total, "currency": s.currency or "", "metadata": dict(s.metadata or {})}  # fmt: skip
 
 

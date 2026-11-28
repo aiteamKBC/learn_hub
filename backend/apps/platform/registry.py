@@ -30,6 +30,7 @@ class Def:
 BRANDING_PATH = "/api/v1/platform/branding/"  # uploaded logo / favicon, served by the platform API
 DATE_FORMATS = ("d MMM yyyy", "dd/MM/yyyy", "yyyy-MM-dd")
 LANGUAGES = ("en", "ar", "fr", "de", "es")
+HOME_SECTIONS = ("hero", "categories", "courses", "sales", "new", "why", "instructors", "membership")
 
 SETTINGS: tuple[Def, ...] = (
     # general (shown site-wide: header, emails, PDFs, page titles)
@@ -41,6 +42,10 @@ SETTINGS: tuple[Def, ...] = (
     Def("general.default_currency", "GBP", "str", "Default currency", "general", public=True, max_len=3),
     Def("general.time_zone", "Europe/London", "str", "Time zone", "general", public=True, max_len=64),
     Def("general.date_format", "d MMM yyyy", "choice", "Date format", "general", public=True, choices=DATE_FORMATS),
+    Def("home.section_order", ",".join(HOME_SECTIONS), "str", "Home section order", "general", public=True, max_len=200),
+    Def("home.hidden_sections", "", "str", "Hidden home sections", "general", public=True, max_len=200),
+    Def("home.default_landing", "home", "choice", "Default landing page", "general", public=True,
+        choices=("home", "courses", "plans")),
     # switches the backend enforces (staff always bypass)
     Def("access.registration_enabled", True, "bool", "Registration enabled", "access", public=True),
     Def("access.instructor_applications", True, "bool", "Instructor applications", "access", public=True),
@@ -112,6 +117,16 @@ def validate(key: str, value):
     if not isinstance(value, str):
         raise ServiceError("bad_value", f"{d.label}: enter text.")
     value = value.strip()
+    if key in {"home.section_order", "home.hidden_sections"}:
+        sections = value.split(",") if value else []
+        if len(sections) != len(set(sections)) or any(section not in HOME_SECTIONS for section in sections):
+            raise ServiceError("bad_value", f"{d.label}: choose valid sections without duplicates.")
+        if key == "home.section_order" and (set(sections) != set(HOME_SECTIONS) or sections[0] != "hero"):
+            raise ServiceError(
+                "bad_value", "Home section order must start with the hero and include every section once."
+            )
+        if key == "home.hidden_sections" and "hero" in sections:
+            raise ServiceError("bad_value", "The home hero cannot be hidden.")
     if d.kind == "choice" and value not in d.choices:
         raise ServiceError("bad_value", f"{d.label}: choose one of the options.")
     if len(value) > d.max_len:

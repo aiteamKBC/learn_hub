@@ -30,9 +30,9 @@ from .schemas import (
     DownloadOut,
     HeartbeatIn,
     HeartbeatOut,
+    LearnerCourseLiveSessionOut,
     LectureContent,
     MyCoursePage,
-    MyLiveSessionOut,
     NoteIn,
     NoteOut,
     NotePatchIn,
@@ -180,7 +180,7 @@ def my_courses(
     return {"items": items, "next_cursor": nxt}
 
 
-@router.get("/my/live-sessions", response=list[MyLiveSessionOut])
+@router.get("/my/live-sessions", response=list[LearnerCourseLiveSessionOut])
 def my_live_sessions(request):
     """Live sessions scheduled in the courses the learner is enrolled in, soonest first.
     The join link appears 15 minutes before a session starts (same rule as the player)."""
@@ -203,6 +203,13 @@ def my_live_sessions(request):
     for lec in rows:
         e = enrolments.get(lec.version.course_id)
         if e is None:
+            continue
+        # This list issues the same protected join URL as the player. Apply its
+        # enrolment, subscription, prerequisite and paid-stage gates first.
+        try:
+            services._check_access(e)
+            _check_unlocked(e, lec)
+        except ServiceError:
             continue
         joinable = lec.live_starts_at - timedelta(minutes=15) <= now
         out.append({

@@ -34,7 +34,8 @@ import {
   useUpsertTopUpPolicy,
 } from '@/features/b2c/console'
 import { dateTime } from '@/features/console/money-ui'
-import { count } from '@/lib/format'
+import { useCurrencies } from '@/features/commerce/api'
+import { count, money } from '@/lib/format'
 import { gbpForTokenInput, moneyGbp, moneyUsd, tokensFromGbp, tokenValueGbp } from '@/lib/token-value'
 
 /** Console > Token pricing. Packs, exchange rate, custom top-up policy, bonus campaigns and the
@@ -741,6 +742,7 @@ function RatesTab() {
 // ------------------------------------------------------------------ top-up policies
 function TopUpTab() {
   const policies = useAdminTopUpPolicies()
+  const currencies = useCurrencies()
   const upsert = useUpsertTopUpPolicy()
   const [currency, setCurrency] = useState('GBP')
   const [minDraft, setMinDraft] = useState<string | null>(null)
@@ -748,6 +750,8 @@ function TopUpTab() {
   const [activeDraft, setActiveDraft] = useState<boolean | null>(null)
   const [reason, setReason] = useState('')
   const currentPolicy = policies.data?.find((p) => p.currency === currency)
+  const exponent = currencies.data?.find((item) => item.code === currency)?.exponent ?? 2
+  const factor = 10 ** exponent
   const min = minDraft ?? (currentPolicy ? String(currentPolicy.min_minor) : '')
   const max = maxDraft ?? (currentPolicy ? String(currentPolicy.max_minor) : '')
   const active = activeDraft ?? currentPolicy?.is_active ?? true
@@ -775,7 +779,7 @@ function TopUpTab() {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
-        <CardHeader title="Top-up limits" description="Minimum and maximum custom top-up per currency (in minor units)." />
+        <CardHeader title="Top-up limits" description="Minimum and maximum custom top-up per currency." />
         {policies.isLoading ? (
           <Skeleton className="m-4 h-32 rounded-lg" />
         ) : !policies.data?.length ? (
@@ -786,8 +790,8 @@ function TopUpTab() {
               <thead>
                 <Tr>
                   <Th>Currency</Th>
-                  <Th>Min (minor)</Th>
-                  <Th>Max (minor)</Th>
+                  <Th>Minimum</Th>
+                  <Th>Maximum</Th>
                   <Th>Status</Th>
                 </Tr>
               </thead>
@@ -795,8 +799,8 @@ function TopUpTab() {
                 {policies.data.map((p) => (
                   <Tr key={p.id}>
                     <Td className="font-medium">{p.currency}</Td>
-                    <Td className="tabular-nums">{count(p.min_minor)}</Td>
-                    <Td className="tabular-nums">{count(p.max_minor)}</Td>
+                    <Td className="tabular-nums">{money(p.min_minor, p.currency, currencies.data?.find((item) => item.code === p.currency)?.exponent ?? 2)}</Td>
+                    <Td className="tabular-nums">{money(p.max_minor, p.currency, currencies.data?.find((item) => item.code === p.currency)?.exponent ?? 2)}</Td>
                     <Td>{p.is_active ? <Badge tone="success">Active</Badge> : <Badge tone="neutral">Off</Badge>}</Td>
                   </Tr>
                 ))}
@@ -806,12 +810,12 @@ function TopUpTab() {
         )}
       </Card>
       <Card>
-        <CardHeader title="Set a policy" description="Saving replaces the policy for that currency." />
+        <CardHeader title="Set a policy" description="Saving replaces the policy for that currency. Enter normal currency amounts, not minor units." />
         <div className="space-y-4 p-4">
           <Field label="Currency (ISO code)">{(p) => <Input {...p} value={currency} onChange={(e) => { setCurrency(e.target.value.toUpperCase()); setMinDraft(null); setMaxDraft(null); setActiveDraft(null) }} maxLength={3} />}</Field>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Min (minor)">{(p) => <Input {...p} type="number" min="1" value={min} onChange={(e) => setMinDraft(e.target.value)} />}</Field>
-            <Field label="Max (minor)">{(p) => <Input {...p} type="number" min="1" value={max} onChange={(e) => setMaxDraft(e.target.value)} />}</Field>
+            <Field label="Minimum amount">{(p) => <Input {...p} type="number" min={1 / factor} step={1 / factor} value={min ? String(Number(min) / factor) : ''} onChange={(e) => setMinDraft(e.target.value === '' ? '' : String(Math.round(Number(e.target.value) * factor)))} />}</Field>
+            <Field label="Maximum amount">{(p) => <Input {...p} type="number" min={1 / factor} step={1 / factor} value={max ? String(Number(max) / factor) : ''} onChange={(e) => setMaxDraft(e.target.value === '' ? '' : String(Math.round(Number(e.target.value) * factor)))} />}</Field>
           </div>
           <label className="flex items-center gap-2 text-sm">
             <Checkbox checked={active} onCheckedChange={(v) => setActiveDraft(v === true)} /> Active

@@ -284,7 +284,7 @@ def regional_amounts(prices: dict, code: str, country: str) -> dict:
 _UNSET = object()
 
 
-def quote(course_ids, code: str, now=None, country=_UNSET) -> dict:
+def quote(course_ids, code: str, now=None, country=_UNSET, *, resolved_currency=None) -> dict:
     """{course_id: {"free", "list_minor", "sale_minor"}} for a page of courses.
     At most 4 queries, whatever the number of courses (5 with a regional price lookup).
     `sale_minor` is the best public campaign for the course (no buyer conditions)."""
@@ -292,7 +292,10 @@ def quote(course_ids, code: str, now=None, country=_UNSET) -> dict:
     from .models import CoursePrice, Promotion
 
     country = buyer_country() if country is _UNSET else (country or "")
-    currency = Currency.objects.filter(code=code, is_active=True).values("code", "exponent").first()
+    # Catalogue callers already validated the currency in this request.
+    currency = resolved_currency
+    if currency is None:
+        currency = Currency.objects.filter(code=code, is_active=True).values("code", "exponent").first()
     if currency is None:
         raise ServiceError("bad_currency", f"{code} is not offered.")
     prices = {

@@ -168,7 +168,7 @@ def promotions_overview(request):
     }
 
 
-def _filtered(q, kind, status, target):
+def _filtered(q, kind, status, target, *, limit=500):
     qs = Promotion.objects.all()
     if q:
         term = q.strip()[:100]
@@ -183,7 +183,8 @@ def _filtered(q, kind, status, target):
             if target == "all"
             else qs.filter(targets__target_type=target).distinct()
         )
-    rows = list(qs.order_by("-starts_at")[:500])
+    ordered = qs.order_by("-starts_at")
+    rows = list(ordered[:limit] if limit is not None else ordered)
     if status:
         now = timezone.now()
         rows = [p for p in rows if engine.display_status(p, now) == status]
@@ -206,7 +207,7 @@ def promotions(
 def promotions_csv(request, q: str | None = None, kind: str | None = None, status: str | None = None,
                    target: str | None = None):  # fmt: skip
     staff(request)
-    rows = _out(_filtered(q, kind, status, target))
+    rows = _out(_filtered(q, kind, status, target, limit=None))
     audit_request(request, "promotions.export", "promotion", "*", {"rows": len(rows)})
     header = ["Name", "Code", "Type", "Discount %", "Target", "Used", "Limit", "Per person", "Minimum order (GBP)",
               "Starts", "Ends", "Status", "Revenue (GBP)"]  # fmt: skip
@@ -282,6 +283,11 @@ def promotion_detail(request, promotion_id: UUID):
 def _validate(body: ConsolePromotionIn, exclude=None) -> str:
     if body.ends_at <= body.starts_at:
         raise ServiceError("bad_dates", "The end must be after the start.")
+    if body.kind == Promotion.Kind.SUBSCRIPTION and body.min_order_minor:
+        raise ServiceError("bad_minimum", "Minimum course order amounts do not apply to subscriptions.")
+    if body.max_redemptions is not None and body.per_user_limit is not None:
+        if body.per_user_limit > body.max_redemptions:
+            raise ServiceError("bad_limit", "Uses per person cannot exceed total uses.")
     code = body.code.strip()
     if body.kind == "promo_code" and not code:
         raise ServiceError("code_required", "A promo code needs a code buyers can type.")
@@ -291,6 +297,14 @@ def _validate(body: ConsolePromotionIn, exclude=None) -> str:
             clash = clash.exclude(pk=exclude)
         if clash.exists() or Coupon.objects.filter(code__iexact=code).exists():
             raise ServiceError("code_taken", "Another promotion or coupon already uses this code.")
+    line_types = {t.target_type for t in body.targets if t.target_type != "user_segment"}
+    if len(line_types) > 1:
+        raise ServiceError("bad_target", "Choose one target type: all, courses, categories or plans.")
+    if body.kind == Promotion.Kind.SUBSCRIPTION and line_types - {"all", "plan"}:
+        raise ServiceError("bad_target", "Subscription offers can target plans only.")
+    from apps.catalog.models import Category, Course
+    from apps.commerce.models import Plan
+
     for t in body.targets:
         if t.target_type in ("course", "category", "plan") and t.target_id is None:
             raise ServiceError("bad_target", "Choose what the promotion applies to.")
@@ -298,6 +312,28 @@ def _validate(body: ConsolePromotionIn, exclude=None) -> str:
             raise ServiceError("bad_target", "Choose the group of people.")
         if t.target_type == "plan" and body.kind != "subscription":
             raise ServiceError("bad_target", "Only subscription promotions can target plans.")
+        if (
+            t.target_type == "course"
+            and not Course.objects.filter(
+                pk=t.target_id,
+                owner_org_id__isnull=True,
+                deleted_at__isnull=True,
+                status="published",
+                live_version__isnull=False,
+            ).exists()
+        ):
+            raise ServiceError("bad_target", "Choose a published public course.")
+        if t.target_type == "category" and not Category.objects.filter(pk=t.target_id).exists():
+            raise ServiceError("bad_target", "Choose an existing category.")
+        if (
+            t.target_type == "plan"
+            and not Plan.objects.filter(pk=t.target_id, audience="personal", kind="unlimited_b2c").exists()
+        ):
+            raise ServiceError("bad_target", "Choose a personal unlimited plan.")
+        if t.target_type == "user_segment" and t.target_id is not None:
+            raise ServiceError("bad_target", "A group of people cannot have a course or plan ID.")
+        if t.target_type != "user_segment" and t.segment:
+            raise ServiceError("bad_target", "Set buyer groups separately from course and plan targets.")
     return code.upper()
 
 
@@ -333,7 +369,8 @@ def create_promotion(request, body: ConsolePromotionIn):
         min_order_minor=body.min_order_minor, status="draft" if body.draft else "active",
     )  # fmt: skip
     _save_targets(p, body.targets)
-    _stripe_coupon(p)
+    if not body.draft:
+        _stripe_coupon(p)
     audit_request(request, "promotion.create", "promotion", p.id, body.dict() | {"code": code})
     return {"id": p.id}
 
@@ -359,11 +396,16 @@ def update_promotion(request, promotion_id: UUID, body: ConsolePromotionIn):
     )
     if body.draft and not p.redeemed_count:
         p.status = "draft"
-    elif p.status == "draft":
+    elif not body.draft:
         p.status = "active"
+        p.is_active = True
     p.save()
     _save_targets(p, body.targets)
-    if p.kind == Promotion.Kind.SUBSCRIPTION and (old_pct != p.percent_off or not p.stripe_coupon_id):
+    if (
+        p.kind == Promotion.Kind.SUBSCRIPTION
+        and not body.draft
+        and (old_pct != p.percent_off or not p.stripe_coupon_id)
+    ):
         _stripe_coupon(p)
     audit_request(request, "promotion.update", "promotion", p.id, body.dict() | {"code": code})
     return {"ok": True}
@@ -428,7 +470,12 @@ def promotion_options(request, q: str = ""):
     from apps.catalog.models import Category, Course
     from apps.commerce.models import Plan
 
-    courses = Course.objects.filter(owner_org_id__isnull=True, deleted_at__isnull=True)
+    courses = Course.objects.filter(
+        owner_org_id__isnull=True,
+        deleted_at__isnull=True,
+        status="published",
+        live_version__isnull=False,
+    )
     if q:
         courses = courses.filter(title__icontains=q.strip()[:100])
     return {
@@ -438,5 +485,10 @@ def promotion_options(request, q: str = ""):
         "categories": [
             {"id": i, "label": n} for i, n in Category.objects.order_by("name").values_list("id", "name")
         ],
-        "plans": [{"id": i, "label": n} for i, n in Plan.objects.order_by("name").values_list("id", "name")],
+        "plans": [
+            {"id": i, "label": n}
+            for i, n in Plan.objects.filter(audience="personal", kind="unlimited_b2c")
+            .order_by("name")
+            .values_list("id", "name")
+        ],
     }

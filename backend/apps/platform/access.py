@@ -103,7 +103,10 @@ def _legacy_enrollment_allows(user, course_id, now) -> bool:
             org__isnull=True,
             status__in=(Enrollment.Status.ACTIVE, Enrollment.Status.COMPLETED),
         )
-        .exclude(source=Enrollment.Source.INSTALMENT)
+        # Subscription enrolments are a temporary player record, never a legacy
+        # purchase right. They must continue to the live subscription branch below
+        # so current eligibility, period expiry and lecture exclusions are enforced.
+        .exclude(source__in=(Enrollment.Source.INSTALMENT, Enrollment.Source.SUBSCRIPTION))
         .filter(Q(access_expires_at__isnull=True) | Q(access_expires_at__gt=now))
     )
     return qs.exists()
@@ -118,8 +121,17 @@ def _subscription_allows(user, course_id, now, *, scope: str = "", target_id=Non
         from apps.commerce.models import Subscription
     except Exception:  # noqa: BLE001 - this optional resolver lookup must fail closed
         return False
-    course = Course.objects.filter(pk=course_id).only("in_subscription").first()
-    if course is None or not course.in_subscription:
+    course = (
+        Course.objects.filter(pk=course_id)
+        .only("in_subscription", "owner_org_id", "deleted_at", "status", "live_version_id")
+        .first()
+    )
+    from apps.commerce.services import plan_covers
+
+    # Keep the resolver on the same eligibility rule used by enrolment and the
+    # console's included-course count.  This fails closed for company/private,
+    # deleted, unpublished, or non-live courses.
+    if course is None:
         return False
     if scope == SCOPE_LECTURE and target_id is not None:
         from apps.catalog.models import Lecture
@@ -127,7 +139,7 @@ def _subscription_allows(user, course_id, now, *, scope: str = "", target_id=Non
         lec = Lecture.objects.filter(pk=target_id).only("excluded_from_subscription").first()
         if lec and lec.excluded_from_subscription:
             return False
-    has_sub = (
+    subscriptions = (
         Subscription.objects.filter(
             user=user,
             org__isnull=True,
@@ -135,9 +147,12 @@ def _subscription_allows(user, course_id, now, *, scope: str = "", target_id=Non
             plan__kind="unlimited_b2c",
         )
         .filter(Q(current_period_end__isnull=True) | Q(current_period_end__gt=now))
-        .exists()
+        .select_related("plan")
     )
-    return has_sub
+    # Multiple historical subscriptions must not pick a plan arbitrarily.  They
+    # share the same unlimited eligibility definition, so any valid one can prove
+    # access without changing which plan is shown to the learner elsewhere.
+    return any(plan_covers(sub.plan, course) for sub in subscriptions)
 
 
 def has_staged_course_access(user, course_id, now=None) -> bool:

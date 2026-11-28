@@ -99,6 +99,11 @@ function Curriculum({ sections, onPreview }: { sections: Detail['sections']; onP
                           <span className="flex-1">{l.title}</span>
                         )}
                         {l.is_preview ? <Badge tone="primary">Preview</Badge> : null}
+                        {/* The price is shown, not sold, here. unlock_lecture grants a
+                            LECTURE-scoped entitlement and creates no enrolment, and the
+                            player still requires one — so a buy button would take tokens
+                            and leave the learner with nothing to open. Re-enable once the
+                            "start learning from an entitlement" endpoint exists (K02). */}
                         {!l.is_preview && l.token_price ? (
                           <Badge tone="neutral" title="Unlock this lecture with tokens">
                             <Coins /> {count(l.token_price)}
@@ -227,10 +232,16 @@ function BuyBox({ course }: { course: Detail }) {
     [Clock, 'Duration', duration(course.total_duration_sec)],
     [BarChart3, 'Level', levelLabel(course.level)],
     [Laptop, 'Delivery', 'Online (self-paced)'],
-    [Globe, 'Access', 'Web, mobile and desktop'],
+    [Globe, 'Access', course.access_days ? `${course.access_days} days` : 'No expiry'],
     [Languages, 'Language', 'English'],
   ]
   if (course.cpd_hours) highlights.push([Award, 'Certificate', `${course.cpd_hours} CPD hours`])
+
+  // Buying with cash unlocks the whole course, and replay is free for as long as access
+  // lasts. `access_days` is admin-configured; none set means no expiry.
+  const accessLine = course.access_days
+    ? `Full course · rewatch for ${course.access_days} days`
+    : 'Full course · rewatch any time, no expiry'
 
   const fail = (e: unknown) => toast.error((e as Error).message)
   const add = () => addToCart.mutate(course.id, { onSuccess: () => authAlert({ kind: 'cart', title: 'Added to your cart', text: course.title, autoClose: 3500, action: { label: 'View cart', onClick: () => navigate('/cart') } }), onError: fail })
@@ -309,6 +320,7 @@ function BuyBox({ course }: { course: Detail }) {
             <Button size="lg" variant="secondary" className="mt-3 h-12 w-full border-primary text-base text-primary hover:bg-primary-soft" onClick={() => (me ? navigate(`/checkout/pay/${course.slug}`) : needLogin())}>
               <Zap /> Buy now
             </Button>
+            <p className="mt-3 text-center text-xs text-muted">{accessLine} · refunds reviewed by our team</p>
             {tokenCoursePrice ? (
               <div className="mt-4 border-t border-border pt-4">
                 <p className="mb-2 text-xs font-medium text-muted">Or unlock the whole course with tokens</p>

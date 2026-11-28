@@ -20,6 +20,7 @@ from apps.identity.models import InstructorProfile, User
 from apps.payouts import selectors as ledger
 from apps.payouts import services as payouts
 from apps.payouts.models import CommissionRule, Earning, RevenueShare
+from core import cache
 from core import cursor as keyset
 from core.errors import ServiceError
 
@@ -114,31 +115,37 @@ def _month_start(d):
 @router.get("/commissions/overview", response=ConsoleCommissionOverviewOut)
 def commission_overview(request):
     staff(request)
-    now = timezone.now()
-    month = _month_start(now)
-    last = _month_start(month - timezone.timedelta(days=1))
-    sales = Earning.objects.filter(kind__in=["sale", "refund"])
-    cut = F("gross_gbp_minor") - F("amount_gbp_minor")
-    agg = sales.aggregate(
-        now=Sum(cut, filter=Q(earned_at__gte=month), default=0),
-        before=Sum(cut, filter=Q(earned_at__gte=last, earned_at__lt=month), default=0),
-    )
-    periods = list(
-        Earning.objects.filter(kind="subscription")
-        .values("period").annotate(t=Sum("amount_gbp_minor")).order_by("-period")[:2]
-    )  # fmt: skip
-    rates = _rates()
-    return {
-        "default_keeps_pct": pct(rates.get(C.MARKETPLACE, 10000)),
-        "default_fee_pct": pct(10000 - rates.get(C.MARKETPLACE, 10000)),
-        "pool_pct": pct(rates.get(C.SUBSCRIPTION_POOL, 0)),
-        "coupon_keeps_pct": pct(rates.get(C.INSTRUCTOR_COUPON, 10000)),
-        "discount_reduces_commission": bool(platform.get_setting("payments.discount_reduces_commission")),
-        "commissions_month": kpi(agg["now"], agg["before"]),
-        "pool_month": kpi(periods[0]["t"] if periods else 0, periods[1]["t"] if len(periods) > 1 else 0),
-        "active_instructors": InstructorProfile.objects.filter(status="approved").count(),
-        "active_rules": CommissionRule.objects.filter(is_active=True).count(),
-    }
+
+    def build():
+        now = timezone.now()
+        month = _month_start(now)
+        last = _month_start(month - timezone.timedelta(days=1))
+        sales = Earning.objects.filter(kind__in=["sale", "refund"])
+        cut = F("gross_gbp_minor") - F("amount_gbp_minor")
+        agg = sales.aggregate(
+            now=Sum(cut, filter=Q(earned_at__gte=month), default=0),
+            before=Sum(cut, filter=Q(earned_at__gte=last, earned_at__lt=month), default=0),
+        )
+        periods = list(
+            Earning.objects.filter(kind="subscription")
+            .values("period")
+            .annotate(t=Sum("amount_gbp_minor"))
+            .order_by("-period")[:2]
+        )
+        rates = _rates()
+        return {
+            "default_keeps_pct": pct(rates.get(C.MARKETPLACE, 10000)),
+            "default_fee_pct": pct(10000 - rates.get(C.MARKETPLACE, 10000)),
+            "pool_pct": pct(rates.get(C.SUBSCRIPTION_POOL, 0)),
+            "coupon_keeps_pct": pct(rates.get(C.INSTRUCTOR_COUPON, 10000)),
+            "discount_reduces_commission": bool(platform.get_setting("payments.discount_reduces_commission")),
+            "commissions_month": kpi(agg["now"], agg["before"]),
+            "pool_month": kpi(periods[0]["t"] if periods else 0, periods[1]["t"] if len(periods) > 1 else 0),
+            "active_instructors": InstructorProfile.objects.filter(status="approved").count(),
+            "active_rules": CommissionRule.objects.filter(is_active=True).count(),
+        }
+
+    return cache.get_or_set("console-commissions", "overview", build, timeout=20)
 
 
 @router.put("/commissions/settings", response=ConsoleCommissionOverviewOut)
@@ -159,6 +166,7 @@ def set_commission_settings(request, body: ConsoleCommissionSettingsIn):
         platform.set_setting(key="payments.discount_reduces_commission",
                              value=changes["discount_reduces_commission"], by=request.user)  # fmt: skip
     audit_request(request, "commissions.settings", "revenue_share", "all", changes)
+    cache.bump("console-commissions", "overview")
     return commission_overview(request)
 
 
@@ -188,52 +196,65 @@ def instructor_commissions(
 ):
     staff(request)
     limit = clamp(limit)
-    qs = InstructorProfile.objects.select_related("user").exclude(status__in=["pending", "rejected"])
-    if status:
-        qs = qs.filter(status=status)
-    if q.strip():
-        qs = qs.filter(
-            Q(user__full_name__icontains=q.strip()[:100]) | Q(user__email__icontains=q.strip()[:100])
+    q = q.strip()[:100]
+
+    def build():
+        qs = InstructorProfile.objects.select_related("user").exclude(status__in=["pending", "rejected"])
+        if status:
+            qs = qs.filter(status=status)
+        if q:
+            qs = qs.filter(Q(user__full_name__icontains=q) | Q(user__email__icontains=q))
+        after = keyset.decode(cursor, 1)
+        if after:
+            qs = qs.filter(id__lt=after[0])
+        rows = list(qs.order_by("-id")[: limit + 1])
+        page = rows[:limit]
+        ids = [p.user_id for p in page]
+        courses = dict(
+            CourseInstructor.objects.filter(user_id__in=ids, course__deleted_at__isnull=True)
+            .values("user_id")
+            .annotate(n=Count("course_id", distinct=True))
+            .values_list("user_id", "n")
         )
-    after = keyset.decode(cursor, 1)
-    if after:
-        qs = qs.filter(id__lt=after[0])
-    rows = list(qs.order_by("-id")[: limit + 1])
-    page = rows[:limit]
-    ids = [p.user_id for p in page]
-    courses = dict(
-        CourseInstructor.objects.filter(user_id__in=ids, course__deleted_at__isnull=True)
-        .values("user_id").annotate(n=Count("course_id", distinct=True)).values_list("user_id", "n")
-    )  # fmt: skip
-    totals = ledger.totals_by_user(ids)
-    latest = (
-        Earning.objects.filter(kind="subscription")
-        .order_by("-period")
-        .values_list("period", flat=True)
-        .first()
+        totals = ledger.totals_by_user(ids)
+        latest = (
+            Earning.objects.filter(kind="subscription")
+            .order_by("-period")
+            .values_list("period", flat=True)
+            .first()
+        )
+        pool, pool_total = {}, 0
+        if latest:
+            pool = dict(
+                Earning.objects.filter(kind="subscription", period=latest)
+                .values("user_id")
+                .annotate(t=Sum("amount_gbp_minor"))
+                .values_list("user_id", "t")
+            )
+            pool_total = sum(pool.values())
+        rules = {r.target_id: r for r in payouts.active_rules(timezone.now()) if r.scope == "instructor"}
+        default = payouts.default_fee_bps()
+        items = [
+            {
+                "user_id": p.user_id,
+                "name": p.user.full_name,
+                "email": p.user.email,
+                "status": p.status,
+                "courses": courses.get(p.user_id, 0),
+                "keeps_pct": pct(10000 - (p.platform_fee_bps if p.platform_fee_bps is not None else default)),
+                "fee_is_custom": p.platform_fee_bps is not None,
+                "rule_name": (rules[p.user_id].name or "Instructor rule") if p.user_id in rules else None,
+                "rule_keeps_pct": pct(rules[p.user_id].instructor_bps) if p.user_id in rules else None,
+                "pool_share_pct": round(pool.get(p.user_id, 0) * 100 / pool_total, 1) if pool_total else None,
+                "earnings_gbp_minor": totals.get(p.user_id) or 0,
+            }
+            for p in page
+        ]
+        return {"items": items, "next_cursor": keyset.encode(page[-1].id) if len(rows) > limit else None}
+
+    return cache.get_or_set(
+        "console-commissions", "instructors", build, q, status, cursor or "first", limit, timeout=20
     )
-    pool, pool_total = {}, 0
-    if latest:
-        pool = dict(
-            Earning.objects.filter(kind="subscription", period=latest)
-            .values("user_id").annotate(t=Sum("amount_gbp_minor")).values_list("user_id", "t")
-        )  # fmt: skip
-        pool_total = sum(pool.values())
-    rules = {r.target_id: r for r in payouts.active_rules(timezone.now()) if r.scope == "instructor"}
-    default = payouts.default_fee_bps()
-    items = []
-    for p in page:
-        fee = p.platform_fee_bps if p.platform_fee_bps is not None else default
-        rule = rules.get(p.user_id)
-        items.append({
-            "user_id": p.user_id, "name": p.user.full_name, "email": p.user.email, "status": p.status,
-            "courses": courses.get(p.user_id, 0), "keeps_pct": pct(10000 - fee),
-            "fee_is_custom": p.platform_fee_bps is not None, "rule_name": (rule.name or "Instructor rule") if rule else None,
-            "rule_keeps_pct": pct(rule.instructor_bps) if rule else None,
-            "pool_share_pct": round(pool.get(p.user_id, 0) * 100 / pool_total, 1) if pool_total else None,
-            "earnings_gbp_minor": totals.get(p.user_id) or 0,
-        })  # fmt: skip
-    return {"items": items, "next_cursor": keyset.encode(page[-1].id) if len(rows) > limit else None}
 
 
 class ConsoleInstructorKeepsIn(Schema):
@@ -244,7 +265,9 @@ class ConsoleInstructorKeepsIn(Schema):
 def set_instructor_keeps(request, user_id: UUID, body: ConsoleInstructorKeepsIn):
     """Same as the fee endpoint, in the instructor's terms (what they keep)."""
     fee = None if body.keeps_pct is None else round(100 - body.keeps_pct, 2)
-    return set_instructor_fee(request, str(user_id), ConsoleInstructorFeeIn(fee_pct=fee))
+    result = set_instructor_fee(request, str(user_id), ConsoleInstructorFeeIn(fee_pct=fee))
+    cache.bump("console-commissions", "instructors")
+    return result
 
 
 # ---------------------------------------------------------------- rules
@@ -419,6 +442,7 @@ def create_rule(request, body: ConsoleCommissionRuleIn):
     audit_request(request, "commission_rule.create", "commission_rule", str(rule.id), body.dict() | {
         "target_id": str(body.target_id) if body.target_id else None})  # fmt: skip
     _rule_changed(rule)
+    cache.bump("console-commissions", "instructors")
     return _rule_rows([rule])[0]
 
 
@@ -434,6 +458,7 @@ def update_rule(request, rule_id: UUID, body: ConsoleCommissionRuleIn):
     audit_request(request, "commission_rule.update", "commission_rule", str(rule.id), body.dict() | {
         "target_id": str(body.target_id) if body.target_id else None, "previous_bps": before})  # fmt: skip
     _rule_changed(rule)
+    cache.bump("console-commissions", "instructors")
     return _rule_rows([rule])[0]
 
 

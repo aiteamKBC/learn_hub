@@ -18,7 +18,7 @@ from django.utils import timezone
 from apps.platform import services as platform
 from core.tenancy import tenant_context
 
-from . import gateway, services
+from . import gateway, promotions, services
 from .models import (
     AddonSubscription,
     Invoice,
@@ -67,12 +67,22 @@ def dispatch(event: dict) -> None:
         _session_completed(obj, meta)
     elif kind == "checkout.session.expired" and meta.get("kind") == "order":
         services.expire_order(order_id=meta["id"])
+    elif kind == "checkout.session.expired" and meta.get("kind") == "subscription":
+        # A hosted Checkout session can expire before Stripe creates a subscription.
+        # Release this incomplete local attempt so it cannot block a legitimate retry.
+        Subscription.objects.filter(pk=meta["id"], status="incomplete").update(
+            status="canceled", canceled_at=timezone.now(), updated_at=timezone.now()
+        )
     elif kind == "checkout.session.expired" and meta.get("kind") in ("corporate_recorded", "corporate_live"):
         from apps.corporate.fulfillment import expire_purchase
 
         expire_purchase(obj, meta)
     elif kind == "checkout.session.async_payment_failed" and meta.get("kind") == "order":
         services.fail_order(order_id=meta["id"])
+    elif kind == "checkout.session.async_payment_failed" and meta.get("kind") == "subscription":
+        Subscription.objects.filter(pk=meta["id"], status="incomplete").update(
+            status="canceled", canceled_at=timezone.now(), updated_at=timezone.now()
+        )
     elif kind == "checkout.session.async_payment_failed" and meta.get("kind") in (
         "corporate_recorded",
         "corporate_live",
@@ -99,6 +109,12 @@ def dispatch(event: dict) -> None:
             amount_minor=obj.get("amount_received") or obj.get("amount"),
             currency=obj.get("currency") or "",
         )
+    elif kind == "payment_intent.canceled" and meta.get("kind") == "order":
+        # A failed PaymentIntent can still be retried; cancellation is terminal.
+        if Order.objects.filter(
+            pk=meta["id"], stripe_payment_intent_id=obj.get("id"), status=Order.Status.PENDING
+        ).exists():
+            services.fail_order(order_id=meta["id"])
     elif kind == "charge.succeeded":
         _charge_succeeded(obj)
     # every other event type is stored and ignored, on purpose:
@@ -143,9 +159,15 @@ def _session_completed(session: dict, meta: dict) -> None:
         services.remember_customer(
             kind=meta["kind"], row_id=meta["id"], customer=session.get("customer") or ""
         )
-        if linked and meta["kind"] == "subscription":
-            if meta.get("promotion"):  # usage of a subscription promotion
-                Promotion.objects.filter(pk=meta["promotion"]).update(redeemed_count=F("redeemed_count") + 1)
+        if meta["kind"] == "subscription":
+            if meta.get("promotion") and session.get("payment_status") == "paid":
+                recorded = promotions.redeem_subscription(
+                    subscription_id=meta["id"], promotion_id=meta["promotion"]
+                )
+                if linked and not recorded:  # old personal and team checkout metadata
+                    Promotion.objects.filter(pk=meta["promotion"]).update(
+                        redeemed_count=F("redeemed_count") + 1
+                    )
             sub = Subscription.objects.select_related("plan").filter(pk=meta["id"]).first()
             if sub and sub.plan.renewal == "manual" and session.get("subscription"):
                 # a plan that renews by hand: Stripe stops at the end of the period
@@ -326,6 +348,10 @@ def _invoice_paid(inv: dict) -> None:
     if sub is None:
         _order_invoice(inv)
         return
+    if sub.org_id is None and (inv.get("amount_paid") or 0) > 0:
+        snapshot = promotions.subscription_snapshot(sub.id)
+        if snapshot and snapshot.get("promotion_id"):
+            promotions.redeem_subscription(subscription_id=sub.id, promotion_id=snapshot["promotion_id"])
     if inv.get("billing_reason") == "subscription_cycle":
         services.subscription_event(
             sub, SubscriptionEvent.Kind.RENEWED, to_value=sub.plan.code, amount_minor=inv.get("amount_paid")

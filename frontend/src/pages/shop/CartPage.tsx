@@ -127,7 +127,7 @@ export function CartPage() {
                 <Button size="lg" className="mt-5 w-full" loading={checkout.isPending} disabled={isFetching} onClick={pay}>
                   <Lock /> {cart.total_minor ? 'Checkout' : 'Enrol now'}
                 </Button>
-                <p className="mt-2 text-center text-xs text-muted">Secure payment by Stripe · 30-day refunds</p>
+                <p className="mt-2 text-center text-xs text-muted">Secure payment by Stripe · refunds reviewed by our team</p>
 
                 <div className="mt-5 border-t border-border pt-5">
                   {cart.coupon ? (

@@ -5,7 +5,7 @@
  *   - LearnerLayout children: ...pmsLearnerRoutes
  *   - businessNav:           ...pmsBusinessNav       (after the existing sections)
  */
-import { CalendarRange, ClipboardList, Gauge } from 'lucide-react'
+import { CalendarRange, Gauge } from 'lucide-react'
 import { lazy, Suspense, type ComponentType, type ReactNode } from 'react'
 import type { RouteObject } from 'react-router-dom'
 
@@ -40,10 +40,8 @@ export const pmsBusinessNav: NavSection[] = [
   {
     title: 'Performance',
     items: [
-      { to: '/business/pms/kpis', label: 'Department KPIs', Icon: Gauge },
-      { to: '/business/pms/individual-kpis', label: 'Individual KPIs', Icon: Gauge },
-      { to: '/business/pms/proposals', label: 'KPI proposals', Icon: ClipboardList },
-      { to: '/business/pms/cycles', label: 'Review cycles', Icon: CalendarRange },
+      { to: '/business/pms/kpis', label: 'KPIs', Icon: Gauge },
+      { to: '/business/pms/cycles', label: 'Reviews', Icon: CalendarRange },
     ],
   },
 ]

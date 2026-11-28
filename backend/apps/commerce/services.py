@@ -53,7 +53,11 @@ PAID_ACCESS = (Enrollment.Status.ACTIVE, Enrollment.Status.COMPLETED)
 # ---------------------------------------------------------------- cart & wishlist
 def _sellable(course_id) -> Course:
     course = Course.objects.filter(
-        pk=course_id, live_version__isnull=False, owner_org_id__isnull=True
+        pk=course_id,
+        status="published",
+        live_version__isnull=False,
+        deleted_at__isnull=True,
+        owner_org_id__isnull=True,
     ).first()
     if course is None:
         raise ServiceError("not_for_sale", "This course is not available.")
@@ -124,7 +128,8 @@ def _coupon(code: str | None, now) -> Coupon | None:
     return c
 
 
-def price_cart(*, user, course_ids: list, currency: str, coupon_code: str | None = None, now=None) -> dict:
+def price_cart(*, user, course_ids: list, currency: str, coupon_code: str | None = None, now=None,
+               excluded_promotion_ids=frozenset()) -> dict:  # fmt: skip
     """The ONE place a basket is priced: the cart page and checkout call the same code,
     so what the learner sees is exactly what they are charged. The code box takes an
     instructor coupon or a platform promo code; platform promotions (promotions.py) and
@@ -138,7 +143,13 @@ def price_cart(*, user, course_ids: list, currency: str, coupon_code: str | None
         raise ServiceError("bad_currency", f"Payments in {currency} are not available.")
     courses = {
         c.id: c
-        for c in Course.objects.filter(pk__in=ids, live_version__isnull=False, owner_org_id__isnull=True)
+        for c in Course.objects.filter(
+            pk__in=ids,
+            status="published",
+            live_version__isnull=False,
+            deleted_at__isnull=True,
+            owner_org_id__isnull=True,
+        )
     }
     if len(courses) != len(ids):
         raise ServiceError("not_for_sale", "One of these courses is not available.")
@@ -169,6 +180,7 @@ def price_cart(*, user, course_ids: list, currency: str, coupon_code: str | None
     promotion, prices = promotions.best_for_cart(
         user=user, lines=priced, exponent=cur.exponent, gbp_subtotal=gbp_subtotal, coupon=coupon,
         code_promo=code_promo, stack=bool(get_setting("payments.allow_promotion_stacking")), now=now,
+        excluded_promotion_ids=excluded_promotion_ids,
     )  # fmt: skip
     if code_promo is not None and promotion is None:  # the typed code saved nothing over what applies anyway
         raise ServiceError("bad_coupon", "This code gives no extra discount on these courses.")
@@ -225,11 +237,41 @@ def _build_pending_order(*, user, priced: dict) -> Order:
     return order
 
 
+def _reserved_price_cart(*, user, course_ids, currency, coupon_code):
+    """Reserve one promotion by locking its row until the pending order is inserted."""
+    excluded = set()
+    while True:
+        priced = price_cart(
+            user=user,
+            course_ids=course_ids,
+            currency=currency,
+            coupon_code=coupon_code,
+            excluded_promotion_ids=excluded,
+        )
+        selected = priced["promotion"]
+        if selected is None:
+            return priced
+        from core.tenancy import tenant_context
+
+        with tenant_context(staff=True):
+            locked = Promotion.objects.select_for_update().get(pk=selected.pk)
+            available = promotions.display_status(locked) == "active" and promotions.capacity_available(
+                locked, user
+            )
+        if available:
+            return priced
+        if priced["promo_code"]:
+            raise ServiceError("coupon_used_up", "This code has reached its usage limit.")
+        excluded.add(selected.pk)
+
+
 @transaction.atomic
 def create_order(*, user, course_ids: list, currency: str, coupon_code: str | None = None) -> dict:
     """Personal purchase of one or more courses. Returns {"order", "checkout_url"}
     (checkout_url is None when the total is zero: the order is fulfilled at once)."""
-    priced = price_cart(user=user, course_ids=course_ids, currency=currency, coupon_code=coupon_code)
+    priced = _reserved_price_cart(
+        user=user, course_ids=course_ids, currency=currency, coupon_code=coupon_code
+    )
     cur, courses, lines = priced["currency"], priced["courses"], priced["lines"]
     total = priced["total"]
     order = _build_pending_order(user=user, priced=priced)
@@ -269,7 +311,9 @@ def create_order_intent(*, user, course_ids: list, currency: str, coupon_code: s
     Stripe Payment Element. Returns {"order", "client_secret"} (client_secret is None when the
     total is zero: the order is fulfilled at once). The order is still only marked paid by the
     signed webhook (payment_intent.succeeded), with the same amount and currency checks."""
-    priced = price_cart(user=user, course_ids=course_ids, currency=currency, coupon_code=coupon_code)
+    priced = _reserved_price_cart(
+        user=user, course_ids=course_ids, currency=currency, coupon_code=coupon_code
+    )
     cur, total = priced["currency"], priced["total"]
     order = _build_pending_order(user=user, priced=priced)
     if total == 0:
@@ -301,6 +345,13 @@ def fulfil_order(
         return order
     if order.status != Order.Status.PENDING:
         raise ServiceError("not_pending", f"Order is {order.status}.")
+    if order.promotion_id:
+        # Keep the pending-to-redeemed transition inside the same promotion-row
+        # serialisation used by checkout reservations.
+        from core.tenancy import tenant_context
+
+        with tenant_context(staff=True):
+            Promotion.objects.select_for_update().get(pk=order.promotion_id)
     if order.total_minor > 0:
         cur = order.currency
         expected = gateway.to_stripe_amount(order.total_minor, cur.code, cur.exponent)
@@ -327,7 +378,10 @@ def fulfil_order(
             discount_minor=promo_part,
             gbp_discount_minor=pricing.gbp_equivalent(promo_part, order.currency.exponent, order.fx_rate),
         )  # fmt: skip
-        Promotion.objects.filter(pk=order.promotion_id).update(redeemed_count=F("redeemed_count") + 1)
+        from core.tenancy import tenant_context
+
+        with tenant_context(staff=True):
+            Promotion.objects.filter(pk=order.promotion_id).update(redeemed_count=F("redeemed_count") + 1)
     user = order.user
     for item in order.items.select_related("course"):
         source = (
@@ -655,17 +709,26 @@ def subscription_notice(sub: Subscription, what: str, *, date=None) -> None:
 
 
 def plan_covers(plan: Plan, course: Course) -> bool:
-    """Personal unlimited plans include every course explicitly marked for subscription."""
+    """Canonical eligibility for a personal unlimited plan.
+
+    A plan never makes a company course, a deleted/unpublished draft, or a course without
+    a live version available.  PlanCourse remains a Team-plan configuration detail; it is
+    deliberately not an override for ``unlimited_b2c``.
+    """
     return (
         plan.audience == Plan.Audience.PERSONAL
         and plan.kind == Plan.Kind.UNLIMITED_B2C
         and course.in_subscription
+        and course.owner_org_id is None
+        and course.deleted_at is None
+        and course.status == "published"
+        and course.live_version_id is not None
     )
 
 
 def enrol_with_plan(*, user, course: Course) -> Enrollment:
     """Personal-plan learners enrol without buying; access ends with the subscription."""
-    sub = (
+    subscriptions = list(
         Subscription.objects.filter(
             user=user,
             org__isnull=True,
@@ -673,9 +736,16 @@ def enrol_with_plan(*, user, course: Course) -> Enrollment:
             plan__kind=Plan.Kind.UNLIMITED_B2C,
             status__in=["trialing", "active"],
         )
-        .order_by("-current_period_end")
-        .first()
+        .filter(current_period_end__gt=timezone.now())
+        .order_by("-current_period_end")[:2]
     )
+    if len(subscriptions) > 1:
+        raise ServiceError(
+            "multiple_active_subscriptions",
+            "More than one active personal subscription needs support review.",
+            status=409,
+        )
+    sub = subscriptions[0] if subscriptions else None
     if sub is None or not sub.current_period_end:
         raise ServiceError("no_plan", "Subscribe to a plan to enrol in this course.", status=402)
     if course.owner_org_id is not None or course.live_version_id is None:

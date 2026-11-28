@@ -642,6 +642,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/catalog/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stats
+         * @description Real marketplace headline figures for the public home page, derived from the live
+         *     catalogue only (no hard-coded numbers). Cheap: two aggregate queries.
+         */
+        get: operations["apps_catalog_api_stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/catalog/courses": {
         parameters: {
             query?: never;
@@ -1877,6 +1898,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/commerce/tokens/subscriptions/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Subscription Quote */
+        get: operations["apps_commerce_token_api_subscription_quote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/commerce/tokens/subscriptions/checkout": {
         parameters: {
             query?: never;
@@ -3076,6 +3114,27 @@ export interface paths {
         patch: operations["apps_hcm_api_update_hr_profile"];
         trace?: never;
     };
+    "/api/v1/hcm/people/{member_id}/wellbeing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Member Wellbeing
+         * @description A member's wellbeing check-ins, for the member themselves or an HR admin.
+         *     RLS already limits raw rows to the member and their managers.
+         */
+        get: operations["apps_hcm_api_member_wellbeing"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/hcm/people/{member_id}/qualifications": {
         parameters: {
             query?: never;
@@ -3630,7 +3689,11 @@ export interface paths {
         /** List Kpis */
         get: operations["apps_pms_api_list_kpis"];
         put?: never;
-        post?: never;
+        /**
+         * Create Kpi
+         * @description Create an active KPI directly, in one step (no approval chain). Admin only.
+         */
+        post: operations["apps_pms_api_create_kpi"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7749,6 +7812,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/packages/eligible-courses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Eligible Courses */
+        get: operations["apps_platform_console_packages_eligible_courses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/packages": {
         parameters: {
             query?: never;
@@ -10524,6 +10604,27 @@ export interface components {
             /** Icon */
             icon: string;
         };
+        /**
+         * CatalogStatsOut
+         * @description Real headline figures for the public home page (no hard-coded marketing numbers).
+         *
+         *     `enrollments` is the sum of each course's denormalised `student_count`; a learner
+         *     enrolled on three courses counts three times. It is not a unique-learner count: that
+         *     would need a distinct user-id aggregation across enrolment rows, which is out of
+         *     scope for this endpoint.
+         */
+        CatalogStatsOut: {
+            /** Enrollments */
+            enrollments: number;
+            /** Courses */
+            courses: number;
+            /** Instructors */
+            instructors: number;
+            /** Rating Avg */
+            rating_avg: number;
+            /** Rating Count */
+            rating_count: number;
+        };
         /** CourseFilters */
         CourseFilters: {
             /** Q */
@@ -10671,6 +10772,8 @@ export interface components {
              * @default true
              */
             in_subscription: boolean;
+            /** Access Days */
+            access_days?: number | null;
         };
         /** InstructorBrief */
         InstructorBrief: {
@@ -10828,24 +10931,48 @@ export interface components {
             /** Next Cursor */
             next_cursor: string | null;
         };
-        /** MyLiveSessionOut */
-        MyLiveSessionOut: {
-            /** Sequence */
-            sequence: number;
+        /**
+         * LearnerCourseLiveSessionOut
+         * @description One scheduled live session in a course the learner is enrolled in.
+         */
+        LearnerCourseLiveSessionOut: {
+            /**
+             * Enrollment Id
+             * Format: uuid
+             */
+            enrollment_id: string;
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Course Slug */
+            course_slug: string;
+            /** Course Title */
+            course_title: string;
+            /**
+             * Lecture Key
+             * Format: uuid
+             */
+            lecture_key: string;
             /** Title */
             title: string;
-            /** Scheduled At */
-            scheduled_at: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
             /** Duration Min */
-            duration_min: number;
-            /** Delivery Mode */
-            delivery_mode: string;
-            /** Location */
-            location: string;
-            /** Status */
-            status: string;
+            duration_min?: number | null;
+            /**
+             * Provider
+             * @default manual
+             */
+            provider: string;
             /** Join Url */
             join_url?: string | null;
+            /** Is Upcoming */
+            is_upcoming: boolean;
         };
         /** PlayerLecture */
         PlayerLecture: {
@@ -12466,6 +12593,11 @@ export interface components {
             description: string;
             /** Amount Minor */
             amount_minor: number;
+            /**
+             * Full Minor
+             * @default 0
+             */
+            full_minor: number;
             /** Currency */
             currency: string;
             /**
@@ -12473,6 +12605,11 @@ export interface components {
              * @default 0
              */
             owned_count: number;
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
             /** Courses */
             courses: components["schemas"]["PackageCourseOut"][];
         };
@@ -12487,6 +12624,67 @@ export interface components {
             title: string;
             /** Slug */
             slug: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Thumbnail Url
+             * @default
+             */
+            thumbnail_url: string;
+            /**
+             * Category
+             * @default
+             */
+            category: string;
+            /**
+             * Instructor
+             * @default
+             */
+            instructor: string;
+            /**
+             * Level
+             * @default
+             */
+            level: string;
+            /**
+             * Lecture Count
+             * @default 0
+             */
+            lecture_count: number;
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
+            /** Access Days */
+            access_days?: number | null;
+            /**
+             * List Minor
+             * @default 0
+             */
+            list_minor: number;
+            /**
+             * Curriculum
+             * @default []
+             */
+            curriculum: components["schemas"]["PackageSectionOut"][];
+        };
+        /** PackageLectureOut */
+        PackageLectureOut: {
+            /** Title */
+            title: string;
+            /** Kind */
+            kind: string;
+        };
+        /** PackageSectionOut */
+        PackageSectionOut: {
+            /** Title */
+            title: string;
+            /** Lectures */
+            lectures: components["schemas"]["PackageLectureOut"][];
         };
         /** UnlimitedPlanOut */
         UnlimitedPlanOut: {
@@ -12530,6 +12728,28 @@ export interface components {
             /** Cancel At Period End */
             cancel_at_period_end: boolean;
         };
+        /** PersonalSubscriptionQuoteOut */
+        PersonalSubscriptionQuoteOut: {
+            /**
+             * Plan Id
+             * Format: uuid
+             */
+            plan_id: string;
+            /** Currency */
+            currency: string;
+            /** Amount Minor */
+            amount_minor: number;
+            /** Discount Minor */
+            discount_minor: number;
+            /** First Payment Minor */
+            first_payment_minor: number;
+            /** Trial Days */
+            trial_days: number;
+            /** Promotion Name */
+            promotion_name: string | null;
+            /** Percent Off */
+            percent_off: number | null;
+        };
         /** SubCheckoutIn */
         SubCheckoutIn: {
             /**
@@ -12537,12 +12757,19 @@ export interface components {
              * Format: uuid
              */
             plan_id: string;
+            /** Currency */
+            currency?: string | null;
             /** Success Url */
             success_url: string;
             /** Cancel Url */
             cancel_url: string;
             /** Customer Email */
             customer_email?: string | null;
+            /**
+             * Promo Code
+             * @default
+             */
+            promo_code: string;
         };
         /** PackageCheckoutIn */
         PackageCheckoutIn: {
@@ -13830,6 +14057,25 @@ export interface components {
             /** More Sessions Hidden */
             more_sessions_hidden: boolean;
         };
+        /** MyLiveSessionOut */
+        MyLiveSessionOut: {
+            /** Sequence */
+            sequence: number;
+            /** Title */
+            title: string;
+            /** Scheduled At */
+            scheduled_at: string;
+            /** Duration Min */
+            duration_min: number;
+            /** Delivery Mode */
+            delivery_mode: string;
+            /** Location */
+            location: string;
+            /** Status */
+            status: string;
+            /** Join Url */
+            join_url?: string | null;
+        };
         /** MyProgrammeOut */
         MyProgrammeOut: {
             /** Enrollment Id */
@@ -13986,6 +14232,10 @@ export interface components {
             satisfaction: string | null;
             /** Note */
             note: string;
+            /** Answers */
+            answers?: {
+                [key: string]: number;
+            };
         };
         /** WellbeingIn */
         WellbeingIn: {
@@ -14008,6 +14258,10 @@ export interface components {
              * @default
              */
             note: string;
+            /** Answers */
+            answers?: {
+                [key: string]: number;
+            };
         };
         /** CpdOut */
         CpdOut: {
@@ -14916,6 +15170,18 @@ export interface components {
             attainment: number | null;
             /** Series */
             series: components["schemas"]["PmsKpiPoint"][];
+            /**
+             * Course Slug
+             * @default
+             */
+            course_slug: string;
+            /**
+             * Course Enrolled
+             * @default false
+             */
+            course_enrolled: boolean;
+            /** Course Progress Pct */
+            course_progress_pct?: string | null;
         };
         /** PmsKpiPoint */
         PmsKpiPoint: {
@@ -14925,6 +15191,76 @@ export interface components {
             period_index: number;
             /** Value */
             value: string;
+        };
+        /** PmsProposalIn */
+        PmsProposalIn: {
+            /** Name */
+            name: string;
+            /**
+             * Scope
+             * @default department
+             */
+            scope: string;
+            /** Parent Kpi Id */
+            parent_kpi_id?: string | null;
+            /**
+             * Objective Code
+             * @default
+             */
+            objective_code: string;
+            /**
+             * Objective Title
+             * @default
+             */
+            objective_title: string;
+            /**
+             * Dept
+             * @default
+             */
+            dept: string;
+            /** Owner Id */
+            owner_id?: string | null;
+            /**
+             * Definition
+             * @default
+             */
+            definition: string;
+            /**
+             * Unit
+             * @default
+             */
+            unit: string;
+            /** Baseline */
+            baseline?: number | string | null;
+            /** Target */
+            target?: number | string | null;
+            /**
+             * Higher Better
+             * @default true
+             */
+            higher_better: boolean;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /**
+             * Cadence
+             * @default monthly
+             */
+            cadence: string;
+            /**
+             * Period
+             * @default
+             */
+            period: string;
+            /** Review Date */
+            review_date?: string | null;
+            /**
+             * Weight
+             * @default 10
+             */
+            weight: number;
         };
         /** PmsMeasurementOut */
         PmsMeasurementOut: {
@@ -15017,76 +15353,6 @@ export interface components {
             ai_draft: boolean;
             /** Active Kpi Id */
             active_kpi_id: string | null;
-        };
-        /** PmsProposalIn */
-        PmsProposalIn: {
-            /** Name */
-            name: string;
-            /**
-             * Scope
-             * @default department
-             */
-            scope: string;
-            /** Parent Kpi Id */
-            parent_kpi_id?: string | null;
-            /**
-             * Objective Code
-             * @default
-             */
-            objective_code: string;
-            /**
-             * Objective Title
-             * @default
-             */
-            objective_title: string;
-            /**
-             * Dept
-             * @default
-             */
-            dept: string;
-            /** Owner Id */
-            owner_id?: string | null;
-            /**
-             * Definition
-             * @default
-             */
-            definition: string;
-            /**
-             * Unit
-             * @default
-             */
-            unit: string;
-            /** Baseline */
-            baseline?: number | string | null;
-            /** Target */
-            target?: number | string | null;
-            /**
-             * Higher Better
-             * @default true
-             */
-            higher_better: boolean;
-            /**
-             * Source
-             * @default
-             */
-            source: string;
-            /**
-             * Cadence
-             * @default monthly
-             */
-            cadence: string;
-            /**
-             * Period
-             * @default
-             */
-            period: string;
-            /** Review Date */
-            review_date?: string | null;
-            /**
-             * Weight
-             * @default 10
-             */
-            weight: number;
         };
         /** PmsProposalPatch */
         PmsProposalPatch: {
@@ -20937,6 +21203,46 @@ export interface components {
             title: string;
             /** Slug */
             slug: string;
+            /** Price Gbp Minor */
+            price_gbp_minor: number;
+            /**
+             * Category
+             * @default
+             */
+            category: string;
+            /**
+             * Level
+             * @default
+             */
+            level: string;
+            /**
+             * Lecture Count
+             * @default 0
+             */
+            lecture_count: number;
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
+            /**
+             * Thumbnail Url
+             * @default
+             */
+            thumbnail_url: string;
+            /** Access Days */
+            access_days?: number | null;
+        };
+        /** EligibleCoursesOut */
+        EligibleCoursesOut: {
+            /** Items */
+            items: components["schemas"]["ConsolePackageCourseOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Pages */
+            pages: number;
         };
         /** ConsolePackageOut */
         ConsolePackageOut: {
@@ -23865,6 +24171,8 @@ export interface components {
             amount: number;
             /** Note */
             note: string;
+            /** Idempotency Key */
+            idempotency_key: string;
         };
         /** ConsoleWalletLedgerOut */
         ConsoleWalletLedgerOut: {
@@ -24846,6 +25154,26 @@ export interface operations {
             };
         };
     };
+    apps_catalog_api_stats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogStatsOut"];
+                };
+            };
+        };
+    };
     apps_catalog_api_list_courses: {
         parameters: {
             query?: {
@@ -24988,7 +25316,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MyLiveSessionOut"][];
+                    "application/json": components["schemas"]["LearnerCourseLiveSessionOut"][];
                 };
             };
         };
@@ -26569,6 +26897,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActiveSubOut"] | null;
+                };
+            };
+        };
+    };
+    apps_commerce_token_api_subscription_quote: {
+        parameters: {
+            query: {
+                plan_id: string;
+                promo_code?: string;
+                currency?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalSubscriptionQuoteOut"];
                 };
             };
         };
@@ -28424,6 +28776,28 @@ export interface operations {
             };
         };
     };
+    apps_hcm_api_member_wellbeing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WellbeingOut"][];
+                };
+            };
+        };
+    };
     apps_hcm_api_list_member_qualifications: {
         parameters: {
             query?: never;
@@ -29334,6 +29708,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PmsKpiOut"][];
+                };
+            };
+        };
+    };
+    apps_pms_api_create_kpi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PmsProposalIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmsKpiOut"];
                 };
             };
         };
@@ -35801,6 +36199,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_packages_eligible_courses: {
+        parameters: {
+            query?: {
+                q?: string;
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EligibleCoursesOut"];
                 };
             };
         };

@@ -65,7 +65,7 @@ function useDone() {
   const qc = useQueryClient()
   return () => {
     void qc.invalidateQueries({ queryKey: ['console', 'promos'] })
-    void qc.invalidateQueries({ predicate: (q) => ['cart', 'courses', 'course', 'home'].includes(String(q.queryKey[0])) })
+    void qc.invalidateQueries({ predicate: (q) => ['cart', 'courses', 'course', 'home', 'b2c-sub-plans', 'plans'].includes(String(q.queryKey[0])) })
   }
 }
 

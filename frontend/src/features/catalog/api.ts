@@ -12,6 +12,11 @@ export function useCategories() {
   return useQuery({ queryKey: ['categories'], queryFn: () => unwrap(api.GET('/api/v1/catalog/categories')), staleTime: 10 * 60_000 })
 }
 
+/** Real marketplace headline figures for the home page (no hard-coded numbers). */
+export function useCatalogStats() {
+  return useQuery({ queryKey: ['catalog-stats'], queryFn: () => unwrap(api.GET('/api/v1/catalog/stats')), staleTime: 10 * 60_000 })
+}
+
 export function useCourses(filters: CourseFilters = {}, enabled = true, keepPrevious = true) {
   const { code } = useCurrency()
   return useQuery({
@@ -27,7 +32,7 @@ export function useCourseFeed(filters: CourseFilters) {
   const { code } = useCurrency()
   return useInfiniteQuery({
     queryKey: ['courses', 'feed', filters, code],
-    queryFn: ({ pageParam }) => unwrap(api.GET('/api/v1/catalog/courses', { params: { query: { ...filters, currency: code, cursor: pageParam, limit: 24 } } })),
+    queryFn: ({ pageParam, signal }) => unwrap(api.GET('/api/v1/catalog/courses', { signal, params: { query: { ...filters, currency: code, cursor: pageParam, limit: 24 } } })),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.next_cursor ?? undefined,
     placeholderData: keepPreviousData,

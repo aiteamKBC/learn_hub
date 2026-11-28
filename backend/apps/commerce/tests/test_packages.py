@@ -5,6 +5,7 @@ import uuid
 from apps.commerce import webhooks
 from apps.commerce.models import CashPackage, CashPackageCourse, PriceTier
 from apps.identity.models import User
+from apps.learning.models import Enrollment
 from apps.platform.access import resolve
 from apps.platform.models import ContentEntitlement
 from core.tenancy import tenant_context
@@ -113,9 +114,17 @@ class CashPackageFulfilTest(SchemaTransactionTestCase):
         with tenant_context(user_id=str(self.user.id), staff=True):
             d1 = resolve(self.user, "course", self.course1.id)
             d2 = resolve(self.user, "course", self.course2.id)
+            enrolled = set(
+                Enrollment.objects.filter(user=self.user, source_ref=self.package.id).values_list(
+                    "course_id", flat=True
+                )
+            )
         self.assertTrue(d1.allowed)
         self.assertTrue(d2.allowed)
-        self.assertEqual(d1.reason_code, "cash_package")
+        # Fulfilment now also creates usable player enrolments. The resolver's
+        # documented legacy-enrolment precedence remains unchanged.
+        self.assertEqual(d1.reason_code, "legacy_purchase")
+        self.assertEqual(enrolled, {self.course1.id, self.course2.id})
 
     def test_fulfil_idempotent(self):
         session = self._session(session_id="cs_test_pkg_idem")

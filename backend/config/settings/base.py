@@ -351,6 +351,9 @@ BASE_CURRENCY = "GBP"  # price tiers and reporting
 FX_DRIFT_REPRICE = 0.05  # re-price a tier in a currency only when FX moved it more than 5%
 ECB_RATES_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
 REFUND_WINDOW_DAYS = 30
+# Keep personal content unlocks closed until K02 supplies the entitlement-to-learning
+# bridge. This is deliberately opt-in so a deployment cannot enable spending by default.
+PERSONAL_TOKEN_CONTENT_UNLOCKS_ENABLED = os.getenv("PERSONAL_TOKEN_CONTENT_UNLOCKS_ENABLED", "0") == "1"
 CELERY_BEAT_SCHEDULE["fx-rates-daily"] = {  # ECB publishes around 16:00 CET
     "task": "commerce.refresh_fx",
     "schedule": crontab(hour=15, minute=37),

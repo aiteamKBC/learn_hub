@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useCourse, useCourses } from '@/features/catalog/api'
 import { MemberSelect, useMemberNames, memberName } from '@/features/pms/members'
-import { NEXT_STAGE_LABEL, type Proposal, type ProposalIn, PROPOSAL_STAGE, useCreateProposal, useKpis, useProposalAction, useProposalHistory, useProposals, useUpdateProposal } from '@/features/pms/api'
+import { NEXT_STAGE_LABEL, type Proposal, type ProposalIn, PROPOSAL_STAGE, useCreateKpi, useCreateProposal, useKpis, useProposalAction, useProposalHistory, useProposals, useUpdateProposal } from '@/features/pms/api'
 import { useIsOrgAdmin } from '@/features/org/api'
 import { useDebounced } from '@/features/org/ui'
 import { cn } from '@/lib/cn'
@@ -118,9 +118,10 @@ function DataSourceView({ source }: { source: string }) {
   return <p className="text-sm break-words">{source}</p>
 }
 
-export function CreateProposalDialog({ proposal, defaultScope = 'department', label }: { proposal?: Proposal; defaultScope?: 'department' | 'individual'; label?: string }) {
+export function CreateProposalDialog({ proposal, defaultScope = 'department', label, direct = false }: { proposal?: Proposal; defaultScope?: 'department' | 'individual'; label?: string; direct?: boolean }) {
   const [open, setOpen] = useState(false)
   const create = useCreateProposal()
+  const createDirect = useCreateKpi()
   const update = useUpdateProposal(proposal?.id ?? '')
   const departmentKpis = useKpis()
   const initial: ProposalIn = proposal ? { name: proposal.name, scope: proposal.scope, parent_kpi_id: proposal.parent_kpi_id, objective_code: proposal.objective_code, objective_title: proposal.objective_title, dept: proposal.dept, definition: proposal.definition, unit: proposal.unit, baseline: proposal.baseline, target: proposal.target, higher_better: proposal.higher_better, source: proposal.source, cadence: proposal.cadence, period: proposal.period, review_date: proposal.review_date, weight: proposal.weight, owner_id: proposal.owner_id } : { name: '', scope: defaultScope, parent_kpi_id: null, objective_code: '', objective_title: '', dept: '', definition: '', unit: '', higher_better: true, source: '', cadence: 'quarterly', period: '', weight: 10 }
@@ -129,12 +130,12 @@ export function CreateProposalDialog({ proposal, defaultScope = 'department', la
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
-    const run = proposal ? update : create
+    const run = proposal ? update : direct ? createDirect : create
     run.mutate(
       { ...form, baseline: form.baseline === '' ? null : form.baseline, target: form.target === '' ? null : form.target },
       {
         onSuccess: () => {
-          toast.success(proposal ? 'Proposal updated' : 'Proposal created as a draft')
+          toast.success(proposal ? 'Proposal updated' : direct ? 'KPI added and now live' : 'Proposal created as a draft')
           setOpen(false)
           setForm({ name: '', scope: defaultScope, parent_kpi_id: null, objective_code: '', objective_title: '', dept: '', definition: '', unit: '', higher_better: true, source: '', cadence: 'quarterly', period: '', weight: 10 })
         },
@@ -148,7 +149,7 @@ export function CreateProposalDialog({ proposal, defaultScope = 'department', la
       <Button size={proposal ? 'sm' : 'md'} variant={proposal ? 'secondary' : 'primary'} onClick={() => { setForm(initial); setOpen(true) }}>
         {proposal ? <Pencil /> : <Plus />} {proposal ? 'Edit proposal' : label ?? 'New proposal'}
       </Button>
-      <DialogContent title={proposal ? 'Edit KPI proposal' : 'Propose a KPI'} description="Save your definition, then submit it to begin the approval route." className="max-w-[640px]">
+      <DialogContent title={proposal ? 'Edit KPI proposal' : direct ? 'Add a KPI' : 'Propose a KPI'} description={direct ? 'Fill in the KPI; it goes live on the board straight away.' : 'Save your definition, then submit it to begin the approval route.'} className="max-w-[640px]">
         <form onSubmit={submit} className="grid gap-3">
           <label className="grid gap-1 text-xs text-muted">
             KPI level
@@ -233,8 +234,8 @@ export function CreateProposalDialog({ proposal, defaultScope = 'department', la
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit" loading={proposal ? update.isPending : create.isPending} disabled={form.scope === 'individual' && (!form.owner_id || !form.parent_kpi_id)}>
-              {proposal ? 'Save changes' : 'Create draft'}
+            <Button type="submit" loading={proposal ? update.isPending : direct ? createDirect.isPending : create.isPending} disabled={form.scope === 'individual' && (!form.owner_id || !form.parent_kpi_id)}>
+              {proposal ? 'Save changes' : direct ? 'Add KPI' : 'Create draft'}
             </Button>
           </div>
         </form>

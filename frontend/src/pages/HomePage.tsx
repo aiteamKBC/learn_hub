@@ -1,20 +1,24 @@
-import { ArrowRight, ArrowUpRight, Briefcase, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, Code2, HeartPulse, Megaphone, Palette, PlayCircle, Server, ShieldCheck, Sparkles, Star, type LucideIcon } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { ArrowRight, ArrowUpRight, Briefcase, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, Code2, HeartPulse, Megaphone, Package, Palette, PlayCircle, Server, ShieldCheck, Sparkles, Star, type LucideIcon } from 'lucide-react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 
-import { useLocation } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 
 import heroEagle from '@/assets/brand/hero-eagle-leadership.png'
 import heroSectionMobile from '@/assets/brand/section-dashboard.png'
 import { BlurText } from '@/components/art/blur-text'
 import { HeroIntro } from '@/components/home/HeroIntro'
+import { PackageCard } from '@/components/PackageCard'
 import { Button } from '@/components/ui/button'
 import { CountUp } from '@/components/ui/count-up'
+import { CourseThumb } from '@/components/ui/course-thumb'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '@/components/ui/menu'
-import { ErrorState } from '@/components/ui/misc'
+import { EmptyState, ErrorState } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StarBorder } from '@/components/ui/star-border'
-import { type CourseCardData, useCategories, useCourses, usePlans } from '@/features/catalog/api'
+import { useCashPackages, useSubscriptionPlans } from '@/features/b2c/api'
+import { type CourseCardData, useCatalogStats, useCategories, useCourses, usePlans } from '@/features/catalog/api'
+import { usePublicSettings } from '@/features/platform/api'
 import { cn } from '@/lib/cn'
 import { duration, money } from '@/lib/format'
 import { reducedMotion } from '@/lib/motion'
@@ -46,6 +50,10 @@ const FEATURED_BG = NOTEWORTHY_BG
 function Hero() {
   const [ready, setReady] = useState(false)
   const [videoOpen, setVideoOpen] = useState(false)
+  const { data: stats } = useCatalogStats()
+  // Enrolment total (sum of per-course student_count), labelled accurately — not a
+  // unique-learner count. Hidden if the figure is unavailable.
+  const enrolmentsLine = stats?.enrollments ? `${stats.enrollments.toLocaleString('en-GB')} enrolments · ` : ''
   useEffect(() => {
     const t = window.setTimeout(() => setReady(true), 80)
     return () => window.clearTimeout(t)
@@ -94,7 +102,7 @@ function Hero() {
               <PlayCircle className="size-4 text-primary" /> Watch video
             </Button>
           </div>
-          <p className="mt-5 font-mono text-[9.5px] tracking-[0.2em] text-white/55 uppercase">12,400 learners · CPD certificates · Compliance training for teams</p>
+          <p className="mt-5 font-mono text-[9.5px] tracking-[0.2em] text-white/55 uppercase">{enrolmentsLine}CPD certificates · Compliance training for teams</p>
         </div>
       </div>
 
@@ -367,22 +375,29 @@ function CategorySection() {
 }
 
 const MEMBERSHIP_FEATURES = {
-  explorer: ['Three starter courses', 'Weekly learning digest', 'Community reading room', 'Progress tracking'],
+  // The explorer starter-courses line is derived from the real catalogue (see Membership
+  // below), so this fixed list omits it — it would otherwise drift from the seed.
+  explorer: ['Weekly learning digest', 'Community reading room', 'Progress tracking'],
   practitioner: ['Every course and programme', 'Graded capstone projects', 'Verified certificates', 'Live critique sessions', 'Downloadable evidence packs'],
   teams: ['Everything in Practitioner', 'Seat management and SSO', 'Team progress analytics', 'Private cohort pathways', 'Dedicated success lead'],
 }
 
-/** Evidrise-style membership section (dark). Real plan prices; annual figure is monthly × 12. */
+/** Membership prices and trials use the same personal plans as Subscription. */
 function Membership() {
   const { data, isLoading } = usePlans()
-  const personal = data?.find((p) => p.audience === 'personal')
+  const { data: free } = useCourses({ price: 'free', limit: 1 }, true, false)
+  const personalPlans = useSubscriptionPlans()
   const team = data?.find((p) => p.audience === 'team')
   const [yearly, setYearly] = useState(true)
+  const personal = personalPlans.data?.find((p) => p.interval === (yearly ? 'year' : 'month'))
+  // Real starter-course count, derived from the live catalogue so it never drifts from
+  // the actual free courses on the site.
+  const starterLine = free?.total ? `${free.total === 1 ? '1 starter course' : `${free.total} starter courses`}` : 'Starter courses included'
 
   const practitioner = personal
     ? yearly
-      ? { price: money(personal.amount_minor * 12, personal.currency, personal.exponent), unit: '/year', note: 'billed annually' }
-      : { price: money(personal.amount_minor, personal.currency, personal.exponent), unit: '/month', note: personal.trial_days ? `${personal.trial_days}-day free trial` : 'billed monthly' }
+      ? { price: money(personal.amount_minor, personal.currency), unit: '/year', note: personal.trial_days ? `Includes a ${personal.trial_days}-day trial.` : 'billed annually · no trial' }
+      : { price: money(personal.amount_minor, personal.currency), unit: '/month', note: personal.trial_days ? `Includes a ${personal.trial_days}-day trial.` : 'billed monthly · no trial' }
     : null
   // Real team price when the plan is in the data; a genuine "contact sales" state otherwise
   // (never an empty box). While plans are still loading we leave price undefined so the card
@@ -392,8 +407,8 @@ function Membership() {
     : { price: isLoading ? undefined : 'Custom', unit: '', note: isLoading ? '' : 'Billed per seat · from 5 seats' }
 
   const tiers = [
-    { name: 'Explorer', tagline: 'For getting your bearings.', price: 'Free', unit: '', note: '', features: MEMBERSHIP_FEATURES.explorer, cta: 'Start free', to: '/signup', featured: false, badge: '' },
-    { name: 'Practitioner', tagline: 'For the work you are doing now.', price: practitioner?.price, unit: practitioner?.unit, note: practitioner?.note, features: MEMBERSHIP_FEATURES.practitioner, cta: 'Choose Practitioner', to: '/plans', featured: true, badge: 'Most chosen' },
+    { name: 'Explorer', tagline: 'For getting your bearings.', price: 'Free', unit: '', note: '', features: [starterLine, ...MEMBERSHIP_FEATURES.explorer], cta: 'Start free', to: '/signup', featured: false, badge: '' },
+    { name: 'Practitioner', tagline: 'For the work you are doing now.', price: practitioner?.price ?? (personalPlans.isLoading ? undefined : 'Unavailable'), unit: practitioner?.unit, note: practitioner?.note, features: MEMBERSHIP_FEATURES.practitioner, cta: 'View subscriptions', to: '/subscription', featured: true, badge: 'Most chosen' },
     { name: 'Teams', tagline: 'For groups building together.', price: teams?.price, unit: teams?.unit, note: teams?.note, features: MEMBERSHIP_FEATURES.teams, cta: 'Talk to us', to: '/plans', featured: false, badge: '' },
   ]
 
@@ -751,56 +766,50 @@ function Instructors() {
   )
 }
 
-/** Offers / bundles. PLACEHOLDER prices & discounts (see docs/NEEDS-USER.md) until wired to real data. */
-const BUNDLES = [
-  { title: 'Compliance essentials', note: 'The two courses every new starter needs: safety first, safeguarding second.', save: 'Save 25%', price: '£179', was: '£238' },
-  { title: 'Core skills starter', note: 'Build the foundations your team keeps coming back to, at one lower price.', save: 'Save 27%', price: '£189', was: '£258' },
-  { title: 'Team-ready pack', note: "Everything a new hire needs in their first month, bundled together.", save: 'Save 26%', price: '£199', was: '£268' },
-]
+type CashPkg = NonNullable<ReturnType<typeof useCashPackages>['data']>[number]
 
-/** A single bundle card — same content in the grid and the cover-flow. */
-function BundleCard({ b, pair, index }: { b: (typeof BUNDLES)[number]; pair: CourseCardData[]; index: number }) {
-  return (
-    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-      <div className="relative aspect-[16/9] overflow-hidden bg-surface-2">
-        <img src={FEATURED_PHOTOS[(index + 2) % FEATURED_PHOTOS.length]} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover object-center" />
-        <span className="absolute top-3 left-3 rounded-full bg-primary/90 px-2.5 py-1 font-mono text-[10px] tracking-[0.1em] text-on-primary uppercase shadow-sm">{b.save}</span>
-      </div>
-      <div className="flex flex-1 flex-col p-5">
-        <h3 className="text-base font-semibold tracking-tight text-text">{b.title}</h3>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted">{b.note}</p>
-        <ul className="mt-4 grid gap-2 text-sm">
-          {(pair.length ? pair.map((c) => c.title) : ['Two complementary courses']).map((t) => (
-            <li key={t} className="flex items-center gap-2 text-text">
-              <CheckCircle2 className="size-4 shrink-0 text-primary" /> <span className="truncate">{t}</span>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-auto flex items-baseline gap-2 pt-4">
-          <span className="text-2xl font-bold tracking-tight text-text tabular">{b.price}</span>
-          <span className="text-sm text-subtle line-through tabular">{b.was}</span>
-        </div>
-        <Button className="mt-4 h-10 w-full rounded-full" asChild>
-          <Link to="/courses">
-            See the bundle <ArrowRight className="size-4" />
-          </Link>
-        </Button>
-      </div>
-    </article>
-  )
+/** A single real cash bundle — same content in the grid and the cover-flow. Price, saving
+ * and the included courses all come from the live packages API. */
+function BundleCard({ pkg }: { pkg: CashPkg }) {
+  return <PackageCard pkg={pkg} />
 }
 
 function Offers() {
-  const { data } = useCourses({ sort: 'popular', limit: 6 })
-  const courses = data?.items ?? []
-  const bundles = BUNDLES.map((b, i) => ({ b, index: i, pair: [courses[i * 2], courses[i * 2 + 1]].filter(Boolean) }))
+  const { data, isLoading, isError } = useCashPackages()
+  const packages = data ?? []
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 3 }, (_, i) => (
+          <Skeleton key={i} className="h-[420px] rounded-2xl" />
+        ))}
+      </div>
+    )
+  }
+  if (isError || !packages.length) {
+    return (
+      <div className="rounded-2xl border border-border bg-surface/80">
+        <EmptyState
+          icon={<Package />}
+          title={isError ? 'Bundles are unavailable just now' : 'No bundles just now'}
+          body={isError ? 'We could not load bundles — browse the full catalogue instead.' : "Course bundles will appear here when they're available."}
+          action={
+            <Button variant="secondary" asChild>
+              <Link to="/courses">Browse all courses</Link>
+            </Button>
+          }
+        />
+      </div>
+    )
+  }
 
   // The 3D cover-flow is the default; reduced motion keeps the calmer grid.
   if (reducedMotion()) {
     return (
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {bundles.map(({ b, pair, index }) => (
-          <BundleCard key={b.title} b={b} pair={pair} index={index} />
+        {packages.map((pkg) => (
+          <BundleCard key={pkg.id} pkg={pkg} />
         ))}
       </div>
     )
@@ -813,22 +822,22 @@ function Offers() {
       fill
       maxWidth="max-w-5xl"
       cardWidth="w-[calc(100vw-32px)] max-w-[336px] sm:w-[396px] sm:max-w-none"
-      stageHeight="h-[510px] sm:h-[520px]"
-      slides={bundles.map(({ b, pair, index }) => ({ key: b.title, label: b.title, content: <BundleCard b={b} pair={pair} index={index} /> }))}
+      stageHeight="h-[540px]"
+      slides={packages.map((pkg) => ({ key: pkg.id, label: pkg.name, content: <BundleCard pkg={pkg} /> }))}
     />
   )
 }
 
-/** "Why LearnHub": value prop + PLACEHOLDER live-cohort stats (see docs/NEEDS-USER.md). */
-const COHORT_STATS = [
-  { n: 12400, format: (v: number) => Math.round(v).toLocaleString('en-GB'), label: 'Learners', note: 'Since the first cohort in 2019' },
-  { n: 38, format: (v: number) => Math.round(v).toLocaleString('en-GB'), label: 'Countries', note: 'Learners across four time zones' },
-  { n: 94, format: (v: number) => `${Math.round(v)}%`, label: 'Completion rate', note: 'Courses finished, not just started' },
-  { n: 4.8, format: (v: number) => `${v.toFixed(1)}/5`, label: 'Average rating', note: 'Across the last six months' },
-]
-const TEAMS = ['Meridian Health', 'Northwind Labs', 'Banque Atlas', 'Kite Logistics']
-
+/** "Why LearnHub": value prop + real catalogue stats from the live API. */
 function WhyLearnHub() {
+  const { data: stats, isLoading, isError } = useCatalogStats()
+  const asOf = new Date().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+  const tiles = [
+    { n: stats?.enrollments ?? 0, format: (v: number) => Math.round(v).toLocaleString('en-GB'), label: 'Enrolments', note: 'Across published courses' },
+    { n: stats?.courses ?? 0, format: (v: number) => Math.round(v).toLocaleString('en-GB'), label: 'Courses', note: 'Published and growing' },
+    { n: stats?.instructors ?? 0, format: (v: number) => Math.round(v).toLocaleString('en-GB'), label: 'Instructors', note: 'Practitioners who teach here' },
+    { n: stats?.rating_avg ?? 0, format: (v: number) => stats?.rating_count ? `${v.toFixed(1)}/5` : 'Not rated yet', label: 'Average rating', note: stats?.rating_count ? `Across ${stats.rating_count.toLocaleString('en-GB')} reviews` : 'From learner reviews' },
+  ]
   return (
     <section className="scroll-mt-20 border-t border-border bg-[#f6f4f0] dark:bg-surface-2">
       <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 py-12 sm:py-16 lg:grid-cols-2 lg:gap-14 lg:py-20">
@@ -848,30 +857,32 @@ function WhyLearnHub() {
               <a href="/#instructors">Meet the instructors</a>
             </Button>
           </div>
-          <div className="mt-8 flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[10px] tracking-[0.14em] text-subtle uppercase">Teams we teach</span>
-            {TEAMS.map((t) => (
-              <span key={t} className="rounded-full bg-primary-soft px-2.5 py-1 text-[12px] font-medium text-primary-soft-text">{t}</span>
-            ))}
-          </div>
         </div>
 
         <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-surface to-primary-soft/40 p-6 shadow-sm sm:p-8">
           <div className="flex items-center justify-between font-mono text-[10px] tracking-[0.14em] text-subtle uppercase">
             <span className="flex items-center gap-2 text-primary">
-              <span className="size-1.5 rounded-full bg-primary" /> Live cohort data
+              <span className="size-1.5 rounded-full bg-primary" /> Live catalogue data
             </span>
-            <span>Nov 2026</span>
+            <span>{asOf}</span>
           </div>
-          <div className="mt-6 grid grid-cols-2 gap-6">
-            {COHORT_STATS.map((s) => (
-              <div key={s.label} className="border-t border-border pt-4">
-                <CountUp value={s.n} format={s.format} className="block text-[clamp(26px,4vw,36px)] font-bold tracking-tight text-text tabular" />
-                <p className="mt-1 text-sm font-semibold text-text">{s.label}</p>
-                <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted">{s.note}</p>
-              </div>
-            ))}
-          </div>
+          {isError ? (
+            <p className="mt-6 text-sm text-muted">Live figures are unavailable just now — browse the catalogue to see the real content.</p>
+          ) : (
+            <div className="mt-6 grid grid-cols-2 gap-6">
+              {tiles.map((s) => (
+                <div key={s.label} className="border-t border-border pt-4">
+                  {stats && !isLoading ? (
+                    <CountUp value={s.n} format={s.format} className="block text-[clamp(26px,4vw,36px)] font-bold tracking-tight text-text tabular" />
+                  ) : (
+                    <Skeleton className="h-9 w-24" />
+                  )}
+                  <p className="mt-1 text-sm font-semibold text-text">{s.label}</p>
+                  <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted">{s.note}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -889,14 +900,20 @@ const FEATURED_PHOTOS = [
 ]
 
 /** Rich Evidrise-style course card: cover, category tag, instructor, rating, price + CTA. */
-function FeaturedCourseCard({ course, index }: { course: CourseCardData; index: number }) {
+function FeaturedCourseCard({ course }: { course: CourseCardData }) {
   const price = course.price
   const instructor = course.instructors[0]
-  const cover = course.thumbnail_url || FEATURED_PHOTOS[index % FEATURED_PHOTOS.length]
+  // Prefer the course's own thumbnail; fall back to the local generated cover (never an
+  // external stock photo) and if the thumbnail fails to load, swap to the same cover.
+  const [broken, setBroken] = useState(false)
   return (
     <Link to={`/courses/${course.slug}`} className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg motion-reduce:transition-none motion-reduce:hover:translate-y-0">
       <div className="aspect-[16/10] overflow-hidden bg-surface-2">
-        <img src={cover} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover object-center transition-transform duration-500 ease-out group-hover:scale-[1.03]" />
+        {course.thumbnail_url && !broken ? (
+          <img src={course.thumbnail_url} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} className="h-full w-full object-cover object-center transition-transform duration-500 ease-out group-hover:scale-[1.03]" />
+        ) : (
+          <CourseThumb src={null} title={course.title} category={course.category} className="!aspect-[16/10] h-full rounded-none transition-transform duration-500 ease-out group-hover:scale-[1.03]" />
+        )}
       </div>
       <div className="flex flex-1 flex-col gap-3 p-5">
         <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] tracking-[0.14em] uppercase">
@@ -911,11 +928,15 @@ function FeaturedCourseCard({ course, index }: { course: CourseCardData; index: 
           </div>
         ) : null}
         <div className="mt-auto flex flex-wrap items-center gap-2.5 pt-2 text-[12px] text-muted">
-          <span className="flex items-center gap-1">
-            <Star className="size-3.5 fill-warning text-warning" />
-            <span className="font-semibold text-text">{(course.rating_avg ?? 0).toFixed(1)}</span>
-            {course.rating_count ? <span className="text-subtle">({course.rating_count.toLocaleString()})</span> : null}
-          </span>
+          {course.rating_avg ? (
+            <span className="flex items-center gap-1">
+              <Star className="size-3.5 fill-warning text-warning" />
+              <span className="font-semibold text-text">{course.rating_avg.toFixed(1)}</span>
+              {course.rating_count ? <span className="text-subtle">({course.rating_count.toLocaleString()})</span> : null}
+            </span>
+          ) : (
+            <span className="font-semibold text-text">New</span>
+          )}
           <span className="h-3 w-px bg-border" aria-hidden />
           <span className="flex items-center gap-1">
             <PlayCircle className="size-3.5" /> {course.lecture_count} lessons
@@ -1021,7 +1042,7 @@ function FeaturedCourses() {
           ) : isLoading || !data ? (
             Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-[380px] rounded-2xl" />)
           ) : data.items.length ? (
-            data.items.map((c, i) => <FeaturedCourseCard key={c.id} course={c} index={i} />)
+            data.items.map((c) => <FeaturedCourseCard key={c.id} course={c} />)
           ) : (
             <p className="col-span-full py-12 text-center text-muted">No courses in this track yet.</p>
           )}
@@ -1042,12 +1063,22 @@ export function HomePage() {
     return scrollToAnchor(hash.slice(1))
   }, [hash])
 
-  return (
-    <>
-      <HeroIntro />
+  const { settings, isLoading: settingsLoading } = usePublicSettings()
+  const order = settings['home.section_order'].split(',')
+  const hidden = new Set(settings['home.hidden_sections'].split(',').filter(Boolean))
+  const defaultOrder = ['hero', 'categories', 'courses', 'sales', 'new', 'why', 'instructors', 'membership']
+  const safeOrder = order.length === defaultOrder.length && new Set(order).size === defaultOrder.length && order.every((id) => defaultOrder.includes(id)) ? order : defaultOrder
+  const sectionBlocks: Record<string, ReactNode> = {
+    hero: (
       <Hero />
+    ),
+    categories: (
       <CategorySection />
+    ),
+    courses: (
       <FeaturedCourses />
+    ),
+    sales: (
       <section id="sales" className="scroll-mt-20 bg-surface-2">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-16 lg:py-20">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -1069,6 +1100,8 @@ export function HomePage() {
           </div>
         </div>
       </section>
+    ),
+    new: (
       <section id="new" className="relative scroll-mt-20 overflow-hidden bg-[#1e252d]">
         {/* Decorative artwork: full-bleed layered dune-waves forming one broad valley (high on the
             left, dipping centre, rising to the right). Each crest catches a faint top sheen; a thin
@@ -1127,11 +1160,15 @@ export function HomePage() {
           <div className={cn('grid gap-5 sm:grid-cols-2 lg:grid-cols-3', fresh.data && 'stagger')}>
             {fresh.isLoading || !fresh.data
               ? Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-[380px] rounded-2xl" />)
-              : fresh.data.items.map((c, i) => <FeaturedCourseCard key={c.id} course={c} index={i} />)}
+              : fresh.data.items.map((c) => <FeaturedCourseCard key={c.id} course={c} />)}
           </div>
         </div>
       </section>
+    ),
+    why: (
       <WhyLearnHub />
+    ),
+    instructors: (
       <section id="instructors" className="scroll-mt-20 bg-[#faeee0] dark:bg-surface-2/40">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-16 lg:py-20">
           <div className="mx-auto max-w-2xl text-center">
@@ -1146,7 +1183,17 @@ export function HomePage() {
           </div>
         </div>
       </section>
+    ),
+    membership: (
       <Membership />
+    ),
+  }
+  if (settingsLoading) return null
+  if (settings['home.default_landing'] !== 'home') return <Navigate to={`/${settings['home.default_landing']}`} replace />
+  return (
+    <>
+      <HeroIntro />
+      {safeOrder.filter((id) => id === 'hero' || !hidden.has(id)).map((id) => <Fragment key={id}>{sectionBlocks[id]}</Fragment>)}
     </>
   )
 }

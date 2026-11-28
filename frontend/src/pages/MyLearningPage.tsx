@@ -1,4 +1,4 @@
-import { BookOpen, Building2, LayoutGrid, List, PlayCircle } from 'lucide-react'
+import { BookOpen, Building2, CalendarClock, LayoutGrid, List, PlayCircle } from 'lucide-react'
 import { useState } from 'react'
 
 import { LearnerHeader } from '@/components/layout/learner-header'
@@ -11,9 +11,32 @@ import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useMyCourses } from '@/features/learning/api'
 import { cn } from '@/lib/cn'
+import { shortDate } from '@/lib/format'
 import { Link } from '@/lib/router'
 
 type CourseFilter = 'all' | 'in-progress' | 'not-started' | 'completed'
+
+/** The replay window. The server already enforces `access_expires_at` and refuses the
+ * player once it passes, so the learner needs to see it coming rather than find the
+ * course silently stop working. No date set means access does not expire. */
+function AccessNote({ expiresAt }: { expiresAt: string | null | undefined }) {
+  if (!expiresAt) return null
+  const ends = new Date(expiresAt)
+  const days = Math.ceil((ends.getTime() - Date.now()) / 86_400_000)
+  if (days <= 0) {
+    return (
+      <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-danger">
+        <CalendarClock className="size-3.5" /> Access ended {shortDate(expiresAt)}
+      </p>
+    )
+  }
+  return (
+    <p className={cn('mt-2 inline-flex items-center gap-1 text-xs', days <= 14 ? 'font-medium text-warning' : 'text-muted')}>
+      <CalendarClock className="size-3.5" /> Access until {shortDate(expiresAt)}
+      {days <= 14 ? ` · ${days} ${days === 1 ? 'day' : 'days'} left` : ''}
+    </p>
+  )
+}
 
 export function MyLearningPage() {
   const { data, isLoading, error, refetch } = useMyCourses()
@@ -166,6 +189,7 @@ export function MyLearningPage() {
                       <Progress value={c.progress_pct} tone={c.progress_pct >= 100 ? 'success' : 'primary'} label="Progress" />
                       <span className="text-xs text-muted tabular">{Math.round(c.progress_pct)}%</span>
                     </div>
+                    <AccessNote expiresAt={c.access_expires_at} />
                   </div>
                 </Link>
               ))}
@@ -188,6 +212,7 @@ export function MyLearningPage() {
                       <Progress value={c.progress_pct} tone={c.progress_pct >= 100 ? 'success' : 'primary'} label="Progress" />
                       <span className="text-xs text-muted tabular">{Math.round(c.progress_pct)}%</span>
                     </div>
+                    <AccessNote expiresAt={c.access_expires_at} />
                   </div>
                 </Link>
               ))}

@@ -191,13 +191,27 @@ export function useMySubscription(poll = false) {
 }
 
 export function useSubscriptionCheckout() {
+  const { code } = useCurrency()
   return useMutation({
-    mutationFn: (v: { planId: string; successPath: string; cancelPath: string; customerEmail?: string }) =>
+    mutationFn: (v: { planId: string; successPath: string; cancelPath: string; customerEmail?: string; promoCode?: string }) =>
       unwrap(
         api.POST('/api/v1/commerce/tokens/subscriptions/checkout', {
-          body: { plan_id: v.planId, success_url: returnUrl(v.successPath), cancel_url: returnUrl(v.cancelPath), customer_email: v.customerEmail },
+          body: { plan_id: v.planId, currency: code, success_url: returnUrl(v.successPath), cancel_url: returnUrl(v.cancelPath), customer_email: v.customerEmail, promo_code: v.promoCode ?? '' },
           headers: PERSONAL,
         }),
       ),
+  })
+}
+
+export function useSubscriptionQuote(planId: string | undefined, promoCode: string) {
+  const { data: me } = useMe()
+  const { code } = useCurrency()
+  return useQuery({
+    queryKey: ['b2c-sub-quote', planId, code, promoCode],
+    queryFn: () => unwrap(api.GET('/api/v1/commerce/tokens/subscriptions/quote', {
+      params: { query: { plan_id: planId!, promo_code: promoCode, currency: code } }, headers: PERSONAL,
+    })),
+    enabled: !!me && !!planId,
+    retry: false,
   })
 }

@@ -554,7 +554,7 @@ function OverviewTiles() {
       </section>
       <div className="grid gap-4 lg:grid-cols-12">
         <Card className="lg:col-span-7">
-          <CardHeader title="Subscription revenue" description="Paid subscription invoices, in pounds per day." />
+          <CardHeader title="Subscription revenue" description="Paid subscription invoices, converted to pounds per day for reporting." />
           <CardBody>{!d ? <Skeleton className="h-[220px]" /> : <AreaChart points={d.series} format={gbpShort} label="Subscription revenue per day" />}</CardBody>
         </Card>
         <Card className="lg:col-span-5">
@@ -591,7 +591,7 @@ function RevenueTab() {
         <CardBody>{!d ? <Skeleton className="h-[260px]" /> : <AreaChart points={d.series} format={gbpShort} label="Subscription revenue per day" height={260} />}</CardBody>
       </Card>
       <Card className="lg:col-span-4">
-        <CardHeader title="Revenue by plan" description="In this period, in pounds." />
+        <CardHeader title="Revenue by plan" description="Paid invoices in this period, converted to pounds for reporting." />
         <CardBody>{!d ? <Skeleton className="h-[200px]" /> : <BarList rows={d.by_plan.map((p) => ({ label: p.name, value: p.revenue_gbp_minor, hint: `${p.active} active` }))} format={gbp} />}</CardBody>
       </Card>
     </div>

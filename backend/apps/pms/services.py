@@ -123,6 +123,36 @@ def create_proposal(*, org_id: UUID, by_user_id: UUID, data: dict) -> KpiProposa
 
 
 @transaction.atomic
+def create_kpi_direct(*, org_id: UUID, by_user_id: UUID, data: dict) -> Kpi:
+    """Create an active KPI in one step, skipping the HoD/HR/Exec approval chain.
+    A proposal is still recorded (already active) so audit history and the KPI's
+    source/course linkage stay consistent with the approval route."""
+    owner = _member_in_org(org_id, data.get("owner_id"))
+    parent = _parent_in_org(
+        org_id,
+        data.get("parent_kpi_id"),
+        data.get("scope", Kpi.Scope.DEPARTMENT),
+        data.get("dept", ""),
+        owner,
+    )
+    proposal = KpiProposal.objects.create(
+        org_id=org_id,
+        author_id=by_user_id,
+        owner=owner,
+        parent_kpi=parent,
+        stage=KpiProposal.Stage.ACTIVE,
+        version=1,
+        ai_draft=data.get("ai_draft", False),
+        **{f: data[f] for f in _PROP_FIELDS if f in data and data[f] is not None},
+    )
+    kpi = _activate(proposal)
+    proposal.active_kpi = kpi
+    proposal.save(update_fields=["active_kpi", "updated_at"])
+    _log_proposal(proposal, by_user_id=by_user_id, action="created_direct", comment="Added directly")
+    return kpi
+
+
+@transaction.atomic
 def update_proposal(*, org_id: UUID, proposal: KpiProposal, patch: dict) -> KpiProposal:
     if proposal.stage not in _PROP_EDITABLE:
         raise ServiceError("not_editable", f"A {proposal.stage} proposal cannot be edited.", status=409)

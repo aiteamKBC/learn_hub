@@ -8,11 +8,12 @@ This module is the staff CRUD that was missing, so bundles can be created withou
 from uuid import UUID
 
 from django.db import transaction
+from django.db.models import Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
 from ninja import Field, Schema
 
-from apps.catalog.models import Course
+from apps.catalog.models import Course, Lecture
 from apps.commerce.models import CashPackage, CashPackageCourse, CoursePrice, PriceTier
 from core import html
 from core.errors import ServiceError
@@ -26,6 +27,20 @@ class ConsolePackageCourseOut(Schema):
     id: UUID
     title: str
     slug: str
+    price_gbp_minor: int
+    category: str = ""
+    level: str = ""
+    lecture_count: int = 0
+    duration_sec: int = 0
+    thumbnail_url: str = ""
+    access_days: int | None = None
+
+
+class EligibleCoursesOut(Schema):
+    items: list[ConsolePackageCourseOut]
+    total: int
+    page: int
+    pages: int
 
 
 class ConsolePackageOut(Schema):
@@ -59,33 +74,64 @@ class ConsolePackagePatch(Schema):
 
 
 # ----------------------------------------------------------------------- helpers
+def _eligible():
+    live = Lecture.objects.filter(version_id=OuterRef("live_version_id"), kind=Lecture.Kind.LIVE_SESSION)
+    return (
+        Course.objects.filter(
+            ownership__in=[Course.Ownership.PLATFORM, Course.Ownership.INSTRUCTOR],
+            owner_org_id__isnull=True,
+            deleted_at__isnull=True,
+            status=Course.Status.PUBLISHED,
+            live_version__isnull=False,
+            price__is_free=False,
+            price__tier__isnull=False,
+            price__tier__is_active=True,
+        )
+        .annotate(has_live=Exists(live))
+        .filter(has_live=False)
+    )
+
+
+def _course_row(course, price):
+    return {
+        "id": course.id,
+        "title": course.title,
+        "slug": course.slug,
+        "price_gbp_minor": price,
+        "category": course.category.name if course.category else "",
+        "level": course.level,
+        "lecture_count": course.lecture_count,
+        "duration_sec": course.total_duration_sec,
+        "thumbnail_url": course.thumbnail_url,
+        "access_days": course.access_days,
+    }
+
+
 def _snapshot_map(course_ids) -> dict:
     """Each course's current GBP list price in pence, in ONE query (no N+1). Free/unpriced = 0."""
     rows = CoursePrice.objects.filter(course_id__in=course_ids).select_related("tier")
-    return {cp.course_id: (0 if cp.is_free or cp.tier is None else cp.tier.gbp_minor) for cp in rows}
+    return {
+        cp.course_id: cp.tier.gbp_minor for cp in rows if not cp.is_free and cp.tier and cp.tier.is_active
+    }
 
 
 def _validate_courses(course_ids: list) -> tuple[set, dict]:
-    """Keep only platform-owned, PUBLISHED, live courses; return their ids and price snapshots.
-    Draft/unpublished courses can't be sold, so they must not go in a sellable bundle."""
-    ids = set(
-        Course.objects.filter(
-            pk__in=course_ids,
-            owner_org_id__isnull=True,
-            deleted_at__isnull=True,
-            status="published",
-            live_version__isnull=False,
-        ).values_list("id", flat=True)
-    )
-    if course_ids and not ids:
-        raise ServiceError("no_courses", "None of the chosen courses are published and sellable.")
-    return ids, _snapshot_map(ids)
+    """Require every selected course to be published and sellable."""
+    if not course_ids:
+        raise ServiceError("no_courses", "Choose at least one published course for this package.")
+    ids = set(_eligible().filter(pk__in=course_ids).values_list("id", flat=True))
+    if ids != set(course_ids):
+        raise ServiceError("invalid_courses", "Some chosen courses are not published and sellable.")
+    snapshots = _snapshot_map(ids)
+    if len(snapshots) != len(ids):
+        raise ServiceError("missing_price", "Every package course needs an active cash price tier.")
+    return ids, snapshots
 
 
 def _guard_price(tier: PriceTier, snapshots: dict) -> None:
     """A bundle must never cost MORE than buying its courses separately (it'd be pointless)."""
     total = sum(snapshots.values())
-    if total > 0 and tier.gbp_minor > total:
+    if tier.gbp_minor > total:
         raise ServiceError(
             "price_too_high",
             f"Bundle price £{tier.gbp_minor / 100:.2f} is more than buying the courses separately "
@@ -115,11 +161,7 @@ def _set_courses(pkg: CashPackage, ids: set, snapshots: dict) -> None:
 
 
 def _row(pkg: CashPackage) -> dict:
-    courses = list(
-        CashPackageCourse.objects.filter(package=pkg)
-        .select_related("course")
-        .values_list("course_id", "course__title", "course__slug", "snapshot_gbp_minor")
-    )
+    courses = list(CashPackageCourse.objects.filter(package=pkg).select_related("course", "course__category"))
     return {
         "id": pkg.id,
         "name": pkg.name,
@@ -127,10 +169,10 @@ def _row(pkg: CashPackage) -> dict:
         "description": pkg.description,
         "price_tier_id": pkg.price_tier_id,
         "price_gbp_minor": pkg.price_tier.gbp_minor,
-        "courses_cash_total_minor": sum(snap for *_, snap in courses),
+        "courses_cash_total_minor": sum(item.snapshot_gbp_minor for item in courses),
         "is_active": pkg.is_active,
         "course_count": len(courses),
-        "courses": [{"id": c, "title": t, "slug": s} for c, t, s, _ in courses],
+        "courses": [_course_row(item.course, item.snapshot_gbp_minor) for item in courses],
     }
 
 
@@ -144,6 +186,23 @@ def _unique_slug(name: str) -> str:
 
 
 # ----------------------------------------------------------------------- endpoints
+@router.get("/packages/eligible-courses", response=EligibleCoursesOut)
+def eligible_courses(request, q: str = "", page: int = 1, limit: int = 20):
+    staff(request)
+    page, limit = max(1, page), min(50, max(1, limit))
+    qs = _eligible().select_related("price__tier", "category").order_by("title", "id")
+    if q.strip():
+        qs = qs.filter(Q(title__icontains=q.strip()) | Q(category__name__icontains=q.strip()))
+    total = qs.count()
+    rows = qs[(page - 1) * limit : page * limit]
+    return {
+        "items": [_course_row(c, c.price.tier.gbp_minor) for c in rows],
+        "total": total,
+        "page": page,
+        "pages": max(1, (total + limit - 1) // limit),
+    }
+
+
 @router.get("/packages", response=list[ConsolePackageOut])
 def list_packages(request):
     staff(request)
@@ -155,7 +214,7 @@ def list_packages(request):
 @transaction.atomic
 def create_package(request, body: ConsolePackageIn):
     staff(request)
-    tier = get_object_or_404(PriceTier, pk=body.price_tier_id)
+    tier = get_object_or_404(PriceTier, pk=body.price_tier_id, is_active=True)
     ids, snapshots = _validate_courses(body.course_ids)
     _guard_price(tier, snapshots)
     pkg = CashPackage.objects.create(
@@ -186,15 +245,16 @@ def update_package(request, package_id: UUID, body: ConsolePackagePatch):
 
     # Work out the resulting tier + course set, then guard the price BEFORE saving anything.
     tier = (
-        get_object_or_404(PriceTier, pk=sent["price_tier_id"])
+        get_object_or_404(PriceTier, pk=sent["price_tier_id"], is_active=True)
         if sent.get("price_tier_id")
         else pkg.price_tier
     )
     if sent.get("course_ids") is not None:
         ids, snapshots = _validate_courses(sent["course_ids"])
     else:
-        ids = set(CashPackageCourse.objects.filter(package=pkg).values_list("course_id", flat=True))
-        snapshots = _snapshot_map(ids)
+        ids, snapshots = _validate_courses(
+            list(CashPackageCourse.objects.filter(package=pkg).values_list("course_id", flat=True))
+        )
     _guard_price(tier, snapshots)
 
     if sent.get("name") is not None:

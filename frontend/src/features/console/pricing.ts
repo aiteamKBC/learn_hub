@@ -75,7 +75,12 @@ function usePriceInvalidate() {
     void qc.invalidateQueries({ queryKey: ['console', 'pricing'] })
     void qc.invalidateQueries({ queryKey: ['console', 'subs'] })
     void qc.invalidateQueries({ queryKey: ['console', 'settings'] })
-    void qc.invalidateQueries({ predicate: (q) => ['courses', 'course', 'cart', 'wishlist', 'plans', 'currencies', 'home'].includes(String(q.queryKey[0])) })
+    void qc.invalidateQueries({
+      predicate: (q) => [
+        'courses', 'course', 'cart', 'wishlist', 'plans', 'currencies', 'home',
+        'b2c-token-packs', 'b2c-cash-packages', 'b2c-token-rate', 'course-instalment-offer',
+      ].includes(String(q.queryKey[0])),
+    })
   }
 }
 

@@ -62,6 +62,7 @@ function useInvalidatePlans() {
     void qc.invalidateQueries({ queryKey: ['console', 'subs'] })
     void qc.invalidateQueries({ queryKey: ['console', 'pricing', 'plans'] })
     void qc.invalidateQueries({ queryKey: ['plans'] }) // the public plans page
+    void qc.invalidateQueries({ queryKey: ['b2c-sub-plans'] }) // Home and Unlimited use this API
   }
 }
 

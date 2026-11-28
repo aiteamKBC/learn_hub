@@ -264,6 +264,32 @@ class HcmApiTest(SchemaTransactionTestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(len(r.json()), 1)
 
+    def test_wellbeing_stores_raw_answers_and_hr_can_read_them(self):
+        self.as_(self.member_user)
+        r = self.post(
+            "/hcm/me/wellbeing",
+            {
+                "hope": 75,
+                "efficacy": 75,
+                "resilience": 50,
+                "optimism": 50,
+                "overall": 63,
+                "note": "",
+                # "3" coerces to 3; the out-of-range 9 is dropped by the service.
+                "answers": {"H1": 4, "C3": 2, "R3": 5, "O5": "3", "bad": 9},
+            },
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()["answers"], {"H1": 4, "C3": 2, "R3": 5, "O5": 3})
+
+        # An HR admin can read the member's check-ins (and their raw answers).
+        self.as_(self.hr_user)
+        r = self.get(f"/hcm/people/{self.m_sara.id}/wellbeing")
+        self.assertEqual(r.status_code, 200, r.content)
+        rows = r.json()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["answers"]["H1"], 4)
+
     def test_wellbeing_updates_profile_scalars(self):
         self.as_(self.member_user)
         self.post(

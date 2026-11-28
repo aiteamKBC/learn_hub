@@ -64,7 +64,7 @@ function PaymentPanel({ course }: { course: Detail }) {
 
   const intentMut = useCheckoutIntent()
   const hostedCheckout = useCheckout()
-  const started = useRef(false)
+  const intentRequest = useRef<ReturnType<typeof intentMut.mutateAsync> | null>(null)
   const stripeRef = useRef<StripeInstance | null>(null)
   const elementsRef = useRef<StripeElements | null>(null)
   const mountRef = useRef<HTMLDivElement | null>(null)
@@ -77,11 +77,10 @@ function PaymentPanel({ course }: { course: Detail }) {
   const [unconfigured, setUnconfigured] = useState(false)
   const [timedOut, setTimedOut] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [paymentError, setPaymentError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    if (started.current) return // one order per visit, and guards React StrictMode's double mount
-    started.current = true
     const created: StripeElement[] = []
     let cancelled = false
     // If the embedded element never loads (Stripe.js blocked by an extension/network, or a slow
@@ -92,11 +91,14 @@ function PaymentPanel({ course }: { course: Detail }) {
     void preloadStripe().catch(() => {})
     void (async () => {
       try {
-        const res = await intentMut.mutateAsync({ courseIds: [course.id], currency })
+        // Reuse the intent across StrictMode effect replay, but let the active
+        // effect mount the elements after the previous effect has cleaned up.
+        intentRequest.current ??= intentMut.mutateAsync({ courseIds: [course.id], currency })
+        const res = await intentRequest.current
         if (cancelled) return
         setOrderId(res.order_id)
         setTotal(res.total_minor)
-        if (res.status === 'paid' || !res.client_secret) {
+        if (res.status === 'paid') {
           // free / 100% coupon: already enrolled, straight into the course
           toast.success("You're enrolled. Enjoy the course!")
           navigate(`/learn/${course.slug}`)
@@ -107,6 +109,7 @@ function PaymentPanel({ course }: { course: Detail }) {
           setUnconfigured(true)
           return
         }
+        if (!res.client_secret) throw new Error('The payment form could not be initialised. Please try again.')
         const stripe = await getStripe(res.publishable_key)
         if (cancelled) return
         stripeRef.current = stripe
@@ -117,14 +120,18 @@ function PaymentPanel({ course }: { course: Detail }) {
         const express = elements.create('expressCheckout', { buttonHeight: 44 })
         express.on('ready', (e) => !cancelled && setHasWallets(!!e.availablePaymentMethods))
         express.on('confirm', async () => {
-          const { error: err } = await stripe.confirmPayment({
-            elements,
-            confirmParams: {
-              return_url: returnUrl(res.order_id),
-              payment_method_data: { billing_details: { email: me?.email ?? '' } },
-            },
-          })
-          if (err && !cancelled) setError(err.message || 'Your payment could not be completed.')
+          try {
+            const { error: err } = await stripe.confirmPayment({
+              elements,
+              confirmParams: {
+                return_url: returnUrl(res.order_id),
+                payment_method_data: { billing_details: { email: me?.email ?? '' } },
+              },
+            })
+            if (err && !cancelled) setPaymentError(err.message || 'Your payment could not be completed.')
+          } catch {
+            if (!cancelled) setPaymentError('Payment confirmation could not be completed. Please check your connection and try again.')
+          }
         })
         created.push(express)
         if (expressRef.current) express.mount(expressRef.current)
@@ -143,7 +150,7 @@ function PaymentPanel({ course }: { course: Detail }) {
         })
         // Stripe fires this (instead of 'ready') when the element can't render — e.g. a
         // key/secret account mismatch or a test/live mix-up. Surface it instead of sitting
-        // on the skeleton forever, and offer the hosted-checkout fallback below.
+        // on the skeleton forever. Reloading retries initialisation.
         payment.on('loaderror', (e) => {
           if (cancelled) return
           clearTimeout(slowTimer)
@@ -154,12 +161,14 @@ function PaymentPanel({ course }: { course: Detail }) {
       } catch (e) {
         if (!cancelled) {
           clearTimeout(slowTimer)
-          setError((e as Error).message)
+          setError(e instanceof Error ? e.message : 'The payment form could not load. Please try again.')
         }
       }
     })()
     return () => {
       cancelled = true
+      stripeRef.current = null
+      elementsRef.current = null
       clearTimeout(slowTimer)
       for (const el of created) {
         try {
@@ -175,17 +184,22 @@ function PaymentPanel({ course }: { course: Detail }) {
   const pay = async () => {
     if (!stripeRef.current || !elementsRef.current || !orderId) return
     setSubmitting(true)
-    setError(null)
-    const { error: err } = await stripeRef.current.confirmPayment({
-      elements: elementsRef.current,
-      confirmParams: {
-        return_url: `${window.location.origin}/checkout/success?order=${orderId}`,
-        payment_method_data: { billing_details: { email: me?.email ?? '' } },
-      },
-    })
-    // We only get here if confirmation failed; on success Stripe redirects to return_url.
-    setError(err?.message || 'Your payment could not be completed. Please try again.')
-    setSubmitting(false)
+    setPaymentError(null)
+    try {
+      const { error: err } = await stripeRef.current.confirmPayment({
+        elements: elementsRef.current,
+        confirmParams: {
+          return_url: `${window.location.origin}/checkout/success?order=${orderId}`,
+          payment_method_data: { billing_details: { email: me?.email ?? '' } },
+        },
+      })
+      // We only get here if confirmation failed; on success Stripe redirects to return_url.
+      setPaymentError(err?.message || 'Your payment could not be completed. Please try again.')
+    } catch {
+      setPaymentError('Payment confirmation could not be completed. Please check your connection and try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   // Fall back to Stripe's hosted page when the browser key isn't set up (keeps checkout working).
@@ -256,6 +270,7 @@ function PaymentPanel({ course }: { course: Detail }) {
         <div ref={mountRef} className={ready ? 'animate-reveal' : 'opacity-0'} />
       </div>
 
+      {paymentError ? <p role="alert" className="mt-4 text-sm text-danger">{paymentError}</p> : null}
       {timedOut && !ready ? null : (
         <Button size="lg" className="mt-6 h-14 w-full bg-[linear-gradient(90deg,var(--primary-hover),var(--primary),var(--primary-hover))] text-base shadow-md hover:brightness-105" loading={submitting} disabled={!ready} onClick={pay}>
           <Lock /> Pay {total != null ? money(total, currency, exponent) : ''}
@@ -327,7 +342,7 @@ function Summary({ course }: { course: Detail }) {
         <h3 id="included" className="text-sm font-semibold tracking-tight">What's included</h3>
         <ul className="mt-3 grid gap-2.5 text-sm">
           {[
-            'Full lifetime access to the course',
+            course.access_days ? `${course.access_days} days of full course access` : 'Full course access, no expiry',
             course.cpd_hours ? `Certificate · ${course.cpd_hours} CPD hours` : 'Certificate of completion',
             'Learn on web and mobile',
             'Future course updates (when available)',
@@ -345,7 +360,7 @@ function Summary({ course }: { course: Detail }) {
       <div className="grid gap-4 border-t border-border pt-5 text-xs text-muted sm:grid-cols-3 sm:divide-x sm:divide-border">
         {[
           [ShieldCheck, 'Secure payment', 'Powered by Stripe'],
-          [RefreshCw, '30-day refund', 'No questions asked'],
+          [RefreshCw, 'Refund requests', 'Subject to administrator review'],
           [Headphones, 'Need help?', 'Contact support'],
         ].map(([Icon, title, sub]) => {
           const I = Icon as typeof ShieldCheck
@@ -402,7 +417,7 @@ export function CheckoutPayPage() {
             <div className="mt-8 grid animate-reveal items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(520px,1.08fr)] lg:gap-10">
               <Summary course={course} />
               <Card className="rounded-3xl p-6 shadow-lg sm:p-8 lg:sticky lg:top-24 lg:p-9">
-                <PaymentPanel course={course} />
+                <PaymentPanel key={`${course.id}:${course.price.currency}`} course={course} />
               </Card>
             </div>
           </>

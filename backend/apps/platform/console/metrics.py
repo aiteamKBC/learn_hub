@@ -57,8 +57,8 @@ def _to_gbp(rows, cache: dict | None = None) -> int:
 
 def subscription_invoices(start: datetime, end: datetime):
     return Invoice.objects.filter(
-        subscription__isnull=False, issued_at__gte=start, issued_at__lt=end
-    ).exclude(status__in=("void", "uncollectible", "draft"))
+        subscription__isnull=False, issued_at__gte=start, issued_at__lt=end, status="paid"
+    )
 
 
 def subscription_revenue_gbp(start: datetime, end: datetime) -> int:

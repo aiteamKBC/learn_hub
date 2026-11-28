@@ -15,7 +15,7 @@ export type ReviewItem = components['schemas']['ReviewItem']
 export type Note = components['schemas']['NoteOut']
 export type Certificate = components['schemas']['CertificateOut']
 export type Submission = components['schemas']['SubmissionOut']
-export type MyLiveSession = components['schemas']['MyLiveSessionOut']
+export type MyLiveSession = components['schemas']['LearnerCourseLiveSessionOut']
 
 /** A quiz answer, in the shape the server grades (see learning/grading.py). */
 export type Answer = string | string[] | Record<string, string>

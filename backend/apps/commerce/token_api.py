@@ -7,6 +7,7 @@ Stripe checkout is server-authoritative: the client never sends amounts.
 from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from ninja import Field, Router, Schema
 
@@ -139,8 +140,10 @@ def list_packs(request, currency: str | None = None):
             "name": p.name,
             "token_amount": p.token_amount,
             "price_tier_id": p.price_tier_id,
+            # A missing converted tier price is a GBP fallback; it must never be
+            # displayed as if it were an amount in the requested currency.
             "amount_minor": amounts.get(p.price_tier_id, p.price_tier.gbp_minor),
-            "currency": cur["code"],
+            "currency": cur["code"] if p.price_tier_id in amounts else "GBP",
             "sort_order": p.sort_order,
         }
         for p in packs
@@ -161,7 +164,11 @@ def pack_checkout(request, pack_id: UUID, body: PackCheckoutIn):
     amount_row = PriceTierAmount.objects.filter(tier=tier, currency_id=cur["code"]).first()
     amount = amount_row.amount_minor if amount_row else tier.gbp_minor
     currency_code = cur["code"] if amount_row else "GBP"
-    stripe_amount = gateway.to_stripe_amount(amount, currency_code, cur.get("exponent", 2))
+    # If the requested tier amount is missing we charge GBP, including GBP's
+    # own precision; using the requested currency's exponent would misprice
+    # zero- and three-decimal currencies.
+    exponent = cur["exponent"] if amount_row else 2
+    stripe_amount = gateway.to_stripe_amount(amount, currency_code, exponent)
 
     idempotency_key = f"token_pack:{pack.id}:{request.user.id}:{pack.updated_at.timestamp():.0f}"
     session = gateway.create_checkout_session(
@@ -205,6 +212,17 @@ class UnlockOut(Schema):
 
 @router.post("/unlock", response=UnlockOut)
 def unlock_content(request, body: UnlockIn):
+    # K02 has not yet made these entitlements usable in the learner player.
+    # Refuse before dispatching to an unlock service, which is where debits and
+    # entitlement grants occur. Existing entitlements and all other wallet uses
+    # remain untouched. Re-enable only after the K02 bridge is delivered.
+    if not settings.PERSONAL_TOKEN_CONTENT_UNLOCKS_ENABLED:
+        raise ServiceError(
+            "content_unlocks_temporarily_unavailable",
+            "Token content unlocks are temporarily unavailable while learner access is being completed.",
+            status=403,
+        )
+
     from apps.commerce.unlock import AlreadyUnlocked, NoPriceSet
 
     from . import unlock
@@ -365,10 +383,30 @@ def topup_checkout(request, body: TopUpCheckoutIn):
 
 
 # ---------------------------------------------------------------- cash packages
+class PackageLectureOut(Schema):
+    title: str
+    kind: str
+
+
+class PackageSectionOut(Schema):
+    title: str
+    lectures: list[PackageLectureOut]
+
+
 class PackageCourseOut(Schema):
     id: UUID
     title: str
     slug: str
+    description: str = ""
+    thumbnail_url: str = ""
+    category: str = ""
+    instructor: str = ""
+    level: str = ""
+    lecture_count: int = 0
+    duration_sec: int = 0
+    access_days: int | None = None
+    list_minor: int = 0
+    curriculum: list[PackageSectionOut] = []
 
 
 class CashPackageOut(Schema):
@@ -377,8 +415,10 @@ class CashPackageOut(Schema):
     slug: str
     description: str
     amount_minor: int
+    full_minor: int = 0  # the included courses' combined list price (the "was" / saving baseline)
     currency: str
     owned_count: int = 0  # how many of this package's courses the viewer already has
+    duration_sec: int = 0
     courses: list[PackageCourseOut]
 
 
@@ -430,16 +470,39 @@ def my_subscription(request):
 
 class SubCheckoutIn(Schema):
     plan_id: UUID
+    currency: str | None = None
     success_url: str = Field(..., min_length=1)
     cancel_url: str = Field(..., min_length=1)
     customer_email: str | None = None
+    promo_code: str = Field("", max_length=40)
+
+
+class PersonalSubscriptionQuoteOut(Schema):
+    plan_id: UUID
+    currency: str
+    amount_minor: int
+    discount_minor: int
+    first_payment_minor: int
+    trial_days: int
+    promotion_name: str | None
+    percent_off: int | None
+
+
+@router.get("/subscriptions/quote", response=PersonalSubscriptionQuoteOut)
+def subscription_quote(request, plan_id: UUID, promo_code: str = "", currency: str | None = None):
+    from . import subscriptions
+
+    cur = request_currency(request, currency)
+    return subscriptions.quote_subscription(
+        user=request.user, plan_id=plan_id, currency_code=cur["code"], promo_code=promo_code
+    )
 
 
 @router.post("/subscriptions/checkout", response=CheckoutUrlOut)
 def subscription_checkout(request, body: SubCheckoutIn):
     from . import subscriptions
 
-    cur = request_currency(request)
+    cur = request_currency(request, body.currency)
     result = subscriptions.create_subscription_checkout(
         user=request.user,
         plan_id=body.plan_id,
@@ -447,6 +510,7 @@ def subscription_checkout(request, body: SubCheckoutIn):
         success_url=body.success_url,
         cancel_url=body.cancel_url,
         customer_email=body.customer_email,
+        promo_code=body.promo_code,
     )
     return {"url": result["url"]}
 

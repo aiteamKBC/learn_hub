@@ -23,7 +23,7 @@ export function WalletPage() {
     <>
       <PageHeader
         title="Your token wallet"
-        description="Spend tokens to unlock lectures, materials or whole courses. Prices are set by LearnHub and shown before you confirm."
+        description="View your token balance and history. New token unlocks for courses, lectures and materials are temporarily unavailable. Existing access rights are unchanged."
         actions={
           <div className="flex gap-2">
             <Button variant="ghost" size="icon" onClick={refresh} aria-label="Refresh wallet">
@@ -53,14 +53,14 @@ export function WalletPage() {
                 value={<CountUp value={balance.data?.balance ?? 0} />}
                 icon={<Coins />}
                 tone="primary"
-                hint="tokens ready to spend"
+                hint="tokens in your wallet"
               />
               <StatCard
                 label="Expiring within 7 days"
                 value={<CountUp value={balance.data?.expiring_within_7_days ?? 0} />}
                 icon={<AlertTriangle />}
                 tone={balance.data?.expiring_within_7_days ? 'warning' : 'info'}
-                hint={balance.data?.expiring_within_7_days ? 'use these first' : 'nothing expiring soon'}
+                hint={balance.data?.expiring_within_7_days ? 'check grant expiry dates below' : 'nothing expiring soon'}
               />
             </div>
 
@@ -70,7 +70,7 @@ export function WalletPage() {
                   <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
                   <p>
                     <strong>{count(balance.data.expiring_within_7_days)}</strong> {balance.data.expiring_within_7_days === 1 ? 'token expires' : 'tokens expire'} within 7 days. Tokens are
-                    spent oldest-expiring first, so unlock something soon to make the most of them.
+                    subject to their existing expiry dates. New content unlocks with tokens are temporarily unavailable.
                   </p>
                 </CardBody>
               </Card>
@@ -139,7 +139,7 @@ function GrantsTab() {
       <EmptyState
         icon={<Gift />}
         title="No token grants yet"
-        body="Buy a token pack or top up a custom amount, and your grants will appear here."
+        body="Your token grants will appear here. Buying tokens does not currently enable new course, lecture or material unlocks."
         action={
           <Button asChild>
             <Link to="/wallet/buy">

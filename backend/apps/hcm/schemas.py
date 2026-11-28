@@ -183,6 +183,9 @@ class WellbeingIn(Schema):
     stay_intent: Decimal | None = Field(None, ge=0, le=1)
     satisfaction: Decimal | None = Field(None, ge=0, le=1)
     note: str = Field("", max_length=500)
+    # Raw per-item answers, {item_code: 1..5}. Optional so older callers that
+    # only send the four sub-scale scores keep working.
+    answers: dict[str, int] = Field(default_factory=dict)
 
 
 class WellbeingOut(Schema):
@@ -196,6 +199,7 @@ class WellbeingOut(Schema):
     stay_intent: Decimal | None
     satisfaction: Decimal | None
     note: str
+    answers: dict[str, int] = Field(default_factory=dict)
 
 
 class HcmOk(Schema):

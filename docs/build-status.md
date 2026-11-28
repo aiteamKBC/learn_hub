@@ -1,5 +1,17 @@
 # Build status
 
+## B2C token pricing and wallet follow-up (2026-11-28)
+
+Completed the wallet/pricing follow-up on `enhance_diaa`, preserving the existing ledger,
+historical grants, inactive bonus campaigns and the secure K02 content-unlock gate.
+
+- The learner Buy Tokens page now accurately says that personal content unlocks are temporarily unavailable. GBP packs show their effective per-token price and a saving only where it is genuinely comparable to the live GBP token value; other currency prices are not given a fabricated saving.
+- Console top-up policies now display and accept normal currency amounts using the configured currency exponent. Storage and checkout requests remain in canonical minor units. Where a currency has no policy, the learner sees the existing policy-free behaviour rather than a made-up limit; a product decision is still needed on whether those currencies should be permitted or blocked.
+- Console wallet adjustments now require a review confirmation. Each submission carries an idempotency key; the server serialises on the learner row and uses the append-only audit record to make a repeated request with the same key a no-op. Existing FEFO removal, no-overdraft checks, ledger writes and audit trail are unchanged.
+- Updated the in-progress Course Packages detail screen's generated-API typing only; no pricing or package data was changed by that repair.
+
+Verification: focused Ruff check passed for the modified wallet service and console endpoint; frontend `npm run typecheck` passed. The focused Django wallet/top-up command was started with `--keepdb --noinput`, but the configured test database did not progress beyond `Using existing test database for alias 'owner'...` within the bounded run window, so it has no pass/fail result. No migration was created or applied, no shared database was written, and no payment provider was enabled. Relevant local routes: `http://localhost:5173/wallet`, `http://localhost:5173/wallet/buy`, `http://localhost:5173/console/token-pricing`, and `http://localhost:5173/console/wallets`.
+
 ## Company responsibility roles — first implementation slice (2026-11-22)
 
 Added company responsibility assignments separate from membership access and job
@@ -971,3 +983,46 @@ The staged B2B source migrations (`corporate.0016_recorded_stage_instalments`, `
 - Final focused rerun: 8 tests passed, including the employer acceptance endpoint and remaining-quota response.
 - Follow-up migration commerce 0013 records when a Team Live cap takes effect. New and changed caps affect offers created from that timestamp onward; older offers retain their previous checkout option. Zero is rejected by the Admin API and UI, and an invalid zero value does not count as coverage.
 - Final PM-review verification: 10 focused tests passed, including zero-cap validation and preservation of offers created before a Team Live cap took effect.
+
+## Habiba and Diaa branch integration (2026-11-28)
+
+Integrated `enhance_habiba` (`ebaca13`) and `enhance_diaa` (`1ee1f63`) into main. The separate `enhance_Nieer` intake work is outside this integration.
+
+Conflict decisions:
+- Retained the updated course/player layout and category cover images, including fallback handling when a supplied image fails to load.
+- Retained configured course access durations and the explicit expired-access recovery screen.
+- Used the real bundle detail/checkout flow and purchase-history empty state. Static example bundles and receipts are not presented as financial data; refund enquiries retain the team-review flow.
+- Kept the new wellbeing assessment with the shared notification wrapper.
+- Removed the superseded KPI page; both department and individual routes use `KpiBoardPage`.
+
+Integration fixes:
+- Renamed the learning live-session response to `LearnerCourseLiveSessionOut`, avoiding a collision with the corporate response schema. Regenerated frontend types from the combined API without starting a server.
+- Applied the player's existing enrolment, subscription, prerequisite and paid-stage checks before exposing live join links. Added regressions for the join window, expired access and subscription enrolments without a current entitlement.
+- Corrected the existing access backfill migration to read and write through `schema_editor.connection.alias`, so fresh database setup does not query the application's separate default database.
+- Updated studio and package test fixtures for the existing publication-price requirements and the new usable package enrolments, preserving the documented legacy-enrolment access precedence.
+- Formatted the changed Python modules; no application dependencies changed.
+
+Validation completed: Django system/model migration checks without database access, both API contract tests, frontend TypeScript/production build, frontend lint, and the full backend Ruff lint/format checks.
+
+The final local database regression run passed all 78 selected commerce, subscription, package, conversion, studio, HCM and live-session-access tests. The six initially failing fixture/expectation cases also passed their focused rerun before the complete final run.
+
+The only new migration file from the upstream branches is `hcm.0009_wellbeingsurvey_answers`. A read-only query confirmed that it is already recorded on the shared development database. No migration or data change was applied there during this integration. Database regressions use a temporary local PostgreSQL 18 database with RLS enforced for `lms_app`, and third-party integrations disabled. The slower Neon E2E run was interrupted and is not counted as a successful test run.
+
+## B2C-01 Discovery fixes (2026-11-27)
+
+Follow-up to the read-only B2C-01 Home & Course Discovery audit. No reset, no reseed, no destructive SQL.
+
+- Backend: new `GET /api/v1/catalog/stats` (auth=None) returns the real marketplace headline figures derived from the live public catalogue — learners, courses, instructors, rating_avg, rating_count. Added `CatalogStatsOut` schema; two aggregate queries. Public catalog lookups (course_detail, related, preview) now raise the standard `ServiceError("not_found", …, status=404)` envelope (not Django's `{"detail": …}`), and `_require(obj, message)` is the single gate. `GET /api/v1/commerce/tokens/packages` now exposes a `full_minor` "was" price per bundle (sum of the courses' quoted list prices) so the home Offers can show a real saving.
+- Seed (additive, idempotent): `core/management/commands/seed_discovery_demo.py`. Publishes hidden reviews via `engagement.moderate_review`, which lets the existing DB counter trigger light up `rating_avg` / `rating_count`; marks the two least-popular public courses free; spreads a real price ladder (£14.99–£49.99) across the paid catalogue; adds a few "advanced" levels and deterministic `picsum.photos/seed/<slug>/800/450` covers on every other course; creates three active `CashPackage` bundles (`discovery-starter-pack`, `discovery-career-boost`, `discovery-pro-track`) through the same validation the admin console uses, each priced below the sum of its courses. Fixed slugs make re-runs idempotent (no duplicates). Nothing is deleted or hidden; the command only ever adds rows or sets fields on existing demo records. Runs under `tenant_context(user_id=admin.id, staff=True)`.
+- Frontend: `HomePage.tsx` no longer hard-codes the headline stats, bundle prices or offers. It reads `useCatalogStats()` for the 4 real tiles (Live catalogue data, dynamic as-of date, Skeleton while loading) and `useCashPackages()` for the Offers strip (real `amount_minor` + `full_minor` → computed % saved, CTA routes to `/packages`, the real bundle checkout flow). Featured course cards show "New" when `rating_count === 0` and use `CourseThumb` with an `onError` fallback (brokens fall back to the generated cover). Working search/filters/sorting/pagination/categories path is untouched.
+- Runtime observations from the audit:
+  - "UUID-404 on /courses/fire-safety-awareness" was `/commerce/instalments/offer/{course_id}` 404-ing for courses without an instalment plan (payment-internal, signed-in only). Not a catalog bug; no change.
+  - Duplicate CSRF and course-detail requests are dev-only React StrictMode double-invoke in `providers.tsx`. Production fires once. StrictMode was NOT disabled.
+  - Discovery API latency is network-bound (local → Neon RTT), not code-shaped; no code change.
+  - Header/nav breakpoints: desktop at `lg` (≥1024px), hamburger below — no intermediate gap.
+- Verification: `python manage.py test apps.catalog.tests.test_discovery_seed core.tests.test_api_contract apps.catalog.tests --keepdb --noinput` → exit 0. `ruff check` clean for every touched file. `/api/v1/catalog/stats` is covered by the new contract test (unique schema, typed 200).
+- Seed command (to be run by the user against a database they are allowed to write to — local Postgres or the Neon dev branch with approval; **not** production):
+  ```
+  python manage.py seed_discovery_demo
+  ```
+  Safe to re-run. Idempotent. No destructive SQL.

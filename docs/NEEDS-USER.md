@@ -1,5 +1,53 @@
 # Questions for the user
 
+K02-1. **[blocker] Token entitlements never become enrolments, so unlocked content cannot be opened.**
+   `apps/commerce/unlock.py` — `unlock_lecture` and `unlock_course` both spend tokens and create a
+   `ContentEntitlement` (LECTURE- or COURSE-scoped), but neither creates an `Enrollment`.
+   `pages/learn/PlayerPage.tsx` redirects any viewer without an enrolment back to the course page, and
+   `Enrollment.Source` has no token-unlock value. A learner who pays tokens therefore gets a valid
+   entitlement and **nothing they can open**.
+   This is the operation Khaled's technical table already calls for: *"إضافة عملية بدء تعلّم تتحقق من
+   الصلاحية وتُنشئ أو تعيد سجل المتابعة"* — a start-learning endpoint that checks the entitlement and
+   creates or returns the progress record. It needs a new `Enrollment.Source` value, a migration and an
+   endpoint, and it must keep lecture scope intact (unlocking one lecture must not open the course,
+   per Khaled's rule 3).
+   **Interim measure taken:** token *spending* is disabled in the learner UI via `TOKEN_SPENDING_READY`
+   and at `POST /api/v1/commerce/tokens/unlock` by the secure-default
+   `PERSONAL_TOKEN_CONTENT_UNLOCKS_ENABLED` setting. The API refuses course, lecture and material
+   unlocks before a debit or entitlement grant. Prices still show, marked "coming soon", and anyone
+   who already holds an entitlement keeps that access. Re-enable the setting only after K02-1 is
+   delivered and manually accepted end-to-end.
+   **Owner:** K02 backend.
+
+K02-2. **[blocker] Access expiry is not applied to token entitlements.**
+   `Course.access_days` is admin-configured and now surfaces on the course page (B2C-01), and
+   `ContentEntitlement` has an `expires_at` column that the access resolver already honours — but
+   `unlock_lecture` / `unlock_course` always create entitlements with `expires_at` unset, i.e. permanent.
+   That conflicts with Khaled's rule 4 (replay follows the configured access period). It also means the
+   course page can advertise a replay window that token-unlocked content does not actually obey.
+   Decide whether `access_days` applies to token unlocks as well as cash purchases; if it does, set
+   `expires_at` at unlock time. **Historical entitlements must not be retro-expired** (rule 8).
+   **Owner:** K02 backend, alongside K02-1.
+
+REFUND-1. **[blocker] Learner refunds moved real money with no admin approval.**
+   `apps/commerce/services.py` — `request_refund` is named like a request but **issues the refund
+   immediately**: it calls `gateway.refund(...)` (real Stripe money movement), sets the `Refund` row to
+   `SUCCEEDED` and revokes the enrolment, in one learner-triggered call. `pages/shop/OrdersPage.tsx`
+   exposed this as a self-service "Refund" button with an "Refund issued" toast. That contradicts
+   Khaled's rule 7 (*"مراجعة الأدمين قبل الاسترداد"* — admin review **before** the refund).
+   **Interim measure taken:** the learner-facing button now reads "Ask about a refund" and links to
+   `/contact`; the page reports refund status only. `POST /api/v1/commerce/orders/items/{item_id}/refund`
+   now refuses learner self-service before creating a refund, contacting Stripe or revoking access.
+   Staff can still refund through console > Sales exactly as before.
+   **What a proper fix needs** (not done here — admin workflow, out of the current B2C scope):
+   `Refund.Status.PENDING` already exists and is the model default, and `GET /console/refunds` already
+   lists pending rows — but there is **no console endpoint to approve one**. `console/sales.py:417`
+   calls the same `request_refund`, which would hit the `OneToOneField` on `OrderItem` if a pending
+   refund already existed. So making the learner path create a pending row today would strand the
+   request with no way for staff to process it. Needs an approve/reject endpoint plus a status field on
+   the learner's order item so the learner can see where their request stands.
+   **Owner:** admin/console workstream.
+
 ENV-1. **[action] Add `STRIPE_PUBLISHABLE_KEY` to `backend/.env`.**
    The new embedded checkout page (`/checkout/pay/:slug`, Stripe Payment Element) needs the
    publishable key in the browser. It is the public `pk_…` key from the *same* Stripe sandbox
