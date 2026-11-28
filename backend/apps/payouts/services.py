@@ -187,6 +187,14 @@ def preview_rate(*, course_id, instructor_id=None, at=None) -> dict:
 
 def _undiscounted_gbp(item: OrderItem) -> int:
     """The item's GBP value before any discount (price bands, the discount setting)."""
+    from apps.commerce.models import PriceSnapshot
+
+    snapshot = PriceSnapshot.objects.filter(
+        source_ref_kind="order", source_ref=str(item.order_id), scope="course",
+        target_id=str(item.course_id), currency="GBP",
+    ).values_list("amount_minor", flat=True).first()
+    if snapshot is not None:
+        return snapshot
     if not item.discount_minor or not item.gross_minor:
         return item.gbp_gross_minor
     return int(Decimal(item.gbp_gross_minor) * (item.gross_minor + item.discount_minor) / item.gross_minor)
@@ -202,11 +210,16 @@ def record_sale(order_id) -> int:
     from apps.platform.services import get_setting
 
     with tenant_context(staff=True):
-        order = Order.objects.select_related("coupon").get(pk=order_id)
+        order = Order.objects.select_for_update().get(pk=order_id)
+        if order.status != Order.Status.PAID or order.paid_at is None:
+            return 0
+        recorded_items = Earning.objects.filter(
+            order_item__order=order, kind=Earning.Kind.SALE,
+        ).values("order_item_id")
         items = list(
             OrderItem.objects.filter(
                 order=order, gbp_gross_minor__gt=0, course__ownership=Course.Ownership.INSTRUCTOR
-            ).select_related("course")
+            ).exclude(pk__in=recorded_items).select_related("course")
         )
         if not items:
             return 0
@@ -218,7 +231,11 @@ def record_sale(order_id) -> int:
         lines = []
         for item in items:
             instructors = weights.get(item.course_id, [])
-            own_coupon = order.coupon and any(u == order.coupon.created_by_id for u, _ in instructors)
+            own_coupon = (
+                order.coupon
+                and order.coupon.course_id in (None, item.course_id)
+                and any(u == order.coupon.created_by_id for u, _ in instructors)
+            )
             channel = C.INSTRUCTOR_COUPON if own_coupon else C.MARKETPLACE
             list_gbp = _undiscounted_gbp(item)
             for user_id, w in instructors:
@@ -285,68 +302,31 @@ def _month_bounds(month: date) -> tuple[datetime, datetime]:
 
 
 def settle_subscription_pool(month: date) -> int:
-    """Personal-plan revenue of the month x pool share, split by seconds watched on
-    instructor courses through plan enrolments. Two aggregate queries, any volume."""
-    start, end = _month_bounds(month)
+    """Preserve settled history; do not credit unverified subscription consumption.
+
+    Returning zero keeps unrelated scheduled cash payouts operational. It does not
+    mark the period settled or represent a zero-revenue settlement.
+    """
+    start, _end = _month_bounds(month)
     with tenant_context(staff=True), connection.cursor() as cur:
+        # Serialize the existence check and writes, including runs whose instructor
+        # set changes. Per-line uniqueness alone cannot prevent a partial rerun.
+        cur.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+            [f"subscription-pool:{start.date().isoformat()}"],
+        )
         if Earning.objects.filter(kind=Earning.Kind.SUBSCRIPTION, period=month.replace(day=1)).exists():
-            return 0  # already settled (the unique constraint also guards a parallel run)
-        cur.execute(
-            """
-            SELECT i.currency, i.issued_at::date, sum(i.amount_minor)
-              FROM commerce.invoices i
-              JOIN commerce.subscriptions s ON s.id = i.subscription_id
-              JOIN commerce.plans p ON p.id = s.plan_id AND p.audience = 'personal'
-             WHERE i.issued_at >= %s AND i.issued_at < %s AND i.status = 'paid'
-             GROUP BY 1, 2
-            """,
-            [start, end],
+            return 0  # already settled
+        # F03/C06 has no approved B2C weighting formula. ProgressEvent stores
+        # neither an event/session key nor historical paid-access intervals, so
+        # current enrolment source and accumulated seconds cannot prove eligibility
+        # or distinguish replay/overlap. Never turn this evidence into new earnings.
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "Subscription pool %s not settled: F03/C06 and historical usage evidence unresolved", month
         )
-        revenue_rows = cur.fetchall()
-        cur.execute("SELECT code, exponent FROM commerce.currencies")
-        exps = dict(cur.fetchall())
-        revenue = sum(
-            pricing.gbp_equivalent(amount, exps[code], pricing.latest_rate(code, day))
-            for code, day, amount in revenue_rows
-        )
-        cur.execute(
-            """
-            SELECT pe.course_id, sum(pe.seconds)
-              FROM learning.progress_events pe
-              JOIN learning.enrollments e ON e.id = pe.enrollment_id AND e.source = 'subscription'
-              JOIN catalog.courses c ON c.id = pe.course_id AND c.ownership = 'instructor'
-             WHERE pe.created_at >= %s AND pe.created_at < %s
-             GROUP BY 1
-            """,
-            [start, end],
-        )
-        seconds = dict(cur.fetchall())
-        total = sum(seconds.values())
-        if not revenue or not total:
-            return 0
-        bps = _rates()[C.SUBSCRIPTION_POOL]
-        weights = _weights(list(seconds))
-        lines = []
-        for course_id, secs in seconds.items():
-            course_revenue = Decimal(revenue) * secs / total
-            for user_id, w in weights.get(course_id, []):
-                gross = int(course_revenue * w)
-                lines.append(
-                    Earning(
-                        user_id=user_id,
-                        kind=Earning.Kind.SUBSCRIPTION,
-                        course_id=course_id,
-                        period=month.replace(day=1),
-                        channel=C.SUBSCRIPTION_POOL,
-                        gross_gbp_minor=gross,
-                        share_bps=bps,
-                        amount_gbp_minor=gross * bps // 10000,
-                        earned_at=end,
-                        available_at=end,
-                        note=f"{secs // 60} minutes watched",
-                    )  # fmt: skip
-                )
-        return len(Earning.objects.bulk_create(lines, ignore_conflicts=True))
+        return 0
 
 
 # ---------------------------------------------------------------- payouts

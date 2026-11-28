@@ -73,6 +73,8 @@ def set_platform_fee(request, body: ConsoleFeeIn):
     """The cut new instructors get on approval. Instructors already approved keep theirs."""
     staff(request)
     payouts.set_default_fee(fee_bps=round(body.fee_pct * 100))
+    cache.bump("console-commissions", "overview")
+    cache.bump("console-commissions", "instructors")
     audit_request(request, "payouts.default_fee", "revenue_share", "marketplace", {"fee_pct": body.fee_pct})
     return {"default_fee_pct": pct(payouts.default_fee_bps())}
 
@@ -82,6 +84,7 @@ def set_instructor_fee(request, user_id: str, body: ConsoleInstructorFeeIn):
     staff(request)
     bps = None if body.fee_pct is None else round(body.fee_pct * 100)
     payouts.set_instructor_fee(user_id=user_id, fee_bps=bps)
+    cache.bump("console-commissions", "instructors")
     audit_request(request, "payouts.instructor_fee", "user", user_id, {"fee_pct": body.fee_pct})
     fee = bps if bps is not None else payouts.default_fee_bps()
     _commission_changed([user_id], pct(10000 - fee))
@@ -161,6 +164,7 @@ def set_commission_settings(request, body: ConsoleCommissionSettingsIn):
                              value=changes["discount_reduces_commission"], by=request.user)  # fmt: skip
     audit_request(request, "commissions.settings", "revenue_share", "all", changes)
     cache.bump("console-commissions", "overview")
+    cache.bump("console-commissions", "instructors")
     return commission_overview(request)
 
 
@@ -213,7 +217,12 @@ def instructor_commissions(
             pool = dict(Earning.objects.filter(kind="subscription", period=latest).values("user_id").annotate(
                 t=Sum("amount_gbp_minor")).values_list("user_id", "t"))
             pool_total = sum(pool.values())
-        rules = {r.target_id: r for r in payouts.active_rules(timezone.now()) if r.scope == "instructor"}
+        rules = {}
+        for rule in sorted(
+            (r for r in payouts.active_rules(timezone.now()) if r.scope == "instructor"),
+            key=lambda r: (r.priority, r.created_at), reverse=True,
+        ):
+            rules.setdefault(rule.target_id, rule)
         default = payouts.default_fee_bps()
         items = [{
             "user_id": p.user_id, "name": p.user.full_name, "email": p.user.email, "status": p.status,
@@ -316,6 +325,11 @@ def _rule_rows(rules) -> list[dict]:
 
 def _validate(body: ConsoleCommissionRuleIn) -> dict:
     data = body.dict()
+    if body.scope != "course" and body.instructor_id:
+        raise ServiceError("bad_instructor", "An instructor can only be selected for a course rule.")
+    for value in (body.starts_at, body.ends_at):
+        if value is not None and timezone.is_naive(value):
+            raise ServiceError("bad_dates", "Include a timezone in rule dates.")
     if body.scope == "price_band":
         data["target_id"] = None
         if body.band_min_gbp_minor is None and body.band_max_gbp_minor is None:
@@ -334,7 +348,7 @@ def _validate(body: ConsoleCommissionRuleIn) -> dict:
             raise ServiceError("target_required", "Choose an instructor.")
         if (
             body.scope == "course"
-            and not Course.objects.filter(pk=body.target_id, ownership="instructor").exists()
+            and not Course.objects.filter(pk=body.target_id, ownership="instructor", deleted_at__isnull=True).exists()
         ):
             raise ServiceError("not_marketplace", "Commission rules apply to marketplace courses only.")
         if (
@@ -345,8 +359,6 @@ def _validate(body: ConsoleCommissionRuleIn) -> dict:
             ).exists()
         ):
             raise ServiceError("not_course_instructor", "Choose an instructor linked to this course.")
-        if body.scope != "course" and body.instructor_id:
-            raise ServiceError("bad_instructor", "An instructor can only be selected for a course rule.")
     if body.starts_at and body.ends_at and body.ends_at <= body.starts_at:
         raise ServiceError("bad_dates", "The end date must be after the start date.")
     data["name"] = data["name"].strip()
@@ -414,6 +426,7 @@ def create_rule(request, body: ConsoleCommissionRuleIn):
     audit_request(request, "commission_rule.create", "commission_rule", str(rule.id), body.dict() | {
         "target_id": str(body.target_id) if body.target_id else None})  # fmt: skip
     _rule_changed(rule)
+    cache.bump("console-commissions", "overview")
     cache.bump("console-commissions", "instructors")
     return _rule_rows([rule])[0]
 
@@ -430,6 +443,7 @@ def update_rule(request, rule_id: UUID, body: ConsoleCommissionRuleIn):
     audit_request(request, "commission_rule.update", "commission_rule", str(rule.id), body.dict() | {
         "target_id": str(body.target_id) if body.target_id else None, "previous_bps": before})  # fmt: skip
     _rule_changed(rule)
+    cache.bump("console-commissions", "overview")
     cache.bump("console-commissions", "instructors")
     return _rule_rows([rule])[0]
 
@@ -451,7 +465,7 @@ class ConsoleCommissionPreviewOut(Schema):
 def commission_preview(request, course_id: UUID, instructor_id: UUID | None = None):
     """Which rate a sale of this course would use right now, and why."""
     staff(request)
-    course = get_object_or_404(Course, pk=course_id, ownership="instructor")
+    course = get_object_or_404(Course, pk=course_id, ownership="instructor", deleted_at__isnull=True)
     if instructor_id and not CourseInstructor.objects.filter(course=course, user_id=instructor_id).exists():
         raise ServiceError("not_course_instructor", "Choose an instructor linked to this course.")
     p = payouts.preview_rate(course_id=course.id, instructor_id=instructor_id)

@@ -77,7 +77,6 @@ const fromRule = (r: CommissionRule): RuleDraft => ({
 
 function RuleDialog({ draft, onClose }: { draft: RuleDraft | null; onClose: () => void }) {
   const save = useSaveRule()
-  const existing = useCommissionRules('course')
   const [d, setD] = useState<RuleDraft>(emptyRule())
   const [key, setKey] = useState<string | null>(null)
   const draftKey = draft ? (draft.id ?? 'new-course') : null
@@ -96,9 +95,7 @@ function RuleDialog({ draft, onClose }: { draft: RuleDraft | null; onClose: () =
     if (!instructors.data?.length) return toast.error('This course needs a linked instructor before you can set a commission.')
     if (!d.id && !d.instructorId) return toast.error('Choose the instructor whose rate you want to set.')
     if (d.instructorId && !instructors.data.some((instructor) => instructor.id === d.instructorId)) return toast.error('Choose an instructor linked to this course.')
-    if (existing.data?.some((rule) => rule.target_id === d.target?.id && rule.instructor_id === (d.instructorId || null) && rule.id !== d.id && rule.is_active)) {
-      return toast.error('This instructor already has an active rate for this course. Edit that rule instead.')
-    }
+    if (d.starts && d.ends && new Date(d.ends) <= new Date(d.starts)) return toast.error('The end date must be after the start date.')
     const body: CommissionRuleIn = {
       name: d.name.trim(),
       scope: 'course',
@@ -325,7 +322,7 @@ function RateDialog({ row, onClose }: { row: InstructorCommission | null; onClos
           onSubmit={(e) => {
             e.preventDefault()
             const n = Number(value)
-            if (!(n >= 0 && n <= 100)) return toast.error('Enter a rate between 0% and 100%.')
+            if (value.trim() === '' || !(n >= 0 && n <= 100)) return toast.error('Enter a rate between 0% and 100%.')
             save.mutate({ id: row!.user_id, keeps_pct: n }, { onSuccess: () => (toast.success('Rate saved. The instructor was told.'), onClose(), setKey('')), onError: (err) => toast.error((err as Error).message) })
           }}
         >
@@ -469,7 +466,7 @@ function RatePreview() {
   const source = { rule: 'a commission rule', instructor: "the instructor's own rate", default: 'the platform default' } as Record<string, string>
   return (
     <Card>
-      <CardHeader title="Which rate applies?" description="Pick a course and one of its instructors to check the rate on a sale today." />
+      <CardHeader title="Which rate applies?" description="Check today's marketplace rate at list price. Instructor-coupon sales use their separate configured rate." />
       <CardBody className="grid gap-3">
         <CommissionCoursePicker value={course} onChange={(value) => { setCourse(value); setInstructorId('') }} />
         {course && instructors.data?.length ? <NativeSelect aria-label="Instructor to check" value={instructorId} onChange={(event) => setInstructorId(event.target.value)}>
@@ -484,7 +481,7 @@ function RatePreview() {
           ) : (
             <div className="animate-reveal rounded-lg bg-primary-soft p-3 text-sm text-primary-soft-text">
               <p>
-                <strong className="text-lg tabular">{p.data.keeps_pct}%</strong> to {p.data.instructor ?? 'the instructor'} of {gbp(p.data.price_gbp_minor)}, from {source[p.data.source]}
+                <strong className="text-lg tabular">{p.data.keeps_pct}%</strong> to {p.data.instructor ?? 'the instructor'} of their allocated share of the {gbp(p.data.price_gbp_minor)} course price, from {source[p.data.source]}
                 {p.data.rule_name ? ` (“${p.data.rule_name}”)` : ''}.
               </p>
             </div>

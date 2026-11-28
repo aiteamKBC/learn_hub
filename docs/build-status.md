@@ -1002,3 +1002,109 @@ Follow-up to the read-only B2C-01 Home & Course Discovery audit. No reset, no re
   python manage.py seed_discovery_demo
   ```
   Safe to re-run. Idempotent. No destructive SQL.
+
+## 2026-11-28 — Commissions acceptance follow-up (static verification only)
+
+Continues the Admin audit across all five existing tabs. No database configuration,
+historical earnings, migrations, payout schedules or feature flags were changed.
+The user-reported configured shares (37% marketplace, 97% instructor coupon, 25% pool)
+remain database values; they were not overwritten or independently runtime-verified.
+
+| Tab | Source review and confirmed fixes | Acceptance still pending |
+| --- | --- | --- |
+| Overview | Invalidate the overview after rule edits and legacy default-fee edits. KPI reads sale/refund ledger lines. | Browser refresh and reconciliation against real orders, refunds and payouts. |
+| Instructor commissions | Select the highest-priority, newest live instructor rule, matching the resolver; invalidate list caches after settings/legacy fee edits. Reject blank rate input. | Runtime checks for custom/default rates and scheduled rule boundaries. |
+| Course commissions | Preview uses `preview_rate`, `match_rule` and `marketplace_rate`, also used by cash-sale recording. Reject unlinked instructors, deleted courses, timezone-less/reversed dates, and instructor IDs on non-course rules. Remove the UI's blanket duplicate-active-rule rejection: existing rules intentionally support priority and date overlaps. Clarify that the preview is a marketplace list-price rate on the instructor's allocation, not a coupon quote. | API/browser execution of overlap, relationship and date-boundary cases. |
+| Subscription revenue pool | Serialize legacy monthly settlement's check/write with a transaction advisory lock; per-line uniqueness alone did not serialize the month. Paid invoice selection already filters personal plans. | Eligibility, historical access provenance, recorded-only time, retry/concurrency and invoice-to-ledger reconciliation are NOT accepted. See below. |
+| Settings | Preserve database-driven rates and discount toggle. Invalidate dependent instructor summaries. | Runtime discount, coupon, promotion and historical-earning checks. |
+
+Existing precedence from `docs/client-questions.md` and the resolver is course rule
+(instructor-specific course rule before a general course rule), instructor rule,
+category rule, price-band rule, instructor's saved rate, default. Within a specificity
+level: higher priority, then newer rule. Own-instructor coupon sales bypass marketplace
+rules. Fixed a confirmed basket bug: a coupon scoped to one course incorrectly selected
+the coupon commission channel for another course by the same instructor.
+
+Multi-instructor cash sales normalize configured weights (equal split if all are zero),
+floor each allocated gross, and cap each earning at its allocated paid gross. Thus the
+sum cannot exceed the paid item amount. With shared discounts on, commission uses paid
+gross; off, it uses reconstructed undiscounted gross, capped at paid gross. Coupon sales
+retain their separate discounted-base calculation. Refund lines negate original sale
+snapshots rather than recalculating rates. These are source findings, not runtime passes.
+
+Outstanding functional acceptance gaps, not merely missing tests:
+
+- Cash-package fulfilment currently grants entitlements/enrolments without the Order,
+  per-course OrderItems and commission snapshots required by the existing package spec
+  (`docs/features/b2c-monetization-v2/spec.md`, AC-P-01). Consequently package commissions,
+  refunds and financial reports cannot yet be certified. The spec already describes
+  list-price pro-rata allocation; it should not be replaced with an invented policy.
+  This follow-up does not implement or activate a new package settlement path.
+- Legacy pool usage selects progress events by the enrolment's **current** subscription
+  source. It does not establish event-time paid-personal eligibility or recorded-lecture
+  eligibility. Purchase/source transitions can change which historical events qualify.
+  Heartbeat caps do not establish end-to-end absence of duplicate learning credit.
+  The new lock protects concurrent settlement writes, not these eligibility problems.
+- Pool settlement has no explicit closed-period record when no earnings are produced;
+  an empty run can be recalculated later. No zero-pool closing policy was invented.
+  The separate v2 weighted-share specification remains policy-blocked; no flag was enabled.
+- Flooring instructor gross allocations can leave minor-unit remainders outside the
+  earnings ledger. Overview commission sums allocated gross minus earnings, whereas
+  sales reports read order items/invoices. Full financial reconciliation therefore
+  remains open, including package revenue and rounding treatment.
+
+Validation: targeted Ruff checks passed; frontend `npm.cmd run typecheck` passed;
+`git diff --check` passed. Targeted Oxlint reported one existing unused-expression warning
+in the rate dialog state initialization. Added regression cases for winning instructor
+rules, relationship/date validation, overview invalidation and course-scoped coupon
+isolation. Tests were not executed against a database in this static-only follow-up.
+No browser, payment-provider, concurrent-settlement or end-to-end financial verification
+was performed. All five tabs still require runtime acceptance; the gaps above prevent
+claiming completion of Commissions financial acceptance.
+
+### B2C Commissions blocker follow-up — 2026-11-28
+
+Supersedes the package/pool implementation findings above; runtime acceptance remains pending.
+
+- New package checkouts freeze canonical Order/OrderItem consideration, FX and original GBP
+  list-price snapshots before payment. P05 pro-rata allocation conserves the order total
+  in both currencies; fractional minor units use deterministic largest-remainder allocation.
+  Fulfilment validates the stored checkout session and payment amount/currency through the
+  existing payment service, then records commission in the same transaction. The course
+  set comes from the stored order rather than mutable package contents. No schema change.
+- Sale recording locks the order and skips items with existing sale snapshots. Replayed
+  fulfilment cannot add instructors introduced later or reprice old earnings. Refund
+  earnings still reverse those snapshots. Already refunded package orders are not
+  re-granted by checkout retries. Existing legacy package purchases without an order
+  snapshot retain their entitlement path; no historical financial reconstruction occurs.
+- New subscription pool settlement is explicitly withheld with a warning (zero rows
+  written, **not** a zero-revenue settlement). Existing settled earnings remain untouched,
+  and unrelated cash payout scheduling can continue. F03/C06 weighting is unapproved;
+  current enrolment source is not historical eligibility evidence. ProgressEvent lacks
+  event identity, session identity and covered time intervals; SubscriptionAccessEvent
+  also lacks replay identity and paid coverage evidence. Repeated or overlapping learning
+  events therefore cannot create new pool credits. Raw learning-event deduplication and
+  historical eligible-time reconstruction remain blocked by missing evidence under the
+  no-schema-change constraint; no heuristic capping, DISTINCT-based deduplication, trial
+  inclusion, invoice-period guess or retroactive reclassification was introduced.
+- `payouts.reconciliation.reconcile_order` compares stored discounts, order/item totals,
+  successful Refund records and signed earnings. It reports missing snapshots, over-credit,
+  refund mismatches and rounding discrepancies without repairing history. Platform residual
+  is canonical net consideration minus instructor earnings, including rounding remainder;
+  discounts are not deducted twice. `subscription_snapshot_totals` keeps existing frozen
+  allocations separate from paid personal invoices by currency and explicitly marks
+  eligibility unverified; it does not invent historical FX or revalue settled earnings.
+- Remaining policy/evidence blockers: F03/C06; historical package transactions with no
+  purchase-time financial snapshots; event-time eligibility and overlap identity; and P06
+  certificate/refund-entitlement handling. New package order records use the existing cash
+  refund ledger, but package entitlement/certificate revocation is not certified by this
+  commission-only change. K02 and F02 safeguards were not changed. No real payments,
+  database writes, environment setup or browser automation were performed.
+- Focused regression coverage added for P05 allocation/conservation, frozen list prices,
+  instructor/rule mutation followed by sale retries, refund reversal/reconciliation,
+  checkout mismatch, blocked repeated pool credit and preservation of settled history.
+  Existing pool test now expects no writes from unverifiable historical minutes.
+  Coverage is added but not executed against a database. Targeted Ruff and Python AST
+  checks pass; frontend TypeScript and diff whitespace checks pass. No full suite run.
+- Course Payments, Payouts and Reports concurrent edits are preserved. Only this session's
+  changes are included in its commit, including partial staging of the shared package file.
