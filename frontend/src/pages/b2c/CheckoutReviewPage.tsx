@@ -12,6 +12,7 @@ import {
   usePackCheckout,
   usePackageCheckout,
   useSubscriptionCheckout,
+  useSubscriptionQuote,
   useTopUpCheckout,
 } from '@/features/b2c/api'
 import { useMe, useUpdateMe } from '@/features/identity/auth'
@@ -105,6 +106,9 @@ function BuyerForm({ item }: { item: ReviewItem }) {
   const topUpCheckout = useTopUpCheckout()
   const packageCheckout = usePackageCheckout()
   const subCheckout = useSubscriptionCheckout()
+  const [code, setCode] = useState('')
+  const [appliedCode, setAppliedCode] = useState('')
+  const subQuote = useSubscriptionQuote(item.kind === 'subscription' ? item.planId : undefined, appliedCode)
 
   // Pre-fill from profile; keyed on me.id so it only runs once per user load
   const [init, setInit] = useState<string | null>(null)
@@ -123,7 +127,8 @@ function BuyerForm({ item }: { item: ReviewItem }) {
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   const phoneValid = phone.trim().length >= 6
   const countryValid = countryCode.length === 2
-  const canSubmit = emailValid && phoneValid && countryValid && !submitting
+  const canSubmit = emailValid && phoneValid && countryValid && !submitting &&
+    (item.kind !== 'subscription' || (!!subQuote.data && !subQuote.isFetching && !subQuote.error))
 
   /** Remember pre-checkout balance so the result page can detect when tokens land. */
   const rememberBalance = () => {
@@ -186,6 +191,7 @@ function BuyerForm({ item }: { item: ReviewItem }) {
           successPath: item.successPath,
           cancelPath: item.cancelPath,
           customerEmail,
+          promoCode: appliedCode,
         })
         onSuccess(r)
       }
@@ -249,8 +255,27 @@ function BuyerForm({ item }: { item: ReviewItem }) {
           </NativeSelect>
         </label>
 
+        {item.kind === 'subscription' ? (
+          <div className="space-y-2 border-t border-border pt-4">
+            <label htmlFor="subscription-promo" className="block text-sm font-medium">Subscription promo code</label>
+            <div className="flex gap-2">
+              <Input id="subscription-promo" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={40} placeholder="Enter a code" />
+              {appliedCode ? <Button variant="secondary" onClick={() => { setCode(''); setAppliedCode('') }}>Remove</Button>
+                : <Button variant="secondary" disabled={!code.trim()} onClick={() => setAppliedCode(code.trim())}>Apply</Button>}
+            </div>
+            {subQuote.error ? <p role="alert" className="text-sm text-danger">{(subQuote.error as Error).message}</p> : null}
+            {subQuote.data ? (
+              <div className="space-y-1 text-sm" aria-live="polite">
+                <p>Plan price: {money(subQuote.data.amount_minor, subQuote.data.currency)}</p>
+                {subQuote.data.discount_minor > 0 ? <p className="text-success">{subQuote.data.promotion_name}: save {money(subQuote.data.discount_minor, subQuote.data.currency)} on the first payment</p> : null}
+                <p className="font-semibold">First payment: {money(subQuote.data.first_payment_minor, subQuote.data.currency)}{subQuote.data.trial_days > 0 ? ` after the ${subQuote.data.trial_days}-day trial` : ''}</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         <Button className="w-full" size="lg" disabled={!canSubmit} loading={submitting} onClick={confirm}>
-          Confirm &amp; pay {money(item.amountMinor, item.currency)}
+          {item.kind === 'subscription' ? 'Confirm & continue to payment' : <>Confirm &amp; pay {money(item.amountMinor, item.currency)}</>}
         </Button>
 
         <p className="text-center text-xs text-muted">

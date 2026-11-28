@@ -1877,6 +1877,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/commerce/tokens/subscriptions/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Subscription Quote */
+        get: operations["apps_commerce_token_api_subscription_quote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/commerce/tokens/subscriptions/checkout": {
         parameters: {
             query?: never;
@@ -12607,6 +12624,28 @@ export interface components {
             /** Cancel At Period End */
             cancel_at_period_end: boolean;
         };
+        /** PersonalSubscriptionQuoteOut */
+        PersonalSubscriptionQuoteOut: {
+            /**
+             * Plan Id
+             * Format: uuid
+             */
+            plan_id: string;
+            /** Currency */
+            currency: string;
+            /** Amount Minor */
+            amount_minor: number;
+            /** Discount Minor */
+            discount_minor: number;
+            /** First Payment Minor */
+            first_payment_minor: number;
+            /** Trial Days */
+            trial_days: number;
+            /** Promotion Name */
+            promotion_name: string | null;
+            /** Percent Off */
+            percent_off: number | null;
+        };
         /** SubCheckoutIn */
         SubCheckoutIn: {
             /**
@@ -12614,12 +12653,19 @@ export interface components {
              * Format: uuid
              */
             plan_id: string;
+            /** Currency */
+            currency?: string | null;
             /** Success Url */
             success_url: string;
             /** Cancel Url */
             cancel_url: string;
             /** Customer Email */
             customer_email?: string | null;
+            /**
+             * Promo Code
+             * @default
+             */
+            promo_code: string;
         };
         /** PackageCheckoutIn */
         PackageCheckoutIn: {
@@ -23952,6 +23998,8 @@ export interface components {
             amount: number;
             /** Note */
             note: string;
+            /** Idempotency Key */
+            idempotency_key: string;
         };
         /** ConsoleWalletLedgerOut */
         ConsoleWalletLedgerOut: {
@@ -26656,6 +26704,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActiveSubOut"] | null;
+                };
+            };
+        };
+    };
+    apps_commerce_token_api_subscription_quote: {
+        parameters: {
+            query: {
+                plan_id: string;
+                promo_code?: string;
+                currency?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalSubscriptionQuoteOut"];
                 };
             };
         };

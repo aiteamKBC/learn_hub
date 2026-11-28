@@ -470,16 +470,39 @@ def my_subscription(request):
 
 class SubCheckoutIn(Schema):
     plan_id: UUID
+    currency: str | None = None
     success_url: str = Field(..., min_length=1)
     cancel_url: str = Field(..., min_length=1)
     customer_email: str | None = None
+    promo_code: str = Field("", max_length=40)
+
+
+class PersonalSubscriptionQuoteOut(Schema):
+    plan_id: UUID
+    currency: str
+    amount_minor: int
+    discount_minor: int
+    first_payment_minor: int
+    trial_days: int
+    promotion_name: str | None
+    percent_off: int | None
+
+
+@router.get("/subscriptions/quote", response=PersonalSubscriptionQuoteOut)
+def subscription_quote(request, plan_id: UUID, promo_code: str = "", currency: str | None = None):
+    from . import subscriptions
+
+    cur = request_currency(request, currency)
+    return subscriptions.quote_subscription(
+        user=request.user, plan_id=plan_id, currency_code=cur["code"], promo_code=promo_code
+    )
 
 
 @router.post("/subscriptions/checkout", response=CheckoutUrlOut)
 def subscription_checkout(request, body: SubCheckoutIn):
     from . import subscriptions
 
-    cur = request_currency(request)
+    cur = request_currency(request, body.currency)
     result = subscriptions.create_subscription_checkout(
         user=request.user,
         plan_id=body.plan_id,
@@ -487,6 +510,7 @@ def subscription_checkout(request, body: SubCheckoutIn):
         success_url=body.success_url,
         cancel_url=body.cancel_url,
         customer_email=body.customer_email,
+        promo_code=body.promo_code,
     )
     return {"url": result["url"]}
 
