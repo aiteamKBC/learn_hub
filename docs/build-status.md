@@ -1026,3 +1026,20 @@ Follow-up to the read-only B2C-01 Home & Course Discovery audit. No reset, no re
   python manage.py seed_discovery_demo
   ```
   Safe to re-run. Idempotent. No destructive SQL.
+
+
+## Nieer branch integration (2026-11-28)
+
+Merged `enhance_Nieer` at `397d3babc632c93a418c9833b5fb24f68f416f47` into the reviewed `main` baseline `b98fc53e05fecb2d53b6a74810e1a9cea285abaa`, which already contains Habiba (`ebaca13`) and Diaa (`1ee1f63`). The later nine Diaa commits ending at `904f46f` are outside this merge.
+
+The incoming branch adds corporate bundles, pending employee seats and requests, live booking and terms, renewal notices, private intake requests and approval, recorded/live catalogue filters, and a short catalogue cache. Its actor switcher remains gated by both development settings and DEBUG; it is not mounted in production.
+
+Conflict resolutions preserve the existing responsive layouts and shared header, real personal bundle prices and catalogue statistics, promotion reservations, subscription locking, and the default-disabled content-unlock gate. Company members receive the incoming corporate purchase flows and company bundle section. Regenerated the frontend API types from the combined schema without starting a server.
+
+The query-budget regression now warms request settings consistently and invalidates catalogue results before measurement, so cached responses cannot conceal per-row queries. The studio builder loads its course together with the working version, eliminating a redundant query while retaining the existing query ceiling.
+
+Offline Django system/model migration checks, both API contract tests, frontend lint and production build, and full backend Ruff lint/format checks passed. No application dependency changes were needed.
+
+A read-only check found all nine incoming migrations already recorded on the shared development database: corporate 0021-0027 and engagement 0010-0011. No shared development migration or seed was run during this integration. This check does not establish the production migration state. Database regressions run against a temporary local PostgreSQL 18 database with RLS enforced for lms_app and external integrations disabled.
+
+The final selected database regression suite passed all 148 commerce, studio, HCM, live-access, corporate and query-budget tests. The focused query-budget rerun also passed after its cache measurement and studio lookup fixes. The temporary local test container and data volume are removed after verification; the existing Redis service remains available.

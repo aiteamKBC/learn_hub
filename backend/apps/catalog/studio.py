@@ -508,7 +508,7 @@ def course(request, course_id: str):
     )
     working = next((v for v in versions if v["status"] in ("draft", "in_review", "changes_requested")), None)
     version = (
-        CourseVersion.objects.get(pk=(working or {"id": c.live_version_id})["id"])
+        CourseVersion.objects.select_related("course").get(pk=(working or {"id": c.live_version_id})["id"])
         if (working or c.live_version_id)
         else None
     )

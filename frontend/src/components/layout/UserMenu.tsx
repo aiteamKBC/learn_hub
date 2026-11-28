@@ -2,6 +2,7 @@ import { Building2, Check, GraduationCap, LayoutDashboard, LogOut, PenTool, Shie
 
 import { toast } from '@/lib/toast'
 
+import { DEV_SWITCH } from '@/components/dev/ActorSwitcher'
 import { Avatar } from '@/components/ui/avatar'
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from '@/components/ui/menu'
 import { useLogout, useMe } from '@/features/identity/auth'
@@ -15,7 +16,9 @@ export function UserMenu({ onDark, compact = false }: { onDark?: boolean; compac
   const { org, memberships, switchTo } = useWorkspace()
   const logout = useLogout()
   const navigate = useNavigate()
-  if (!me) return null
+  // while the dev actor switcher replaces login, the account menu is hidden (restore by
+  // turning DEV_ACTOR_SWITCH off, or removing this check)
+  if (!me || DEV_SWITCH) return null
   const manages = memberships.filter((m) => ['owner', 'admin', 'manager'].includes(m.role))
 
   return (

@@ -130,8 +130,10 @@ def my_live_training(user_id, now=None) -> list[dict]:
     ):
         by_cohort.setdefault(s.cohort_id, []).append(s)
 
+    from .live_renewals import locks_for
     from .programme import live_programme
 
+    locks = locks_for([r.id for r in rows])
     out = []
     for r in rows:
         sessions = by_cohort.get(r.cohort_id, [])
@@ -139,6 +141,7 @@ def my_live_training(user_id, now=None) -> list[dict]:
         first = min((s.scheduled_at for s in sessions), default=None)
         prog = live_programme(user_id, r, first)
         ended = prog["programme_status"] == "ended"
+        until = locks.get(r.id)  # the company has not paid past this date yet
         out.append({
             **prog,
             "cohort_id": r.cohort_id,
@@ -156,10 +159,12 @@ def my_live_training(user_id, now=None) -> list[dict]:
                     "delivery_mode": s.delivery_mode,
                     "location": s.location,
                     "status": s.status,
-                    "join_url": None if ended else join_url(s, now),  # ended: no new sessions
+                    "join_url": None if ended or (until and s.scheduled_at >= until) else join_url(s, now),
+                    "locked": bool(until and s.scheduled_at >= until),
                 }
                 for s in visible
             ],
             "more_sessions_hidden": len(visible) < len(sessions),
+            "paid_until": until,
         })  # fmt: skip
     return out

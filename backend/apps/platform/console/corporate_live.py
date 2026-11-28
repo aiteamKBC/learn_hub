@@ -300,6 +300,11 @@ def update_cohort(request, cohort_id: UUID, body: ConsoleCohortPatch):
     if fields:
         fields.append("updated_at")
         cohort.save(update_fields=fields)
+    if "scheduled_start" in fields or "status" in fields:
+        # an intake now has a start date (or reopened): place the paid bookings waiting for one
+        from apps.corporate.live_booking import place_waiting
+
+        place_waiting(cohort.course_id)
     audit_request(request, "cohort_updated", "live_cohort", cohort.id, body.dict(exclude_none=True))
     return {"ok": True}
 

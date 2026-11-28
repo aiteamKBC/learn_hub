@@ -1,32 +1,73 @@
-import { Armchair, LifeBuoy, UserPlus } from 'lucide-react'
+import { Armchair, Clock, LifeBuoy, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { toast } from '@/lib/toast'
 
 import { Avatar } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { EmptyState, StatCard } from '@/components/ui/misc'
 import { Progress } from '@/components/ui/progress'
 import { Table, Td, Th, Tr } from '@/components/ui/table'
-import { type InventoryRow, useAllocate, useAllocations, useInventory } from '@/features/corporate/api'
+import { type InventoryRow, useAllocate, useAllocations, useCancelPendingSeat, useInventory, usePendingSeats, useSubmitSeatRequest } from '@/features/corporate/api'
+import { useIsOrgAdmin } from '@/features/org/api'
 import { ENTITLEMENT, PROGRAMME } from '@/features/corporate/agreements'
+import { useEmployeeEntry } from '@/features/corporate/EmployeeList'
 import { PersonPicker, QueryBlock, StatusBadge } from '@/features/corporate/ui'
 import { cn } from '@/lib/cn'
 import { shortDate } from '@/lib/format'
 import { Link } from '@/lib/router'
 
+/** Owners and admins list the employees who should get a seat (typed or a CSV file).
+ * Depending on the platform setting it is sent at once or waits for LearnHub to approve;
+ * new people get an email to create their account, and the course is open when they join. */
+function EmployeesForm({ row, onDone }: { row: InventoryRow; onDone: () => void }) {
+  const entry = useEmployeeEntry(row.available)
+  const send = useSubmitSeatRequest()
+  const submit = () =>
+    send.mutate(
+      { offering_id: row.offering_id, source: entry.mode, employees: entry.rows },
+      {
+        onSuccess: (r) => {
+          toast.success(r.status === 'pending_approval' ? `Sent for approval: ${r.rows.length} ${r.rows.length === 1 ? 'employee' : 'employees'}. We email them once LearnHub approves.` : `Done: ${r.rows.length} ${r.rows.length === 1 ? 'employee' : 'employees'}. New people get an email to create their account.`)
+          entry.reset()
+          onDone()
+        },
+        onError: (e) => toast.error((e as Error).message),
+      },
+    )
+  return (
+    <div className="grid gap-3">
+      {entry.ui}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted">New people get an email to create an account with this address and set a password.</p>
+        <Button onClick={submit} loading={send.isPending} disabled={!entry.rows.length || entry.tooMany || entry.invalid}>
+          Send {entry.rows.length ? `(${entry.rows.length})` : ''}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function GiveSeat({ row, holders, autoOpen = false }: { row: InventoryRow; holders: string[]; autoOpen?: boolean }) {
   const [open, setOpen] = useState(autoOpen && row.available > 0)
   const allocate = useAllocate()
+  const admin = useIsOrgAdmin()
   const full = row.available <= 0
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Button size="sm" onClick={() => setOpen(true)} disabled={full} title={full ? 'No free seats left' : undefined}>
         <UserPlus /> Give a seat
       </Button>
-      <DialogContent title={`Give a seat: ${row.course_title}`} description={`${row.available} free ${row.available === 1 ? 'seat' : 'seats'}. They get the course straight away.`}>
+      <DialogContent className="max-w-2xl" title={`Give seats: ${row.course_title}`} description={`${row.available} free ${row.available === 1 ? 'seat' : 'seats'}. They get the course straight away.`}>
+        {admin ? (
+          <>
+            <EmployeesForm row={row} onDone={() => setOpen(false)} />
+            <p className="my-1 flex items-center gap-3 text-xs text-subtle before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">or pick someone already in your company</p>
+          </>
+        ) : null}
         <PersonPicker
           label="Who should get it?"
           exclude={holders}
@@ -67,7 +108,10 @@ function CourseSeats({ row, selected, onSelect }: { row: InventoryRow; selected:
         <span className="text-muted">
           {row.allocated} of {row.purchased} given
         </span>
-        <span className={row.available ? 'font-medium text-success' : 'text-muted'}>{row.available} free</span>
+        <span className={row.available ? 'font-medium text-success' : 'text-muted'}>
+          {row.held ? `${row.held} waiting · ` : ''}
+          {row.available} free
+        </span>
       </span>
     </button>
   )
@@ -125,6 +169,7 @@ function Holders({ row, give }: { row: InventoryRow; give: boolean }) {
           )}
         </QueryBlock>
       </div>
+      <Waiting row={row} />
       <p className="flex items-start gap-2 border-t border-border px-5 py-3 text-xs text-muted">
         <LifeBuoy className="mt-px size-3.5 shrink-0" />
         <span>
@@ -132,6 +177,40 @@ function Holders({ row, give }: { row: InventoryRow; give: boolean }) {
         </span>
       </p>
     </Card>
+  )
+}
+
+/** Seats held for invited emails: the person has not created their account yet. */
+function Waiting({ row }: { row: InventoryRow }) {
+  const admin = useIsOrgAdmin()
+  const q = usePendingSeats(row.offering_id, admin)
+  const cancel = useCancelPendingSeat()
+  if (!admin || !q.data?.length) return null
+  return (
+    <div className="border-t border-border px-5 py-3">
+      <h3 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+        <Clock className="size-4 text-muted" /> Waiting to join ({q.data.length})
+      </h3>
+      <ul className="stagger grid gap-1.5">
+        {q.data.map((p) => (
+          <li key={p.id} className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="min-w-0 flex-1 truncate">{p.email}</span>
+            {p.full_name ? <span className="hidden truncate text-xs text-muted sm:inline">{p.full_name}</span> : null}
+            <Badge tone={p.status === 'awaiting' ? 'warning' : 'info'}>{p.status === 'awaiting' ? 'Waiting for approval' : 'Invited'}</Badge>
+            <span className="text-xs text-muted">{shortDate(p.invited_at)}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              loading={cancel.isPending && cancel.variables === p.id}
+              onClick={() => cancel.mutate(p.id, { onSuccess: () => toast.success(`Seat for ${p.email} is free again`), onError: (e) => toast.error((e as Error).message) })}
+              aria-label={`Cancel the seat held for ${p.email}`}
+            >
+              Cancel
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

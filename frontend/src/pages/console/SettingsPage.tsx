@@ -20,7 +20,7 @@ import { relativeDate } from '@/lib/format'
 type TabKey = 'general' | 'payment' | 'learning' | 'notification' | 'instructor' | 'security' | 'roles' | 'integrations'
 const TABS: { key: TabKey; label: string; icon: LucideIcon; hint: string; groups: string[] }[] = [
   { key: 'general', label: 'General', icon: Settings2, hint: 'Platform name, logo, language and regional preferences.', groups: ['general', 'access'] },
-  { key: 'payment', label: 'Payment', icon: CreditCard, hint: 'Refunds, tax, discounts, regional prices and payouts.', groups: ['payment', 'pricing', 'payout'] },
+  { key: 'payment', label: 'Payment', icon: CreditCard, hint: 'Refunds, tax, discounts, regional prices and payouts.', groups: ['payment', 'pricing', 'payout', 'corporate'] },
   { key: 'learning', label: 'Learning', icon: GraduationCap, hint: 'Course review, certificates, reviews and Q&A.', groups: ['learning'] },
   { key: 'notification', label: 'Notification', icon: Bell, hint: 'Email copies, digests and staff alerts.', groups: ['notification'] },
   { key: 'instructor', label: 'Instructor', icon: Users, hint: 'Course limits and coupons for instructors.', groups: ['instructor'] },
@@ -30,7 +30,7 @@ const TABS: { key: TabKey; label: string; icon: LucideIcon; hint: string; groups
 ]
 const TAB_KEYS = TABS.map((t) => t.key)
 
-const SECTION: Record<string, string> = { payment: 'Payments', pricing: 'Regional pricing', payout: 'Instructor payouts' }
+const SECTION: Record<string, string> = { payment: 'Payments', pricing: 'Regional pricing', payout: 'Instructor payouts', corporate: 'Company training' }
 
 // One plain sentence under each switch or field.
 const HELP: Record<string, string> = {

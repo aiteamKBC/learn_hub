@@ -1,4 +1,5 @@
 import { Building2, Loader2 } from 'lucide-react'
+import { DEV_SWITCH, useDevAutoSignIn } from '@/components/dev/ActorSwitcher'
 import { useEffect, type ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 
@@ -24,7 +25,10 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   const { data: me, isLoading, isFetching } = useMe()
   const { pathname, search } = useLocation()
   // a cached "visitor" answer may be refreshing right after sign-in: wait for it
+  const devError = useDevAutoSignIn(DEV_SWITCH && !isLoading && !isFetching && !me, pathname + search)
   if (isLoading || (!me && isFetching)) return <PageSpinner />
+  // development: sign in as the last test actor instead of showing the login page
+  if (!me && DEV_SWITCH && !devError) return <PageSpinner />
   if (!me) return <Navigate to={`/login?next=${encodeURIComponent(pathname + search)}`} replace />
   return children
 }
@@ -32,7 +36,9 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 /** Visitor-only pages such as log in. Signed-in people return to the public home. */
 export function RequireGuest({ children }: { children: ReactNode }) {
   const { data: me, isLoading, isFetching } = useMe()
+  const devError = useDevAutoSignIn(DEV_SWITCH && !isLoading && !isFetching && !me, new URLSearchParams(window.location.search).get('next') ?? undefined)
   if (isLoading || (!me && isFetching)) return <PageSpinner />
+  if (!me && DEV_SWITCH && !devError) return <PageSpinner />
   return me ? <Navigate to="/" replace /> : children
 }
 

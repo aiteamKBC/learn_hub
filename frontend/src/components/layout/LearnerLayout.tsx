@@ -4,6 +4,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 
 import { DashboardBackdrop } from '@/components/art/dashboard-backdrop'
 import { Logo } from '@/components/ui/logo'
+import { useMe } from '@/features/identity/auth'
 import { useWorkspace } from '@/features/identity/workspace'
 import { cn } from '@/lib/cn'
 import { Link, NavLink } from '@/lib/router'
@@ -78,9 +79,8 @@ export function LearnerLayout() {
   const { org } = useWorkspace()
   // "Learning as" a company is active; employee self-service belongs to this mode only.
   const inCompanyMode = !!org
-  // Personal shopping stays visible whenever the person is using their personal learner
-  // workspace. It is hidden only while they are actively learning as a company member.
-  const hidePersonal = inCompanyMode
+  const { data: me } = useMe()
+  const hidePersonal = inCompanyMode || !!me?.memberships.length
   const [slot, setSlot] = useState<HTMLDivElement | null>(null)
   const { pathname } = useLocation()
   const visibleSections = sections

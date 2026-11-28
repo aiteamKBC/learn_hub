@@ -5,6 +5,9 @@ from .base import MIDDLEWARE
 
 DEBUG = True
 
+# Local actor switcher (core/dev_switch.py). Lives only in dev settings, never in prod.
+DEV_ACTOR_SWITCH = True
+
 # Phones open the Vite dev server through this computer's current LAN address. DHCP can
 # change that address between sessions, so trust the machine's active addresses
 # automatically in development instead of leaving mobile sign-in tied to a stale IP.

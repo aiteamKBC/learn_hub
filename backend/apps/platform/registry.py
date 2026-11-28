@@ -57,6 +57,8 @@ SETTINGS: tuple[Def, ...] = (
     Def("payments.refund_window_days", 30, "int", "Refund window (days)", "payment", public=True, min=0, max=365),
     Def("payments.prices_include_tax", True, "bool", "Prices include VAT", "payment", public=True),
     Def("payments.allow_promotion_stacking", False, "bool", "Promotions can stack with coupons", "payment"),
+    # B2B: employers' employee lists (typed or CSV) wait for a platform admin before invites go out
+    Def("corporate.invite_approval_required", False, "bool", "Require Admin Approval for Employee Invitations", "corporate"),
     Def("payments.discount_reduces_commission", True, "bool", "Discounts reduce the instructor's share", "payment"),
     # learning (client question 18)
     Def("learning.course_review_required", True, "bool", "New courses need staff review", "learning"),

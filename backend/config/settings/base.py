@@ -370,6 +370,10 @@ CELERY_BEAT_SCHEDULE["certificates-expiring"] = {  # learners hear 30 days befor
     "task": "learning.certificate_expiry_reminders",
     "schedule": crontab(hour=8, minute=7),
 }
+CELERY_BEAT_SCHEDULE["live-renewals"] = {  # companies hear a week before paid live months end
+    "task": "corporate.live_renewal_reminders",
+    "schedule": crontab(hour=8, minute=17),
+}
 CELERY_BEAT_SCHEDULE["expire-stale-checkouts"] = {"task": "commerce.expire_checkouts", "schedule": 60 * 30}
 
 # --- Instructor payouts ------------------------------------------------------------

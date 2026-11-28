@@ -171,6 +171,10 @@ def create_subscription_checkout(
 ) -> dict:
     from core.errors import ServiceError
 
+    from .services import personal_only
+
+    personal_only(user)
+
     now = timezone.now()
     # A lock on Subscription rows alone does not serialize two first checkouts: there
     # may be no row yet.  Lock the existing learner record instead, which is stable for

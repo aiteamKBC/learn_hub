@@ -5,7 +5,8 @@ Mounted at /api/v1/corporate/ via DOMAIN_APPS. Requires session auth + X-Org-Id.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
+from uuid import UUID
 
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
@@ -37,8 +38,18 @@ class PackageOut(Schema):
     currency: str = "GBP"
 
 
+class CheckoutEmployeeIn(Schema):
+    email: str = Field(..., max_length=320)
+    full_name: str = Field("", max_length=200)
+    job_title: str = Field("", max_length=120)
+
+
 class CorporateCheckoutIn(Schema):
     quantity: int = Field(ge=1, le=500)
+    # optional: the employees for these seats (typed or from a CSV). Invited only after
+    # payment succeeds, following the platform's approval setting.
+    employees: list[CheckoutEmployeeIn] = Field(default_factory=list, max_length=500)
+    employees_source: str = "manual"
 
 
 class CorporateCheckoutOut(Schema):
@@ -129,6 +140,7 @@ class InventoryOut(Schema):
     delivery_type: str = ""
     purchased: int
     allocated: int
+    held: int = 0  # held for an invited email, not yet joined
     available: int
 
 
@@ -188,7 +200,213 @@ def checkout(request, offering_id: str, body: CorporateCheckoutIn):
     org_scope(request, OrgRole.ADMIN)
     from .checkout import create_recorded_checkout
 
-    return create_recorded_checkout(request, offering_id, body.quantity)
+    return create_recorded_checkout(
+        request, offering_id, body.quantity,
+        employees=[e.dict() for e in body.employees], source=body.employees_source,
+        require_employees=True,
+    )  # fmt: skip
+
+
+# ---------------------------------------------------------------- bundles and baskets
+
+
+class BundleCourseOut(Schema):
+    course_id: str
+    title: str
+    slug: str
+    seats_on_sale: bool  # recorded seats can be bought in this course today
+    normal_price_minor: int | None = None
+
+
+class BundleOut(Schema):
+    id: str
+    title: str
+    description: str
+    seat_price_minor: int
+    is_active: bool
+    currency: str
+    courses: list[BundleCourseOut]
+
+
+class BasketLineIn(Schema):
+    course_id: UUID
+    quantity: int = Field(..., ge=0, le=500)
+    employees: list[CheckoutEmployeeIn] = Field(default_factory=list, max_length=500)
+
+
+class BasketCheckoutIn(Schema):
+    lines: list[BasketLineIn] = Field(..., min_length=1, max_length=20)
+    bundle_id: UUID | None = None
+    employees_source: str = "manual"
+
+
+@router.get("/bundles", response=list[BundleOut], auth=None)
+def list_bundles(request):
+    """Public: the bundles on sale (the home page shows them; company admins buy them)."""
+    from .bundles import active_bundles, bundle_out
+
+    return [bundle_out(b) for b in active_bundles()[:50]]
+
+
+@router.post("/basket/checkout", response=CorporateCheckoutOut)
+def basket_checkout(request, body: BasketCheckoutIn):
+    """Seats in several courses, one payment. With bundle_id every seat costs the
+    bundle's seat price; without it each course costs its normal seat price."""
+    org_scope(request, OrgRole.ADMIN)
+    from .bundles import create_basket_checkout
+
+    return create_basket_checkout(
+        request,
+        [{"course_id": ln.course_id, "quantity": ln.quantity, "employees": [e.dict() for e in ln.employees]} for ln in body.lines],
+        bundle_id=body.bundle_id, source=body.employees_source,
+    )  # fmt: skip
+
+
+# ---------------------------------------------------------------- live booking (deposit)
+
+
+class LivePlanPartOut(Schema):
+    months: int
+    amount_minor: int
+
+
+class LiveOfferOut(Schema):
+    course_id: str
+    course_title: str
+    programme_months: int
+    deposit_months: int
+    deposit_minor: int
+    instalments: list[LivePlanPartOut]
+    seat_price_minor: int
+    private_price_minor: int | None = None
+    next_intake_starts_on: datetime | str | None = None
+    next_intake_title: str = ""
+
+
+class LiveBookIn(Schema):
+    course_id: UUID
+    quantity: int = Field(..., ge=1, le=500)
+    employees: list[CheckoutEmployeeIn] = Field(..., max_length=500)
+    employees_source: str = "manual"
+
+
+class LiveSeatPersonOut(Schema):
+    email: str
+    full_name: str
+    status: str
+
+
+class LiveSeatBookingOut(Schema):
+    id: str
+    course_title: str
+    quantity: int
+    status: str
+    deposit_months: int
+    deposit_total_minor: int
+    intake_starts_on: str | None = None
+    created_at: datetime
+    people: list[LiveSeatPersonOut]
+    paid_until: datetime | None = None  # None: not started yet, or fully paid
+    next_due_minor: int | None = None
+    next_due_on: datetime | None = None
+    next_due_months: int | None = None
+    instalments_left: int = 0
+
+
+@router.get("/live/offer/{course_id}", response=LiveOfferOut)
+def live_offer(request, course_id: UUID):
+    org_scope(request, OrgRole.MANAGER)
+    from .live_booking import course_live_offer
+
+    return course_live_offer(course_id)
+
+
+@router.post("/live/book", response=CorporateCheckoutOut)
+def live_book(request, body: LiveBookIn):
+    org_scope(request, OrgRole.ADMIN)
+    from .live_booking import create_live_booking
+
+    return create_live_booking(
+        request,
+        body.course_id,
+        body.quantity,
+        [e.dict() for e in body.employees],
+        source=body.employees_source,
+    )
+
+
+@router.get("/live/bookings", response=list[LiveSeatBookingOut])
+def live_bookings(request):
+    scope = org_scope(request, OrgRole.MANAGER)
+    from .models import LiveBooking
+
+    rows = (
+        LiveBooking.objects.filter(org_id=scope.org_id)
+        .exclude(status=LiveBooking.Status.PENDING_PAYMENT)
+        .select_related("course", "deposit_purchase")
+        .prefetch_related("people")
+        .order_by("-created_at")[:100]
+    )
+    rows = list(rows)
+    from core.tenancy import tenant_context
+
+    from .models import LiveCohort
+
+    with tenant_context(staff=True):  # intakes are platform rows: read their start dates
+        starts = dict(
+            LiveCohort.objects.filter(pk__in=[b.cohort_id for b in rows if b.cohort_id]).values_list(
+                "id", "scheduled_start"
+            )
+        )
+    return [
+        {
+            "id": str(b.id),
+            "course_title": b.course.title,
+            "quantity": b.quantity,
+            "status": b.status,
+            "deposit_months": int(b.terms.get("deposit_months") or 0),
+            "deposit_total_minor": b.deposit_purchase.total_minor,
+            "intake_starts_on": starts[b.cohort_id].isoformat() if starts.get(b.cohort_id) else None,
+            "created_at": b.created_at,
+            "people": [
+                {"email": p.email, "full_name": p.full_name, "status": p.status} for p in b.people.all()
+            ],
+            **_renewal(b),
+        }
+        for b in rows
+    ]
+
+
+def _renewal(b) -> dict:
+    from core.tenancy import tenant_context
+
+    from .live_renewals import OPEN_STATUS, paid_until
+    from .models import SeatInstalment
+
+    if b.status != "placed":
+        return {}
+    with tenant_context(staff=True):  # reads the intake start date
+        insts = list(
+            SeatInstalment.objects.filter(seat_purchase_id=b.deposit_purchase_id).order_by("sequence")
+        )
+        b.cohort = b.cohort if b.cohort_id else None
+        until = paid_until(b, insts)
+    due = next((i for i in insts if i.status in OPEN_STATUS), None)
+    return {
+        "paid_until": until,
+        "next_due_minor": due.amount_minor if due else None,
+        "next_due_on": due.due_at if due else None,
+        "next_due_months": due.covers_months if due else None,
+        "instalments_left": sum(1 for i in insts if i.status in OPEN_STATUS),
+    }
+
+
+@router.post("/live/bookings/{booking_id}/pay-next", response=CorporateCheckoutOut)
+def live_pay_next(request, booking_id: UUID):
+    org_scope(request, OrgRole.ADMIN)
+    from .live_renewals import pay_next
+
+    return pay_next(request, booking_id)
 
 
 # ---------------------------------------------------------------- purchases
@@ -736,6 +954,124 @@ def list_allocations(request, offering_id: str | None = None):
     return [_allocation_out(a, left.get(a.user_id)) for a in qs]
 
 
+class SeatEmployeeIn(Schema):
+    email: str = Field(..., max_length=320)
+    full_name: str = Field("", max_length=200)
+    job_title: str = Field("", max_length=120)
+
+
+class SeatRequestIn(Schema):
+    offering_id: str
+    source: str = "manual"  # manual | csv (the browser reads the CSV file into rows)
+    employees: list[SeatEmployeeIn] = Field(..., max_length=500)
+
+
+class PendingSeatOut(Schema):
+    id: str
+    offering_id: str
+    course_title: str
+    email: str
+    full_name: str
+    job_title: str
+    status: str  # awaiting (approval) | pending (invited) | fulfilled | cancelled
+    invited_at: str
+
+
+class SeatRequestOut(Schema):
+    id: str
+    offering_id: str
+    course_title: str
+    status: str  # pending_approval | approved | rejected
+    source: str
+    auto_approved: bool
+    submitted_at: str
+    submitted_by: str
+    reviewed_at: str | None
+    review_note: str
+    rows: list[PendingSeatOut]
+
+
+def _pending_out(p) -> dict:
+    return {
+        "id": str(p.id),
+        "offering_id": str(p.seat_purchase.offering_id),
+        "course_title": p.seat_purchase.offering.course.title,
+        "email": p.email,
+        "full_name": p.full_name,
+        "job_title": p.job_title,
+        "status": p.status,
+        "invited_at": p.created_at.isoformat(),
+    }
+
+
+def seat_request_out(req) -> dict:
+    rows = req.rows.select_related("seat_purchase__offering__course").order_by("created_at")
+    return {
+        "id": str(req.id),
+        "offering_id": str(req.offering_id),
+        "course_title": req.offering.course.title,
+        "status": req.status,
+        "source": req.source,
+        "auto_approved": req.auto_approved,
+        "submitted_at": req.created_at.isoformat(),
+        "submitted_by": req.submitted_by.full_name or req.submitted_by.email,
+        "reviewed_at": req.reviewed_at.isoformat() if req.reviewed_at else None,
+        "review_note": req.review_note,
+        "rows": [_pending_out(p) for p in rows],
+    }
+
+
+@router.post("/seat-requests", response=SeatRequestOut)
+def submit_seat_request(request, body: SeatRequestIn):
+    """Send a list of employees (typed in or from a CSV file) for paid recorded seats.
+    Each one holds a seat. When the platform requires approval the request waits for an
+    admin; otherwise invites go out now. Owners and admins only."""
+    scope = org_scope(request, OrgRole.ADMIN)
+    from .models import SeatRequest
+    from .pending import submit_request
+
+    req = submit_request(request, scope, body.offering_id, [e.dict() for e in body.employees], body.source)
+    req = SeatRequest.objects.select_related("offering__course", "submitted_by").get(pk=req.pk)
+    return seat_request_out(req)
+
+
+@router.get("/seat-requests", response=list[SeatRequestOut])
+def list_seat_requests(request, offering_id: str | None = None):
+    scope = org_scope(request, OrgRole.ADMIN)
+    from .models import SeatRequest
+
+    qs = SeatRequest.objects.filter(org_id=scope.org_id)
+    if offering_id:
+        qs = qs.filter(offering_id=offering_id)
+    qs = qs.select_related("offering__course", "submitted_by").order_by("-created_at")[:50]
+    return [seat_request_out(r) for r in qs]
+
+
+@router.get("/pending-seats", response=list[PendingSeatOut])
+def list_pending_seats(request, offering_id: str | None = None):
+    """Seats held for listed employees: waiting for approval, or invited and not joined."""
+    scope = org_scope(request, OrgRole.ADMIN)
+    from .models import PendingSeat
+    from .pending import HELD
+
+    qs = PendingSeat.objects.filter(HELD, org_id=scope.org_id)
+    if offering_id:
+        qs = qs.filter(seat_purchase__offering_id=offering_id)
+    qs = qs.select_related("seat_purchase__offering__course").order_by("-created_at")[:500]
+    return [_pending_out(p) for p in qs]
+
+
+@router.post("/pending-seats/{pending_id}/cancel", response=PendingSeatOut)
+def cancel_pending_seat(request, pending_id: str):
+    """Free a held seat (the person can still be listed again later)."""
+    scope = org_scope(request, OrgRole.ADMIN)
+    from .models import PendingSeat
+    from .pending import cancel_pending
+
+    p = cancel_pending(request, scope, pending_id)
+    return _pending_out(PendingSeat.objects.select_related("seat_purchase__offering__course").get(pk=p.pk))
+
+
 @router.post("/allocations", response=CorporateAllocationOut)
 def allocate(request, body: CorporateAllocateIn):
     """Give one employee a seat on a recorded course this company has paid for."""
@@ -814,6 +1150,7 @@ class MyLiveSessionOut(Schema):
     location: str
     status: str
     join_url: str | None = None
+    locked: bool = False  # after the months the company has paid for
 
 
 class MyLiveCohortOut(Schema):
@@ -829,6 +1166,7 @@ class MyLiveCohortOut(Schema):
     programme_status: str  # not_started | in_progress | ended (ended: no new sessions)
     sessions: list[MyLiveSessionOut]
     more_sessions_hidden: bool
+    paid_until: datetime | None = None  # sessions from here wait for the company's next payment
 
 
 @router.get("/my/live", response=list[MyLiveCohortOut])
@@ -982,3 +1320,78 @@ def delete_attachment(request, attachment_id: str):
 
     files.delete(request, _attachment(scope, attachment_id), is_staff=False)
     return {"ok": True}
+
+
+# ------------------------------------------------------------------ private live intakes
+
+
+class PrivateIntakeIn(Schema):
+    course_id: UUID
+    expected_people: int | None = Field(None, ge=1, le=5000)
+    message: str = Field("", max_length=2000)
+
+
+class PrivateIntakePartOut(Schema):
+    months: int
+    amount_minor: int
+
+
+class PrivateIntakeOut(Schema):
+    id: str
+    course_id: str
+    course_title: str
+    status: str
+    expected_people: int | None = None
+    message: str
+    admin_reply: str
+    price_minor: int
+    deposit_minor: int | None = None
+    deposit_months: int | None = None
+    programme_months: int | None = None
+    instalments: list[PrivateIntakePartOut] = []
+    starts_on: date | None = None
+    booking_status: str | None = None
+    created_at: datetime
+
+
+class PrivateIntakeBookIn(Schema):
+    employees: list[CheckoutEmployeeIn] = Field(..., min_length=1, max_length=5000)
+    employees_source: str = "manual"
+
+
+class PrivateIntakeOkOut(Schema):
+    ok: bool
+
+
+@router.get("/live/private-intakes", response=list[PrivateIntakeOut])
+def private_intakes(request):
+    scope = org_scope(request, OrgRole.MANAGER)
+    from .live_private import company_requests
+
+    return company_requests(scope.org_id)
+
+
+@router.post("/live/private-intakes", response=PrivateIntakeOkOut)
+def private_intake_request(request, body: PrivateIntakeIn):
+    org_scope(request, OrgRole.ADMIN)
+    from .live_private import send_request
+
+    send_request(request, body.course_id, body.expected_people, body.message)
+    return {"ok": True}
+
+
+@router.post("/live/private-intakes/{req_id}/withdraw", response=PrivateIntakeOkOut)
+def private_intake_withdraw(request, req_id: UUID):
+    org_scope(request, OrgRole.ADMIN)
+    from .live_private import cancel_request
+
+    cancel_request(request, req_id)
+    return {"ok": True}
+
+
+@router.post("/live/private-intakes/{req_id}/book", response=CorporateCheckoutOut)
+def private_intake_book(request, req_id: UUID, body: PrivateIntakeBookIn):
+    org_scope(request, OrgRole.ADMIN)
+    from .live_private import book_private
+
+    return book_private(request, req_id, [e.dict() for e in body.employees], body.employees_source)

@@ -8,6 +8,7 @@ from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from apps.catalog import services as cat
+from apps.catalog.cache import bump as bump_catalog_cache
 from apps.catalog.models import CourseVersion
 from apps.commerce import services as shop
 from apps.compliance import engine
@@ -23,6 +24,11 @@ from core.tests.base import SchemaTransactionTestCase
 
 class QueryBudgetTest(SchemaTransactionTestCase):
     def count(self, path, **headers) -> int:
+        # Warm request-level settings equally for both data sizes, but invalidate
+        # catalogue results so a cached response cannot hide an N+1.
+        warm = self.client.get(path, **headers)
+        self.assertEqual(warm.status_code, 200, path)
+        bump_catalog_cache()
         with CaptureQueriesContext(connection) as ctx:
             r = self.client.get(path, **headers)
         self.assertEqual(r.status_code, 200, path)

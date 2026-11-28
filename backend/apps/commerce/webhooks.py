@@ -65,6 +65,22 @@ def dispatch(event: dict) -> None:
     meta = obj.get("metadata") or {}
     if kind in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
         _session_completed(obj, meta)
+    elif kind == "checkout.session.expired" and meta.get("kind") == "corporate_live_deposit":
+        from apps.corporate.live_booking import close_deposit
+
+        close_deposit(meta, "expired")
+    elif kind == "checkout.session.async_payment_failed" and meta.get("kind") == "corporate_live_deposit":
+        from apps.corporate.live_booking import close_deposit
+
+        close_deposit(meta, "voided")
+    elif kind == "checkout.session.expired" and meta.get("kind") == "corporate_basket":
+        from apps.corporate.bundles import close_basket
+
+        close_basket(meta, "expired")
+    elif kind == "checkout.session.async_payment_failed" and meta.get("kind") == "corporate_basket":
+        from apps.corporate.bundles import close_basket
+
+        close_basket(meta, "voided")
     elif kind == "checkout.session.expired" and meta.get("kind") == "order":
         services.expire_order(order_id=meta["id"])
     elif kind == "checkout.session.expired" and meta.get("kind") == "subscription":
@@ -145,6 +161,24 @@ def _session_completed(session: dict, meta: dict) -> None:
         from apps.corporate.fulfillment import fulfil_recorded_purchase
 
         fulfil_recorded_purchase(session, meta)
+    elif meta.get("kind") == "corporate_live_instalment":
+        if session.get("payment_status") != "paid":
+            return
+        from apps.corporate.live_renewals import instalment_paid
+
+        instalment_paid(session, meta)
+    elif meta.get("kind") == "corporate_live_deposit":
+        if session.get("payment_status") != "paid":
+            return
+        from apps.corporate.live_booking import fulfil_deposit
+
+        fulfil_deposit(session, meta)
+    elif meta.get("kind") == "corporate_basket":
+        if session.get("payment_status") != "paid":
+            return
+        from apps.corporate.bundles import fulfil_basket
+
+        fulfil_basket(session, meta)
     elif meta.get("kind") == "corporate_live":
         if session.get("payment_status") != "paid":
             return

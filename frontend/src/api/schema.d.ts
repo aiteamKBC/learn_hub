@@ -2593,6 +2593,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/corporate/bundles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Bundles
+         * @description Public: the bundles on sale (the home page shows them; company admins buy them).
+         */
+        get: operations["apps_corporate_api_list_bundles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/basket/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Basket Checkout
+         * @description Seats in several courses, one payment. With bundle_id every seat costs the
+         *     bundle's seat price; without it each course costs its normal seat price.
+         */
+        post: operations["apps_corporate_api_basket_checkout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/live/offer/{course_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Live Offer */
+        get: operations["apps_corporate_api_live_offer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/live/book": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Live Book */
+        post: operations["apps_corporate_api_live_book"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/live/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Live Bookings */
+        get: operations["apps_corporate_api_live_bookings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/live/bookings/{booking_id}/pay-next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Live Pay Next */
+        post: operations["apps_corporate_api_live_pay_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/corporate/purchases": {
         parameters: {
             query?: never;
@@ -2857,6 +2966,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/corporate/seat-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Seat Requests */
+        get: operations["apps_corporate_api_list_seat_requests"];
+        put?: never;
+        /**
+         * Submit Seat Request
+         * @description Send a list of employees (typed in or from a CSV file) for paid recorded seats.
+         *     Each one holds a seat. When the platform requires approval the request waits for an
+         *     admin; otherwise invites go out now. Owners and admins only.
+         */
+        post: operations["apps_corporate_api_submit_seat_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/pending-seats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Pending Seats
+         * @description Seats held for listed employees: waiting for approval, or invited and not joined.
+         */
+        get: operations["apps_corporate_api_list_pending_seats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/pending-seats/{pending_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Pending Seat
+         * @description Free a held seat (the person can still be listed again later).
+         */
+        post: operations["apps_corporate_api_cancel_pending_seat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/corporate/live-bookings/{cc_id}/attendees": {
         parameters: {
             query?: never;
@@ -3002,6 +3174,58 @@ export interface paths {
         post?: never;
         /** Delete Attachment */
         delete: operations["apps_corporate_api_delete_attachment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/live/private-intakes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Private Intakes */
+        get: operations["apps_corporate_api_private_intakes"];
+        put?: never;
+        /** Private Intake Request */
+        post: operations["apps_corporate_api_private_intake_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/live/private-intakes/{req_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Private Intake Withdraw */
+        post: operations["apps_corporate_api_private_intake_withdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate/live/private-intakes/{req_id}/book": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Private Intake Book */
+        post: operations["apps_corporate_api_private_intake_book"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -6634,6 +6858,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/corporate/bundles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Bundles */
+        get: operations["apps_platform_console_corporate_bundles_list_bundles"];
+        put?: never;
+        /** Create Bundle */
+        post: operations["apps_platform_console_corporate_bundles_create_bundle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/bundles/{bundle_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Bundle */
+        put: operations["apps_platform_console_corporate_bundles_update_bundle"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/corporate/cancellations": {
         parameters: {
             query?: never;
@@ -6753,6 +7012,40 @@ export interface paths {
          * @description Remove a leaver and release company-owned training places for reuse.
          */
         post: operations["apps_platform_console_corporate_cancellations_apply_departure"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/delivery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Delivery */
+        get: operations["apps_platform_console_corporate_delivery_list_delivery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/delivery/{course_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Delivery */
+        post: operations["apps_platform_console_corporate_delivery_set_delivery"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7002,6 +7295,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/corporate/live-terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Live Terms */
+        get: operations["apps_platform_console_corporate_live_terms_list_live_terms"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/live-terms/{course_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Live Terms */
+        put: operations["apps_platform_console_corporate_live_terms_put_live_terms"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/live-reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Live Reminders
+         * @description Run the daily renewal reminders now (also handy when Celery beat is not running).
+         */
+        post: operations["apps_platform_console_corporate_live_terms_send_live_reminders"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/corporate/offerings": {
         parameters: {
             query?: never;
@@ -7158,6 +7505,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/corporate/private-intakes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Private Intakes */
+        get: operations["apps_platform_console_corporate_private_intakes_list_private_intakes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/private-intakes/{req_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Private Intake */
+        post: operations["apps_platform_console_corporate_private_intakes_approve_private_intake"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/corporate/private-intakes/{req_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Private Intake */
+        post: operations["apps_platform_console_corporate_private_intakes_reject_private_intake"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/corporate/reports/overview": {
         parameters: {
             query?: never;
@@ -7254,6 +7652,66 @@ export interface paths {
         put?: never;
         /** Reject Attendance */
         post: operations["apps_platform_console_corporate_reports_reject_attendance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/seat-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Seat Requests
+         * @description Requests across companies, newest first (default: waiting for approval).
+         */
+        get: operations["apps_platform_console_corporate_seat_requests_list_seat_requests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/seat-requests/{request_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Seat Request
+         * @description Approve: invites go out (or the course opens for people already in the company).
+         */
+        post: operations["apps_platform_console_corporate_seat_requests_approve_seat_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/seat-requests/{request_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Seat Request
+         * @description Reject: nothing is sent and the held seats are free again.
+         */
+        post: operations["apps_platform_console_corporate_seat_requests_reject_seat_request"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9999,6 +10457,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dev/actors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Actors
+         * @description The test actors and whether each demo account exists in this database.
+         */
+        get: operations["core_dev_switch_actors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dev/switch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch
+         * @description Sign in as one of the test actors (replaces the current session).
+         */
+        post: operations["core_dev_switch_switch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -10644,6 +11142,8 @@ export interface components {
              * @default popular
              */
             sort: string;
+            /** Delivery */
+            delivery?: ("recorded" | "live" | "both") | null;
             /** Currency */
             currency?: string | null;
             /** Cursor */
@@ -10686,6 +11186,11 @@ export interface components {
             /** Instructors */
             instructors: string[];
             price: components["schemas"]["PriceOut"] | null;
+            /**
+             * Delivery
+             * @default []
+             */
+            delivery: string[];
         };
         /** CoursePage */
         CoursePage: {
@@ -10741,6 +11246,11 @@ export interface components {
             /** Instructors */
             instructors: string[];
             price: components["schemas"]["PriceOut"] | null;
+            /**
+             * Delivery
+             * @default []
+             */
+            delivery: string[];
             /** Description */
             description: string;
             /** Cpd Hours */
@@ -13574,10 +14084,182 @@ export interface components {
             /** Checkout Url */
             checkout_url: string;
         };
+        /** CheckoutEmployeeIn */
+        CheckoutEmployeeIn: {
+            /** Email */
+            email: string;
+            /**
+             * Full Name
+             * @default
+             */
+            full_name: string;
+            /**
+             * Job Title
+             * @default
+             */
+            job_title: string;
+        };
         /** CorporateCheckoutIn */
         CorporateCheckoutIn: {
             /** Quantity */
             quantity: number;
+            /** Employees */
+            employees?: components["schemas"]["CheckoutEmployeeIn"][];
+            /**
+             * Employees Source
+             * @default manual
+             */
+            employees_source: string;
+        };
+        /** BundleCourseOut */
+        BundleCourseOut: {
+            /** Course Id */
+            course_id: string;
+            /** Title */
+            title: string;
+            /** Slug */
+            slug: string;
+            /** Seats On Sale */
+            seats_on_sale: boolean;
+            /** Normal Price Minor */
+            normal_price_minor?: number | null;
+        };
+        /** BundleOut */
+        BundleOut: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Seat Price Minor */
+            seat_price_minor: number;
+            /** Is Active */
+            is_active: boolean;
+            /** Currency */
+            currency: string;
+            /** Courses */
+            courses: components["schemas"]["BundleCourseOut"][];
+        };
+        /** BasketCheckoutIn */
+        BasketCheckoutIn: {
+            /** Lines */
+            lines: components["schemas"]["BasketLineIn"][];
+            /** Bundle Id */
+            bundle_id?: string | null;
+            /**
+             * Employees Source
+             * @default manual
+             */
+            employees_source: string;
+        };
+        /** BasketLineIn */
+        BasketLineIn: {
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Quantity */
+            quantity: number;
+            /** Employees */
+            employees?: components["schemas"]["CheckoutEmployeeIn"][];
+        };
+        /** LiveOfferOut */
+        LiveOfferOut: {
+            /** Course Id */
+            course_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Programme Months */
+            programme_months: number;
+            /** Deposit Months */
+            deposit_months: number;
+            /** Deposit Minor */
+            deposit_minor: number;
+            /** Instalments */
+            instalments: components["schemas"]["LivePlanPartOut"][];
+            /** Seat Price Minor */
+            seat_price_minor: number;
+            /** Private Price Minor */
+            private_price_minor?: number | null;
+            /** Next Intake Starts On */
+            next_intake_starts_on?: string | null;
+            /**
+             * Next Intake Title
+             * @default
+             */
+            next_intake_title: string;
+        };
+        /** LivePlanPartOut */
+        LivePlanPartOut: {
+            /** Months */
+            months: number;
+            /** Amount Minor */
+            amount_minor: number;
+        };
+        /** LiveBookIn */
+        LiveBookIn: {
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Quantity */
+            quantity: number;
+            /** Employees */
+            employees: components["schemas"]["CheckoutEmployeeIn"][];
+            /**
+             * Employees Source
+             * @default manual
+             */
+            employees_source: string;
+        };
+        /** LiveSeatBookingOut */
+        LiveSeatBookingOut: {
+            /** Id */
+            id: string;
+            /** Course Title */
+            course_title: string;
+            /** Quantity */
+            quantity: number;
+            /** Status */
+            status: string;
+            /** Deposit Months */
+            deposit_months: number;
+            /** Deposit Total Minor */
+            deposit_total_minor: number;
+            /** Intake Starts On */
+            intake_starts_on?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** People */
+            people: components["schemas"]["LiveSeatPersonOut"][];
+            /** Paid Until */
+            paid_until?: string | null;
+            /** Next Due Minor */
+            next_due_minor?: number | null;
+            /** Next Due On */
+            next_due_on?: string | null;
+            /** Next Due Months */
+            next_due_months?: number | null;
+            /**
+             * Instalments Left
+             * @default 0
+             */
+            instalments_left: number;
+        };
+        /** LiveSeatPersonOut */
+        LiveSeatPersonOut: {
+            /** Email */
+            email: string;
+            /** Full Name */
+            full_name: string;
+            /** Status */
+            status: string;
         };
         /** PurchaseOut */
         PurchaseOut: {
@@ -13742,6 +14424,11 @@ export interface components {
             purchased: number;
             /** Allocated */
             allocated: number;
+            /**
+             * Held
+             * @default 0
+             */
+            held: number;
             /** Available */
             available: number;
         };
@@ -14012,6 +14699,77 @@ export interface components {
             /** User Id */
             user_id: string;
         };
+        /** PendingSeatOut */
+        PendingSeatOut: {
+            /** Id */
+            id: string;
+            /** Offering Id */
+            offering_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Email */
+            email: string;
+            /** Full Name */
+            full_name: string;
+            /** Job Title */
+            job_title: string;
+            /** Status */
+            status: string;
+            /** Invited At */
+            invited_at: string;
+        };
+        /** SeatRequestOut */
+        SeatRequestOut: {
+            /** Id */
+            id: string;
+            /** Offering Id */
+            offering_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Status */
+            status: string;
+            /** Source */
+            source: string;
+            /** Auto Approved */
+            auto_approved: boolean;
+            /** Submitted At */
+            submitted_at: string;
+            /** Submitted By */
+            submitted_by: string;
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /** Review Note */
+            review_note: string;
+            /** Rows */
+            rows: components["schemas"]["PendingSeatOut"][];
+        };
+        /** SeatEmployeeIn */
+        SeatEmployeeIn: {
+            /** Email */
+            email: string;
+            /**
+             * Full Name
+             * @default
+             */
+            full_name: string;
+            /**
+             * Job Title
+             * @default
+             */
+            job_title: string;
+        };
+        /** SeatRequestIn */
+        SeatRequestIn: {
+            /** Offering Id */
+            offering_id: string;
+            /**
+             * Source
+             * @default manual
+             */
+            source: string;
+            /** Employees */
+            employees: components["schemas"]["SeatEmployeeIn"][];
+        };
         /** LiveAttendeeOut */
         LiveAttendeeOut: {
             /** Id */
@@ -14056,6 +14814,8 @@ export interface components {
             sessions: components["schemas"]["MyLiveSessionOut"][];
             /** More Sessions Hidden */
             more_sessions_hidden: boolean;
+            /** Paid Until */
+            paid_until?: string | null;
         };
         /** MyLiveSessionOut */
         MyLiveSessionOut: {
@@ -14075,6 +14835,11 @@ export interface components {
             status: string;
             /** Join Url */
             join_url?: string | null;
+            /**
+             * Locked
+             * @default false
+             */
+            locked: boolean;
         };
         /** MyProgrammeOut */
         MyProgrammeOut: {
@@ -14155,6 +14920,82 @@ export interface components {
         CorporateDownloadOut: {
             /** Url */
             url: string;
+        };
+        /** PrivateIntakeOut */
+        PrivateIntakeOut: {
+            /** Id */
+            id: string;
+            /** Course Id */
+            course_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Status */
+            status: string;
+            /** Expected People */
+            expected_people?: number | null;
+            /** Message */
+            message: string;
+            /** Admin Reply */
+            admin_reply: string;
+            /** Price Minor */
+            price_minor: number;
+            /** Deposit Minor */
+            deposit_minor?: number | null;
+            /** Deposit Months */
+            deposit_months?: number | null;
+            /** Programme Months */
+            programme_months?: number | null;
+            /**
+             * Instalments
+             * @default []
+             */
+            instalments: components["schemas"]["PrivateIntakePartOut"][];
+            /** Starts On */
+            starts_on?: string | null;
+            /** Booking Status */
+            booking_status?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** PrivateIntakePartOut */
+        PrivateIntakePartOut: {
+            /** Months */
+            months: number;
+            /** Amount Minor */
+            amount_minor: number;
+        };
+        /** PrivateIntakeOkOut */
+        PrivateIntakeOkOut: {
+            /** Ok */
+            ok: boolean;
+        };
+        /** PrivateIntakeIn */
+        PrivateIntakeIn: {
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Expected People */
+            expected_people?: number | null;
+            /**
+             * Message
+             * @default
+             */
+            message: string;
+        };
+        /** PrivateIntakeBookIn */
+        PrivateIntakeBookIn: {
+            /** Employees */
+            employees: components["schemas"]["CheckoutEmployeeIn"][];
+            /**
+             * Employees Source
+             * @default manual
+             */
+            employees_source: string;
         };
         /** ProfileOut */
         ProfileOut: {
@@ -19333,6 +20174,55 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** ConsoleBundleCourseOut */
+        ConsoleBundleCourseOut: {
+            /** Course Id */
+            course_id: string;
+            /** Title */
+            title: string;
+            /** Slug */
+            slug: string;
+            /** Seats On Sale */
+            seats_on_sale: boolean;
+            /** Normal Price Minor */
+            normal_price_minor?: number | null;
+        };
+        /** ConsoleBundleOut */
+        ConsoleBundleOut: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Seat Price Minor */
+            seat_price_minor: number;
+            /** Is Active */
+            is_active: boolean;
+            /** Currency */
+            currency: string;
+            /** Courses */
+            courses: components["schemas"]["ConsoleBundleCourseOut"][];
+        };
+        /** ConsoleBundleIn */
+        ConsoleBundleIn: {
+            /** Title */
+            title: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Seat Price Minor */
+            seat_price_minor: number;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /** Course Ids */
+            course_ids: string[];
+        };
         /** ConsoleCancellationOut */
         ConsoleCancellationOut: {
             /**
@@ -19483,6 +20373,29 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+        };
+        /** ConsoleDeliveryRowOut */
+        ConsoleDeliveryRowOut: {
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Title */
+            title: string;
+            /** Has Price */
+            has_price: boolean;
+            /** Recorded */
+            recorded: boolean;
+            /** Live */
+            live: boolean;
+        };
+        /** ConsoleDeliveryIn */
+        ConsoleDeliveryIn: {
+            /** Recorded */
+            recorded?: boolean | null;
+            /** Live */
+            live?: boolean | null;
         };
         /** ConsoleTrainingRequestOut */
         ConsoleTrainingRequestOut: {
@@ -19830,6 +20743,76 @@ export interface components {
              */
             cohort_id: string;
         };
+        /** LiveIntakeOut */
+        LiveIntakeOut: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Starts On */
+            starts_on?: string | null;
+        };
+        /** LiveTermsOut */
+        LiveTermsOut: {
+            /** Course Id */
+            course_id: string;
+            /** Title */
+            title: string;
+            /** Has Terms */
+            has_terms: boolean;
+            /** Programme Months */
+            programme_months?: number | null;
+            /** Deposit Months */
+            deposit_months?: number | null;
+            /** Deposit Minor */
+            deposit_minor?: number | null;
+            /**
+             * Instalments
+             * @default []
+             */
+            instalments: components["schemas"]["LiveTermsPartOut"][];
+            /** Seat Price Minor */
+            seat_price_minor?: number | null;
+            /** Private Price Minor */
+            private_price_minor?: number | null;
+            /**
+             * Intakes
+             * @default []
+             */
+            intakes: components["schemas"]["LiveIntakeOut"][];
+        };
+        /** LiveTermsPartOut */
+        LiveTermsPartOut: {
+            /** Months */
+            months: number;
+            /** Amount Minor */
+            amount_minor: number;
+        };
+        /** LiveTermsIn */
+        LiveTermsIn: {
+            /** Programme Months */
+            programme_months: number;
+            /** Deposit Months */
+            deposit_months: number;
+            /** Deposit Minor */
+            deposit_minor: number;
+            /** Instalments */
+            instalments?: components["schemas"]["LiveTermsPartIn"][];
+            /** Private Price Minor */
+            private_price_minor?: number | null;
+        };
+        /** LiveTermsPartIn */
+        LiveTermsPartIn: {
+            /** Months */
+            months: number;
+            /** Amount Minor */
+            amount_minor: number;
+        };
+        /** LiveRemindersOut */
+        LiveRemindersOut: {
+            /** Sent */
+            sent: number;
+        };
         /** ConsoleOfferingOut */
         ConsoleOfferingOut: {
             /**
@@ -20174,6 +21157,77 @@ export interface components {
             /** Unit Price Minor */
             unit_price_minor: number;
         };
+        /** ConsolePrivateIntakeOut */
+        ConsolePrivateIntakeOut: {
+            /** Id */
+            id: string;
+            /** Course Id */
+            course_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Company */
+            company: string;
+            /** Requester Email */
+            requester_email: string;
+            /** Status */
+            status: string;
+            /** Expected People */
+            expected_people?: number | null;
+            /** Message */
+            message: string;
+            /** Admin Reply */
+            admin_reply: string;
+            /** Price Minor */
+            price_minor: number;
+            /** Deposit Minor */
+            deposit_minor?: number | null;
+            /** Deposit Months */
+            deposit_months?: number | null;
+            /** Programme Months */
+            programme_months?: number | null;
+            /**
+             * Instalments
+             * @default []
+             */
+            instalments: components["schemas"]["ConsolePrivatePartOut"][];
+            /** Starts On */
+            starts_on?: string | null;
+            /** Booking Status */
+            booking_status?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ConsolePrivatePartOut */
+        ConsolePrivatePartOut: {
+            /** Months */
+            months: number;
+            /** Amount Minor */
+            amount_minor: number;
+        };
+        /** ConsolePrivateApproveIn */
+        ConsolePrivateApproveIn: {
+            /**
+             * Starts On
+             * Format: date
+             */
+            starts_on: string;
+            /**
+             * Reply
+             * @default
+             */
+            reply: string;
+        };
+        /** ConsolePrivateRejectIn */
+        ConsolePrivateRejectIn: {
+            /**
+             * Reply
+             * @default
+             */
+            reply: string;
+        };
         /** ConsoleCorporateOverview */
         ConsoleCorporateOverview: {
             revenue: components["schemas"]["ConsoleKpiOut"];
@@ -20258,6 +21312,43 @@ export interface components {
             is_verified: boolean;
             /** Source */
             source: string;
+        };
+        /** ConsoleSeatRequestOut */
+        ConsoleSeatRequestOut: {
+            /** Id */
+            id: string;
+            /** Offering Id */
+            offering_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Status */
+            status: string;
+            /** Source */
+            source: string;
+            /** Auto Approved */
+            auto_approved: boolean;
+            /** Submitted At */
+            submitted_at: string;
+            /** Submitted By */
+            submitted_by: string;
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /** Review Note */
+            review_note: string;
+            /** Rows */
+            rows: components["schemas"]["PendingSeatOut"][];
+            /** Org Id */
+            org_id: string;
+            /** Org Name */
+            org_name: string;
+        };
+        /** ConsoleSeatReviewIn */
+        ConsoleSeatReviewIn: {
+            /**
+             * Note
+             * @default
+             */
+            note: string;
         };
         /** ConsoleCourseKpisOut */
         ConsoleCourseKpisOut: {
@@ -24199,6 +25290,26 @@ export interface components {
              */
             created_at: string;
         };
+        /** DevActorOut */
+        DevActorOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Email */
+            email: string;
+            /** Org Name */
+            org_name: string | null;
+            /** Home */
+            home: string;
+            /** Available */
+            available: boolean;
+        };
+        /** DevSwitchIn */
+        DevSwitchIn: {
+            /** Actor */
+            actor: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -25184,6 +26295,7 @@ export interface operations {
                 price?: string | null;
                 rating?: number | null;
                 sort?: string;
+                delivery?: ("recorded" | "live" | "both") | null;
                 currency?: string | null;
                 cursor?: string | null;
                 limit?: number;
@@ -27917,6 +29029,138 @@ export interface operations {
             };
         };
     };
+    apps_corporate_api_list_bundles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BundleOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_basket_checkout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BasketCheckoutIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorporateCheckoutOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_live_offer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveOfferOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_live_book: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LiveBookIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorporateCheckoutOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_live_bookings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveSeatBookingOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_live_pay_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorporateCheckoutOut"];
+                };
+            };
+        };
+    };
     apps_corporate_api_list_purchases: {
         parameters: {
             query?: never;
@@ -28305,6 +29549,96 @@ export interface operations {
             };
         };
     };
+    apps_corporate_api_list_seat_requests: {
+        parameters: {
+            query?: {
+                offering_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatRequestOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_submit_seat_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeatRequestIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatRequestOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_list_pending_seats: {
+        parameters: {
+            query?: {
+                offering_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingSeatOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_cancel_pending_seat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pending_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingSeatOut"];
+                };
+            };
+        };
+    };
     apps_corporate_api_list_attendees: {
         parameters: {
             query?: never;
@@ -28526,6 +29860,98 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CorporateOkOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_private_intakes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivateIntakeOut"][];
+                };
+            };
+        };
+    };
+    apps_corporate_api_private_intake_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivateIntakeIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivateIntakeOkOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_private_intake_withdraw: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                req_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivateIntakeOkOut"];
+                };
+            };
+        };
+    };
+    apps_corporate_api_private_intake_book: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                req_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivateIntakeBookIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorporateCheckoutOut"];
                 };
             };
         };
@@ -34305,6 +35731,76 @@ export interface operations {
             };
         };
     };
+    apps_platform_console_corporate_bundles_list_bundles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleBundleOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_bundles_create_bundle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleBundleIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleIdOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_bundles_update_bundle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bundle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleBundleIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleIdOut"];
+                };
+            };
+        };
+    };
     apps_platform_console_corporate_cancellations_list_cancellations: {
         parameters: {
             query?: {
@@ -34481,6 +35977,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConsoleDepartureResultOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_delivery_list_delivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleDeliveryRowOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_delivery_set_delivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleDeliveryIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
                 };
             };
         };
@@ -34945,6 +36487,72 @@ export interface operations {
             };
         };
     };
+    apps_platform_console_corporate_live_terms_list_live_terms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveTermsOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_terms_put_live_terms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LiveTermsIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_live_terms_send_live_reminders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveRemindersOut"];
+                };
+            };
+        };
+    };
     apps_platform_console_corporate_packages_list_offerings: {
         parameters: {
             query?: {
@@ -35239,6 +36847,78 @@ export interface operations {
             };
         };
     };
+    apps_platform_console_corporate_private_intakes_list_private_intakes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsolePrivateIntakeOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_private_intakes_approve_private_intake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                req_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsolePrivateApproveIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_private_intakes_reject_private_intake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                req_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsolePrivateRejectIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
     apps_platform_console_corporate_reports_corporate_overview: {
         parameters: {
             query?: {
@@ -35375,6 +37055,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_seat_requests_list_seat_requests: {
+        parameters: {
+            query?: {
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleSeatRequestOut"][];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_seat_requests_approve_seat_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleSeatReviewIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleSeatRequestOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_corporate_seat_requests_reject_seat_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleSeatReviewIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleSeatRequestOut"];
                 };
             };
         };
@@ -39546,6 +41300,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConsoleWalletLedgerOut"][];
+                };
+            };
+        };
+    };
+    core_dev_switch_actors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevActorOut"][];
+                };
+            };
+        };
+    };
+    core_dev_switch_switch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DevSwitchIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevActorOut"];
                 };
             };
         };

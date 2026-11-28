@@ -398,6 +398,7 @@ export function CoursePage() {
   const [preview, setPreview] = useState<{ key: string; title: string } | null>(null)
   const [activeSection, setActiveSection] = useState('#curriculum')
   const [aboutExpanded, setAboutExpanded] = useState(false)
+  const companyAccount = !!useMe().data?.memberships.length
   // Return to the previous page (e.g. the courses list); fall back to the catalogue.
   if (isLoading) return <CourseSkeleton />
   if (error || !c) return <ErrorState message={(error as Error)?.message} onRetry={() => void refetch()} />
@@ -458,7 +459,9 @@ export function CoursePage() {
           </section>
 
           <aside aria-label="Purchase course" className="min-w-0 lg:sticky lg:top-20 lg:col-start-2 lg:row-start-1 lg:row-span-4 lg:self-start">
-            <BuyBox course={c} />
+            {companyAccount ? (
+              <p className="rounded-xl border border-border bg-surface p-4 text-sm text-muted">This is a company account. To buy this course for yourself, sign up with a personal email.</p>
+            ) : <BuyBox course={c} />}
             <TeamBuy courseId={c.id} title={c.title} />
           </aside>
 

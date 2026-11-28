@@ -100,12 +100,12 @@ export function AuthenticatedHeaderMenu({ onDark, marketplaceLinks = false, onSe
         <MenuItem onSelect={() => setChoice(dark ? 'light' : 'dark')}>
           {dark ? <Sun /> : <Moon />} {dark ? 'Light theme' : 'Dark theme'}
         </MenuItem>
-        <MenuItem asChild>
+        {me.memberships.length ? null : <MenuItem asChild>
           <Link to="/cart">
             <ShoppingCart /> Cart
             {cartCount ? <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-on-primary tabular">{cartCount}</span> : null}
           </Link>
-        </MenuItem>
+        </MenuItem>}
         <MenuItem asChild>
           <Link to="/notifications">
             <Bell /> Notifications

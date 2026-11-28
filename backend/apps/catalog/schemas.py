@@ -44,6 +44,8 @@ class CourseCard(Schema):
     total_duration_sec: int
     instructors: list[str]
     price: PriceOut | None  # None: not sold individually (e.g. company course)
+    # how the course is offered, as set by the platform admin: "recorded", "live" or both
+    delivery: list[str] = []
 
 
 class CoursePage(Schema):

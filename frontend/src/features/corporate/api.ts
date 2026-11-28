@@ -103,8 +103,8 @@ export function useCancellations(enabled = true) {
 export function useRecordedCheckout() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ offeringId, quantity }: { offeringId: string; quantity: number }) =>
-      unwrap(api.POST('/api/v1/corporate/packages/{offering_id}/checkout', { params: { path: { offering_id: offeringId } }, body: { quantity } })),
+    mutationFn: ({ offeringId, quantity, employees = [], source = 'manual' }: { offeringId: string; quantity: number; employees?: SeatEmployee[]; source?: 'manual' | 'csv' }) =>
+      unwrap(api.POST('/api/v1/corporate/packages/{offering_id}/checkout', { params: { path: { offering_id: offeringId } }, body: { quantity, employees, employees_source: source } })),
     onSuccess: () => qc.invalidateQueries({ queryKey: key('purchases') }),
   })
 }
@@ -132,6 +132,64 @@ export function useAllocate() {
     mutationFn: (body: { offering_id: string; user_id: string }) => unwrap(api.POST('/api/v1/corporate/allocations', { body })),
     onSuccess: () =>
       Promise.all(['allocations', 'inventory', 'dashboard', 'progress'].map((k) => qc.invalidateQueries({ queryKey: key(k) }))),
+  })
+}
+
+/** Seats held for people invited by email who have not joined yet (owners and admins). */
+export function usePendingSeats(offeringId?: string, enabled = true) {
+  return useQuery({
+    queryKey: key('pending-seats', offeringId ?? 'all'),
+    queryFn: () => unwrap(api.GET('/api/v1/corporate/pending-seats', { params: { query: { offering_id: offeringId } } })),
+    enabled,
+  })
+}
+export type PendingSeat = S['PendingSeatOut']
+
+export type SeatEmployee = { email: string; full_name: string; job_title: string }
+export type SeatRequest = S['SeatRequestOut']
+
+/** Send a list of employees for paid seats (typed in or read from a CSV file). */
+export function useSubmitSeatRequest() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { offering_id: string; source: 'manual' | 'csv'; employees: SeatEmployee[] }) => unwrap(api.POST('/api/v1/corporate/seat-requests', { body })),
+    onSuccess: () =>
+      Promise.all(['allocations', 'inventory', 'dashboard', 'progress', 'pending-seats', 'seat-requests'].map((k) => qc.invalidateQueries({ queryKey: key(k) }))),
+  })
+}
+
+export function useSeatRequests(offeringId?: string, enabled = true) {
+  return useQuery({
+    queryKey: key('seat-requests', offeringId ?? 'all'),
+    queryFn: () => unwrap(api.GET('/api/v1/corporate/seat-requests', { params: { query: { offering_id: offeringId } } })),
+    enabled,
+  })
+}
+
+/** Console: employee lists waiting for (or past) platform approval. */
+export function useConsoleSeatRequests(status: string) {
+  return useQuery({
+    queryKey: ['console', 'seat-requests', status],
+    queryFn: () => unwrap(api.GET('/api/v1/console/seat-requests', { params: { query: { status } } })),
+  })
+}
+
+export function useReviewSeatRequest() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, approve, note }: { id: string; approve: boolean; note?: string }) =>
+      approve
+        ? unwrap(api.POST('/api/v1/console/seat-requests/{request_id}/approve', { params: { path: { request_id: id } }, body: { note: note ?? '' } }))
+        : unwrap(api.POST('/api/v1/console/seat-requests/{request_id}/reject', { params: { path: { request_id: id } }, body: { note: note ?? '' } })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['console', 'seat-requests'] }),
+  })
+}
+
+export function useCancelPendingSeat() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => unwrap(api.POST('/api/v1/corporate/pending-seats/{pending_id}/cancel', { params: { path: { pending_id: id } } })),
+    onSuccess: () => Promise.all(['inventory', 'dashboard', 'pending-seats', 'seat-requests'].map((k) => qc.invalidateQueries({ queryKey: key(k) }))),
   })
 }
 
@@ -248,4 +306,95 @@ export const CANCEL_STATUS: Record<string, { label: string; tone: 'success' | 'w
   approved: { label: 'Approved', tone: 'success' },
   rejected: { label: 'Not approved', tone: 'danger' },
   processed: { label: 'Refunded', tone: 'success' },
+}
+
+// ---- bundles and multi-course purchases
+export type Bundle = S['BundleOut']
+export type ConsoleBundle = S['ConsoleBundleOut']
+export type BasketLine = { course_id: string; quantity: number; employees: SeatEmployee[] }
+
+/** Public list of bundles on sale (home page and the company catalogue). */
+export function useBundles() {
+  return useQuery({ queryKey: key('bundles'), queryFn: () => unwrap(api.GET('/api/v1/corporate/bundles')) })
+}
+
+/** Seats in several courses, one Stripe payment (bundleId: every seat at the bundle price). */
+export function useBasketCheckout() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ lines, bundleId, source = 'manual' }: { lines: BasketLine[]; bundleId?: string; source?: 'manual' | 'csv' }) =>
+      unwrap(api.POST('/api/v1/corporate/basket/checkout', { body: { lines, bundle_id: bundleId ?? null, employees_source: source } })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: key('purchases') }),
+  })
+}
+
+export function useConsoleBundles() {
+  return useQuery({ queryKey: ['console', 'bundles'], queryFn: () => unwrap(api.GET('/api/v1/console/corporate/bundles')) })
+}
+
+export function useSaveBundle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id?: string; body: { title: string; description: string; seat_price_minor: number; is_active: boolean; course_ids: string[] } }) =>
+      id ? unwrap(api.PUT('/api/v1/console/corporate/bundles/{bundle_id}', { params: { path: { bundle_id: id } }, body })) : unwrap(api.POST('/api/v1/console/corporate/bundles', { body })),
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['console', 'bundles'] }), qc.invalidateQueries({ queryKey: key('bundles') })]),
+  })
+}
+
+/** Recorded courses the company can buy, as basket options. */
+export function recordedOptions(packages: Package[]): { course_id: string; title: string; price_minor: number }[] {
+  return packages.filter((p) => p.delivery_type === 'recorded').map((p) => ({ course_id: p.course_id, title: p.course_title, price_minor: p.price_gbp_minor }))
+}
+
+// ---- live courses: book seats in the next intake, pay the deposit
+export function useLiveOffer(courseId: string) {
+  return useQuery({ queryKey: key('live-offer', courseId), queryFn: () => unwrap(api.GET('/api/v1/corporate/live/offer/{course_id}', { params: { path: { course_id: courseId } } })), retry: false })
+}
+
+export function useLiveBook() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { course_id: string; quantity: number; employees: SeatEmployee[]; employees_source: 'manual' | 'csv' }) => unwrap(api.POST('/api/v1/corporate/live/book', { body })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: key('live-bookings') }),
+  })
+}
+
+export function useLivePayNext() {
+  return useMutation({
+    mutationFn: (bookingId: string) => unwrap(api.POST('/api/v1/corporate/live/bookings/{booking_id}/pay-next', { params: { path: { booking_id: bookingId } } })),
+    onSuccess: (r) => window.location.assign(r.checkout_url),
+  })
+}
+
+export function useLiveSeatBookings() {
+  return useQuery({ queryKey: key('live-bookings'), queryFn: () => unwrap(api.GET('/api/v1/corporate/live/bookings')) })
+}
+
+// ---------------------------------------------------------------- private live intakes
+export function usePrivateIntakes() {
+  return useQuery({ queryKey: key('private-intakes'), queryFn: () => unwrap(api.GET('/api/v1/corporate/live/private-intakes')) })
+}
+
+export function useAskPrivateIntake() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { course_id: string; expected_people?: number | null; message: string }) => unwrap(api.POST('/api/v1/corporate/live/private-intakes', { body })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: key('private-intakes') }),
+  })
+}
+
+export function useWithdrawPrivateIntake() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => unwrap(api.POST('/api/v1/corporate/live/private-intakes/{req_id}/withdraw', { params: { path: { req_id: id } } })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: key('private-intakes') }),
+  })
+}
+
+export function useBookPrivateIntake() {
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; employees: SeatEmployee[]; employees_source: 'manual' | 'csv' }) =>
+      unwrap(api.POST('/api/v1/corporate/live/private-intakes/{req_id}/book', { params: { path: { req_id: id } }, body })),
+    onSuccess: (r) => window.location.assign(r.checkout_url),
+  })
 }

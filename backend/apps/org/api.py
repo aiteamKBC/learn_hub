@@ -720,6 +720,13 @@ def invitation(request, token: str):
 @router.post("/invitations/{token}/accept", response=InviteAcceptOut)
 def accept(request, token: str):
     member = services.accept_invite(token=token[:100], user=request.user)
+    # course seats the company held for this email are given now, so the course is open
+    from apps.corporate.pending import fulfil_for_member
+
+    fulfil_for_member(request, member)
+    from apps.corporate.live_booking import fulfil_live_for_member
+
+    fulfil_live_for_member(member)
     return {"org_id": member.org_id}
 
 

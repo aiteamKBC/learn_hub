@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Logo } from '@/components/ui/logo'
+import { ActorSwitcher } from '@/components/dev/ActorSwitcher'
 import { useMe } from '@/features/identity/auth'
 import { cn } from '@/lib/cn'
 import { Link, NavLink } from '@/lib/router'
@@ -45,6 +46,7 @@ export function MarketplaceNav({ workspace = false }: { workspace?: boolean }) {
           <Button variant="ghost" size="icon" className="md:hidden" aria-label="Search" onClick={() => setSearchOpen((v) => !v)}>
             <Search />
           </Button>
+          <ActorSwitcher />
           {isLoading ? null : me ? (
             <AuthenticatedHeaderMenu marketplaceLinks onSearch={() => setSearchOpen(true)} />
           ) : (

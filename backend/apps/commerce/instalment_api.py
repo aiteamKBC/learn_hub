@@ -127,6 +127,7 @@ def offer(request, course_id: UUID):
 
 @router.post("/courses/{uuid:course_id}/start", response=InstalmentCheckoutOut)
 def start(request, course_id: UUID):
+    _personal_only(request.user)  # company accounts may only browse
     _personal(request)
     course = get_object_or_404(Course, pk=course_id, status="published", deleted_at__isnull=True)
     eligible = CourseInstalmentEligibility.objects.filter(
@@ -197,3 +198,9 @@ def pay(request, purchase_id: UUID, instalment_id: UUID):
     )
     inst = get_object_or_404(CourseInstalment, pk=instalment_id, purchase=purchase)
     return instalments.request_manual_payment(purchase=purchase, instalment=inst)
+
+
+def _personal_only(user) -> None:
+    from .services import personal_only
+
+    personal_only(user)

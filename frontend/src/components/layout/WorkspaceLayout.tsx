@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Logo } from '@/components/ui/logo'
+import { ActorSwitcher } from '@/components/dev/ActorSwitcher'
 import { cn } from '@/lib/cn'
 import { Link, NavLink, useNavigate } from '@/lib/router'
 
@@ -136,6 +137,7 @@ export function WorkspaceLayout({ area, sections, header, search, topBar, sideba
           </div>
           {hasTop ? null : (
             <div className="ml-auto flex items-center gap-1">
+              <ActorSwitcher />
               <AuthenticatedHeaderMenu />
             </div>
           )}

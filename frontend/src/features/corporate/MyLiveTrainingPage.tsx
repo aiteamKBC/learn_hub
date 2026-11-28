@@ -57,6 +57,8 @@ function Session({ s, ended, recording = false }: { s: LiveSession; ended: boole
         </Button>
       ) : ended ? (
         <span className="text-xs text-muted">The programme has ended.</span>
+      ) : s.locked ? (
+        <span className="text-xs text-muted">Your company needs to renew before this session.</span>
       ) : s.delivery_mode !== 'in_person' ? (
         <span className="text-xs text-muted">The join link appears 15 minutes before the start.</span>
       ) : null}

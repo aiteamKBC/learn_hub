@@ -604,7 +604,8 @@ class CompanyHttpTest(SchemaTransactionTestCase):
                 name=f"Shared-{uuid.uuid4().hex[:6]}", gbp_minor=12500, sort_order=0
             )
             CoursePrice.objects.filter(course=self.course).update(tier=shared_tier)
-        response = self._post(f"/packages/{self.course.id}/checkout", {"quantity": 5})
+        emps = [{"email": f"p{i}@example.com"} for i in range(5)]
+        response = self._post(f"/packages/{self.course.id}/checkout", {"quantity": 5, "employees": emps})
         self.assertEqual(response.status_code, 200, response.content)
         with tenant_context(staff=True):
             purchase = SeatPurchase.objects.get(pk=response.json()["purchase_id"])

@@ -28,6 +28,7 @@ from core.errors import ServiceError
 from core.money import request_currency
 
 from . import media, selectors
+from .cache import cached
 from .models import Category, Course, CourseInstructor, Lecture
 from .schemas import CatalogStatsOut, CategoryOut, CourseCard, CourseDetail, CoursePage, PlaybackOut
 
@@ -59,6 +60,8 @@ class CourseFilters(Schema):
     price: str | None = None  # "free" | "paid"
     rating: float | None = Field(None, ge=0, le=5)  # minimum average rating
     sort: str = "popular"
+    # recorded | live: only courses the platform admin offers that way (a course can be both)
+    delivery: Literal["recorded", "live", "both"] | None = None
     currency: str | None = None
     cursor: str | None = None
     limit: int = 24
@@ -78,15 +81,39 @@ def _instructor_names():
     return Prefetch("instructor_links", queryset=links, to_attr="visible_instructors")
 
 
+def _offerings():
+    """Active ways a course is offered (recorded / live), set by the platform admin in
+    Console > Company packages. Late import: corporate builds on the catalogue."""
+    from apps.corporate.models import CorporateOffering
+
+    return CorporateOffering.objects.filter(is_active=True)
+
+
+def _recorded_ids():
+    """Courses companies can buy as recorded seats (priced, not switched off by the admin)."""
+    from apps.corporate.offerings import recorded_course_prices
+
+    return recorded_course_prices().values("course_id")
+
+
 def _cards(courses: list[Course], currency: dict, quotes: dict | None = None) -> list[dict]:
-    """Price every course on the page with ONE quote (4 queries for any page size).
-    Callers that already priced the courses (the cart) pass their quotes in."""
+    """Price every course on the page with ONE quote (4 queries for any page size, plus
+    one for how each is offered). Callers that already priced the courses pass quotes in."""
     if quotes is None:
         quotes = (
             pricing.quote([c.id for c in courses], currency["code"], resolved_currency=currency)
             if courses
             else {}
         )
+    delivery: dict = {}
+    if courses:
+        ids = [c.id for c in courses]
+        for cid in _recorded_ids().filter(course_id__in=ids).values_list("course_id", flat=True):
+            delivery.setdefault(cid, set()).add("recorded")
+        for cid in (
+            _offerings().filter(course_id__in=ids, delivery_type="live").values_list("course_id", flat=True)
+        ):
+            delivery.setdefault(cid, set()).add("live")
     out = []
     for c in courses:
         q = quotes.get(c.id)
@@ -97,11 +124,13 @@ def _cards(courses: list[Course], currency: dict, quotes: dict | None = None) ->
             "lecture_count": c.lecture_count, "total_duration_sec": c.total_duration_sec,
             "instructors": [i.user.full_name for i in getattr(c, "visible_instructors", [])],
             "price": {"currency": currency["code"], "exponent": currency["exponent"], **q} if q else None,
+            "delivery": sorted(delivery.get(c.id, ())),
         })  # fmt: skip
     return out
 
 
 @router.get("/categories", response=list[CategoryOut], auth=None)
+@cached("categories")
 def categories(request):
     return Category.objects.filter(is_active=True, parent__isnull=True).order_by("sort_order")
 
@@ -140,6 +169,7 @@ def stats(request):
 
 
 @router.get("/courses", response=CoursePage, auth=None)
+@cached("courses")
 def list_courses(request, f: Query[CourseFilters]):
     """Browse and search. Search ranks by relevance (full-text index); browsing pages by
     keyset on the chosen sort."""
@@ -156,6 +186,16 @@ def list_courses(request, f: Query[CourseFilters]):
         qs = qs.filter(price__is_free=False)
     if f.rating:
         qs = qs.filter(rating_avg__gte=f.rating)
+    # each tab is exclusive: recorded only, live only, or both together
+    if f.delivery:
+        live = Exists(_offerings().filter(course_id=OuterRef("pk"), delivery_type="live"))
+        recorded = Q(pk__in=_recorded_ids())
+        if f.delivery == "recorded":
+            qs = qs.filter(recorded).exclude(live)
+        elif f.delivery == "live":
+            qs = qs.filter(live).exclude(recorded)
+        else:
+            qs = qs.filter(recorded).filter(live)
 
     if f.q and f.q.strip() and f.search_in:
         term = f.q.strip()[:100]

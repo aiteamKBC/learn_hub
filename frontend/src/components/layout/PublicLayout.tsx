@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/components/ui/menu'
 import { Logo } from '@/components/ui/logo'
+import { ActorSwitcher } from '@/components/dev/ActorSwitcher'
 import { useMe } from '@/features/identity/auth'
 import { cn } from '@/lib/cn'
 import { scrollToAnchor, smoothScrollTo } from '@/lib/smooth-scroll'
@@ -141,6 +142,7 @@ export function PublicLayout() {
           </div>
           <SearchBox className="hidden max-w-md flex-1 lg:block" overlay={overlay} />
           <div className="flex flex-1 items-center justify-end gap-1">
+            <ActorSwitcher />
             {isLoading ? null : me ? (
               <AuthenticatedHeaderMenu onDark={overlay} marketplaceLinks onSearch={() => setSearchOpen(true)} />
             ) : (

@@ -1,3 +1,8 @@
+import { type Bundle, useBundles } from '@/features/corporate/api'
+import { BuyBundle } from '@/features/corporate/BasketDialog'
+import { useIsOrgAdmin } from '@/features/org/api'
+import { useMe } from '@/features/identity/auth'
+import { DeliveryTabs } from '@/features/catalog/DeliveryTabs'
 import { ArrowRight, ArrowUpRight, Briefcase, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, Code2, HeartPulse, Megaphone, Package, Palette, PlayCircle, Server, ShieldCheck, Sparkles, Star, type LucideIcon } from 'lucide-react'
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 
@@ -383,7 +388,99 @@ const MEMBERSHIP_FEATURES = {
 }
 
 /** Membership prices and trials use the same personal plans as Subscription. */
+function useIsCompanyMember() {
+  return !!useMe().data?.memberships.length
+}
+
+function CompanyBundleCard({ b, index, company }: { b: Bundle; index: number; company: boolean }) {
+  const buyer = useIsOrgAdmin()
+  const normal = b.courses.reduce((n, c) => n + (c.normal_price_minor ?? 0), 0) / Math.max(1, b.courses.length)
+  const save = normal > b.seat_price_minor ? Math.round((1 - b.seat_price_minor / normal) * 100) : 0
+  return (
+    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+      <div className="relative aspect-[16/9] overflow-hidden bg-surface-2">
+        <img src={FEATURED_PHOTOS[(index + 2) % FEATURED_PHOTOS.length]} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover object-center" />
+        {save ? <span className="absolute top-3 left-3 rounded-full bg-primary/90 px-2.5 py-1 font-mono text-[10px] tracking-[0.1em] text-on-primary uppercase shadow-sm">Save {save}%</span> : null}
+      </div>
+      <div className="flex flex-1 flex-col p-5">
+        <h3 className="text-base font-semibold tracking-tight text-text">{b.title}</h3>
+        {b.description ? <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted">{b.description}</p> : null}
+        <p className="mt-4 text-xs font-medium tracking-wide text-muted uppercase">{b.courses.length} courses in this bundle</p>
+        <ul className="mt-2 grid gap-2 text-sm">
+          {b.courses.slice(0, 4).map((c) => (
+            <li key={c.course_id}>
+              <Link to={`/courses/${c.slug}`} className="flex items-center gap-2 text-text transition-colors duration-150 hover:text-primary">
+                <CheckCircle2 className="size-4 shrink-0 text-primary" /> <span className="truncate underline-offset-2 hover:underline">{c.title}</span>
+              </Link>
+            </li>
+          ))}
+          {b.courses.length > 4 ? <li className="text-xs text-muted">and {b.courses.length - 4} more</li> : null}
+        </ul>
+        <div className="mt-auto flex items-baseline gap-2 pt-4">
+          <span className="text-2xl font-bold tracking-tight text-text tabular">{money(b.seat_price_minor, 'GBP', 2)}</span>
+          <span className="text-sm text-muted">per seat</span>
+        </div>
+        {buyer ? (
+          <BuyBundle bundle={b} label="Choose courses and seats" className="mt-4 h-10 w-full rounded-full" />
+        ) : (
+          <p className="mt-4 text-xs text-muted">{company ? 'Your company admin can buy this bundle for the team.' : 'For company teams: seats split between the courses.'}</p>
+        )}
+      </div>
+    </article>
+  )
+}
+
+function CompanyOffers({ bundles, company }: { bundles: Bundle[]; company: boolean }) {
+  // The 3D cover-flow is the default; reduced motion (or one bundle) keeps the calmer grid.
+  if (reducedMotion() || bundles.length < 3) {
+    return (
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {bundles.map((b, i) => (
+          <CompanyBundleCard key={b.id} b={b} index={i} company={company} />
+        ))}
+      </div>
+    )
+  }
+  return (
+    <Coverflow
+      label="Course bundles"
+      itemNoun="bundle"
+      interactive
+      fill
+      maxWidth="max-w-5xl"
+      cardWidth="w-[calc(100vw-32px)] max-w-[336px] sm:w-[396px] sm:max-w-none"
+      stageHeight="h-[510px] sm:h-[520px]"
+      slides={bundles.map((b, i) => ({ key: b.id, label: b.title, content: <CompanyBundleCard b={b} index={i} company={company} /> }))}
+    />
+  )
+}
+
+function CompanyBundlesSection() {
+  const { data } = useBundles()
+  const company = useIsCompanyMember()
+  if (!data?.length) return null // nothing on sale: no empty promise on the home page
+  return (
+      <section id="sales" className="scroll-mt-20 bg-surface-2">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-16 lg:py-20">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-none">
+              <SectionEyebrow>Offers</SectionEyebrow>
+              <h2 className="mt-4 text-[clamp(30px,5vw,44px)] leading-[1.05] font-bold tracking-tight text-text">
+                Course bundles, priced like a <span className="text-primary">decision.</span>
+              </h2>
+              <p className="mt-4 text-muted">Courses that belong together, one lower seat price. Split the seats between them however your team needs.</p>
+            </div>
+          </div>
+          <div className="mt-10">
+            <CompanyOffers bundles={data} company={company} />
+          </div>
+        </div>
+      </section>
+  )
+}
+
 function Membership() {
+  const company = useIsCompanyMember()
   const { data, isLoading } = usePlans()
   const { data: free } = useCourses({ price: 'free', limit: 1 }, true, false)
   const personalPlans = useSubscriptionPlans()
@@ -412,6 +509,7 @@ function Membership() {
     { name: 'Teams', tagline: 'For groups building together.', price: teams?.price, unit: teams?.unit, note: teams?.note, features: MEMBERSHIP_FEATURES.teams, cta: 'Talk to us', to: '/plans', featured: false, badge: '' },
   ]
 
+  if (company) return null
   return (
     <section id="membership" className="relative scroll-mt-20 overflow-hidden text-white">
       <img src={FEATURED_PHOTOS[5]} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover opacity-40" />
@@ -961,7 +1059,9 @@ function FeaturedCourseCard({ course }: { course: CourseCardData }) {
 function FeaturedCourses() {
   const { data: cats } = useCategories()
   const [active, setActive] = useState('')
-  const { data, error, isLoading, refetch } = useCourses({ category: active || undefined, sort: 'popular', limit: 6 })
+  const company = useIsCompanyMember()
+  const [delivery, setDelivery] = useState<'' | 'recorded' | 'live' | 'both'>('')
+  const { data, error, isLoading, isPlaceholderData, refetch } = useCourses({ category: active || undefined, delivery: delivery || undefined, sort: 'popular', limit: 6 })
   const tabs = [{ slug: '', name: 'All' }, ...(cats ?? []).map((c) => ({ slug: c.slug, name: c.name }))]
   return (
     <section id="courses" className="relative scroll-mt-20 overflow-hidden border-y border-border">
@@ -991,9 +1091,11 @@ function FeaturedCourses() {
                 All courses <ArrowRight className="size-3.5 sm:size-4" />
               </Link>
             </Button>
-            <Button variant="secondary" asChild size="lg" className="h-10 rounded-full px-3 text-[13px] sm:h-12 sm:px-6 sm:text-[15px]">
-              <a href="#membership">See membership</a>
-            </Button>
+            {company ? null : (
+              <Button variant="secondary" asChild size="lg" className="h-10 rounded-full px-3 text-[13px] sm:h-12 sm:px-6 sm:text-[15px]">
+                <a href="#membership">See membership</a>
+              </Button>
+            )}
             <Menu>
               <MenuTrigger asChild>
                 <Button variant="secondary" className="h-10 w-[72px] justify-between gap-1 rounded-full px-2.5 text-[13px] md:hidden" title={tabs.find((t) => t.slug === active)?.name ?? 'All'}>
@@ -1011,6 +1113,7 @@ function FeaturedCourses() {
           </div>
         </div>
 
+        <DeliveryTabs className="mt-8 flex w-fit" value={delivery} onChange={setDelivery} />
         {/* Desktop keeps the full pill tablist; phones use the dropdown in the action row. */}
         <div
           className="mt-8 hidden max-w-full flex-nowrap items-center gap-1 overflow-x-auto rounded-full border border-border bg-white/85 p-1 shadow-sm backdrop-blur-sm [-ms-overflow-style:none] [scrollbar-width:none] md:inline-flex dark:bg-white/10 [&::-webkit-scrollbar]:hidden"
@@ -1039,7 +1142,7 @@ function FeaturedCourses() {
             <div className="col-span-full rounded-2xl border border-border bg-surface/80">
               <ErrorState message={error.message} onRetry={() => void refetch()} />
             </div>
-          ) : isLoading || !data ? (
+          ) : isLoading || isPlaceholderData || !data ? (
             Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-[380px] rounded-2xl" />)
           ) : data.items.length ? (
             data.items.map((c) => <FeaturedCourseCard key={c.id} course={c} />)
@@ -1053,6 +1156,7 @@ function FeaturedCourses() {
 }
 
 export function HomePage() {
+  const company = useIsCompanyMember()
   const fresh = useCourses({ sort: 'newest', limit: 3 })
   const { hash } = useLocation()
 
@@ -1078,7 +1182,7 @@ export function HomePage() {
     courses: (
       <FeaturedCourses />
     ),
-    sales: (
+    sales: company ? <CompanyBundlesSection /> : (
       <section id="sales" className="scroll-mt-20 bg-surface-2">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-16 lg:py-20">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">

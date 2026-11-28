@@ -167,6 +167,7 @@ def wishlist(request, currency: str | None = None):
 
 @router.post("/wishlist/{course_id}/toggle", response=WishlistToggleOut, auth=session_auth)
 def toggle_wishlist(request, course_id: str):
+    _personal_only(request.user)  # company accounts may only browse
     return {"in_wishlist": services.toggle_wishlist(user=request.user, course_id=course_id)}
 
 
@@ -265,6 +266,7 @@ def refund(request, item_id: str, body: RefundIn):
 
 @router.post("/plan/enroll", response=PlanEnrollOut, auth=session_auth)
 def plan_enroll(request, body: CourseRef):
+    _personal_only(request.user)  # company accounts may only browse
     course = get_object_or_404(Course, pk=body.course_id)
     e = services.enrol_with_plan(user=request.user, course=course)
     return {"enrollment_id": e.id}
@@ -362,3 +364,9 @@ def stripe_webhook(request):
     """No session, no CSRF: authenticity comes from Stripe's signature on the raw body."""
     status = webhooks.handle(request.body, request.headers.get("Stripe-Signature", ""))
     return {"received": True, "status": status}
+
+
+def _personal_only(user) -> None:
+    from .services import personal_only
+
+    personal_only(user)

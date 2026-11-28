@@ -230,6 +230,10 @@ def create_cohort(
         cohort.id,
         data={"course_id": str(course_id), "delivery_mode": delivery_mode},
     )
+    if cohort.scheduled_start:
+        from .live_booking import place_waiting
+
+        transaction.on_commit(lambda: place_waiting(course_id))
     return cohort
 
 
