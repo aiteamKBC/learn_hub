@@ -234,6 +234,7 @@ def _build_pending_order(*, user, priced: dict) -> Order:
             for cid, lst, price in lines
         ]
     )
+    pricing.snapshot_order_currency(order)
     return order
 
 
@@ -354,7 +355,7 @@ def fulfil_order(
             Promotion.objects.select_for_update().get(pk=order.promotion_id)
     if order.total_minor > 0:
         cur = order.currency
-        expected = gateway.to_stripe_amount(order.total_minor, cur.code, cur.exponent)
+        expected = pricing.order_stripe_amount(order, order.total_minor)
         if amount_minor != expected or currency.upper() != cur.code:
             raise ServiceError("amount_mismatch", "Paid amount does not match the order.")
         Payment.objects.create(
@@ -524,10 +525,9 @@ def request_refund(*, item: OrderItem, by, reason: str = "") -> Refund:
         item=item, user_id=item.user_id, amount_minor=item.gross_minor, reason=reason[:300], requested_by=by
     )
     if item.gross_minor > 0:
-        cur = order.currency
         refund.provider_ref = gateway.refund(
             payment_intent=order.stripe_payment_intent_id,
-            amount=gateway.to_stripe_amount(item.gross_minor, cur.code, cur.exponent),
+            amount=pricing.order_stripe_amount(order, item.gross_minor),
             idempotency_key=f"refund-{refund.id}",
         )
     refund.status = Refund.Status.SUCCEEDED

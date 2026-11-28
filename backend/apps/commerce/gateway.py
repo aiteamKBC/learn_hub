@@ -1,8 +1,9 @@
 """The ONLY module that talks to Stripe. Everything else calls these functions, so
 tests replace them and a payment provider change touches one file.
 
-Stripe counts some currencies differently from ISO 4217 (e.g. ISK and UGX are
-zero-decimal in Stripe, HUF and TWD are two-decimal): `to_stripe_amount` converts.
+Stripe represents ISK and UGX as two-decimal API amounts ending in 00.
+New B2C callers opt into UGX compatibility units; the default retains the old
+convention for historical transactions and unchanged B2B callers.
 """
 
 import stripe
@@ -17,13 +18,21 @@ STRIPE_ZERO_DECIMAL = {
 STRIPE_THREE_DECIMAL = {"BHD", "JOD", "KWD", "OMR", "TND"}
 
 
-def stripe_exponent(code: str) -> int:
+def stripe_exponent(code: str, *, ugx_compatibility: bool = False) -> int:
+    if code == "UGX" and ugx_compatibility:
+        return 2
     return 0 if code in STRIPE_ZERO_DECIMAL else 3 if code in STRIPE_THREE_DECIMAL else 2
 
 
-def to_stripe_amount(minor: int, code: str, iso_exponent: int) -> int:
-    diff = stripe_exponent(code) - iso_exponent
-    return minor * 10**diff if diff >= 0 else minor // 10 ** (-diff)
+def to_stripe_amount(minor: int, code: str, iso_exponent: int, *, ugx_compatibility: bool = False) -> int:
+    diff = stripe_exponent(code, ugx_compatibility=ugx_compatibility) - iso_exponent
+    amount = minor * 10**diff if diff >= 0 else minor // 10 ** (-diff)
+    # https://docs.stripe.com/currencies#special-cases: no fractional UGX.
+    if code == "UGX" and ugx_compatibility and (
+        amount % 100 or amount * 10**iso_exponent != minor * 100
+    ):
+        raise ServiceError("bad_amount", "UGX prices must be whole shillings.")
+    return amount
 
 
 def _client() -> stripe.StripeClient:

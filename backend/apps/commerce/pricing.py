@@ -36,21 +36,61 @@ BASE = "GBP"
 SYMBOLS = {"GBP": "£", "USD": "$", "EUR": "€"}
 
 
+def checkout_currency(currency_code: str) -> Currency:
+    """Validate the requested B2C currency BEFORE any missing-price GBP fallback."""
+    currency = Currency.objects.filter(
+        code=currency_code, is_active=True, stripe_supported=True
+    ).first()
+    if currency is None:
+        raise ServiceError("bad_currency", f"Payments in {currency_code} are not available.")
+    return currency
+
+
 def checkout_amount(amount_minor: int, currency_code: str, *, currency: Currency | None = None) -> int:
     """Validate B2C currency availability and convert without silently losing money."""
     from . import gateway
 
     # Course baskets already loaded and validated this row; avoid one query per line.
     if currency is None:
-        currency = Currency.objects.filter(
-            code=currency_code, is_active=True, stripe_supported=True
-        ).first()
-    if currency is None:
-        raise ServiceError("bad_currency", f"Payments in {currency_code} are not available.")
-    amount = gateway.to_stripe_amount(amount_minor, currency.code, currency.exponent)
-    if amount * 10**currency.exponent != amount_minor * 10**gateway.stripe_exponent(currency.code):
+        currency = checkout_currency(currency_code)
+    amount = gateway.to_stripe_amount(amount_minor, currency.code, currency.exponent, ugx_compatibility=True)
+    if amount * 10**currency.exponent != amount_minor * 10**gateway.stripe_exponent(
+        currency.code, ugx_compatibility=True
+    ):
         raise ServiceError("bad_amount", "This price cannot be charged exactly in this currency.")
     return amount
+
+
+def snapshot_order_currency(order) -> None:
+    """Version only new UGX orders, in the existing immutable audit store."""
+    if order.currency_id != "UGX" or order.org_id is not None:
+        return
+    from apps.platform.services import audit
+
+    audit(
+        "payment.currency_snapshot", "order", str(order.id), actor_id=order.user_id,
+        data={"ugx_compatibility": True, "iso_exponent": order.currency.exponent},
+    )
+
+
+def order_stripe_amount(order, amount_minor: int) -> int:
+    """Verification/refunds use the purchase convention, never today's availability."""
+    from . import gateway
+
+    currency = order.currency
+    if currency.code == "UGX" and order.org_id is None:
+        from apps.platform.models import AuditLog
+        from core.tenancy import tenant_context
+
+        with tenant_context(staff=True):
+            snapshot = AuditLog.objects.filter(
+                action="payment.currency_snapshot", target_type="order", target_id=str(order.id)
+            ).values_list("data", flat=True).first()
+        if snapshot and snapshot.get("ugx_compatibility") is True:
+            return gateway.to_stripe_amount(
+                amount_minor, "UGX", snapshot["iso_exponent"], ugx_compatibility=True
+            )
+    return gateway.to_stripe_amount(amount_minor, currency.code, currency.exponent)
 
 
 def format_money(minor: int, code: str = BASE, exponent: int = 2) -> str:

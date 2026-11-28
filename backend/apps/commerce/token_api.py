@@ -160,6 +160,9 @@ class PackCheckoutIn(Schema):
 def pack_checkout(request, pack_id: UUID, body: PackCheckoutIn):
     pack = get_object_or_404(TokenPack, pk=pack_id, is_active=True)
     cur = request_currency(request)
+    from .pricing import checkout_currency
+
+    checkout_currency(cur["code"])
     tier = pack.price_tier
     amount_row = PriceTierAmount.objects.filter(tier=tier, currency_id=cur["code"]).first()
     amount = amount_row.amount_minor if amount_row else tier.gbp_minor
@@ -499,6 +502,10 @@ def subscription_quote(request, plan_id: UUID, promo_code: str = "", currency: s
 @router.post("/subscriptions/checkout", response=CheckoutUrlOut)
 def subscription_checkout(request, body: SubCheckoutIn):
     from . import subscriptions
+    from .pricing import checkout_currency
+
+    if body.currency is not None:
+        checkout_currency(body.currency.upper())
 
     cur = request_currency(request, body.currency)
     result = subscriptions.create_subscription_checkout(

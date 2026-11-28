@@ -143,6 +143,9 @@ def create_package_checkout(
     cancel_url: str,
     customer_email: str | None = None,
 ) -> dict:
+    from .pricing import checkout_currency
+
+    checkout_currency(currency_code)
     pkg = CashPackage.objects.select_related("price_tier").filter(pk=package_id, is_active=True).first()
     if pkg is None:
         from core.errors import ServiceError

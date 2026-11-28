@@ -31,6 +31,10 @@ def quote_subscription(*, user, plan_id: UUID, currency_code: str, promo_code: s
     """Read-only first-invoice quote; checkout rechecks and reserves the offer."""
     from core.errors import ServiceError
 
+    from .pricing import checkout_currency
+
+    checkout_currency(currency_code)
+
     pending = (
         Subscription.objects.filter(
             user=user,
@@ -170,6 +174,10 @@ def create_subscription_checkout(
     promo_code: str = "",
 ) -> dict:
     from core.errors import ServiceError
+
+    from .pricing import checkout_currency
+
+    checkout_currency(currency_code)
 
     now = timezone.now()
     # A lock on Subscription rows alone does not serialize two first checkouts: there

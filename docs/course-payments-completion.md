@@ -63,3 +63,23 @@ Manual localhost acceptance on the already-running environment:
    historical token access and personal subscription eligibility/expiry; new token
    unlocks remain refused when K02 is disabled. Check company invoice/transfer
    flows remain unchanged.
+
+## Scoped currency follow-up
+
+Requested B2C checkout currencies are now validated before GBP price fallback.
+Supported currencies with no configured product price still fall back to GBP.
+The explicit subscription request is checked before the display-currency resolver
+can substitute another currency; direct package/subscription service calls and
+resolved token-pack currencies are checked before looking up fallback prices.
+
+For new B2C UGX amounts, [Stripe's special-case rule](https://docs.stripe.com/currencies#special-cases)
+requires two-decimal API units ending in 00: 5 UGX is sent as 500. Fractional
+shillings are rejected. New UGX orders record their conversion convention and
+stored exponent in the existing audit store. Payment verification and partial
+refunds use that convention; historical orders without the marker and B2B retain
+the previous conversion path. No historical rows are rewritten, and already-paid
+webhook replays still return without re-verification. K02/F02 rules are untouched.
+
+Validation: database-free regression tests, targeted Ruff and diff checks only.
+The runner disables dotenv loading, uses a dummy database and local-memory cache.
+No database, provider, browser or environment setup operations were performed.
