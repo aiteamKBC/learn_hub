@@ -1,6 +1,6 @@
 import { Award, BadgeCheck, Briefcase, CalendarClock, HeartHandshake, Save, UserRound } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

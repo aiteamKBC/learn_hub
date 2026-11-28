@@ -101,7 +101,7 @@ export function CartPage() {
                             size="sm"
                             loading={wish.isPending && wish.variables === l.course.id}
                             onClick={() => wish.mutate(l.course.id, {
-                              onSuccess: () => remove.mutate(l.course.id, { onSuccess: () => toast.success('Moved to your wishlist'), onError: (e) => toast.error(e.message) }),
+                              onSuccess: () => remove.mutate(l.course.id, { onError: (e) => toast.error(e.message) }),
                               onError: (e) => toast.error(e.message),
                             })}
                           >

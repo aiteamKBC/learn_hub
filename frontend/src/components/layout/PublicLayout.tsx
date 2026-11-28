@@ -1,5 +1,5 @@
-import { Mail, Menu as MenuIcon, Moon, Search, ShoppingCart, Sun } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { Mail, Menu as MenuIcon, Search } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 
 import { AuthTabs } from '@/components/home/GetStarted'
@@ -7,60 +7,68 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/components/ui/menu'
 import { Logo } from '@/components/ui/logo'
-import { ThemeToggle } from '@/components/ui/theme-toggle'
-import { useTheme } from '@/lib/theme'
-import { useCartCount } from '@/features/commerce/api'
 import { useMe } from '@/features/identity/auth'
 import { cn } from '@/lib/cn'
-import { useOn } from '@/lib/motion'
 import { scrollToAnchor, smoothScrollTo } from '@/lib/smooth-scroll'
 
+import { AuthenticatedHeaderMenu } from './AuthenticatedHeaderMenu'
 import { BottomNav } from './BottomNav'
-import { CurrencyMenu } from './CurrencyMenu'
-import { NotificationBell } from './NotificationBell'
 import { SearchBox } from './SearchBox'
-import { UserMenu } from './UserMenu'
 import { Link, NavLink, useNavigate } from '@/lib/router'
 
 const YEAR = new Date().getFullYear()
 
-/** The cart icon shows how many courses are in it, and bounces when one is added. */
-function CartButton() {
-  const [n, setN] = useState(0)
-  useOn('cart:added', useCallback(() => setN((x) => x + 1), []))
-  const { data } = useCartCount()
-  const count = data?.count ?? 0
-  return (
-    <Button variant="ghost" size="icon" asChild aria-label={count ? `Cart, ${count} ${count === 1 ? 'course' : 'courses'}` : 'Cart'} className="relative">
-      <Link to="/cart">
-        <ShoppingCart key={n} className={n ? 'animate-bounce-once' : undefined} />
-        {count ? (
-          <span key={`c${count}`} className="absolute top-1 right-0.5 flex h-[18px] min-w-[18px] animate-pop items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-on-primary ring-2 ring-surface tabular">
-            {count}
-          </span>
-        ) : null}
-      </Link>
-    </Button>
-  )
-}
-
 /** Marketplace pages: top navigation, footer; phones get the learner bottom bar. */
 export function PublicLayout() {
   const { data: me, isLoading } = useMe()
-  const { data: cart } = useCartCount()
-  const cartCount = cart?.count ?? 0
-  const { dark, setChoice } = useTheme()
   const [searchOpen, setSearchOpen] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const isHome = pathname === '/'
+  const hasLearnerSidebar = pathname === '/learn'
+    || pathname.startsWith('/learn/')
+    || pathname === '/notifications'
+    || pathname === '/wishlist'
+    || pathname.startsWith('/account')
+    || pathname.startsWith('/wallet')
+    || pathname === '/subscription'
+    || pathname === '/packages'
+    || pathname === '/checkout/review'
+    || pathname.startsWith('/teach')
+    || pathname.startsWith('/support')
   // "My learning" is a learner feature: show it only for a plain learner — not platform
   // staff, not an instructor, and not someone who manages a company workspace.
   const isLearner = !!me && !me.is_staff && !me.is_instructor && !(me.memberships ?? []).some((m) => ['owner', 'admin', 'manager'].includes(m.role))
   // Close the auth dialog whenever the route changes (e.g. after a successful log in).
   useEffect(() => setAuthOpen(false), [pathname])
   const [scrolled, setScrolled] = useState(false)
+  // Scroll-spy: underline the nav link for the home section currently in view, so the
+  // active section updates on its own as you scroll (not only when you click).
+  const [activeSection, setActiveSection] = useState<string | null>(null)
+  useEffect(() => {
+    if (!isHome) {
+      setActiveSection(null)
+      return
+    }
+    const ids = ['courses', 'sales', 'instructors']
+    const els = ids.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el)
+    if (!els.length) return
+    const visible = new Set<string>()
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) visible.add(e.target.id)
+          else visible.delete(e.target.id)
+        }
+        setActiveSection(ids.find((id) => visible.has(id)) ?? null)
+      },
+      // a thin band around the upper-middle of the viewport decides the "current" section
+      { rootMargin: '-40% 0px -55% 0px', threshold: 0 },
+    )
+    els.forEach((el) => io.observe(el))
+    return () => io.disconnect()
+  }, [isHome])
   useEffect(() => {
     if (!isHome) return
     const onScroll = () => setScrolled(window.scrollY > 24)
@@ -86,10 +94,15 @@ export function PublicLayout() {
     e.preventDefault()
     goSection(id)
   }
+  // The section you are in gets orange text and an orange underline; hover gives a faint one.
   const link = ({ isActive }: { isActive: boolean }) =>
     cn(
-      'rounded-md px-3 py-2 text-sm font-medium transition-colors',
-      overlay ? (isActive ? 'text-white' : 'text-white/80 hover:text-white') : isActive ? 'text-primary' : 'text-muted hover:text-text',
+      'border-b-2 px-2 py-1.5 text-sm font-medium transition-colors',
+      isActive
+        ? 'border-primary text-primary'
+        : overlay
+          ? 'border-transparent text-white/80 hover:border-white/40 hover:text-white'
+          : 'border-transparent text-muted hover:border-border hover:text-text',
     )
 
   return (
@@ -97,13 +110,13 @@ export function PublicLayout() {
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2">
         Skip to content
       </a>
-      <header className={cn('vt-header sticky top-0 z-40 transition-colors duration-300', overlay ? 'border-b border-transparent bg-transparent text-white' : 'border-b border-border/60 bg-surface/60 text-text backdrop-blur-xl')}>
+      <header className={cn('vt-header sticky top-0 z-40 transition-[colors,margin] duration-300', hasLearnerSidebar && 'lg:ml-[272px]', overlay ? 'border-b border-transparent bg-transparent text-white' : 'border-b border-border/60 bg-surface/60 text-text backdrop-blur-xl')}>
         <div className={cn('flex h-16 w-full items-center gap-3 px-4 sm:px-6 lg:px-10', overlay && '[&_button]:text-white [&_button:hover]:text-white')}>
           <div className="flex min-w-0 flex-1 items-center">
           <Link
             to="/"
             aria-label="LearnHub home, back to top"
-            className="shrink-0"
+            className={cn('shrink-0', hasLearnerSidebar && 'lg:hidden')}
             onClick={(e) => {
               e.preventDefault()
               if (isHome) {
@@ -116,23 +129,20 @@ export function PublicLayout() {
           >
             <Logo />
           </Link>
-          <nav className="ml-4 hidden items-center lg:flex" aria-label="Primary">
-            <a href="/#courses" onClick={scrollToId('courses')} className={link({ isActive: false })}>Courses</a>
-            <NavLink to="/plans" className={link}>Plans</NavLink>
-            <a href="/#sales" onClick={scrollToId('sales')} className={link({ isActive: false })}>Offers</a>
-            <a href="/#instructors" onClick={scrollToId('instructors')} className={link({ isActive: false })}>Instructors</a>
-            {isLearner ? <NavLink to="/learn" className={link}>My learning</NavLink> : null}
-          </nav>
+          {hasLearnerSidebar ? null : (
+            <nav className="ml-4 hidden items-center gap-1 xl:flex" aria-label="Primary">
+              <a href="/#courses" onClick={scrollToId('courses')} className={link({ isActive: activeSection === 'courses' })}>Courses</a>
+              <NavLink to="/plans" className={link}>Plans</NavLink>
+              <a href="/#sales" onClick={scrollToId('sales')} className={link({ isActive: activeSection === 'sales' })}>Offers</a>
+              <a href="/#instructors" onClick={scrollToId('instructors')} className={link({ isActive: activeSection === 'instructors' })}>Instructors</a>
+              {isLearner ? <NavLink to="/learn" className={link}>My learning</NavLink> : null}
+            </nav>
+          )}
           </div>
           <SearchBox className="hidden max-w-md flex-1 lg:block" overlay={overlay} />
           <div className="flex flex-1 items-center justify-end gap-1">
-            {/* Standalone controls: desktop only. On mobile they live inside the menu below. */}
-            {me ? <span className="hidden lg:inline-flex"><CurrencyMenu /></span> : null}
-            <ThemeToggle className="hidden lg:inline-flex" />
-            {me ? <span className="hidden lg:inline-flex"><CartButton /></span> : null}
-            {me ? <NotificationBell /> : null}
             {isLoading ? null : me ? (
-              <UserMenu />
+              <AuthenticatedHeaderMenu onDark={overlay} marketplaceLinks onSearch={() => setSearchOpen(true)} />
             ) : (
               <Dialog open={authOpen} onOpenChange={setAuthOpen}>
                 <DialogTrigger asChild>
@@ -140,14 +150,14 @@ export function PublicLayout() {
                     Log in
                   </Button>
                 </DialogTrigger>
-                <DialogContent title="Welcome to LearnHub" description="Log in or create an account to get started." className="max-w-[460px]">
+                <DialogContent title="Welcome to LearnHub" description="Log in or create an account to get started." hideHeader className="max-w-[600px] overflow-hidden rounded-[24px] border-white/70 bg-[#fffdfa] p-0 shadow-2xl">
                   <AuthTabs />
                 </DialogContent>
               </Dialog>
             )}
-            {/* Mobile/tablet: everything (nav links + search, theme, cart) collapses into this
-                menu, which sits to the right of the Log in button. */}
-            <Menu>
+            {/* Visitors still need the small-screen navigation. Signed-in account controls
+                and these links are merged into the single three-line menu above. */}
+            {!me ? <Menu>
               <MenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Menu">
                   <MenuIcon />
@@ -163,28 +173,19 @@ export function PublicLayout() {
                 <MenuItem onSelect={() => setSearchOpen(true)}>
                   <Search /> Search
                 </MenuItem>
-                {me ? (
-                  <MenuItem onSelect={() => navigate('/cart')}>
-                    <ShoppingCart /> Cart
-                    {cartCount ? <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-on-primary tabular">{cartCount}</span> : null}
-                  </MenuItem>
-                ) : null}
-                <MenuItem onSelect={() => setChoice(dark ? 'light' : 'dark')}>
-                  {dark ? <Sun /> : <Moon />} {dark ? 'Light theme' : 'Dark theme'}
-                </MenuItem>
               </MenuContent>
-            </Menu>
+            </Menu> : null}
           </div>
         </div>
         {searchOpen ? <SearchBox className="border-t border-border px-4 py-3 lg:hidden" autoFocus overlay={overlay} /> : null}
       </header>
 
-      <main id="main" className={cn('flex-1', me && 'pb-14 md:pb-0')}>
+      <main id="main" className={cn('flex-1', me && 'pb-14 lg:pb-0')}>
         <Outlet />
       </main>
 
       {isHome ? (
-      <footer className={cn('bg-[#1f262e] text-white', me && 'pb-14 md:pb-0')}>
+      <footer className={cn('bg-[#1f262e] text-white', me && 'pb-14 lg:pb-0')}>
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.6fr_1fr_1fr_1fr]">
           <div>
             <Logo />

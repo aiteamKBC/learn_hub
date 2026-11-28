@@ -27,7 +27,7 @@ from apps.commerce.models import Coupon, CoursePrice, PriceTier
 from apps.identity.models import InstructorProfile
 from apps.identity.schemas import OkOut
 from apps.learning import services as learning
-from apps.learning.models import Enrollment, QuizAttempt, Submission, SubmissionFile
+from apps.learning.models import Certificate, Enrollment, QuizAttempt, Submission, SubmissionFile
 from apps.payouts import selectors as revenue
 from apps.payouts import services as payouts
 from apps.payouts.models import Earning, Payout, PayoutAccount
@@ -52,6 +52,7 @@ from .models import (
     Section,
 )
 from .studio_schemas import (
+    StudioCertificatesOut,
     StudioCouponCreateOut,
     StudioCouponOut,
     StudioCourseCreateOut,
@@ -63,6 +64,7 @@ from .studio_schemas import (
     StudioGradeOut,
     StudioGradingQueueOut,
     StudioLectureCreateOut,
+    StudioLiveSessionOut,
     StudioMediaStatusOut,
     StudioPayoutAccountOut,
     StudioPayoutAccountSetOut,
@@ -1031,6 +1033,71 @@ def dashboard(request):
     return {"courses": agg["courses"], "published": agg["live"], "students": agg["students"] or 0,
             "rating_avg": round(float(agg["weighted"] or 0) / ratings, 2) if ratings else 0.0, "rating_count": ratings,
             "earned_this_month_gbp_minor": month["t"] or 0, "to_mark": to_mark, "unanswered": unanswered}  # fmt: skip
+
+
+# ---------------------------------------------------------------- live sessions
+@router.get("/live-sessions", response=list[StudioLiveSessionOut])
+def live_sessions(request):
+    """Every scheduled live session across the instructor's published courses, soonest first."""
+    ids = _my_course_ids(request)
+    now = timezone.now()
+    with _instructor_view(request):
+        rows = list(
+            Lecture.objects.filter(
+                kind=Lecture.Kind.LIVE_SESSION,
+                live_starts_at__isnull=False,
+                version__course_id__in=ids,
+                version__course__live_version_id=F("version_id"),
+                version__course__deleted_at__isnull=True,
+            )
+            .select_related("version__course")
+            .order_by("live_starts_at")
+        )
+    return [
+        {
+            "course_id": lec.version.course_id,
+            "course_slug": lec.version.course.slug,
+            "course_title": lec.version.course.title,
+            "lecture_key": lec.lecture_key,
+            "title": lec.title,
+            "starts_at": lec.live_starts_at,
+            "duration_min": lec.live_duration_min,
+            "provider": lec.live_provider,
+            "join_url": lec.live_join_url,
+            "is_upcoming": lec.live_starts_at >= now,
+        }
+        for lec in rows
+    ]
+
+
+# ---------------------------------------------------------------- certificates
+@router.get("/certificates", response=StudioCertificatesOut)
+def certificates(request):
+    """Certificates learners have earned on the instructor's courses."""
+    ids = _my_course_ids(request)
+    month_start = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    with _instructor_view(request):
+        qs = Certificate.objects.filter(course_id__in=ids)
+        total = qs.count()
+        this_month = qs.filter(issued_at__gte=month_start).count()
+        recent = list(qs.order_by("-issued_at")[:50])
+    return {
+        "total": total,
+        "this_month": this_month,
+        "recent": [
+            {
+                "id": c.id,
+                "course_id": c.course_id,
+                "course_title": c.course_title,
+                "recipient_name": c.recipient_name,
+                "verification_code": c.verification_code,
+                "cpd_hours": float(c.cpd_hours) if c.cpd_hours is not None else None,
+                "issued_at": c.issued_at,
+                "revoked": c.revoked_at is not None,
+            }
+            for c in recent
+        ],
+    }
 
 
 # ---------------------------------------------------------------- revenue & payouts

@@ -42,7 +42,7 @@ function status(pct: number | null) {
 }
 
 function colour(pct: number | null) {
-  return pct == null ? 'var(--border-strong)' : pct >= 90 ? 'var(--chart-2)' : pct >= 60 ? 'var(--chart-3)' : 'var(--chart-4)'
+  return pct == null ? 'var(--border-strong)' : pct >= 90 ? 'var(--chart-5)' : pct >= 60 ? 'var(--chart-1)' : 'var(--chart-3)'
 }
 
 type Row = { kpi: Kpi; actual: number | null; pct: number | null; owner: string; improving: boolean | null }

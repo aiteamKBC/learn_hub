@@ -1,35 +1,24 @@
-/**
- * Tiny shared flag for the home hero's intro video. The header's "Skip" button lives in
- * a different component tree from the hero, so they coordinate through this module store
- * rather than prop-drilling. `skipped` means the intro should not (or no longer) play.
- */
-import { useSyncExternalStore } from 'react'
+const STORAGE_PREFIX = 'evidrise:home-intro:v2:'
 
-let skipped = false
-const listeners = new Set<() => void>()
-const emit = () => listeners.forEach((l) => l())
-
-/** Hide the intro video and reveal the hero. Safe to call repeatedly. */
-export function skipHeroIntro() {
-  if (skipped) return
-  skipped = true
-  emit()
+function storageKey(viewerId?: string | null) {
+  return `${STORAGE_PREFIX}${viewerId || 'guest'}`
 }
 
-/** Let the intro play again (called when the hero mounts fresh). */
-export function resetHeroIntro() {
-  if (!skipped) return
-  skipped = false
-  emit()
+/** The intro is remembered per signed-in account, or once for this browser's guest. */
+export function hasSeenHeroIntro(viewerId?: string | null) {
+  if (typeof window === 'undefined') return true
+  try {
+    return window.localStorage.getItem(storageKey(viewerId)) === 'seen'
+  } catch {
+    return false
+  }
 }
 
-export function useHeroIntroSkipped() {
-  return useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb)
-      return () => listeners.delete(cb)
-    },
-    () => skipped,
-    () => skipped,
-  )
+export function markHeroIntroSeen(viewerId?: string | null) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(storageKey(viewerId), 'seen')
+  } catch {
+    // Storage can be unavailable in strict/private browser modes; the intro still closes.
+  }
 }

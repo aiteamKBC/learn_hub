@@ -1,7 +1,7 @@
 import { ArrowLeft, Check, FilePlus2, Plus, Save, Users, X } from 'lucide-react'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { ApiError } from '@/api/client'
 
 import { Badge } from '@/components/ui/badge'

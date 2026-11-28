@@ -1,10 +1,9 @@
-import { ArrowLeft, Award, BarChart3, Check, ChevronDown, Clock, Coins, Crown, FileText, Globe, HelpCircle, Infinity as InfinityIcon, ListChecks, PlayCircle, Radio, RefreshCw, ShoppingCart, Smartphone, Users, type LucideIcon } from 'lucide-react'
+import { Award, BarChart3, BookOpen, Check, ChevronRight, CircleHelp, Clock, Coins, FileText, Folder, Globe, GraduationCap, HelpCircle, Home, Languages, Laptop, Layers3, ListChecks, Medal, PlayCircle, Radio, ShieldCheck, ShoppingCart, Target, Users, Zap, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import { toast } from '@/lib/toast'
 
 import { Backdrop } from '@/components/art/backdrops'
-import { DashboardBackdrop } from '@/components/art/dashboard-backdrop'
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,7 +13,7 @@ import { CourseThumb } from '@/components/ui/course-thumb'
 import { ErrorState, Rating } from '@/components/ui/misc'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useCategories, useCourse, usePreview, useRelatedCourses, useReviews } from '@/features/catalog/api'
+import { useCategories, useCourse, useCourses, usePreview, useRelatedCourses } from '@/features/catalog/api'
 import { CourseCard, CourseCardSkeleton } from '@/features/catalog/CourseCard'
 import { useAddToCart, useCheckout, useCourseInstalmentOffer, usePlanEnroll, useStartCourseInstalments } from '@/features/commerce/api'
 import { WishlistHeart } from '@/features/commerce/WishlistHeart'
@@ -22,11 +21,10 @@ import { useAccess } from '@/features/b2c/api'
 import { UnlockButton } from '@/features/b2c/UnlockButton'
 import { Price } from '@/features/catalog/CourseCard'
 import { TeamBuy } from '@/features/corporate/TeamBuy'
-import { ReportButton } from '@/features/engagement/ReportButton'
 import { useMe } from '@/features/identity/auth'
 import { cn } from '@/lib/cn'
 import { useCurrency } from '@/lib/currency'
-import { count, duration, money, relativeDate, shortDate } from '@/lib/format'
+import { count, duration, money, shortDate } from '@/lib/format'
 import { Link, useNavigate } from '@/lib/router'
 import { authAlert } from '@/lib/auth-alert'
 
@@ -44,53 +42,55 @@ type Detail = NonNullable<ReturnType<typeof useCourse>['data']>
 
 function Curriculum({ sections, onPreview }: { sections: Detail['sections']; onPreview: (l: { key: string; title: string }) => void }) {
   const [open, setOpen] = useState<Set<string>>(() => new Set(sections.slice(0, 1).map((s) => s.id)))
-  const lectures = sections.reduce((n, s) => n + s.lectures.length, 0)
-  const total = sections.reduce((n, s) => n + s.lectures.reduce((m, l) => m + l.duration_sec, 0), 0)
-  const allOpen = open.size === sections.length
+  const activities = sections.flatMap((section) => section.lectures)
+  const lessons = activities.filter((activity) => activity.kind !== 'quiz' && activity.kind !== 'assignment').length
+  const quizzes = activities.filter((activity) => activity.kind === 'quiz').length
+  const assignments = activities.filter((activity) => activity.kind === 'assignment').length
   return (
-    <section aria-labelledby="curriculum" className="scroll-mt-24">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 id="curriculum" className="text-xl font-semibold tracking-tight">Course content</h2>
-          <p className="mt-1 text-sm text-muted">
-            {sections.length} sections · {lectures} lectures · {duration(total)} total
-          </p>
-        </div>
-        <Button variant="link" onClick={() => setOpen(allOpen ? new Set() : new Set(sections.map((s) => s.id)))}>
-          {allOpen ? 'Collapse all' : 'Expand all'}
-        </Button>
+    <section aria-labelledby="curriculum" className="scroll-mt-24 rounded-2xl border border-border bg-surface p-5 shadow-sm sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="curriculum" className="text-2xl font-bold tracking-tight">Course curriculum</h2>
+        <p className="text-sm text-muted">
+          {sections.length} modules <span aria-hidden>•</span> {lessons} lessons <span aria-hidden>•</span> {quizzes} quizzes <span aria-hidden>•</span> {assignments} assignments
+        </p>
       </div>
-      <div className="mt-4 overflow-hidden rounded-lg border border-border bg-surface">
+      <div className="mt-5 overflow-hidden rounded-xl border border-border">
         {sections.map((s, i) => {
           const isOpen = open.has(s.id)
           const secs = s.lectures.reduce((m, l) => m + l.duration_sec, 0)
+          const sectionLessons = s.lectures.filter((lecture) => lecture.kind !== 'quiz' && lecture.kind !== 'assignment').length
+          const sectionQuizzes = s.lectures.filter((lecture) => lecture.kind === 'quiz').length
+          const sectionAssignments = s.lectures.filter((lecture) => lecture.kind === 'assignment').length
+          const isAssessment = i === sections.length - 1 && (sectionQuizzes > 0 || sectionAssignments > 0)
+          const summary = [sectionLessons ? `${sectionLessons} lesson${sectionLessons === 1 ? '' : 's'}` : '', sectionQuizzes ? `${sectionQuizzes} quiz${sectionQuizzes === 1 ? '' : 'zes'}` : '', sectionAssignments ? `${sectionAssignments} assignment${sectionAssignments === 1 ? '' : 's'}` : ''].filter(Boolean).join(' • ')
+          const panelId = `module-${s.id}`
           return (
-            <div key={s.id} className={cn(i > 0 && 'border-t border-border')}>
+            <div key={s.id} className={cn('overflow-hidden bg-surface', i > 0 && 'border-t border-border')}>
               <button
                 type="button"
                 aria-expanded={isOpen}
+                aria-controls={panelId}
                 onClick={() => setOpen((prev) => {
                   const next = new Set(prev)
                   if (next.has(s.id)) next.delete(s.id)
                   else next.add(s.id)
                   return next
                 })}
-                className="flex w-full items-center gap-3 bg-surface-2/50 px-4 py-3.5 text-left transition-colors hover:bg-surface-2"
+                className={cn('flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors sm:px-5 sm:py-4 hover:bg-primary-soft/35 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary', i === 0 && 'bg-primary-soft/55', isAssessment && 'bg-[#f6f1ff] dark:bg-[#211936]')}
               >
-                <ChevronDown className={cn('size-4 shrink-0 text-muted transition-transform', isOpen && 'rotate-180')} />
-                <span className="flex-1 text-[15px] font-medium">{s.title}</span>
-                <span className="text-xs whitespace-nowrap text-muted">
-                  {s.lectures.length} {s.lectures.length === 1 ? 'lecture' : 'lectures'}
-                  {secs ? ` · ${duration(secs)}` : ''}
-                </span>
+                <ChevronRight className={cn('size-4 shrink-0 text-text transition-transform', isOpen && 'rotate-90')} />
+                {isAssessment ? <GraduationCap className="size-6 shrink-0 text-[#7c3aed]" /> : <Folder className="size-6 shrink-0 text-primary" strokeWidth={1.8} />}
+                <span className="min-w-0 flex-1 text-base font-semibold sm:text-[17px]">Module {i + 1}: {s.title}</span>
+                {summary ? <Badge tone={isAssessment ? 'info' : 'primary'} className="hidden px-3 py-1 sm:inline-flex">{summary}</Badge> : null}
+                {secs ? <span className="inline-flex items-center gap-1.5 text-xs whitespace-nowrap text-muted"><Clock className="size-4" /> {duration(secs)}</span> : null}
               </button>
               {isOpen ? (
-                <ul className="divide-y divide-border">
+                <ul id={panelId} className="divide-y divide-border">
                   {s.lectures.map((l) => {
                     const Icon = kindIcon[l.kind] ?? FileText
                     return (
-                      <li key={l.key} className="flex items-center gap-3 px-4 py-3 pl-11 text-sm">
-                        <Icon className="size-4 shrink-0 text-subtle" />
+                      <li key={l.key} className="flex items-center gap-3 px-4 py-3 pl-12 text-[15px] sm:px-5 sm:py-3.5 sm:pl-[4.5rem]">
+                        <Icon className="size-[18px] shrink-0 text-muted" />
                         {l.is_preview && l.kind === 'video' ? (
                           <button type="button" onClick={() => onPreview({ key: l.key, title: l.title })} className="flex-1 text-left font-medium text-primary hover:underline">
                             {l.title}
@@ -104,7 +104,10 @@ function Curriculum({ sections, onPreview }: { sections: Detail['sections']; onP
                             <Coins /> {count(l.token_price)}
                           </Badge>
                         ) : null}
-                        {l.duration_sec ? <span className="w-12 text-right text-xs text-muted tabular">{duration(l.duration_sec)}</span> : <span className="w-12" />}
+                        <span className="text-right text-sm whitespace-nowrap text-muted">
+                          <span className="hidden capitalize sm:inline">{l.kind === 'video' ? 'Video' : l.kind === 'article' ? 'Reading' : l.kind.replace('_', ' ')} · </span>
+                          {l.duration_sec ? duration(l.duration_sec) : '—'}
+                        </span>
                       </li>
                     )
                   })}
@@ -118,81 +121,28 @@ function Curriculum({ sections, onPreview }: { sections: Detail['sections']; onP
   )
 }
 
-function ReviewList({ courseId }: { courseId: string }) {
-  const { data, hasNextPage, fetchNextPage, isFetchingNextPage, isLoading } = useReviews(courseId)
-  const items = data?.pages.flatMap((p) => p.items) ?? []
-  if (isLoading) return <Skeleton className="mt-4 h-32 rounded-lg" />
-  if (!items.length) return null
-  return (
-    <>
-      <ul className="stagger mt-4 grid gap-3 sm:grid-cols-2">
-        {items.map((r) => (
-          <li key={r.id} className="rounded-lg border border-border bg-surface p-4">
-            <div className="flex items-center gap-3">
-              <Avatar name={r.author.name || 'Learner'} size="sm" />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{r.author.name || 'LearnHub learner'}</p>
-                <p className="text-xs text-muted">{relativeDate(r.created_at)}</p>
-              </div>
-              <span className="ml-auto">
-                <Rating value={r.rating} />
-              </span>
-            </div>
-            {r.body ? <p className="mt-3 text-sm leading-relaxed text-muted">{r.body}</p> : null}
-            {r.instructor_reply ? (
-              <div className="mt-3 rounded-md border-l-2 border-primary bg-primary-soft/50 px-3 py-2 text-sm">
-                <p className="text-xs font-medium text-primary-soft-text">Instructor reply</p>
-                <p className="mt-1 text-muted">{r.instructor_reply}</p>
-              </div>
-            ) : null}
-            <div className="mt-2 flex justify-end">
-              <ReportButton kind="review" id={r.id} authorId={r.author.id} />
-            </div>
-          </li>
-        ))}
-      </ul>
-      {hasNextPage ? (
-        <Button variant="secondary" className="mt-4" loading={isFetchingNextPage} onClick={() => void fetchNextPage()}>
-          Show more reviews
-        </Button>
-      ) : null}
-    </>
-  )
-}
-
 function Reviews({ course }: { course: Detail }) {
   const total = Object.values(course.rating_breakdown).reduce((a, b) => a + b, 0)
   return (
-    <section aria-labelledby="reviews" className="scroll-mt-24">
-      <h2 id="reviews" className="text-xl font-semibold tracking-tight">Learner feedback</h2>
+    <section aria-labelledby="reviews" className="scroll-mt-36 rounded-2xl border border-border bg-surface p-5 shadow-sm">
+      <div className="flex items-center gap-3"><span className="flex size-9 items-center justify-center rounded-full bg-primary-soft text-primary"><Award className="size-5" /></span><h2 id="reviews" className="text-lg font-bold tracking-tight">Learner reviews</h2></div>
       {!course.rating_count ? (
-        <p className="mt-3 rounded-lg border border-dashed border-border bg-surface p-5 text-sm text-muted">No ratings yet. Learners can rate the course once they have started it.</p>
+        <p className="mt-4 text-sm text-muted">No ratings yet. Learners can rate the course once they have started it.</p>
       ) : (
-        <>
-          <div className="mt-4 flex flex-wrap items-center gap-8 rounded-lg border border-border bg-surface p-5">
-            <div className="text-center">
-              <p className="text-5xl font-bold tracking-tight text-warning tabular">{course.rating_avg.toFixed(1)}</p>
-              <div className="mt-2">
-                <Rating value={course.rating_avg} />
-              </div>
-              <p className="mt-1 text-xs text-muted">{course.rating_count} {course.rating_count === 1 ? 'rating' : 'ratings'}</p>
-            </div>
-            <div className="grid min-w-56 flex-1 gap-2">
-              {[5, 4, 3, 2, 1].map((star) => {
-                const n = course.rating_breakdown[String(star)] ?? 0
-                const p = total ? (n / total) * 100 : 0
-                return (
-                  <div key={star} className="flex items-center gap-3 text-xs">
-                    <span className="w-10 text-muted">{star} star</span>
-                    <Progress value={p} tone="warning" className="h-2" label={`${star} star ratings`} />
-                    <span className="w-9 text-right text-muted tabular">{Math.round(p)}%</span>
-                  </div>
-                )
-              })}
-            </div>
+        <div className="mt-4">
+          <div className="flex flex-wrap items-end gap-2">
+            <p className="text-4xl font-bold tracking-tight tabular">{course.rating_avg.toFixed(1)}</p>
+            <p className="pb-1 text-sm text-muted">out of 5</p>
           </div>
-          <ReviewList courseId={course.id} />
-        </>
+          <div className="mt-2 flex flex-wrap items-center gap-3"><Rating value={course.rating_avg} /><span className="text-xs text-muted">({course.rating_count} reviews)</span></div>
+          <div className="mt-5 grid gap-2.5">
+            {[5, 4, 3, 2, 1].map((star) => {
+              const n = course.rating_breakdown[String(star)] ?? 0
+              const p = total ? (n / total) * 100 : 0
+              return <div key={star} className="flex items-center gap-2 text-xs"><span className="w-4 font-medium">{star}</span><span className="text-warning">★</span><Progress value={p} tone="warning" className="h-2 flex-1" label={`${star} star ratings`} /><span className="w-9 text-right text-muted tabular">{Math.round(p)}%</span></div>
+            })}
+          </div>
+        </div>
       )}
     </section>
   )
@@ -224,6 +174,35 @@ function PreviewDialog({ slug, lecture, onClose }: { slug: string; lecture: { ke
   )
 }
 
+function levelLabel(level: string) {
+  if (!level || level === 'all') return 'All levels'
+  return level.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function CourseStats({ course }: { course: Detail }) {
+  const activities = course.sections.flatMap((section) => section.lectures)
+  const lessons = activities.filter((activity) => activity.kind !== 'quiz' && activity.kind !== 'assignment').length
+  const quizzes = activities.filter((activity) => activity.kind === 'quiz').length
+  const assignments = activities.filter((activity) => activity.kind === 'assignment').length
+  const hasAssessment = quizzes + assignments > 0
+  const hasCertificate = !!course.cpd_hours
+  const stats = [
+    [Layers3, course.sections.length, 'Modules'],
+    [PlayCircle, lessons, 'Lessons'],
+    [HelpCircle, quizzes, 'Quizzes'],
+    [ListChecks, assignments, 'Assignments'],
+    [GraduationCap, hasAssessment ? 'Included' : 'None', 'Assessment'],
+    [Medal, hasCertificate ? 'Included' : 'Not listed', 'Certificate'],
+    [Clock, duration(course.total_duration_sec), 'Total duration'],
+  ] as const
+
+  return (
+    <section aria-label="Course summary" className="grid grid-cols-2 overflow-hidden rounded-xl border border-border bg-surface shadow-sm sm:grid-cols-4 xl:grid-cols-7">
+      {stats.map(([Icon, value, label], index) => <div key={label} className={cn('flex min-h-[76px] items-center justify-center gap-2.5 border-border px-2.5 py-3', index > 0 && 'border-l', index > 1 && 'max-sm:border-t', index > 3 && 'max-xl:border-t')}><Icon className="size-6 shrink-0 text-primary" /><div className="min-w-0"><p className="truncate text-[15px] font-bold">{value}</p><p className="text-xs leading-tight text-muted">{label}</p></div></div>)}
+    </section>
+  )
+}
+
 function BuyBox({ course }: { course: Detail }) {
   const { data: me } = useMe()
   const navigate = useNavigate()
@@ -244,6 +223,14 @@ function BuyBox({ course }: { course: Detail }) {
   const access = useAccess('course', course.id, b2cEligible)
   const alreadyHasAccess = b2cEligible && access.data?.allowed === true
   const tokenCoursePrice = course.full_course_token_price ?? null
+  const highlights: Array<[LucideIcon, string, string]> = [
+    [Clock, 'Duration', duration(course.total_duration_sec)],
+    [BarChart3, 'Level', levelLabel(course.level)],
+    [Laptop, 'Delivery', 'Online (self-paced)'],
+    [Globe, 'Access', 'Web, mobile and desktop'],
+    [Languages, 'Language', 'English'],
+  ]
+  if (course.cpd_hours) highlights.push([Award, 'Certificate', `${course.cpd_hours} CPD hours`])
 
   const fail = (e: unknown) => toast.error((e as Error).message)
   const add = () => addToCart.mutate(course.id, { onSuccess: () => authAlert({ kind: 'cart', title: 'Added to your cart', text: course.title, autoClose: 3500, action: { label: 'View cart', onClick: () => navigate('/cart') } }), onError: fail })
@@ -271,14 +258,14 @@ function BuyBox({ course }: { course: Detail }) {
   }
 
   return (
-    <Card className="overflow-hidden rounded-2xl shadow-sm">
+    <Card className="overflow-hidden rounded-2xl shadow-[0_10px_35px_rgba(31,38,46,0.09)]">
       <div className="p-5 sm:p-6">
         {v.enrollment_id ? (
           <>
-            <p className="text-sm font-medium">You're enrolled</p>
+            <p className="text-lg font-bold">You're enrolled</p>
             <Progress value={v.progress_pct ?? 0} className="mt-3" label="Course progress" />
-            <p className="mt-2 text-xs text-muted">{Math.round(v.progress_pct ?? 0)}% complete</p>
-            <Button size="lg" className="mt-4 w-full" asChild>
+            <p className="mt-2 text-sm text-muted">{Math.round(v.progress_pct ?? 0)}% complete</p>
+            <Button size="lg" className="mt-4 h-12 w-full text-base" asChild>
               <Link to={`/learn/${course.slug}`}>
                 <PlayCircle /> {(v.progress_pct ?? 0) > 0 ? 'Continue learning' : 'Start learning'}
               </Link>
@@ -289,7 +276,7 @@ function BuyBox({ course }: { course: Detail }) {
         ) : v.plan_access ? (
           <>
             <Badge tone="primary">Included in your Personal Plan</Badge>
-            <Button size="lg" className="mt-4 w-full" loading={planEnroll.isPending} onClick={() => planEnroll.mutate(course.id, { onSuccess: () => navigate(`/learn/${course.slug}`), onError: fail })}>
+            <Button size="lg" className="mt-4 h-12 w-full text-base" loading={planEnroll.isPending} onClick={() => planEnroll.mutate(course.id, { onSuccess: () => navigate(`/learn/${course.slug}`), onError: fail })}>
               <PlayCircle /> Start learning
             </Button>
           </>
@@ -298,7 +285,7 @@ function BuyBox({ course }: { course: Detail }) {
             <Badge tone="success">
               <Check /> {ACCESS_SOURCE_LABEL[access.data!.source] ?? 'You have access'}
             </Badge>
-            <Button size="lg" className="mt-4 w-full" asChild>
+            <Button size="lg" className="mt-4 h-12 w-full text-base" asChild>
               <Link to={`/learn/${course.slug}`}>
                 <PlayCircle /> Start learning
               </Link>
@@ -306,37 +293,27 @@ function BuyBox({ course }: { course: Detail }) {
           </>
         ) : free ? (
           <>
-            <p className="text-3xl font-bold tracking-tight">Free</p>
-            <Button size="lg" className="mt-4 w-full" loading={checkout.isPending} onClick={() => (me ? buyNow() : needLogin())}>
+            <p className="text-[28px] font-bold tracking-tight">Free</p>
+            <Button size="lg" className="mt-4 h-12 w-full text-base" loading={checkout.isPending} onClick={() => (me ? buyNow() : needLogin())}>
               <PlayCircle /> Enrol for free
             </Button>
           </>
         ) : course.price ? (
           <>
-            <Price price={course.price} className="text-3xl [&>span:first-child]:text-3xl [&>span:first-child]:font-bold" />
+            <Price price={course.price} className="text-[28px] [&>span:first-child]:text-[28px] [&>span:first-child]:font-bold" />
             <div className="mt-4">
-              <Button size="lg" className="w-full" loading={addToCart.isPending} onClick={() => (me ? (v.in_cart ? navigate('/cart') : add()) : needLogin())}>
+              <Button size="lg" className="h-12 w-full bg-primary text-base text-on-primary hover:bg-primary/90" loading={addToCart.isPending} onClick={() => (me ? (v.in_cart ? navigate('/cart') : add()) : needLogin())}>
                 <ShoppingCart /> {v.in_cart ? 'Go to cart' : 'Add to cart'}
               </Button>
             </div>
-            <Button size="lg" variant="soft" className="mt-2 w-full" onClick={() => (me ? navigate(`/checkout/pay/${course.slug}`) : needLogin())}>
-              Buy now
+            <Button size="lg" variant="secondary" className="mt-3 h-12 w-full border-primary text-base text-primary hover:bg-primary-soft" onClick={() => (me ? navigate(`/checkout/pay/${course.slug}`) : needLogin())}>
+              <Zap /> Buy now
             </Button>
-            <p className="mt-3 text-center text-xs text-muted">30-day refund policy · secure checkout by Stripe</p>
             {tokenCoursePrice ? (
               <div className="mt-4 border-t border-border pt-4">
                 <p className="mb-2 text-xs font-medium text-muted">Or unlock the whole course with tokens</p>
                 <UnlockButton scope="course" targetId={course.id} tokenPrice={tokenCoursePrice} title={course.title} size="lg" className="w-full" onUnlocked={() => navigate(`/learn/${course.slug}`)} />
               </div>
-            ) : null}
-            {course.in_subscription ? (
-              <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted">
-                <Crown className="size-3.5 text-primary" />
-                Also included in the{' '}
-                <Link to="/subscription" className="font-medium text-primary hover:underline">
-                  Unlimited plan
-                </Link>
-              </p>
             ) : null}
           </>
         ) : tokenCoursePrice ? (
@@ -349,6 +326,7 @@ function BuyBox({ course }: { course: Detail }) {
         ) : (
           <p className="text-sm text-muted">This course is not sold on its own.</p>
         )}
+        {!v.enrollment_id && !v.is_instructor ? <WishlistHeart courseId={course.id} slug={course.slug} title={course.title} initialSaved={v.in_wishlist} label="Save to wishlist" className="mt-3 !h-12 !w-full px-5" /> : null}
         {instalmentOffer.data?.enabled && (!alreadyHasAccess || instalmentOffer.data.existing_learner_allowed) && (!v.enrollment_id || instalmentOffer.data.existing_learner_allowed) ? (
           <div className="mt-4 rounded-lg border border-border bg-surface-2/60 p-4">
             <p className="font-semibold">Pay in fixed monthly instalments</p>
@@ -364,22 +342,23 @@ function BuyBox({ course }: { course: Detail }) {
             <p className="mt-2 text-xs text-muted">Payments are not collected here yet. Paid stages become available after payment is confirmed.</p>
           </div>
         ) : null}
-        <ul className="mt-5 grid gap-3 border-t border-border pt-5 text-sm">
-          {[
-            [PlayCircle, `${duration(course.total_duration_sec)} of content`],
-            [BarChart3, `${course.lecture_count} lectures`],
-            [Smartphone, 'Learn on phone and desktop'],
-            [InfinityIcon, 'Lifetime access'],
-            ...(course.cpd_hours ? [[Award, `Certificate · ${course.cpd_hours} CPD hours`]] : [[Award, 'Certificate of completion']]),
-          ].map(([Icon, text]) => {
-            const I = Icon as LucideIcon
+        <h3 className="mt-6 border-t border-border pt-5 text-lg font-bold">Course highlights</h3>
+        <ul className="mt-2 divide-y divide-border text-[15px]">
+          {highlights.map(([Icon, label, value]) => {
+            const I = Icon
             return (
-              <li key={text as string} className="flex items-center gap-2.5 text-muted">
-                <I className="size-4 text-text" /> {text as string}
+              <li key={label} className="flex items-center gap-3 py-3.5">
+                <I className="size-5 shrink-0 text-text" />
+                <span className="font-medium">{label}</span>
+                <span className="ml-auto text-right text-muted">{value}</span>
               </li>
             )
           })}
         </ul>
+        {course.cpd_hours ? <div className="mt-4 flex gap-3 rounded-xl bg-primary-soft/55 p-4">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface text-primary"><Medal className="size-5" /></span>
+          <div><p className="text-sm font-bold">Certificate included</p><p className="mt-1 text-xs leading-relaxed text-muted">Earn a course certificate ({course.cpd_hours} CPD hours) after successful completion.</p></div>
+        </div> : null}
       </div>
     </Card>
   )
@@ -387,14 +366,13 @@ function BuyBox({ course }: { course: Detail }) {
 
 function CourseSkeleton() {
   return (
-    <div className="relative isolate">
-      <DashboardBackdrop className="fixed inset-0 -z-10" />
-      <div className="relative mx-auto max-w-7xl px-4 py-10 sm:px-6">
-        <Skeleton className="h-4 w-40" />
-        <Skeleton className="mt-4 h-10 w-2/3" />
-        <Skeleton className="mt-3 h-5 w-1/2" />
-        <Skeleton className="mt-10 h-72 w-full lg:w-2/3" />
+    <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
+      <Skeleton className="h-4 w-72" />
+      <div className="mt-7 grid gap-8 lg:grid-cols-[410px_minmax(0,1fr)]">
+        <Skeleton className="aspect-[1.84/1] w-full rounded-2xl" />
+        <div className="py-4"><Skeleton className="h-8 w-36" /><Skeleton className="mt-4 h-12 w-2/3" /><Skeleton className="mt-4 h-6 w-4/5" /></div>
       </div>
+      <Skeleton className="mt-8 h-16 w-full" />
     </div>
   )
 }
@@ -403,116 +381,117 @@ export function CoursePage() {
   const { slug = '' } = useParams()
   const { data: c, isLoading, error, refetch } = useCourse(slug)
   const related = useRelatedCourses(slug)
+  const relatedFallback = useCourses({ sort: 'popular', limit: 6 }, (related.data?.length ?? 0) < 3)
   const { data: cats } = useCategories()
   const [preview, setPreview] = useState<{ key: string; title: string } | null>(null)
-  const navigate = useNavigate()
+  const [activeSection, setActiveSection] = useState('#curriculum')
+  const [aboutExpanded, setAboutExpanded] = useState(false)
   // Return to the previous page (e.g. the courses list); fall back to the catalogue.
-  const goBack = () => (window.history.length > 1 ? window.history.back() : navigate('/courses'))
   if (isLoading) return <CourseSkeleton />
   if (error || !c) return <ErrorState message={(error as Error)?.message} onRetry={() => void refetch()} />
   const firstPreview = c.sections.flatMap((s) => s.lectures).find((l) => l.is_preview && l.kind === 'video')
   const catSlug = cats?.find((x) => x.name === c.category)?.slug
+  const relatedCourses = [...(related.data ?? []), ...(relatedFallback.data?.items ?? [])]
+    .filter((course, index, courses) => course.slug !== c.slug && courses.findIndex((candidate) => candidate.id === course.id) === index)
+    .slice(0, 3)
+  const relatedLoading = related.isLoading || (relatedCourses.length < 3 && relatedFallback.isLoading)
+  const tabs = [
+    ['#curriculum', 'Curriculum', BookOpen],
+    ['#overview', 'Overview', CircleHelp],
+    ['#learning-outcomes', 'What you’ll learn', Target],
+    ['#instructors', 'Instructor', Users],
+    ['#reviews', `Reviews${c.rating_count ? ` (${c.rating_count})` : ''}`, Medal],
+    ['#faqs', 'FAQs', CircleHelp],
+  ] as const
 
   return (
-    <div className="relative isolate">
-      {/* The shared learner/workspace artwork, fixed behind the whole page (same as "My learning"). */}
-      <DashboardBackdrop className="animate-fade-in fixed inset-0 -z-10" />
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="mb-5 flex flex-wrap items-center gap-3">
-          <Button variant="secondary" size="sm" onClick={goBack}><ArrowLeft /> Back</Button>
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-[13px] text-muted">
-            <Link to="/courses" className="hover:text-primary">Courses</Link>
-            {c.category ? <><span aria-hidden>/</span><Link to={catSlug ? `/courses?category=${catSlug}` : '/courses'} className="font-medium text-primary">{c.category}</Link></> : null}
-          </nav>
-        </div>
+    <div className="bg-[#fcfaf8] py-5 sm:py-6 dark:bg-background">
+      <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-2 overflow-hidden text-sm text-muted">
+          <Link to="/" aria-label="Home" className="shrink-0 transition-colors hover:text-primary"><Home className="size-4" /></Link>
+          <ChevronRight className="size-3.5 shrink-0 text-subtle" />
+          <Link to="/courses" className="shrink-0 transition-colors hover:text-primary">Courses</Link>
+          {c.category ? <><ChevronRight className="size-3.5 shrink-0 text-subtle" /><Link to={catSlug ? `/courses?category=${catSlug}` : '/courses'} className="shrink-0 transition-colors hover:text-primary">{c.category}</Link></> : null}
+          <ChevronRight className="size-3.5 shrink-0 text-subtle" />
+          <span className="truncate font-semibold text-text">{c.title}</span>
+        </nav>
 
-        <section className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-          <div className="grid gap-5 p-4 sm:p-6 lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.4fr)] lg:items-center lg:gap-8">
-            <div className="relative isolate aspect-video overflow-hidden rounded-xl bg-nav" style={{ viewTransitionName: 'course-cover' }}>
+        <div className="mt-6 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(320px,3fr)] lg:items-start xl:grid-cols-[minmax(0,7fr)_minmax(360px,3fr)] xl:gap-7">
+          <section aria-labelledby="course-title" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[400px_minmax(0,1fr)] xl:items-center xl:gap-7">
+            <div className="relative isolate aspect-[1.84/1] overflow-hidden rounded-2xl bg-nav shadow-sm" style={{ viewTransitionName: 'course-cover' }}>
               <CourseThumb src={c.thumbnail_url} title={c.title} category={c.category} className="absolute inset-0 size-full rounded-none" />
-              <WishlistHeart courseId={c.id} slug={c.slug} title={c.title} initialSaved={c.viewer.in_wishlist} className="absolute top-3 right-3 z-10" />
               {firstPreview ? (
-                <button type="button" onClick={() => setPreview({ key: firstPreview.key, title: firstPreview.title })} className="group absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/10 text-white transition-colors hover:bg-black/25">
-                  <span className="flex size-14 items-center justify-center rounded-full bg-white text-primary shadow-lg transition-transform group-hover:scale-110"><PlayCircle className="size-7" /></span>
-                  <span className="text-sm font-semibold drop-shadow">Preview course</span>
+                <button type="button" onClick={() => setPreview({ key: firstPreview.key, title: firstPreview.title })} className="group absolute inset-0 flex items-center justify-center bg-black/5 text-white transition-colors hover:bg-black/20 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white" aria-label={`Preview ${firstPreview.title}`}>
+                  <span className="flex size-16 items-center justify-center rounded-full bg-white text-primary shadow-lg transition-transform group-hover:scale-110"><PlayCircle className="size-8" /></span>
+                  <span className="absolute bottom-4 left-4 rounded-full bg-black/70 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm">Preview course · {firstPreview.duration_sec ? duration(firstPreview.duration_sec) : 'Watch now'}</span>
                 </button>
               ) : null}
             </div>
             <div className="min-w-0 py-1">
               <div className="flex flex-wrap items-center gap-2">
-                {c.category ? <Badge tone="primary">{c.category}</Badge> : null}
+                {c.category ? <Badge tone="primary" className="px-3 py-1.5"><ShieldCheck /> {c.category}</Badge> : null}
                 {c.student_count > 50 ? <Badge tone="warning">Bestseller</Badge> : null}
               </div>
-              <h1 className="mt-3 text-2xl leading-tight font-bold tracking-tight sm:text-3xl lg:text-4xl" style={{ viewTransitionName: 'course-title' }}>{c.title}</h1>
-              {c.subtitle ? <p className="mt-3 max-w-3xl text-base leading-relaxed text-muted sm:text-lg">{c.subtitle}</p> : null}
-              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
+              <h1 id="course-title" className="mt-3 text-3xl leading-tight font-bold tracking-[-0.035em] sm:text-[38px] lg:text-[42px]" style={{ viewTransitionName: 'course-title' }}>{c.title}</h1>
+              {c.subtitle ? <p className="mt-3 max-w-3xl text-base leading-relaxed text-text sm:text-lg">{c.subtitle}</p> : null}
+              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3 text-[15px]">
                 <Rating value={c.rating_avg} count={c.rating_count} size="md" />
-                <span className="inline-flex items-center gap-1.5 text-muted"><Users className="size-4" /> {count(c.student_count)} learners</span>
-                <span className="inline-flex items-center gap-1.5 text-muted"><Clock className="size-4" /> {duration(c.total_duration_sec)}</span>
+                <span className="hidden h-7 w-px bg-border sm:block" />
+                <span className="inline-flex items-center gap-2 text-muted"><Users className="size-5 text-text" /> <strong className="font-semibold text-text">{count(c.student_count)}</strong> learners</span>
+                <span className="hidden h-7 w-px bg-border sm:block" />
+                <span className="inline-flex items-center gap-2 text-muted"><BarChart3 className="size-5 text-text" /> {levelLabel(c.level)}</span>
               </div>
-              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border pt-4 text-sm text-muted">
-                {c.instructor_profiles.length ? <span>By {c.instructor_profiles.map((i, n) => <span key={i.id} className="font-medium text-primary">{n ? ', ' : ''}{i.name}</span>)}</span> : null}
-                {c.updated_at ? <span className="inline-flex items-center gap-1.5"><RefreshCw className="size-3.5" /> Updated {shortDate(c.updated_at)}</span> : null}
-                <span className="inline-flex items-center gap-1.5"><Globe className="size-3.5" /> English</span>
-              </div>
+              {c.instructor_profiles.length ? <div className="mt-4 flex min-w-0 items-center gap-3"><Avatar name={c.instructor_profiles[0].name} src={c.instructor_profiles[0].avatar_url} size="sm" /><div className="min-w-0"><p className="text-[15px] font-semibold text-primary">{c.instructor_profiles[0].name}</p><p className="line-clamp-2 text-[13px] text-muted">{c.instructor_profiles[0].headline || 'Course Instructor'}</p></div></div> : null}
             </div>
-          </div>
-        </section>
+          </section>
 
-        <nav aria-label="Course sections" className="mt-5 overflow-x-auto border-b border-border scrollbar-none">
-          <div className="flex min-w-max gap-2">
-            {[
-              ['#overview', 'Overview'],
-              ['#curriculum', 'Course content'],
-              ['#reviews', 'Learner feedback'],
-            ].map(([href, label]) => <a key={href} href={href} className="border-b-2 border-transparent px-4 py-3 text-sm font-medium text-muted transition-colors hover:border-primary/40 hover:text-primary">{label}</a>)}
-          </div>
-        </nav>
-
-        <div className="mt-6 grid animate-reveal min-w-0 gap-6 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)_340px]">
-          <div id="overview" className="grid min-w-0 content-start gap-6 scroll-mt-24">
-            {c.topics.length ? (
-              <section className="rounded-2xl border border-primary/15 bg-primary-soft/20 p-5 sm:p-6">
-                <h2 className="text-lg font-semibold tracking-tight">What you’ll learn</h2>
-                <ul className="mt-4 grid gap-3">
-                  {c.topics.map((t) => <li key={t} className="flex items-start gap-2.5 text-sm leading-relaxed"><Check className="mt-0.5 size-4 shrink-0 text-success" /> <span>{t}</span></li>)}
-                </ul>
-              </section>
-            ) : null}
-            <section aria-labelledby="about" className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
-              <h2 id="about" className="text-lg font-semibold tracking-tight">About this course</h2>
-              {/* description is sanitised on the server (nh3) before it is stored */}
-              <div className="mt-3 max-w-none text-sm leading-relaxed text-muted [&_a]:text-primary [&_li]:ml-5 [&_li]:list-disc [&_p]:mb-3" dangerouslySetInnerHTML={{ __html: c.description }} />
-            </section>
-            {c.instructor_profiles.length ? (
-              <section aria-labelledby="instructors" className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
-                <h2 id="instructors" className="text-lg font-semibold tracking-tight">Instructor{c.instructor_profiles.length > 1 ? 's' : ''}</h2>
-                <div className="mt-4 grid gap-4">
-                  {c.instructor_profiles.map((i) => <div key={i.id} className="flex items-center gap-3"><Avatar name={i.name} src={i.avatar_url} size="md" /><div className="min-w-0"><p className="truncate text-sm font-semibold text-primary">{i.name}</p><p className="text-xs text-muted">{i.headline || 'LearnHub instructor'}</p></div></div>)}
-                </div>
-              </section>
-            ) : null}
-          </div>
-
-          <div className="grid min-w-0 content-start gap-6">
-            <Curriculum sections={c.sections} onPreview={setPreview} />
-            <Reviews course={c} />
-          </div>
-
-          <aside className="min-w-0 xl:sticky xl:top-24 xl:self-start">
+          <aside aria-label="Purchase course" className="min-w-0 lg:sticky lg:top-20 lg:col-start-2 lg:row-start-1 lg:row-span-4 lg:self-start">
             <BuyBox course={c} />
             <TeamBuy courseId={c.id} title={c.title} />
           </aside>
-        </div>
 
-        {related.isLoading || (related.data?.length ?? 0) > 0 ? (
-          <section aria-labelledby="related-courses" className="mt-10 border-t border-border pt-8">
-            <div className="mb-4"><h2 id="related-courses" className="text-xl font-semibold tracking-tight">{c.category ? `More in ${c.category}` : 'Similar courses'}</h2><p className="mt-1 text-sm text-muted">Courses from the same category or covering related topics.</p></div>
-            <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 xl:grid-cols-3">
-              {related.isLoading ? Array.from({ length: 3 }, (_, index) => <CourseCardSkeleton key={index} />) : related.data?.slice(0, 6).map((course) => <CourseCard key={course.id} course={course} />)}
+          <div className="min-w-0 lg:col-start-1 lg:row-start-2"><CourseStats course={c} /></div>
+
+          <nav aria-label="Course sections" className="min-w-0 overflow-x-auto border-b border-border scrollbar-none lg:col-start-1 lg:row-start-3">
+            <div className="flex min-w-max">
+              {tabs.map(([href, label, Icon]) => <a key={href} href={href} aria-current={activeSection === href ? 'page' : undefined} onClick={() => setActiveSection(href)} className={cn('flex items-center gap-2 border-b-2 px-4 py-3.5 text-[15px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary', activeSection === href ? 'border-primary bg-primary-soft/60 text-primary' : 'border-transparent text-text hover:border-primary/40 hover:text-primary')}><Icon className="size-5" />{label}</a>)}
             </div>
+          </nav>
+
+          <div className="min-w-0 lg:col-start-1 lg:row-start-4">
+            <Curriculum sections={c.sections} onPreview={setPreview} />
+          </div>
+
+          <div id="overview" className="grid min-w-0 scroll-mt-24 gap-4 md:grid-cols-3 lg:col-span-2">
+            <section aria-labelledby="about" className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+              <div className="flex items-center gap-3"><span className="flex size-9 items-center justify-center rounded-full bg-primary-soft text-primary"><FileText className="size-5" /></span><h2 id="about" className="text-lg font-bold tracking-tight">About this course</h2></div>
+              <div className={cn('mt-3 max-w-none overflow-hidden text-[15px] leading-relaxed text-muted [&_a]:text-primary [&_li]:ml-5 [&_li]:list-disc [&_p]:mb-3', !aboutExpanded && 'max-h-32')} dangerouslySetInnerHTML={{ __html: c.description }} />
+              {c.description.length > 420 ? <button type="button" onClick={() => setAboutExpanded((value) => !value)} className="mt-1 text-[15px] font-semibold text-primary hover:underline">{aboutExpanded ? 'Show less' : 'Read more →'}</button> : null}
+            </section>
+            <section id="learning-outcomes" className="scroll-mt-24 overflow-hidden rounded-2xl border border-primary/15 bg-surface shadow-sm">
+              <div className="flex items-center gap-3 bg-primary-soft/55 px-5 py-4"><Target className="size-6 text-primary" /><h2 className="text-lg font-bold tracking-tight">What you’ll learn</h2></div>
+              {c.topics.length ? <ul className="grid gap-3 p-5">{c.topics.map((topic) => <li key={topic} className="flex items-start gap-3 text-[15px] leading-relaxed"><Check className="mt-0.5 size-4 shrink-0 text-success" strokeWidth={3} /> <span>{topic}</span></li>)}</ul> : <p className="p-5 text-[15px] text-muted">Learning outcomes have not been added yet.</p>}
+            </section>
+            <section id="instructors" aria-labelledby="instructors-title" className="scroll-mt-24 rounded-2xl border border-border bg-surface p-5 shadow-sm">
+              <div className="flex items-center gap-3"><span className="flex size-9 items-center justify-center rounded-full bg-primary-soft text-primary"><Users className="size-5" /></span><h2 id="instructors-title" className="text-lg font-bold tracking-tight">Instructor{c.instructor_profiles.length > 1 ? 's' : ''}</h2></div>
+              {c.instructor_profiles.length ? <div className="mt-4 grid gap-4">{c.instructor_profiles.map((instructor) => <div key={instructor.id} className="flex items-center gap-3"><Avatar name={instructor.name} src={instructor.avatar_url} size="md" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-primary">{instructor.name}</p><p className="text-xs text-muted">{instructor.headline || 'Course instructor'}</p></div></div>)}</div> : <p className="mt-4 text-sm text-muted">Instructor information is not available yet.</p>}
+            </section>
+          </div>
+
+          <div className="min-w-0 lg:col-span-2"><Reviews course={c} /></div>
+
+          <section id="faqs" aria-labelledby="faqs-title" className="min-w-0 scroll-mt-24 rounded-2xl border border-border bg-surface p-6 shadow-sm lg:col-span-2">
+            <h2 id="faqs-title" className="text-xl font-bold tracking-tight">FAQs</h2>
+            <p className="mt-3 text-[15px] text-muted">No FAQs have been added for this course yet.</p>
           </section>
-        ) : null}
+
+          {relatedLoading || relatedCourses.length > 0 ? <section aria-labelledby="related-courses" className="min-w-0 lg:col-span-2">
+            <div className="mb-4 flex items-center justify-between gap-4"><h2 id="related-courses" className="text-2xl font-bold tracking-tight">Related courses</h2><Link to="/courses" className="text-sm font-semibold text-primary hover:underline">View all courses →</Link></div>
+            <div className="grid grid-cols-1 items-stretch gap-5 min-[560px]:grid-cols-2 lg:grid-cols-3 [&>div]:min-h-full">
+              {relatedLoading ? Array.from({ length: 3 }, (_, index) => <CourseCardSkeleton key={index} />) : relatedCourses.map((course) => <CourseCard key={course.id} course={course} />)}
+            </div>
+          </section> : null}
+        </div>
       </div>
       <PreviewDialog slug={c.slug} lecture={preview} onClose={() => setPreview(null)} />
     </div>

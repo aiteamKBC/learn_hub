@@ -9,31 +9,42 @@ import { CourseThumb } from '@/components/ui/course-thumb'
 import { EmptyState, ErrorState } from '@/components/ui/misc'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useMe } from '@/features/identity/auth'
 import { useMyCourses } from '@/features/learning/api'
 import { cn } from '@/lib/cn'
 import { Link } from '@/lib/router'
 
-function greeting() {
-  const h = new Date().getHours()
-  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
-}
+type CourseFilter = 'all' | 'in-progress' | 'not-started' | 'completed'
 
 export function MyLearningPage() {
-  const { data: me } = useMe()
   const { data, isLoading, error, refetch } = useMyCourses()
   const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [filter, setFilter] = useState<CourseFilter>('all')
   const items = data?.items ?? []
   const current = items.find((i) => i.progress_pct > 0 && i.progress_pct < 100) ?? items[0]
+  const counts: Record<CourseFilter, number> = {
+    all: items.length,
+    'in-progress': items.filter((course) => course.progress_pct > 0 && course.progress_pct < 100).length,
+    'not-started': items.filter((course) => course.progress_pct <= 0).length,
+    completed: items.filter((course) => course.progress_pct >= 100).length,
+  }
+  const filters: { value: CourseFilter; label: string }[] = [
+    { value: 'all', label: 'All courses' },
+    { value: 'in-progress', label: 'In progress' },
+    { value: 'not-started', label: 'Not started' },
+    { value: 'completed', label: 'Completed' },
+  ]
+  const filteredItems = items.filter((course) => {
+    if (filter === 'in-progress') return course.progress_pct > 0 && course.progress_pct < 100
+    if (filter === 'not-started') return course.progress_pct <= 0
+    if (filter === 'completed') return course.progress_pct >= 100
+    return true
+  })
 
   return (
     <>
       <LearnerHeader>
         <div className="mb-6">
-          <p className="text-sm text-muted">
-            {greeting()}, {me?.full_name?.split(' ')[0] || 'there'}
-          </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-4xl">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-4xl">
             Continue your <span className="text-primary">learning</span>
           </h1>
         </div>
@@ -75,7 +86,41 @@ export function MyLearningPage() {
               </Button>
             </Card>
           ) : null}
-          <div className="mt-10 mb-4 flex items-center justify-between gap-4">
+          <div className="mt-8">
+            <div role="tablist" aria-label="Filter my courses" className="hidden grid-cols-4 rounded-2xl border border-border bg-surface p-1.5 shadow-sm sm:grid">
+              {filters.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === option.value}
+                  onClick={() => setFilter(option.value)}
+                  className={cn(
+                    'flex h-11 items-center justify-center gap-3 rounded-xl px-3 text-sm font-semibold transition-all',
+                    filter === option.value
+                      ? 'bg-gradient-to-r from-[#ff9418] to-[#f26a00] text-white shadow-[0_6px_16px_rgba(242,106,0,0.2)]'
+                      : 'text-muted hover:bg-surface-2 hover:text-text',
+                  )}
+                >
+                  {option.label}
+                  <span className={cn('flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-bold tabular', filter === option.value ? 'bg-white/90 text-primary' : 'bg-surface-2 text-muted')}>
+                    {counts[option.value]}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <label className="block sm:hidden">
+              <span className="sr-only">Filter my courses</span>
+              <select
+                value={filter}
+                onChange={(event) => setFilter(event.target.value as CourseFilter)}
+                className="h-12 w-full rounded-xl border border-border bg-surface px-4 text-sm font-semibold text-text shadow-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              >
+                {filters.map((option) => <option key={option.value} value={option.value}>{option.label} ({counts[option.value]})</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="mt-7 mb-4 flex items-center justify-between gap-4">
             <h2 className="text-lg font-semibold tracking-tight">My courses</h2>
             <div className="flex items-center gap-1 rounded-xl border border-border bg-surface p-1 shadow-sm">
               <button
@@ -98,9 +143,14 @@ export function MyLearningPage() {
               </button>
             </div>
           </div>
-          {view === 'grid' ? (
+          {!filteredItems.length ? (
+            <Card className="rounded-2xl border-dashed p-8 text-center">
+              <p className="font-semibold">No {filters.find((option) => option.value === filter)?.label.toLowerCase()} courses</p>
+              <p className="mt-1 text-sm text-muted">Choose another filter to see your courses.</p>
+            </Card>
+          ) : view === 'grid' ? (
             <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {items.map((c) => (
+              {filteredItems.map((c) => (
                 <Link key={c.enrollment_id} to={`/learn/${c.slug}`} className="group rounded-2xl border border-border bg-surface p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow">
                   <CourseThumb src={c.thumbnail_url} title={c.title} />
                   <div className="px-1 pt-3 pb-1">
@@ -122,7 +172,7 @@ export function MyLearningPage() {
             </div>
           ) : (
             <div className="stagger grid gap-3">
-              {items.map((c) => (
+              {filteredItems.map((c) => (
                 <Link key={c.enrollment_id} to={`/learn/${c.slug}`} className="group flex items-center gap-4 rounded-2xl border border-border bg-surface p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow">
                   <CourseThumb src={c.thumbnail_url} title={c.title} className="w-40 shrink-0 sm:w-48" />
                   <div className="min-w-0 flex-1">

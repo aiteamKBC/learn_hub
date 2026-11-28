@@ -1,4 +1,4 @@
-import { BookOpen, Building2, ClipboardCheck, CreditCard, DollarSign, FileBarChart, LayoutDashboard, LifeBuoy, MessageSquare, Network, ShieldCheck, Users, Wallet } from 'lucide-react'
+import { Award, BookOpen, Building2, ClipboardCheck, CreditCard, DollarSign, FileBarChart, LayoutDashboard, LifeBuoy, Megaphone, MessageSquare, Network, Radio, Settings, ShieldCheck, Star, Users, Wallet } from 'lucide-react'
 import { lazy, Suspense, type ReactNode } from 'react'
 import { createBrowserRouter, Navigate, Outlet, useLocation } from 'react-router-dom'
 
@@ -43,6 +43,7 @@ const OrdersPage = named(() => import('@/pages/shop/OrdersPage'), 'OrdersPage')
 const CourseInstalmentsPage = named(() => import('@/pages/shop/CourseInstalmentsPage'), 'CourseInstalmentsPage')
 const PlayerPage = named(() => import('@/pages/learn/PlayerPage'), 'PlayerPage')
 const CertificatesPage = named(() => import('@/pages/learner/CertificatesPage'), 'CertificatesPage')
+const LearnerLiveSessionsPage = named(() => import('@/pages/learner/LiveSessionsPage'), 'LiveSessionsPage')
 const AchievementsPage = named(() => import('@/pages/learner/AchievementsPage'), 'AchievementsPage')
 const RequiredTrainingPage = named(() => import('@/pages/learner/RequiredTrainingPage'), 'RequiredTrainingPage')
 const NotificationsPage = named(() => import('@/pages/learner/NotificationsPage'), 'NotificationsPage')
@@ -77,8 +78,13 @@ const CourseBuilderPage = named(() => import('@/pages/studio/CourseBuilderPage')
 const StudentsPage = named(() => import('@/pages/studio/StudentsPage'), 'StudentsPage')
 const GradingPage = named(() => import('@/pages/studio/GradingPage'), 'GradingPage')
 const QuestionsPage = named(() => import('@/pages/studio/QuestionsPage'), 'QuestionsPage')
+const ReviewsPage = named(() => import('@/pages/studio/ReviewsPage'), 'ReviewsPage')
+const AnnouncementsPage = named(() => import('@/pages/studio/AnnouncementsPage'), 'AnnouncementsPage')
+const StudioReportsPage = named(() => import('@/pages/studio/ReportsPage'), 'ReportsPage')
 const RevenuePage = named(() => import('@/pages/studio/RevenuePage'), 'RevenuePage')
 const PayoutsPage = named(() => import('@/pages/studio/PayoutsPage'), 'PayoutsPage')
+const StudioLiveSessionsPage = named(() => import('@/pages/studio/LiveSessionsPage'), 'LiveSessionsPage')
+const StudioCertificatesPage2 = named(() => import('@/pages/studio/CertificatesPage'), 'CertificatesPage')
 const ConsoleShell = named(() => import('@/pages/console/ConsoleShell'), 'ConsoleShell')
 const ConsoleDashboardPage = named(() => import('@/pages/console/DashboardPage'), 'ConsoleDashboardPage')
 const ConsoleCoursesPage = named(() => import('@/pages/console/CoursesPage'), 'ConsoleCoursesPage')
@@ -153,9 +159,35 @@ const businessNav: NavSection[] = [
 ]
 
 const studioNav: NavSection[] = [
-  { items: [{ to: '/studio', label: 'Dashboard', Icon: LayoutDashboard, end: true }, { to: '/studio/courses', label: 'My courses', Icon: BookOpen }] },
-  { title: 'Learners', items: [{ to: '/studio/students', label: 'Students', Icon: Users }, { to: '/studio/grading', label: 'Assignments', Icon: ClipboardCheck }, { to: '/studio/questions', label: 'Q&A and reviews', Icon: MessageSquare }] },
-  { title: 'Money', items: [{ to: '/studio/revenue', label: 'Sales & earnings', Icon: DollarSign }, { to: '/studio/payouts', label: 'Payouts', Icon: Wallet }] },
+  {
+    title: 'Main management',
+    items: [
+      { to: '/studio', label: 'Overview', Icon: LayoutDashboard, end: true },
+      { to: '/studio/courses', label: 'My courses', Icon: BookOpen },
+      { to: '/studio/students', label: 'Students & enrolments', Icon: Users },
+      { to: '/studio/live-sessions', label: 'Live sessions', Icon: Radio },
+    ],
+  },
+  {
+    title: 'Teaching & quality',
+    items: [
+      { to: '/studio/grading', label: 'Assessments & grading', Icon: ClipboardCheck },
+      { to: '/studio/questions', label: 'Q&A', Icon: MessageSquare },
+      { to: '/studio/reviews', label: 'Reviews & feedback', Icon: Star },
+      { to: '/studio/announcements', label: 'Communications', Icon: Megaphone },
+      { to: '/studio/certificates', label: 'Certificates', Icon: Award },
+    ],
+  },
+  {
+    title: 'Business & account',
+    items: [
+      { to: '/studio/revenue', label: 'Sales & earnings', Icon: DollarSign },
+      { to: '/studio/payouts', label: 'Payouts', Icon: Wallet },
+      { to: '/studio/reports', label: 'Reports & analytics', Icon: FileBarChart },
+      { to: '/support', label: 'Help & support', Icon: LifeBuoy },
+      { to: '/account', label: 'Profile & settings', Icon: Settings },
+    ],
+  },
 ]
 
 function StudioWorkspace() {
@@ -221,6 +253,7 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
         ),
         children: [
           { path: '/learn', element: page(<MyLearningPage />) },
+          { path: '/learn/live', element: page(<LearnerLiveSessionsPage />), handle: { art: 'storyboard' } },
           { path: '/learn/certificates', element: page(<CertificatesPage />), handle: { art: 'guilloche' } },
           { path: '/learn/achievements', element: page(<AchievementsPage />), handle: { art: 'honeycomb' } },
           { path: '/learn/required', element: page(<RequiredTrainingPage />), handle: { art: 'checklist' } },
@@ -303,9 +336,14 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
       { path: 'courses/:courseId/curriculum', element: page(<CourseBuilderPage />), handle: { art: 'storyboard' } },
       { path: 'courses/:courseId/:tab', element: page(<CourseBuilderPage />) },
       { path: 'students', element: <InstructorOnly>{page(<StudentsPage />)}</InstructorOnly> },
+      { path: 'live-sessions', element: <InstructorOnly>{page(<StudioLiveSessionsPage />)}</InstructorOnly>, handle: { art: 'storyboard' } },
+      { path: 'certificates', element: <InstructorOnly>{page(<StudioCertificatesPage2 />)}</InstructorOnly>, handle: { art: 'guilloche' } },
       { path: 'grading', element: <InstructorOnly>{page(<GradingPage />)}</InstructorOnly> },
       { path: 'questions', element: <InstructorOnly>{page(<QuestionsPage />)}</InstructorOnly> },
+      { path: 'reviews', element: <InstructorOnly>{page(<ReviewsPage />)}</InstructorOnly> },
+      { path: 'announcements', element: <InstructorOnly>{page(<AnnouncementsPage />)}</InstructorOnly> },
       { path: 'revenue', element: <InstructorOnly>{page(<RevenuePage />)}</InstructorOnly>, handle: { art: 'coins' } },
+      { path: 'reports', element: <InstructorOnly>{page(<StudioReportsPage />)}</InstructorOnly>, handle: { art: 'chartgrid' } },
       { path: 'payouts', element: <InstructorOnly>{page(<PayoutsPage />)}</InstructorOnly>, handle: { art: 'coins' } },
       { path: '*', element: <NotFoundPage /> },
     ],

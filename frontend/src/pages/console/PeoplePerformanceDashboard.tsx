@@ -143,13 +143,13 @@ function KpiStatusChart() {
       <CardBody className="pt-0">
         <ChartFrame max="4">
           {departments.map((name, i) => {
-            const green = performance[0]![name.toLowerCase() as keyof (typeof performance)[number]]
-            const amber = performance[1]![name.toLowerCase() as keyof (typeof performance)[number]]
-            const red = i === 6 ? 1 : 0
-            return <div key={name} className="flex h-full w-7 flex-col justify-end"><span className="bg-danger" style={{ height: `${red * 25}%` }} /><span className="bg-warning" style={{ height: `${amber * 25}%` }} /><span className="bg-success" style={{ height: `${green * 25}%` }} /></div>
+            const onTrack = performance[0]![name.toLowerCase() as keyof (typeof performance)[number]]
+            const atRisk = performance[1]![name.toLowerCase() as keyof (typeof performance)[number]]
+            const offTrack = i === 6 ? 1 : 0
+            return <div key={name} className="flex h-full w-7 flex-col justify-end"><span className="bg-chart-3" style={{ height: `${offTrack * 25}%` }} /><span className="bg-primary" style={{ height: `${atRisk * 25}%` }} /><span className="bg-chart-5" style={{ height: `${onTrack * 25}%` }} /></div>
           })}
         </ChartFrame>
-        <Legend items={[['On track', 'bg-success'], ['At risk', 'bg-warning'], ['Off track', 'bg-danger']]} />
+        <Legend items={[['On track', 'bg-chart-5'], ['At risk', 'bg-primary'], ['Off track', 'bg-chart-3']]} />
       </CardBody>
     </Card>
   )
@@ -167,9 +167,9 @@ function CapabilityChart() {
         <ChartFrame>
           {departments.map((name, i) => (
             <div key={name} className="flex h-full items-end gap-0.5">
-              <span className="w-2 rounded-t bg-primary" style={{ height: `${capability[i]}%` }} />
-              <span className="w-2 rounded-t bg-chart-5" style={{ height: `${competence[i]}%` }} />
-              <span className="w-2 rounded-t bg-chart-3" style={{ height: `${maturity[i]}%` }} />
+              <span className="w-2 rounded-t bg-primary" style={{ height: `${maturity[i]}%` }} />
+              <span className="w-2 rounded-t bg-chart-5" style={{ height: `${capability[i]}%` }} />
+              <span className="w-2 rounded-t bg-chart-3" style={{ height: `${competence[i]}%` }} />
             </div>
           ))}
         </ChartFrame>

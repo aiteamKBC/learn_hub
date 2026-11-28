@@ -84,7 +84,7 @@ const consoleNav: NavSection[] = [
 export function ConsoleShell() {
   const { error } = useNavCounts()
   if (error instanceof ApiError && error.code === 'mfa_required') return <MfaRequired />
-  return <WorkspaceLayout area="Admin" sections={consoleNav} art="circuit" topBar={<MarketplaceNav />} />
+  return <WorkspaceLayout area="Admin" sections={consoleNav} art="circuit" topBar={<MarketplaceNav workspace />} />
 }
 
 /** Settings > Security can require 2-step sign-in for staff: until it is on, the console API

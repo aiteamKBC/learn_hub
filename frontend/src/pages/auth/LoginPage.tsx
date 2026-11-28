@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password'
-import { AuthError, useLogin, useMfaAuthenticate } from '@/features/identity/auth'
+import { AuthError, landingForMe, useLogin, useMfaAuthenticate } from '@/features/identity/auth'
 import { usePublicSettings } from '@/features/platform/api'
 import { safeNext } from '@/lib/next'
 
@@ -14,7 +14,11 @@ import { Link, useNavigate } from '@/lib/router'
 
 export function LoginPage() {
   const [params] = useSearchParams()
-  const next = safeNext(params.get('next'))
+  const rawNext = params.get('next')
+  const next = safeNext(rawNext)
+  // An explicit, safe ?next= (e.g. sent here from a protected page) wins; otherwise each
+  // role lands on its own dashboard.
+  const explicitNext = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null
   const navigate = useNavigate()
   const login = useLogin()
   const [email, setEmail] = useState('')
@@ -27,7 +31,7 @@ export function LoginPage() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    login.mutate({ email, password }, { onSuccess: (r) => (r === 'mfa' ? setStep('code') : navigate(next, { replace: true })) })
+    login.mutate({ email, password }, { onSuccess: (r) => (r === 'mfa' ? setStep('code') : navigate(explicitNext ?? landingForMe(r), { replace: true })) })
   }
 
   if (step === 'code') {
@@ -38,7 +42,7 @@ export function LoginPage() {
           className="grid gap-4"
           onSubmit={(e) => {
             e.preventDefault()
-            mfa.mutate(code.replace(/\s/g, ''), { onSuccess: () => navigate(next, { replace: true }) })
+            mfa.mutate(code.replace(/\s/g, ''), { onSuccess: (r) => navigate(explicitNext ?? landingForMe(r), { replace: true }) })
           }}
         >
           <Field label="Code" error={codeErr?.fields.code ?? (codeErr && !Object.keys(codeErr.fields).length ? codeErr.message : undefined)}>

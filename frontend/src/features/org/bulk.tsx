@@ -1,6 +1,6 @@
 import { BellRing, Download, GraduationCap, MoveRight, X } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";

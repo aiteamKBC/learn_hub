@@ -328,6 +328,52 @@ class StudioApiTest(SchemaTransactionTestCase):
         self.assertEqual(r.status_code, 200, r.content)
         self.assertTrue(self.call("get", "/payout-account").json()["configured"])
 
+    def test_live_sessions_and_certificates(self):
+        from datetime import timedelta
+
+        from apps.learning import services as learning
+
+        course = f.course(staff=self.staff, owner=self.teacher, slug="live", title="Live course")
+        self.as_(self.teacher)
+        # add a live-session lecture in a fresh draft, then publish it
+        draft_id = self.call("post", f"/courses/{course.id}/draft").json()["version_id"]
+        starts = timezone.now() + timedelta(days=3)
+        with tenant_context(user_id=self.teacher.id):
+            draft = CourseVersion.objects.get(pk=draft_id)
+            cat.add_lecture(section=draft.sections.first(), kind="live_session", title="Office hours",
+                            live_starts_at=starts, live_join_url="https://meet.example.com/abc",
+                            live_duration_min=60)  # fmt: skip
+        self.assertEqual(self.call("post", f"/versions/{draft_id}/submit").status_code, 200)
+        with tenant_context(user_id=self.staff.id, staff=True):
+            cat.approve(version=CourseVersion.objects.get(pk=draft_id), reviewer=self.staff)
+        live_version_id = Course.objects.get(pk=course.id).live_version_id
+
+        # the live-sessions endpoint lists it, upcoming
+        sessions = self.call("get", "/live-sessions").json()
+        self.assertEqual(len(sessions), 1)
+        self.assertEqual((sessions[0]["title"], sessions[0]["course_id"]), ("Office hours", str(course.id)))
+        self.assertTrue(sessions[0]["is_upcoming"])
+        self.assertEqual(sessions[0]["join_url"], "https://meet.example.com/abc")
+
+        # a learner finishes the course and earns a certificate
+        with tenant_context(user_id=self.sara.id):
+            e = learning.enrol(user=self.sara, course=Course.objects.get(pk=course.id), source="free")
+            e.completed_version_id = live_version_id
+            e.save(update_fields=["completed_version_id"])
+            learning.issue_certificate(e)
+
+        certs = self.call("get", "/certificates").json()
+        self.assertEqual((certs["total"], certs["this_month"], len(certs["recent"])), (1, 1, 1))
+        self.assertEqual(certs["recent"][0]["course_title"], "Live course")
+        self.assertFalse(certs["recent"][0]["revoked"])
+
+        # another instructor sees neither the sessions nor the certificates
+        other = User.objects.create_user("ivy@learnhub.example.com", "x")
+        InstructorProfile.objects.create(user=other, status="approved")
+        self.as_(other)
+        self.assertEqual(self.call("get", "/live-sessions").json(), [])
+        self.assertEqual(self.call("get", "/certificates").json()["total"], 0)
+
     def test_instructor_status_details_dashboard_and_marking_with_files(self):
         # /me tells "pending" apart from "approved"; only approved instructors use the studio
         self.client.force_login(self.omar)

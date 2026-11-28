@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { Field, Input, NativeSelect } from '@/components/ui/input'
 import { PasswordInput, PasswordStrength } from '@/components/ui/password'
-import { ErrorState, PageHeader } from '@/components/ui/misc'
+import { ErrorState } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { useCurrencies } from '@/features/commerce/api'
@@ -207,11 +207,11 @@ function NotificationSettings() {
                 const save = (patch: { email?: boolean; in_app?: boolean }) => set.mutate({ kind: p.kind, email: p.email, in_app: p.in_app, ...patch }, { onError: (e) => toast.error(e.message) })
                 return (
                   <tr key={p.kind}>
-                    <td className="py-3 pr-3">{p.title}</td>
-                    <td className="py-3 text-center">
+                    <td className="py-2 pr-3">{p.title}</td>
+                    <td className="py-2 text-center">
                       <Switch checked={p.in_app} onCheckedChange={(v) => save({ in_app: v })} aria-label={`${p.title}: in the app`} />
                     </td>
-                    <td className="py-3 text-center">
+                    <td className="py-2 text-center">
                       {p.email_available ? <Switch checked={p.email} onCheckedChange={(v) => save({ email: v })} aria-label={`${p.title}: by email`} /> : <span className="text-xs text-subtle">—</span>}
                     </td>
                   </tr>
@@ -236,8 +236,12 @@ export function AccountPage() {
     if (id) window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120)
   }, [])
   return (
-    <>
-      <PageHeader title="Settings" description="Your profile, sign-in and notifications." />
+    <div className="mx-auto max-w-3xl">
+      {/* Inline title (not the full-width header band) so it lines up with the centred cards. */}
+      <div className="mb-6">
+        <h1 className="text-xl font-semibold tracking-tight text-text sm:text-2xl md:text-[26px]">Settings</h1>
+        <p className="mt-1 text-sm text-muted">Your profile, sign-in and notifications.</p>
+      </div>
       <nav aria-label="Account" className="mb-6 overflow-hidden rounded-lg border border-border bg-surface shadow-sm md:hidden">
         {shortcuts
           .filter((s) => !s.company || companies.length)
@@ -247,7 +251,7 @@ export function AccountPage() {
             </Link>
           ))}
       </nav>
-      <div className="stagger grid max-w-3xl scroll-mt-24 gap-6 [&>*]:scroll-mt-24">
+      <div className="stagger grid scroll-mt-24 gap-5 [&>*]:scroll-mt-24">
         <Profile />
         <Password />
         <TwoStepCard />
@@ -275,6 +279,6 @@ export function AccountPage() {
           </CardBody>
         </Card>
       </div>
-    </>
+    </div>
   )
 }

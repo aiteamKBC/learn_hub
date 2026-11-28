@@ -1,7 +1,7 @@
 import { Award, Download, FileCheck2, Paperclip, Plus, Save, UserRound } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'

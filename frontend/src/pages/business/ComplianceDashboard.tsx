@@ -31,7 +31,7 @@ function toneFor(pct: number) {
   return pct >= 85 ? 'success' : pct >= 65 ? 'warning' : 'danger'
 }
 const toneText = { success: 'text-success', warning: 'text-warning', danger: 'text-danger' } as const
-const toneFill = { success: 'var(--chart-2)', warning: 'var(--chart-3)', danger: 'var(--chart-4)' } as const
+const toneFill = { success: 'var(--chart-5)', warning: 'var(--chart-1)', danger: 'var(--chart-3)' } as const
 
 /** One requirement: its stacked status bar grows in from the left when it scrolls into view. */
 function RequirementRow({ r }: { r: RequirementSummary }) {

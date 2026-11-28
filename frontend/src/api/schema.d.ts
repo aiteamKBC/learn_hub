@@ -749,6 +749,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/learning/my/live-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Live Sessions
+         * @description Live sessions scheduled in the courses the learner is enrolled in, soonest first.
+         *     The join link appears 15 minutes before a session starts (same rule as the player).
+         */
+        get: operations["apps_learning_api_my_live_sessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/learning/enrollments/{enrollment_id}": {
         parameters: {
             query?: never;
@@ -5053,6 +5074,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/studio/live-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live Sessions
+         * @description Every scheduled live session across the instructor's published courses, soonest first.
+         */
+        get: operations["apps_catalog_studio_live_sessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/studio/certificates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Certificates
+         * @description Certificates learners have earned on the instructor's courses.
+         */
+        get: operations["apps_catalog_studio_certificates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/studio/revenue": {
         parameters: {
             query?: never;
@@ -8589,23 +8650,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/console/settings/{key}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Set Setting */
-        put: operations["apps_platform_console_platform_settings_set_setting"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/console/settings/staff": {
         parameters: {
             query?: never;
@@ -8635,6 +8679,23 @@ export interface paths {
         put?: never;
         /** Remove Staff */
         post: operations["apps_platform_console_platform_settings_remove_staff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/settings/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Setting */
+        put: operations["apps_platform_console_platform_settings_set_setting"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -10766,6 +10827,25 @@ export interface components {
             items: components["schemas"]["MyCourse"][];
             /** Next Cursor */
             next_cursor: string | null;
+        };
+        /** MyLiveSessionOut */
+        MyLiveSessionOut: {
+            /** Sequence */
+            sequence: number;
+            /** Title */
+            title: string;
+            /** Scheduled At */
+            scheduled_at: string;
+            /** Duration Min */
+            duration_min: number;
+            /** Delivery Mode */
+            delivery_mode: string;
+            /** Location */
+            location: string;
+            /** Status */
+            status: string;
+            /** Join Url */
+            join_url?: string | null;
         };
         /** PlayerLecture */
         PlayerLecture: {
@@ -13749,25 +13829,6 @@ export interface components {
             sessions: components["schemas"]["MyLiveSessionOut"][];
             /** More Sessions Hidden */
             more_sessions_hidden: boolean;
-        };
-        /** MyLiveSessionOut */
-        MyLiveSessionOut: {
-            /** Sequence */
-            sequence: number;
-            /** Title */
-            title: string;
-            /** Scheduled At */
-            scheduled_at: string;
-            /** Duration Min */
-            duration_min: number;
-            /** Delivery Mode */
-            delivery_mode: string;
-            /** Location */
-            location: string;
-            /** Status */
-            status: string;
-            /** Join Url */
-            join_url?: string | null;
         };
         /** MyProgrammeOut */
         MyProgrammeOut: {
@@ -16855,6 +16916,75 @@ export interface components {
             to_mark: number;
             /** Unanswered */
             unanswered: number;
+        };
+        /** StudioLiveSessionOut */
+        StudioLiveSessionOut: {
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Course Slug */
+            course_slug: string;
+            /** Course Title */
+            course_title: string;
+            /**
+             * Lecture Key
+             * Format: uuid
+             */
+            lecture_key: string;
+            /** Title */
+            title: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Duration Min */
+            duration_min?: number | null;
+            /** Provider */
+            provider: string;
+            /** Join Url */
+            join_url: string;
+            /** Is Upcoming */
+            is_upcoming: boolean;
+        };
+        /** StudioCertificateRow */
+        StudioCertificateRow: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Course Title */
+            course_title: string;
+            /** Recipient Name */
+            recipient_name: string;
+            /** Verification Code */
+            verification_code: string;
+            /** Cpd Hours */
+            cpd_hours?: number | null;
+            /**
+             * Issued At
+             * Format: date-time
+             */
+            issued_at: string;
+            /** Revoked */
+            revoked: boolean;
+        };
+        /** StudioCertificatesOut */
+        StudioCertificatesOut: {
+            /** Total */
+            total: number;
+            /** This Month */
+            this_month: number;
+            /** Recent */
+            recent: components["schemas"]["StudioCertificateRow"][];
         };
         /** StudioRevenueBalanceOut */
         StudioRevenueBalanceOut: {
@@ -21825,20 +21955,6 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** ConsoleSettingIn */
-        ConsoleSettingIn: {
-            /** Value */
-            value: {
-                [key: string]: unknown;
-            } | unknown[] | string | number | boolean;
-            /**
-             * Description
-             * @default
-             */
-            description: string;
-            /** Is Public */
-            is_public?: boolean | null;
-        };
         /** ConsoleStaffOut */
         ConsoleStaffOut: {
             /**
@@ -21868,6 +21984,20 @@ export interface components {
         ConsoleStaffGrantIn: {
             /** Email */
             email: string;
+        };
+        /** ConsoleSettingIn */
+        ConsoleSettingIn: {
+            /** Value */
+            value: {
+                [key: string]: unknown;
+            } | unknown[] | string | number | boolean;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Is Public */
+            is_public?: boolean | null;
         };
         /** ConsoleBrandingUploadOut */
         ConsoleBrandingUploadOut: {
@@ -24839,6 +24969,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MyCoursePage"];
+                };
+            };
+        };
+    };
+    apps_learning_api_my_live_sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyLiveSessionOut"][];
                 };
             };
         };
@@ -31586,6 +31736,46 @@ export interface operations {
             };
         };
     };
+    apps_catalog_studio_live_sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioLiveSessionOut"][];
+                };
+            };
+        };
+    };
+    apps_catalog_studio_certificates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioCertificatesOut"];
+                };
+            };
+        };
+    };
     apps_catalog_studio_my_revenue: {
         parameters: {
             query?: never;
@@ -36955,32 +37145,6 @@ export interface operations {
             };
         };
     };
-    apps_platform_console_platform_settings_set_setting: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConsoleSettingIn"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConsoleOkOut"];
-                };
-            };
-        };
-    };
     apps_platform_console_platform_settings_staff_list: {
         parameters: {
             query?: never;
@@ -37035,6 +37199,32 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_platform_settings_set_setting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleSettingIn"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

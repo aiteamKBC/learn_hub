@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
+import { toast as sonnerToast } from 'sonner'
 
 import { authAlert } from '@/lib/auth-alert'
 
-/** Same call shape as sonner's `toast`, but every message shows as the SweetAlert-style
- * popup (<AuthAlertHost />). Success and info close by themselves; errors and warnings
- * stay until the person presses OK. */
+/** Outcomes that need acknowledgement use the centred EvidRise dialog. Passive information
+ * stays a small non-blocking toast so ordinary navigation and status updates never interrupt. */
 type Opts = { description?: ReactNode; action?: { label: string; onClick: () => void }; duration?: number }
 type Kind = 'success' | 'error' | 'info' | 'warning'
 
@@ -20,9 +20,18 @@ function show(kind: Kind, title: ReactNode, o: Opts = {}) {
   })
 }
 
-export const toast = Object.assign((title: ReactNode, o?: Opts) => show('info', title, o), {
+function notice(title: ReactNode, o: Opts = {}) {
+  return sonnerToast(title, {
+    description: o.description,
+    action: o.action,
+    duration: o.duration ?? AUTO.info,
+  })
+}
+
+export const toast = Object.assign((title: ReactNode, o?: Opts) => notice(title, o), {
   success: (title: ReactNode, o?: Opts) => show('success', title, o),
   error: (title: ReactNode, o?: Opts) => show('error', title, o),
-  info: (title: ReactNode, o?: Opts) => show('info', title, o),
+  info: (title: ReactNode, o?: Opts) => notice(title, o),
+  message: (title: ReactNode, o?: Opts) => notice(title, o),
   warning: (title: ReactNode, o?: Opts) => show('warning', title, o),
 })

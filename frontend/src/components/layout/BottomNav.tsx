@@ -14,7 +14,7 @@ const items = [
 /** Learner navigation on phones (approved: balanced bottom navigation, five tabs). */
 export function BottomNav() {
   return (
-    <nav aria-label="Main" className="vt-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+    <nav aria-label="Main" className="vt-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
       <ul className="grid grid-cols-5">
         {items.map(({ to, label, Icon, end }) => (
           <li key={to}>

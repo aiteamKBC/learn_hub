@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Coins, Gift, Plus, ReceiptText, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Coins, FileText, Gift, GraduationCap, PlayCircle, Plus, ReceiptText, RefreshCw } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -76,6 +76,8 @@ export function WalletPage() {
               </Card>
             ) : null}
 
+            <TokenUseGuide />
+
             <Tabs defaultValue="grants" className="mt-8">
               <TabsList>
                 <TabsTrigger value="grants">
@@ -95,6 +97,28 @@ export function WalletPage() {
           </>
         )}
     </>
+  )
+}
+
+function TokenUseGuide() {
+  const uses = [
+    { Icon: PlayCircle, title: 'Unlock a lecture', body: 'Open an individual lesson when you only need one topic.' },
+    { Icon: FileText, title: 'Get learning materials', body: 'Use tokens for eligible downloads, templates and resources.' },
+    { Icon: GraduationCap, title: 'Unlock a full course', body: 'Pay the displayed token price once and start learning.' },
+  ]
+  return (
+    <section className="mt-6">
+      <div className="mb-3 flex items-end justify-between gap-3"><div><h2 className="text-lg font-bold tracking-tight">How to use your tokens</h2><p className="mt-0.5 text-sm text-muted">Every unlock shows its token price before you confirm.</p></div><Badge tone="outline">Example uses</Badge></div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {uses.map(({ Icon, title, body }) => (
+          <Card key={title} className="rounded-2xl p-4">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-primary-soft text-primary"><Icon className="size-5" /></span>
+            <h3 className="mt-3 text-sm font-bold">{title}</h3>
+            <p className="mt-1 text-xs leading-relaxed text-muted">{body}</p>
+          </Card>
+        ))}
+      </div>
+    </section>
   )
 }
 

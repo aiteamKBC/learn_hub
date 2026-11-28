@@ -192,6 +192,7 @@ export function CoursesPage() {
     filters.price && ['price', filters.price === 'free' ? 'Free' : 'Paid'],
   ].filter(Boolean) as [string, string][]
   const active = chips.filter(([k]) => k !== 'q').length
+  const hasDesktopChips = chips.some(([k]) => k !== 'category')
 
   // load the next page when the end of the list comes into view
   const sentinel = useRef<HTMLDivElement>(null)
@@ -266,9 +267,9 @@ export function CoursesPage() {
 
           <div className="min-w-0">
             {chips.length ? (
-              <div className="mb-4 flex flex-wrap gap-1.5">
+              <div className={cn('mb-4 flex flex-wrap gap-1.5', !hasDesktopChips && 'lg:hidden')}>
                 {chips.map(([k, label]) => (
-                  <button key={k} type="button" onClick={() => set(k)} className="inline-flex h-8 items-center gap-1.5 rounded-full border border-primary/30 bg-primary-soft pr-2 pl-3 text-[13px] font-medium text-primary-soft-text transition-colors hover:bg-primary-soft/70" aria-label={`Remove filter ${label}`}>
+                  <button key={k} type="button" onClick={() => set(k)} className={cn('inline-flex h-8 items-center gap-1.5 rounded-full border border-primary/30 bg-primary-soft pr-2 pl-3 text-[13px] font-medium text-primary-soft-text transition-colors hover:bg-primary-soft/70', k === 'category' && 'lg:hidden')} aria-label={`Remove filter ${label}`}>
                     {label} <X className="size-3.5" />
                   </button>
                 ))}

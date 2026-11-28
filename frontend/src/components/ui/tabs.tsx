@@ -5,8 +5,13 @@ import { cn } from '@/lib/cn'
 
 export const Tabs = T.Root
 
+type TabsListProps = ComponentProps<typeof T.List> & {
+  /** Set to false when the page uses a static underline on each trigger. */
+  indicator?: boolean
+}
+
 /** The active underline slides between tabs instead of jumping. */
-export function TabsList({ className, children, ...props }: ComponentProps<typeof T.List>) {
+export function TabsList({ className, children, indicator = true, ...props }: TabsListProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [bar, setBar] = useState<{ left: number; width: number } | null>(null)
   useLayoutEffect(() => {
@@ -26,7 +31,7 @@ export function TabsList({ className, children, ...props }: ComponentProps<typeo
   return (
     <T.List ref={ref} className={cn('relative flex gap-1 overflow-x-auto border-b border-border scrollbar-none', className)} {...props}>
       {children}
-      {bar ? <span aria-hidden className="absolute bottom-0 h-0.5 rounded-full bg-primary transition-[left,width] duration-250 ease-out" style={{ left: bar.left, width: bar.width }} /> : null}
+      {indicator && bar ? <span aria-hidden className="absolute bottom-0 h-0.5 rounded-full bg-primary transition-[left,width] duration-250 ease-out" style={{ left: bar.left, width: bar.width }} /> : null}
     </T.List>
   )
 }

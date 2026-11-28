@@ -8,12 +8,10 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Logo } from '@/components/ui/logo'
-import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { cn } from '@/lib/cn'
 import { Link, NavLink, useNavigate } from '@/lib/router'
 
-import { NotificationBell } from './NotificationBell'
-import { UserMenu } from './UserMenu'
+import { AuthenticatedHeaderMenu } from './AuthenticatedHeaderMenu'
 
 export type NavItem = { to: string; label: string; Icon: LucideIcon; end?: boolean; badge?: ReactNode }
 export type NavSection = { title?: string; items: NavItem[] }
@@ -22,13 +20,13 @@ function SideNav({ sections, area, sidebarTop, onNavigate }: { sections: NavSect
   return (
     <div className="flex h-full flex-col bg-nav text-nav-text">
       {sidebarTop ? (
-        <div className="px-3 pt-4 pb-1">{sidebarTop}</div>
+        <div className="px-3 pt-3 pb-1">{sidebarTop}</div>
       ) : (
-        <p className="mx-5 mt-4 mb-1 inline-flex w-fit rounded-full bg-white/8 px-2.5 py-0.5 text-[10.5px] font-medium tracking-wide text-nav-text uppercase">{area}</p>
+        <p className="mx-5 mt-2.5 mb-1 inline-flex w-fit rounded-full bg-white/8 px-2.5 py-0.5 text-[10.5px] font-medium tracking-wide text-nav-text uppercase">{area}</p>
       )}
-      <nav data-lenis-prevent className="sidebar-scroll flex-1 overflow-y-auto px-3 pb-2" aria-label={area}>
+      <nav data-lenis-prevent className="sidebar-scroll flex-1 overflow-y-auto px-3 pb-1.5" aria-label={area}>
         {sections.map((s, i) => (
-          <div key={i} className="mt-2 first:mt-1">
+          <div key={i} className="mt-1 first:mt-0.5">
             {s.title ? <p className="px-3 pb-0.5 text-[10px] font-medium tracking-wider text-nav-text-muted uppercase">{s.title}</p> : null}
             <ul className="grid">
               {s.items.map(({ to, label, Icon, end, badge }) => (
@@ -39,7 +37,7 @@ function SideNav({ sections, area, sidebarTop, onNavigate }: { sections: NavSect
                     onClick={onNavigate}
                     className={({ isActive }) =>
                       cn(
-                        'relative flex h-8 items-center gap-2.5 rounded-md px-3 text-[13px] font-medium transition-colors',
+                        'relative flex h-7 items-center gap-2.5 rounded-md px-3 text-[13px] font-medium transition-colors',
                         isActive
                           ? "bg-nav-active text-nav-text-active before:absolute before:top-1/2 before:left-0 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-nav-active-bar before:content-['']"
                           : 'hover:bg-nav-hover hover:text-white',
@@ -79,11 +77,9 @@ function HeaderSearch({ placeholder, to }: { placeholder: string; to: (q: string
 
 export type WorkspaceSearch = { placeholder: string; to: (q: string) => string }
 
-/** Instructor, business and admin areas: navy sidebar on desktop, hamburger drawer on
- * phones (approved navigation decision). `art` is the area's default artwork; a page can
- * choose its own with `handle: { art }` in its route. `topBar` is an optional full-width row
- * above the whole frame (e.g. the marketplace nav on the admin console); the sidebar and header
- * then stick just below it. */
+/** Instructor, business and admin areas: full-height navy sidebar on desktop, hamburger drawer
+ * on phones. `topBar` is an optional marketplace row for the content column; the sidebar always
+ * owns the full left edge from the top of the viewport. */
 export function WorkspaceLayout({ area, sections, header, search, topBar, sidebarTop, centerHeader = false, style }: { area: string; sections: NavSection[]; header?: ReactNode; art?: BackdropVariant; search?: WorkspaceSearch; topBar?: ReactNode; sidebarTop?: ReactNode; centerHeader?: boolean; style?: CSSProperties }) {
   const [open, setOpen] = useState(false)
   const hasTop = !!topBar
@@ -95,16 +91,12 @@ export function WorkspaceLayout({ area, sections, header, search, topBar, sideba
   const body = (
     <>
       <div className="hidden bg-nav lg:block">
-        <aside className={cn('vt-sidebar sticky flex flex-col', hasTop ? 'top-16 h-[calc(100dvh-4rem)]' : 'top-0 h-dvh')}>
-          {/* without a top bar, the logo sits in a light strip aligned with the header; with one,
-              the top bar already carries the logo, so the nav starts straight under it */}
-          {hasTop ? null : (
-            <div className="flex h-16 shrink-0 items-center border-b border-border bg-background px-5">
-              <Link to="/" aria-label="Home">
-                <Logo />
-              </Link>
-            </div>
-          )}
+        <aside className="vt-sidebar sticky top-0 flex h-dvh flex-col">
+          <div className="flex h-16 shrink-0 items-center border-b border-white/10 bg-nav px-5">
+            <Link to="/" aria-label="Home">
+              <Logo />
+            </Link>
+          </div>
           <div className="min-h-0 flex-1">
             <SideNav sections={sections} area={area} sidebarTop={sidebarTop} />
           </div>
@@ -114,7 +106,7 @@ export function WorkspaceLayout({ area, sections, header, search, topBar, sideba
         <DialogContent title={`${area} menu`} side="left" className="border-none bg-nav p-0 [&>div:first-child]:hidden [&>div:last-child]:h-full">
           {/* the drawer renders in a portal, outside the root above: carry the branding over */}
           <div className="flex h-full flex-col" style={style}>
-            <div className="flex h-16 shrink-0 items-center border-b border-border bg-background px-5">
+            <div className="flex h-16 shrink-0 items-center border-b border-white/10 bg-nav px-5">
               <Link to="/" aria-label="Home" onClick={() => setOpen(false)}>
                 <Logo />
               </Link>
@@ -126,11 +118,10 @@ export function WorkspaceLayout({ area, sections, header, search, topBar, sideba
         </DialogContent>
       </Dialog>
 
-      <div className="relative isolate flex min-h-dvh min-w-0 flex-col">
+      <div className={cn('relative isolate flex min-h-dvh min-w-0 flex-col', hasTop && 'lg:pt-16')}>
         <DashboardBackdrop className="animate-fade-in" />
-        {/* With a top bar (admin console) the theme toggle, bell and user menu already live in
-            the marketplace nav, so this header drops them to avoid a duplicate strip; when it
-            would then be empty it only stays on mobile, where it carries the sidebar hamburger. */}
+        {/* With a top bar, the signed-in controls already live in its three-line account menu.
+            This header then stays only where it is needed for the sidebar or local search. */}
         <header className={cn('vt-header relative sticky z-30 flex h-16 items-center gap-2 border-b border-border bg-background/90 px-4 backdrop-blur-md sm:px-6', hasTop ? 'top-16' : 'top-0', headerEmptyOnDesktop && 'lg:hidden')}>
           <Button variant="ghost" size="icon" className="-ml-2 lg:hidden" aria-label="Open menu" onClick={() => setOpen(true)}>
             <MenuIcon />
@@ -145,9 +136,7 @@ export function WorkspaceLayout({ area, sections, header, search, topBar, sideba
           </div>
           {hasTop ? null : (
             <div className="ml-auto flex items-center gap-1">
-              <ThemeToggle />
-              <NotificationBell />
-              <UserMenu />
+              <AuthenticatedHeaderMenu />
             </div>
           )}
         </header>
@@ -160,9 +149,9 @@ export function WorkspaceLayout({ area, sections, header, search, topBar, sideba
 
   if (hasTop) {
     return (
-      <div className="flex min-h-dvh flex-col" style={style}>
-        {topBar}
-        <div className="flex-1 lg:grid lg:grid-cols-[272px_1fr]">{body}</div>
+      <div className="min-h-dvh" style={style}>
+        <div className="lg:fixed lg:top-0 lg:right-0 lg:left-[272px] lg:z-40">{topBar}</div>
+        <div className="lg:grid lg:grid-cols-[272px_1fr]">{body}</div>
       </div>
     )
   }

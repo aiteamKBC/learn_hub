@@ -14,6 +14,8 @@ const fetchGrading = () => unwrap(api.GET('/api/v1/studio/grading'))
 const fetchQuestions = (unanswered: boolean) => unwrap(api.GET('/api/v1/studio/questions', { params: { query: { unanswered } } }))
 const fetchReviews = (unreplied: boolean) => unwrap(api.GET('/api/v1/studio/reviews', { params: { query: { unreplied } } }))
 const fetchRevenue = () => unwrap(api.GET('/api/v1/studio/revenue'))
+const fetchLiveSessions = () => unwrap(api.GET('/api/v1/studio/live-sessions'))
+const fetchCertificates = () => unwrap(api.GET('/api/v1/studio/certificates'))
 
 export type StudioCourseRow = Awaited<ReturnType<typeof fetchCourses>>[number]
 export type StudioCourse = Awaited<ReturnType<typeof fetchCourse>>
@@ -51,6 +53,16 @@ const courseChanged = (qc: QueryClient, id: string) => qc.invalidateQueries({ qu
 // ---------------------------------------------------------------- reads
 export function useStudioDashboard() {
   return useQuery({ queryKey: ['studio', 'dashboard'], queryFn: () => unwrap(api.GET('/api/v1/studio/dashboard')) })
+}
+
+export type StudioLiveSession = Awaited<ReturnType<typeof fetchLiveSessions>>[number]
+export function useStudioLiveSessions() {
+  return useQuery({ queryKey: ['studio', 'live-sessions'], queryFn: fetchLiveSessions })
+}
+
+export type StudioCertificate = S['StudioCertificateRow']
+export function useStudioCertificates() {
+  return useQuery({ queryKey: ['studio', 'certificates'], queryFn: fetchCertificates })
 }
 
 export function useStudioCourses() {
