@@ -74,7 +74,7 @@ function Packs({ onReview }: { onReview: (item: ReviewItem) => void }) {
         {data.map((p) => {
           // The configured token rate is GBP-based.  Savings are only comparable
           // when the pack is also quoted in GBP; other currencies may include FX.
-          const standardMinor = rate.data && p.currency === 'GBP' ? Math.round(p.token_amount * 0.01 / Number(rate.data.tokens_per_gbp_minor)) : null
+          const standardMinor = rate.data && p.currency === 'GBP' ? Math.round(p.token_amount / Number(rate.data.tokens_per_gbp_minor)) : null
           const savingMinor = standardMinor != null ? standardMinor - p.amount_minor : null
           const savingPercent = savingMinor != null && standardMinor != null && standardMinor > 0 ? Math.round((savingMinor / standardMinor) * 100) : null
           return <Card key={p.id} className="flex flex-col p-5 transition-shadow hover:shadow-md">

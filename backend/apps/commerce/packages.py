@@ -43,7 +43,8 @@ def owned_course_ids(user, course_ids: list) -> set:
     )
     owned |= set(
         Enrollment.objects.filter(user=user, course_id__in=course_ids)
-        .exclude(status__in=["revoked", "superseded"])
+        .exclude(status__in=[Enrollment.Status.REVOKED, Enrollment.Status.SUPERSEDED, Enrollment.Status.EXPIRED])
+        .filter(Q(access_expires_at__isnull=True) | Q(access_expires_at__gt=now))
         .values_list("course_id", flat=True)
     )
     remaining = [c for c in course_ids if c not in owned]
@@ -57,6 +58,7 @@ def owned_course_ids(user, course_ids: list) -> set:
                 plan__audience="personal",
                 plan__kind="unlimited_b2c",
                 status__in=["trialing", "active"],
+                current_period_end__gt=now,
             )
             .select_related("plan")
             .order_by("-current_period_end")
@@ -270,14 +272,31 @@ def fulfil_package(*, session_id: str, user_id: UUID, package_id: UUID, course_i
                 expires_at=expiry,
                 note=f"Package purchase, session {session_id}",
             )
-        enrolment = learning.enrol(user=user, course=course, source=Enrollment.Source.PURCHASE,
-                                  source_ref=package_id, access_expires_at=existing.expires_at if existing else expiry)
-        if not existing and enrolment.status in (Enrollment.Status.EXPIRED, Enrollment.Status.REVOKED):
-            enrolment.status = Enrollment.Status.ACTIVE
+        purchase_expiry = existing.expires_at if existing else expiry
+        enrolment = learning.enrol(
+            user=user,
+            course=course,
+            source=Enrollment.Source.PURCHASE,
+            source_ref=package_id,
+            access_expires_at=purchase_expiry,
+        )
+        # A repurchase after access has expired renews the same enrolment, retaining its
+        # progress and any valid historical access.  Existing, still-valid access is never
+        # shortened or replaced by a package purchase.
+        has_valid_access = (
+            enrolment.status in (Enrollment.Status.ACTIVE, Enrollment.Status.COMPLETED)
+            and (enrolment.access_expires_at is None or enrolment.access_expires_at > now)
+        )
+        if not has_valid_access:
+            fields = ["access_expires_at", "updated_at"]
+            enrolment.access_expires_at = purchase_expiry
+            if enrolment.status != Enrollment.Status.COMPLETED:
+                enrolment.status = Enrollment.Status.ACTIVE
+                fields.append("status")
             enrolment.source = Enrollment.Source.PURCHASE
             enrolment.source_ref = package_id
-            enrolment.access_expires_at = expiry
-            enrolment.save(update_fields=["status", "source", "source_ref", "access_expires_at", "updated_at"])
+            fields.extend(["source", "source_ref"])
+            enrolment.save(update_fields=fields)
 
     audit(
         "package.fulfil",

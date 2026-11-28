@@ -314,11 +314,14 @@ TOKEN_AUDIT_TARGETS = (
 
 
 def _course_row(c: Course, lectures_priced=0, materials_priced=0) -> dict:
+    # CoursePrice is the canonical cash-price source.  The similarly named field on
+    # Course is retained for legacy token-pricing writes only.
+    cash_price_tier_id = c.price.tier_id if hasattr(c, "price") and not c.price.is_free else None
     return {
         "id": c.id,
         "title": c.title,
         "slug": c.slug,
-        "cash_price_tier_id": c.cash_price_tier_id,
+        "cash_price_tier_id": cash_price_tier_id,
         "full_course_token_price": c.full_course_token_price,
         "token_pricing_mode": c.token_pricing_mode,
         "lectures_priced_count": lectures_priced,
@@ -357,7 +360,7 @@ def list_token_courses(request, search: str = "", page: int = 1, page_size: int 
     staff(request)
     page = max(1, page)
     page_size = clamp(page_size, 200)
-    qs = Course.objects.filter(owner_org_id__isnull=True, deleted_at__isnull=True)
+    qs = Course.objects.filter(owner_org_id__isnull=True, deleted_at__isnull=True).select_related("price", "price__tier")
     if search:
         qs = qs.filter(title__icontains=search.strip()[:100])
     total = qs.count()
@@ -385,7 +388,7 @@ def list_token_courses(request, search: str = "", page: int = 1, page_size: int 
 @router.get("/pricing/token/courses/{course_id}", response=ConsoleCourseTokenDetail)
 def get_token_course(request, course_id: UUID):
     staff(request)
-    c = get_object_or_404(Course, pk=course_id)
+    c = get_object_or_404(Course.objects.select_related("price", "price__tier"), pk=course_id)
     sections: list[dict] = []
     if c.live_version_id:
         secs = list(Section.objects.filter(version_id=c.live_version_id).order_by("position"))
@@ -437,7 +440,7 @@ def get_token_course(request, course_id: UUID):
         "id": c.id,
         "title": c.title,
         "slug": c.slug,
-        "cash_price_tier_id": c.cash_price_tier_id,
+        "cash_price_tier_id": c.price.tier_id if hasattr(c, "price") and not c.price.is_free else None,
         "full_course_token_price": c.full_course_token_price,
         "derived_token_price": derived,
         "token_pricing_mode": c.token_pricing_mode,
