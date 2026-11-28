@@ -34,8 +34,7 @@ import { money } from '@/lib/format'
 const TABS = ['overview', 'orders', 'refunds', 'invoices'] as const
 
 // ---------------------------------------------------------------- overview
-function Overview() {
-  const [range, setRange] = useRangeParam()
+function Overview({ range, onRangeChange }: { range: ReturnType<typeof useRangeParam>[0]; onRangeChange: ReturnType<typeof useRangeParam>[1] }) {
   const [filters, setFilters] = useState<Pick<OrderFilters, 'category' | 'product' | 'customer_type'>>({})
   const facets = useSalesFacets()
   const q = useSalesOverview({ ...range, ...filters })
@@ -45,7 +44,7 @@ function Overview() {
   return (
     <div className="grid gap-5">
       <div className="flex justify-end sm:hidden">
-        <DateRangeSelect value={range} onChange={setRange} />
+        <DateRangeSelect value={range} onChange={onRangeChange} />
       </div>
       <Card className="p-3">
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[repeat(3,minmax(11rem,1fr))_auto]">
@@ -344,10 +343,10 @@ function OrderDetail({ d }: { d: ConsoleOrderDetail }) {
 }
 
 // ---------------------------------------------------------------- refunds & invoices
-function RefundsCard() {
+function RefundsCard({ range }: { range: ReturnType<typeof useRangeParam>[0] }) {
   const [text, setText] = useState('')
   const q = useDebounced(text, 300)
-  const list = useConsoleRefunds(q.trim())
+  const list = useConsoleRefunds(q.trim(), { start: range.start, end: range.end })
   const [, setOrder] = useParam('order')
   const rows = list.data?.pages.flatMap((p) => p.items) ?? []
   return (
@@ -390,11 +389,11 @@ function RefundsCard() {
   )
 }
 
-export function InvoicesCard({ kind = '', title = 'Invoices', description = 'Stripe invoices for orders and subscriptions.' }: { kind?: '' | 'order' | 'subscription'; title?: string; description?: string }) {
+export function InvoicesCard({ kind = '', title = 'Invoices', description = 'Stripe invoices for orders and subscriptions.', range = {} }: { kind?: '' | 'order' | 'subscription'; title?: string; description?: string; range?: Pick<OrderFilters, 'start' | 'end'> }) {
   const [text, setText] = useState('')
   const [k, setK] = useState<string>(kind)
   const q = useDebounced(text, 300)
-  const list = useConsoleInvoices(q.trim(), k)
+  const list = useConsoleInvoices(q.trim(), k, range)
   const rows = list.data?.pages.flatMap((p) => p.items) ?? []
   return (
     <Card>
@@ -451,6 +450,7 @@ export function InvoicesCard({ kind = '', title = 'Invoices', description = 'Str
 export function ConsoleSalesPage() {
   const [tab, setTab] = useTabParam(TABS, 'overview')
   const [range, setRange] = useRangeParam()
+  const dateScope = { start: range.start, end: range.end }
   return (
     <>
       <PageHeader
@@ -470,10 +470,10 @@ export function ConsoleSalesPage() {
           <TabsTrigger value="refunds"><RotateCcw aria-hidden /> Refunds</TabsTrigger>
           <TabsTrigger value="invoices"><FileText aria-hidden /> Invoices</TabsTrigger>
         </TabsList>
-        <TabsContent value="overview"><Overview /></TabsContent>
-        <TabsContent value="orders"><OrdersCard /></TabsContent>
-        <TabsContent value="refunds"><RefundsCard /></TabsContent>
-        <TabsContent value="invoices"><InvoicesCard /></TabsContent>
+        <TabsContent value="overview"><Overview range={range} onRangeChange={setRange} /></TabsContent>
+        <TabsContent value="orders"><OrdersCard scope={dateScope} /></TabsContent>
+        <TabsContent value="refunds"><RefundsCard range={range} /></TabsContent>
+        <TabsContent value="invoices"><InvoicesCard range={dateScope} /></TabsContent>
       </Tabs>
       <OrderSheet />
     </>

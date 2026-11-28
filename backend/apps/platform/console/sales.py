@@ -58,6 +58,19 @@ def _number(v) -> bool:
     return isinstance(v, int | float)
 
 
+def _date_cursor(qs, cursor: str | None, field: str):
+    """Apply a stable newest-first cursor for a dated record list."""
+    after = keyset.decode(cursor, 2)
+    if not after:
+        return qs
+    try:
+        at = datetime.fromisoformat(after[0].replace("Z", "+00:00"))
+        record_id = UUID(after[1])
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise ServiceError("bad_cursor", "Invalid page cursor.") from exc
+    return qs.filter(Q(**{f"{field}__lt": at}) | Q(**{field: at, "id__lt": record_id}))
+
+
 # ---------------------------------------------------------------- overview
 class ConsoleSalesKpisOut(Schema):
     total_sales: ConsoleKpiOut  # paid orders
@@ -247,7 +260,9 @@ class ConsoleOrderPageOut(Schema):
 
 
 def _orders(q, status, product, category, customer_type, method, currency, user, start, end):
-    qs = Order.objects.exclude(status=Order.Status.EXPIRED)
+    # Pending attempts are historical records.  They must remain searchable so support can
+    # investigate repeat checkout attempts, but only paid states enter financial KPIs.
+    qs = Order.objects.all()
     if q:
         term = q.strip()[:100]
         cond = Q(user__email__icontains=term) | Q(user__full_name__icontains=term)
@@ -297,21 +312,21 @@ def orders(
     request, q: str | None = None, status: str | None = None, product: UUID | None = None,
     category: UUID | None = None, customer_type: str | None = None,
     method: str | None = None, currency: str | None = None, user: UUID | None = None,
-    start: date | None = None, end: date | None = None, cursor: str | None = None, limit: int = 25,
+    range: str = "30d", start: date | None = None, end: date | None = None, cursor: str | None = None, limit: int = 25,
 ):  # fmt: skip
     staff(request)
     limit = clamp(limit, 100)
+    window = parse_range(range if not (start and end) else "custom", start, end)
+    start, end = window.start.date(), window.end.date()
     qs = _orders(q, status, product, category, customer_type, method, currency, user, start, end).distinct()
     total = qs.count() if not cursor else -1
-    after = keyset.decode(cursor, 1)
-    if after:
-        qs = qs.filter(id__lt=after[0])
+    qs = _date_cursor(qs, cursor, "created_at")
     rows = list(
-        qs.select_related("user", "currency").prefetch_related("items__course").order_by("-id")[: limit + 1]
+        qs.select_related("user", "currency").prefetch_related("items__course").order_by("-created_at", "-id")[: limit + 1]
     )
     page = rows[:limit]
     return {"items": [_row(o) for o in page], "total": total,
-            "next_cursor": keyset.encode(page[-1].id) if len(rows) > limit else None}  # fmt: skip
+            "next_cursor": keyset.encode(page[-1].created_at, page[-1].id) if len(rows) > limit else None}  # fmt: skip
 
 
 @router.get("/orders/export.csv", include_in_schema=False)
@@ -319,14 +334,17 @@ def orders_csv(
     request, q: str | None = None, status: str | None = None, product: UUID | None = None,
     category: UUID | None = None, customer_type: str | None = None,
     method: str | None = None, currency: str | None = None, start: date | None = None, end: date | None = None,
+    range: str = "30d",
 ):  # fmt: skip
     staff(request)
+    window = parse_range(range if not (start and end) else "custom", start, end)
+    start, end = window.start.date(), window.end.date()
     qs = _orders(q, status, product, category, customer_type, method, currency, None, start, end).distinct()
     data = [
         _row(o)
         for o in qs.select_related("user", "currency")
         .prefetch_related("items__course")
-        .order_by("-id")[:20000]
+        .order_by("-created_at", "-id")
     ]
     audit_request(request, "orders.export", "order", "*", {"rows": len(data)})
     header = ["Order", "Customer", "Email", "Products", "Status", "Currency", "Total", "Total (GBP)",
@@ -407,7 +425,7 @@ def order_detail(request, order_id: UUID):
         "prices_include_tax": bool(get_setting("payments.prices_include_tax")),
         "payment_status": pay or ("free" if o.total_minor == 0 and o.paid_at else o.status),
         "invoice_url": (inv.pdf_url or inv.hosted_url) if inv else None,
-        "customer_orders": Order.objects.filter(user_id=o.user_id).exclude(status="expired").count(),
+        "customer_orders": Order.objects.filter(user_id=o.user_id).count(),
         "refundable": o.status in ("paid", "partially_refunded"),
         "country": o.country,
     }
@@ -448,24 +466,27 @@ class ConsoleRefundPageOut(Schema):
 
 
 @router.get("/refunds", response=ConsoleRefundPageOut)
-def refunds(request, q: str | None = None, cursor: str | None = None, limit: int = 25):
+def refunds(
+    request, q: str | None = None, range: str = "30d", start: date | None = None, end: date | None = None,
+    cursor: str | None = None, limit: int = 25,
+):
     staff(request)
     limit = clamp(limit, 100)
+    window = parse_range(range if not (start and end) else "custom", start, end)
     qs = Refund.objects.select_related("item__course", "item__order__currency", "user", "requested_by")
     if q:
         term = q.strip()[:100]
         qs = qs.filter(Q(user__email__icontains=term) | Q(item__course__title__icontains=term))
-    after = keyset.decode(cursor, 1)
-    if after:
-        qs = qs.filter(id__lt=after[0])
-    rows = list(qs.order_by("-id")[: limit + 1])
+    qs = qs.filter(created_at__gte=window.start, created_at__lt=window.end)
+    qs = _date_cursor(qs, cursor, "created_at")
+    rows = list(qs.order_by("-created_at", "-id")[: limit + 1])
     page = rows[:limit]
     return {"items": [{"id": r.id, "order_id": r.item.order_id, "order_number": order_number(r.item.order_id),
                        "item_id": r.item_id, "course_title": r.item.course.title, "name": r.user.full_name,
                        "email": r.user.email, "amount_minor": r.amount_minor, "currency": r.item.order.currency_id,
                        "exponent": r.item.order.currency.exponent, "reason": r.reason, "status": r.status,
                        "by_staff": r.requested_by.is_staff, "created_at": r.created_at} for r in page],
-            "next_cursor": keyset.encode(page[-1].id) if len(rows) > limit else None}  # fmt: skip
+            "next_cursor": keyset.encode(page[-1].created_at, page[-1].id) if len(rows) > limit else None}  # fmt: skip
 
 
 class ConsoleInvoiceRowOut(Schema):
@@ -497,10 +518,12 @@ def invoice_rows(qs) -> list[dict]:
 
 @router.get("/invoices", response=ConsoleInvoicePageOut)
 def invoices(
-    request, q: str | None = None, kind: str | None = None, cursor: str | None = None, limit: int = 25
+    request, q: str | None = None, kind: str | None = None, range: str = "30d", start: date | None = None,
+    end: date | None = None, cursor: str | None = None, limit: int = 25
 ):
     staff(request)
     limit = clamp(limit, 100)
+    window = parse_range(range if not (start and end) else "custom", start, end)
     qs = Invoice.objects.select_related("user", "currency")
     if kind == "subscription":
         qs = qs.filter(subscription__isnull=False)
@@ -509,14 +532,13 @@ def invoices(
     if q:
         term = q.strip()[:100]
         qs = qs.filter(Q(user__email__icontains=term) | Q(number__icontains=term))
-    after = keyset.decode(cursor, 1)
-    if after:
-        qs = qs.filter(id__lt=after[0])
-    rows = list(qs.order_by("-id")[: limit + 1])
+    qs = qs.filter(issued_at__gte=window.start, issued_at__lt=window.end)
+    qs = _date_cursor(qs, cursor, "issued_at")
+    rows = list(qs.order_by("-issued_at", "-id")[: limit + 1])
     page = rows[:limit]
     return {
         "items": invoice_rows(page),
-        "next_cursor": keyset.encode(page[-1].id) if len(rows) > limit else None,
+        "next_cursor": keyset.encode(page[-1].issued_at, page[-1].id) if len(rows) > limit else None,
     }
 
 

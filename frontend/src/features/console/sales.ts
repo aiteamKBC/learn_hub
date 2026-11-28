@@ -17,9 +17,9 @@ const fetchOrders = (f: OrderFilters, cursor?: string) => unwrap(api.GET('/api/v
 export type ConsoleOrderRow = Awaited<ReturnType<typeof fetchOrders>>['items'][number]
 const fetchOrder = (id: string) => unwrap(api.GET('/api/v1/console/orders/{order_id}', { params: { path: { order_id: id } } }))
 export type ConsoleOrderDetail = Awaited<ReturnType<typeof fetchOrder>>
-const fetchRefunds = (q: string, cursor?: string) => unwrap(api.GET('/api/v1/console/refunds', { params: { query: { q: q || undefined, cursor, limit: 25 } } }))
+const fetchRefunds = (q: string, cursor?: string, range: Pick<OrderFilters, 'start' | 'end'> = {}) => unwrap(api.GET('/api/v1/console/refunds', { params: { query: { q: q || undefined, cursor, limit: 25, ...range } } }))
 export type ConsoleRefundRow = Awaited<ReturnType<typeof fetchRefunds>>['items'][number]
-const fetchInvoices = (q: string, kind: string, cursor?: string) => unwrap(api.GET('/api/v1/console/invoices', { params: { query: { q: q || undefined, kind: kind || undefined, cursor, limit: 25 } } }))
+const fetchInvoices = (q: string, kind: string, cursor?: string, range: Pick<OrderFilters, 'start' | 'end'> = {}) => unwrap(api.GET('/api/v1/console/invoices', { params: { query: { q: q || undefined, kind: kind || undefined, cursor, limit: 25, ...range } } }))
 export type ConsoleInvoiceRow = Awaited<ReturnType<typeof fetchInvoices>>['items'][number]
 
 export const ORDER_STATUSES: Record<string, string> = { paid: 'Paid', pending: 'Awaiting payment', partially_refunded: 'Partly refunded', refunded: 'Refunded', failed: 'Payment failed' }
@@ -52,20 +52,20 @@ export function useConsoleOrder(id: string) {
   return useQuery({ queryKey: ['console', 'sales', 'order', id], queryFn: () => fetchOrder(id), enabled: !!id })
 }
 
-export function useConsoleRefunds(q: string) {
+export function useConsoleRefunds(q: string, range: Pick<OrderFilters, 'start' | 'end'> = {}) {
   return useInfiniteQuery({
-    queryKey: ['console', 'sales', 'refunds', q],
-    queryFn: ({ pageParam }) => fetchRefunds(q, pageParam),
+    queryKey: ['console', 'sales', 'refunds', q, range],
+    queryFn: ({ pageParam }) => fetchRefunds(q, pageParam, range),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.next_cursor ?? undefined,
     placeholderData: keepPreviousData,
   })
 }
 
-export function useConsoleInvoices(q: string, kind = '') {
+export function useConsoleInvoices(q: string, kind = '', range: Pick<OrderFilters, 'start' | 'end'> = {}) {
   return useInfiniteQuery({
-    queryKey: ['console', 'sales', 'invoices', q, kind],
-    queryFn: ({ pageParam }) => fetchInvoices(q, kind, pageParam),
+    queryKey: ['console', 'sales', 'invoices', q, kind, range],
+    queryFn: ({ pageParam }) => fetchInvoices(q, kind, pageParam, range),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.next_cursor ?? undefined,
     placeholderData: keepPreviousData,
