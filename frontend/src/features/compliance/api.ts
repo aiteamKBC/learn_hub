@@ -197,12 +197,12 @@ export async function downloadExport(unitId?: string) {
 }
 
 export const STATUS = {
-  compliant: { label: 'Compliant', tone: 'success', color: 'var(--success)' },
-  expiring_soon: { label: 'Expiring soon', tone: 'warning', color: 'var(--chart-3)' },
-  in_progress: { label: 'In progress', tone: 'info', color: 'var(--chart-5)' },
-  not_started: { label: 'Not started', tone: 'neutral', color: 'var(--border-strong)' },
-  overdue: { label: 'Overdue', tone: 'danger', color: 'var(--chart-4)' },
-  expired: { label: 'Expired', tone: 'danger', color: 'var(--danger)' },
+  compliant: { label: 'Compliant', tone: 'success', color: 'var(--chart-5)' },
+  expiring_soon: { label: 'Expiring soon', tone: 'warning', color: 'var(--chart-1)' },
+  in_progress: { label: 'In progress', tone: 'info', color: 'var(--chart-3)' },
+  not_started: { label: 'Not started', tone: 'neutral', color: 'var(--chart-4)' },
+  overdue: { label: 'Overdue', tone: 'danger', color: 'var(--chart-2)' },
+  expired: { label: 'Expired', tone: 'danger', color: 'var(--primary)' },
   exempt: { label: 'Exempt', tone: 'outline', color: 'var(--text-subtle)' },
 } as const
 export type StatusKey = keyof typeof STATUS
@@ -212,7 +212,7 @@ export const statusOf = (s: string) => STATUS[s as StatusKey] ?? STATUS.not_star
 
 /** Colour band for a compliance percentage (same bands as the overview). */
 export const complianceTone = (pct: number) => (pct >= 85 ? 'success' : pct >= 65 ? 'warning' : 'danger') as 'success' | 'warning' | 'danger'
-export const TONE_FILL = { success: 'var(--chart-2)', warning: 'var(--chart-3)', danger: 'var(--chart-4)' } as const
+export const TONE_FILL = { success: 'var(--chart-5)', warning: 'var(--chart-1)', danger: 'var(--chart-3)' } as const
 export const TONE_TEXT = { success: 'text-success', warning: 'text-warning', danger: 'text-danger' } as const
 
 // how urgent a status is, for "worst status" summaries (higher is worse)

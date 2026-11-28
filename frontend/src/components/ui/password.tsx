@@ -1,16 +1,16 @@
 import { Eye, EyeOff } from 'lucide-react'
-import { forwardRef, type InputHTMLAttributes, useState } from 'react'
+import { forwardRef, type InputHTMLAttributes, type ReactNode, useState } from 'react'
 
 import { cn } from '@/lib/cn'
 
 import { Input } from './input'
 
 /** A password field with a show/hide button. */
-export const PasswordInput = forwardRef<HTMLInputElement, Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>>(function PasswordInput({ className, ...props }, ref) {
+export const PasswordInput = forwardRef<HTMLInputElement, Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & { icon?: ReactNode }>(function PasswordInput({ className, icon, ...props }, ref) {
   const [shown, setShown] = useState(false)
   return (
     <div className="relative">
-      <Input ref={ref} {...props} type={shown ? 'text' : 'password'} className={cn('pr-10', className)} />
+      <Input ref={ref} {...props} icon={icon} type={shown ? 'text' : 'password'} className={cn('pr-10', className)} />
       <button
         type="button"
         onClick={() => setShown((s) => !s)}

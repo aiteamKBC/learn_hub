@@ -729,9 +729,9 @@ export function ConsoleCoursesPage() {
         }
       />
       <Tabs value={tab} onValueChange={(v) => setTab(v as PageTab)}>
-        <TabsList aria-label="Course lists" className="mb-1">
+        <TabsList indicator={false} aria-label="Course lists" className="mb-1">
           {TABS.map((t) => (
-            <TabsTrigger key={t} value={t}>
+            <TabsTrigger key={t} value={t} className="border-b-2 border-transparent data-[state=active]:border-primary">
               {t === 'categories' ? <FolderTree /> : t === 'archived' ? <Archive /> : t === 'company' ? <Star /> : t === 'instructor' ? <Users /> : <BookOpen />} {TAB_LABEL[t]}
             </TabsTrigger>
           ))}

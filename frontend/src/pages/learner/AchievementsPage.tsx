@@ -42,18 +42,28 @@ export function AchievementsPage() {
         </Card>
       ) : (
         <>
-          <Card className="mb-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
-            <span className="flex size-12 items-center justify-center rounded-xl bg-warning-soft text-warning">
-              <Trophy className="size-6" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm text-muted">Badges earned</p>
-              <p className="text-2xl font-semibold tracking-tight tabular">
-                {Math.round(n)} <span className="text-base font-normal text-muted">of {total}</span>
-              </p>
+          <Card className="mb-7 grid gap-5 rounded-2xl px-6 py-5 shadow-sm sm:grid-cols-[minmax(290px,0.45fr)_minmax(0,1fr)] sm:items-center sm:px-7 sm:py-6">
+            <div className="flex min-w-0 items-center gap-5">
+              <span className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-warning-soft text-primary">
+                <Trophy className="size-10" strokeWidth={1.8} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-base font-medium text-muted">Achievements unlocked</p>
+                <p className="mt-1 text-3xl font-medium tracking-tight tabular">
+                  {Math.round(n)} <span className="text-muted">of {total}</span>
+                </p>
+              </div>
             </div>
-            <div className="h-2.5 w-full overflow-hidden rounded-full bg-surface-2 sm:w-64">
-              <div className="h-full rounded-full bg-gradient-to-r from-chart-3 to-primary transition-[width] duration-700 ease-out" style={{ width: `${fill}%` }} />
+            <div className="min-w-0">
+              <div className="flex items-center gap-5">
+                <div className="h-4 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-2">
+                  <div className="h-full rounded-full bg-gradient-to-r from-chart-3 to-primary transition-[width] duration-700 ease-out" style={{ width: `${fill}%` }} />
+                </div>
+                <span className="w-12 shrink-0 text-right text-lg font-medium text-muted tabular">{Math.round(fill)}%</span>
+              </div>
+              <p className="mt-3 text-base text-muted">
+                {earned === 0 ? 'Complete learning activities to unlock your first badge.' : earned === total ? 'You have unlocked every available achievement.' : `Keep learning — ${total - earned} achievement${total - earned === 1 ? '' : 's'} left to unlock.`}
+              </p>
             </div>
           </Card>
           <ul className="stagger grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">

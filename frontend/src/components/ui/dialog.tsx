@@ -8,7 +8,7 @@ export const Dialog = D.Root
 export const DialogTrigger = D.Trigger
 export const DialogClose = D.Close
 
-export function DialogContent({ title, description, children, className, side }: { title: string; description?: string; children: ReactNode; className?: string; side?: 'left' | 'right' }) {
+export function DialogContent({ title, description, children, className, side, hideHeader = false }: { title: string; description?: string; children: ReactNode; className?: string; side?: 'left' | 'right'; hideHeader?: boolean }) {
   return (
     <D.Portal>
       <D.Overlay className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] data-[state=closed]:animate-fade-out data-[state=open]:animate-fade-in" />
@@ -22,16 +22,16 @@ export function DialogContent({ title, description, children, className, side }:
           className,
         )}
       >
-        <div className={cn('flex items-start justify-between gap-4', side && 'border-b border-border p-4')}>
-          <div>
+        <div className={cn('flex items-start justify-between gap-4', side && 'border-b border-border p-4', hideHeader && 'contents')}>
+          <div className={cn(hideHeader && 'sr-only')}>
             <D.Title className="text-base font-semibold">{title}</D.Title>
             {description ? <D.Description className="mt-1 text-sm text-muted">{description}</D.Description> : <D.Description className="sr-only">{title}</D.Description>}
           </div>
-          <D.Close className="-m-1 rounded-md p-1 text-muted hover:bg-surface-2 hover:text-text" aria-label="Close">
+          <D.Close className={cn('-m-1 rounded-md p-1 text-muted hover:bg-surface-2 hover:text-text', hideHeader && 'absolute top-5 right-5 z-20 m-0 flex size-11 items-center justify-center rounded-full bg-[#f7f0ea] p-0 text-text shadow-sm hover:bg-primary-soft')} aria-label="Close">
             <X className="size-5" />
           </D.Close>
         </div>
-        <div className={cn(side ? 'flex-1 overflow-y-auto' : 'mt-5')}>{children}</div>
+        <div className={cn(side ? 'flex-1 overflow-y-auto' : hideHeader ? 'mt-0' : 'mt-5')}>{children}</div>
       </D.Content>
     </D.Portal>
   )

@@ -18,7 +18,7 @@ const isScope = (v: string | null): v is SearchIn => SCOPES.some((s) => s.k === 
 /** The header search. Pick what to search (courses, instructors or topics), then type:
  * matching courses show straight away from the real catalogue. Arrow keys move, Enter
  * opens the highlighted course, or the full results page when nothing is highlighted. */
-export function SearchBox({ className, autoFocus, overlay }: { className?: string; autoFocus?: boolean; overlay?: boolean }) {
+export function SearchBox({ className, autoFocus, overlay, placeholder }: { className?: string; autoFocus?: boolean; overlay?: boolean; placeholder?: string }) {
   const [params] = useSearchParams()
   const [q, setQ] = useState(params.get('q') ?? '')
   const [scope, setScope] = useState<SearchIn>(isScope(params.get('in')) ? (params.get('in') as SearchIn) : 'courses')
@@ -80,7 +80,7 @@ export function SearchBox({ className, autoFocus, overlay }: { className?: strin
               setActive((a) => (a <= 0 ? items.length - 1 : a - 1))
             }
           }}
-          placeholder={open ? current.placeholder : 'Search for courses, topics or instructors'}
+          placeholder={open ? current.placeholder : placeholder ?? 'Search for courses, topics or instructors'}
           aria-label={`Search ${current.label.toLowerCase()}`}
           role="combobox"
           aria-expanded={open}

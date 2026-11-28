@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiError, api, csrfToken, unwrap } from '@/api/client'
-import { authAlert, closeAuthAlert } from '@/lib/auth-alert'
+import { authAlert } from '@/lib/auth-alert'
 import { forgetInvite } from '@/lib/next'
 
 const BASE = '/_allauth/browser/v1'
@@ -156,26 +156,36 @@ function raise(r: AllauthResponse): never {
 export function useLogin() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (v: { email: string; password: string }): Promise<'signed-in' | 'mfa'> => {
+    // On success we resolve with the fresh account so the caller can send each role to its
+    // own dashboard (admin → console, instructor → studio, company manager → business).
+    mutationFn: async (v: { email: string; password: string }): Promise<Me | 'mfa'> => {
       const r = await call('POST', '/auth/login', { ...v, email: v.email.trim() })
       // 2-step sign-in: the password was right, now the code from the authenticator app
       if (r.status === 401 && r.data?.flows?.some((f) => f.id === 'mfa_authenticate' && f.is_pending)) return 'mfa'
       if (r.status !== 200) raise(r)
-      return 'signed-in'
+      return await fetchMe()
     },
-    // Refresh the account in the background. Returning this promise kept the login
-    // button pending until a second network round-trip finished, even though the
-    // password had already been accepted.
     onSuccess: (r) => {
-      if (r !== 'signed-in') return
-      welcome(qc.getQueryData<{ full_name?: string } | null>(['me']))
+      if (r === 'mfa') return
+      welcome(r)
+      // Keep the shared ['me'] cache honest; the caller has already navigated by now.
       void qc.refetchQueries({ queryKey: ['me'], type: 'all' })
     },
+    onError: (error) => authAlert({ kind: 'error', title: 'Could not sign you in', text: error instanceof Error ? error.message : 'Check your email and password, then try again.' }),
   })
 }
 
+/** Where a signed-in person should land: each role opens its own workspace. */
+export function landingForMe(me: Me | null | undefined): string {
+  if (!me) return '/learn'
+  if (me.is_staff) return '/console'
+  if (me.is_instructor) return '/studio'
+  if ((me.memberships ?? []).some((m) => ['owner', 'admin', 'manager'].includes(m.role))) return '/business'
+  return '/learn'
+}
+
 /** The "you're in" popup after any sign-in (password, or the 2-step code). */
-function welcome(me?: { full_name?: string } | null) {
+function welcome(me?: { full_name?: string | null } | null) {
   const first = me?.full_name?.trim().split(/\s+/)[0]
   authAlert({ kind: 'success', title: first ? `Welcome back, ${first}` : 'Welcome back', text: 'You are signed in.', autoClose: 1800 })
 }
@@ -184,14 +194,16 @@ function welcome(me?: { full_name?: string } | null) {
 export function useMfaAuthenticate() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (code: string) => {
+    mutationFn: async (code: string): Promise<Me> => {
       const r = await call('POST', '/auth/2fa/authenticate', { code })
       if (r.status !== 200) raise(r)
+      return await fetchMe()
     },
-    onSuccess: () => {
-      welcome(qc.getQueryData<{ full_name?: string } | null>(['me']))
+    onSuccess: (r) => {
+      welcome(r)
       void qc.refetchQueries({ queryKey: ['me'], type: 'all' })
     },
+    onError: (error) => authAlert({ kind: 'error', title: 'That code did not work', text: error instanceof Error ? error.message : 'Check the code and try again.' }),
   })
 }
 
@@ -332,8 +344,6 @@ export function useLogout() {
   const qc = useQueryClient()
   const navigate = useNavigate()
   return useMutation({
-    // feedback straight away: the request itself can take a moment
-    onMutate: () => authAlert({ kind: 'loading', title: 'Signing you out…' }),
     mutationFn: () => call('DELETE', '/auth/session'),
     onSettled: (_r, error) => {
       // an invitation waiting in this browser belongs to whoever was signed in
@@ -345,7 +355,7 @@ export function useLogout() {
       qc.clear()
       qc.setQueryData(['me'], null)
       navigate('/', { replace: true })
-      if (error) closeAuthAlert()
+      if (error) authAlert({ kind: 'error', title: 'Could not sign you out', text: 'Please try again.' })
       else authAlert({ kind: 'signed-out', title: 'You are signed out', text: 'See you again soon.', autoClose: 1800 })
     },
   })

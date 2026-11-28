@@ -3,7 +3,7 @@ import * as P from '@radix-ui/react-progress'
 import { cn } from '@/lib/cn'
 import { useFill, useInView } from '@/lib/motion'
 
-const tones = { primary: 'bg-primary', success: 'bg-chart-2', warning: 'bg-chart-3', danger: 'bg-chart-4' }
+const tones = { primary: 'bg-primary', success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger' }
 
 /** Fills from empty when it scrolls into view. */
 export function Progress({ value, tone = 'primary', className, label }: { value: number; tone?: keyof typeof tones; className?: string; label?: string }) {

@@ -1,9 +1,11 @@
 import { BookOpen, Check, Info, Package } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody } from '@/components/ui/card'
-import { EmptyState, ErrorState, PageHeader } from '@/components/ui/misc'
+import { CourseThumb } from '@/components/ui/course-thumb'
+import { ErrorState, PageHeader } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCashPackages } from '@/features/b2c/api'
 import type { ReviewItem } from '@/pages/b2c/CheckoutReviewPage'
@@ -47,18 +49,7 @@ export function PackagesPage() {
         ) : error ? (
           <ErrorState message="We couldn't load the bundles." onRetry={() => void refetch()} />
         ) : !data?.length ? (
-          <Card className="animate-reveal">
-            <EmptyState
-              icon={<Package />}
-              title="No bundles available"
-              body="There aren't any course bundles right now. You can still unlock courses with tokens or subscribe."
-              action={
-                <Button asChild>
-                  <Link to="/courses">Browse courses</Link>
-                </Button>
-              }
-            />
-          </Card>
+          <PackagesPreview />
         ) : (
           <div className="stagger grid gap-5 md:grid-cols-2">
             {data.map((pkg) => (
@@ -112,5 +103,40 @@ export function PackagesPage() {
           </div>
         )}
     </>
+  )
+}
+
+function PackagesPreview() {
+  const samples = [
+    { name: 'Workplace Safety Essentials', category: 'Health & Safety', price: 'CA$119.99', courses: ['Fire Safety Awareness', 'Manual Handling', 'First Aid Awareness'] },
+    { name: 'Care & Compliance Starter', category: 'Care & Compliance', price: 'CA$129.99', courses: ['Safeguarding Adults', 'GDPR Essentials', 'Infection Prevention and Control'] },
+  ]
+  return (
+    <div className="grid gap-5 md:grid-cols-2">
+      {samples.map((pkg) => (
+        <Card key={pkg.name} className="overflow-hidden rounded-2xl">
+          <div className="relative">
+            <CourseThumb title={pkg.name} category={pkg.category} className="rounded-none" />
+            <Badge tone="warning" className="absolute top-3 left-3 shadow-sm">Example bundle</Badge>
+          </div>
+          <CardBody className="flex flex-col p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div><p className="text-lg font-bold tracking-tight">{pkg.name}</p><p className="mt-1 text-xs text-muted">{pkg.courses.length} courses · lifetime access</p></div>
+              <p className="shrink-0 text-xl font-extrabold">{pkg.price}</p>
+            </div>
+            <ul className="mt-4 space-y-2 text-sm">
+              {pkg.courses.map((course) => <li key={course} className="flex items-start gap-2"><Check className="mt-0.5 size-4 shrink-0 text-success" /><span>{course}</span></li>)}
+            </ul>
+            <div className="mt-5 flex gap-2">
+              <Button asChild className="flex-1"><Link to="/courses"><BookOpen /> Browse courses</Link></Button>
+              <Button variant="secondary" disabled>Preview</Button>
+            </div>
+          </CardBody>
+        </Card>
+      ))}
+      <Card className="rounded-2xl border-dashed p-5 text-center md:col-span-2">
+        <Package className="mx-auto size-7 text-primary" /><p className="mt-2 text-sm text-muted">Real bundles will replace these examples automatically when they are published.</p>
+      </Card>
+    </div>
   )
 }

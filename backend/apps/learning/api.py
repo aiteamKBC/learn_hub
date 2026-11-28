@@ -32,6 +32,7 @@ from .schemas import (
     HeartbeatOut,
     LectureContent,
     MyCoursePage,
+    MyLiveSessionOut,
     NoteIn,
     NoteOut,
     NotePatchIn,
@@ -177,6 +178,41 @@ def my_courses(
     ]  # fmt: skip
     nxt = keyset.encode(page[-1].seen.isoformat(), page[-1].id) if len(rows) > limit else None
     return {"items": items, "next_cursor": nxt}
+
+
+@router.get("/my/live-sessions", response=list[MyLiveSessionOut])
+def my_live_sessions(request):
+    """Live sessions scheduled in the courses the learner is enrolled in, soonest first.
+    The join link appears 15 minutes before a session starts (same rule as the player)."""
+    now = timezone.now()
+    enrolments = {
+        e.course_id: e
+        for e in Enrollment.objects.filter(user=request.user, status__in=LIVE).select_related("course")
+    }
+    version_ids = [e.course.live_version_id for e in enrolments.values() if e.course.live_version_id]
+    if not version_ids:
+        return []
+    rows = (
+        Lecture.objects.filter(
+            kind=Lecture.Kind.LIVE_SESSION, live_starts_at__isnull=False, version_id__in=version_ids
+        )
+        .select_related("version")
+        .order_by("live_starts_at")
+    )
+    out = []
+    for lec in rows:
+        e = enrolments.get(lec.version.course_id)
+        if e is None:
+            continue
+        joinable = lec.live_starts_at - timedelta(minutes=15) <= now
+        out.append({
+            "enrollment_id": e.id, "course_id": e.course_id, "course_slug": e.course.slug,
+            "course_title": e.course.title, "lecture_key": lec.lecture_key, "title": lec.title,
+            "starts_at": lec.live_starts_at, "duration_min": lec.live_duration_min,
+            "provider": lec.live_provider, "join_url": lec.live_join_url if joinable else None,
+            "is_upcoming": lec.live_starts_at >= now,
+        })  # fmt: skip
+    return out
 
 
 # ---------------------------------------------------------------- player

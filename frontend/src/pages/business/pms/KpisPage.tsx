@@ -1,6 +1,6 @@
 import { Gauge, LineChart, Plus, Target } from 'lucide-react'
 import { useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,9 +17,9 @@ import { shortDate } from '@/lib/format'
 import { Link } from '@/lib/router'
 
 function attainmentColour(pct: number) {
-  if (pct >= 90) return 'var(--chart-2)'
-  if (pct >= 60) return 'var(--chart-3)'
-  return 'var(--chart-4)'
+  if (pct >= 90) return 'var(--chart-5)'
+  if (pct >= 60) return 'var(--chart-1)'
+  return 'var(--chart-3)'
 }
 
 export function RecordDialog({ kpi, admin }: { kpi: Kpi; admin: boolean }) {

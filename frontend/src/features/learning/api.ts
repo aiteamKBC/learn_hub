@@ -6,6 +6,7 @@ import type { components } from '@/api/schema'
 import { API_BASE_URL } from '@/lib/env'
 
 export type Player = components['schemas']['PlayerOut']
+export type MyCourse = components['schemas']['MyCourse']
 export type PlayerLecture = components['schemas']['PlayerLecture']
 export type Lecture = components['schemas']['LectureContent']
 export type Attempt = components['schemas']['AttemptOut']
@@ -14,12 +15,18 @@ export type ReviewItem = components['schemas']['ReviewItem']
 export type Note = components['schemas']['NoteOut']
 export type Certificate = components['schemas']['CertificateOut']
 export type Submission = components['schemas']['SubmissionOut']
+export type MyLiveSession = components['schemas']['MyLiveSessionOut']
 
 /** A quiz answer, in the shape the server grades (see learning/grading.py). */
 export type Answer = string | string[] | Record<string, string>
 
 export function useMyCourses(status = 'all') {
   return useQuery({ queryKey: ['my-courses', status], queryFn: () => unwrap(api.GET('/api/v1/learning/my/courses', { params: { query: { status, limit: 24 } } })) })
+}
+
+/** Live sessions scheduled across the courses the learner is enrolled in. */
+export function useMyLiveSessions() {
+  return useQuery({ queryKey: ['my-live-sessions'], queryFn: () => unwrap(api.GET('/api/v1/learning/my/live-sessions')) })
 }
 
 /** The player addresses courses by slug (nice URLs); the API by enrolment. */

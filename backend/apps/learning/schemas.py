@@ -73,6 +73,22 @@ class LiveOut(Schema):
     provider: str = "manual"
 
 
+class MyLiveSessionOut(Schema):
+    """One scheduled live session in a course the learner is enrolled in."""
+
+    enrollment_id: UUID
+    course_id: UUID
+    course_slug: str
+    course_title: str
+    lecture_key: UUID
+    title: str
+    starts_at: datetime
+    duration_min: int | None = None
+    provider: str = "manual"
+    join_url: str | None = None  # appears 15 minutes before the start
+    is_upcoming: bool
+
+
 class ResourceOut(Schema):
     id: UUID
     title: str

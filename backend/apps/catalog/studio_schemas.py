@@ -447,3 +447,35 @@ class StudioPayoutAccountOut(Schema):
 
 class StudioPayoutAccountSetOut(Schema):
     verified: bool
+
+
+# ---------------------------------------------------------------- live sessions
+class StudioLiveSessionOut(Schema):
+    course_id: UUID
+    course_slug: str
+    course_title: str
+    lecture_key: UUID
+    title: str
+    starts_at: datetime
+    duration_min: int | None = None
+    provider: str
+    join_url: str
+    is_upcoming: bool
+
+
+# ---------------------------------------------------------------- certificates
+class StudioCertificateRow(Schema):
+    id: UUID
+    course_id: UUID
+    course_title: str
+    recipient_name: str
+    verification_code: str
+    cpd_hours: float | None = None
+    issued_at: datetime
+    revoked: bool
+
+
+class StudioCertificatesOut(Schema):
+    total: int
+    this_month: int
+    recent: list[StudioCertificateRow]

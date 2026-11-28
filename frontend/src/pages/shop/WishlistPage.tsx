@@ -41,7 +41,7 @@ export function WishlistPage() {
                     {c.price && !c.price.free ? <Button size="sm" loading={add.isPending && add.variables === c.id} onClick={() => add.mutate(c.id, { onSuccess: () => authAlert({ kind: 'cart', title: 'Added to your cart', text: c.title, autoClose: 3500, action: { label: 'View cart', onClick: () => navigate('/cart') } }), onError: fail })}>
                       <ShoppingCart /> Add to cart
                     </Button> : <Button size="sm" asChild><Link to={`/courses/${c.slug}`}>View course</Link></Button>}
-                    <Button size="sm" variant="ghost" loading={remove.isPending && remove.variables === c.id} onClick={() => remove.mutate(c.id, { onSuccess: () => toast.success('Removed from your wishlist'), onError: fail })}>
+                    <Button size="sm" variant="ghost" loading={remove.isPending && remove.variables === c.id} onClick={() => remove.mutate(c.id, { onError: fail })}>
                       <Heart className="fill-danger text-danger" /> Remove
                     </Button>
                   </>

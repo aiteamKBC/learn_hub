@@ -1,4 +1,4 @@
-import { Award, ChevronDown, ChevronLeft, ChevronRight, Info, ListTree, Lock, Megaphone, MessagesSquare, NotebookPen, PanelRightClose, PanelRightOpen, PartyPopper, Star } from 'lucide-react'
+import { ArrowLeft, Award, BookOpenText, ChevronDown, ChevronLeft, ChevronRight, Info, ListTree, Lock, Megaphone, MessagesSquare, NotebookPen, PartyPopper, Star, Target } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from '@/lib/toast'
@@ -7,15 +7,14 @@ import { Backdrop } from '@/components/art/backdrops'
 import { DashboardBackdrop } from '@/components/art/dashboard-backdrop'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { Logo } from '@/components/ui/logo'
+import { LogoMark } from '@/components/ui/logo'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '@/components/ui/menu'
 import { EmptyState, ErrorState } from '@/components/ui/misc'
+import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { type Lecture, type Player, certificatePdfUrl, useEnrollmentId, useLecture, usePlayer } from '@/features/learning/api'
 import { cn } from '@/lib/cn'
-import { useCountUp, useFill } from '@/lib/motion'
 import { Link, useNavigate } from '@/lib/router'
 
 import { AssignmentStage } from './AssignmentStage'
@@ -45,19 +44,35 @@ function resumeKey(p: Player) {
   return (all.find((l) => !l.completed && !l.locked) ?? all[0])?.key
 }
 
-function MiniRing({ value }: { value: number }) {
-  const r = 15
-  const c = 2 * Math.PI * r
-  const fill = useFill(value)
-  const n = useCountUp(value)
+function PlayerTopNav({ player, doneCount, total, onOpenContents }: { player?: Player; doneCount: number; total: number; onOpenContents: () => void }) {
   return (
-    <span className="relative inline-flex size-9 items-center justify-center" role="img" aria-label={`${Math.round(value)}% complete`}>
-      <svg viewBox="0 0 36 36" className="absolute inset-0 -rotate-90">
-        <circle cx="18" cy="18" r={r} fill="none" strokeWidth="3.5" className="stroke-white/15" />
-        <circle cx="18" cy="18" r={r} fill="none" strokeWidth="3.5" strokeLinecap="round" stroke="var(--primary)" strokeDasharray={c} strokeDashoffset={c * (1 - fill / 100)} className="transition-[stroke-dashoffset] duration-700 ease-out" />
-      </svg>
-      <span className="text-[10px] font-bold tabular">{Math.round(n)}</span>
-    </span>
+    <header className="sticky top-0 z-50 border-b border-border/70 bg-surface/95 backdrop-blur-xl">
+      <div className="mx-auto flex min-h-[72px] max-w-[1600px] items-center gap-3 px-4 py-2 sm:px-6 lg:gap-4 lg:px-14">
+        <Link to="/" aria-label="EvidRise home" className="flex shrink-0 items-center gap-2">
+          <LogoMark className="h-9" />
+          <span className="hidden text-[27px] font-extrabold tracking-[-0.04em] text-[#0b1632] sm:inline">Evid<span className="text-primary">Rise</span></span>
+        </Link>
+        <span aria-hidden className="hidden h-8 w-px bg-border sm:block" />
+        <Button variant="secondary" size="icon" asChild className="shrink-0 rounded-full">
+          <Link to="/learn" aria-label="Back to my learning"><ArrowLeft /></Link>
+        </Button>
+        {player ? <h1 className="min-w-0 truncate text-base font-bold sm:text-lg lg:text-xl">{player.title}</h1> : <Skeleton className="h-6 w-40" />}
+        <span aria-hidden className="hidden h-7 w-px bg-border xl:block" />
+        <p className="hidden min-w-0 flex-1 truncate text-sm font-medium xl:block">
+          {player?.title.toLowerCase().includes('manual handling') ? 'Learn safe and effective manual handling practices in the workplace.' : `Build practical knowledge and confidence throughout ${player?.title ?? 'this course'}.`}
+        </p>
+        {player ? (
+          <div className="ml-auto hidden shrink-0 items-center gap-4 md:flex">
+            <span className="whitespace-nowrap text-sm font-semibold tabular">{Math.round(player.progress_pct)}% complete</span>
+            <Progress value={player.progress_pct} label="Course progress" className="h-2.5 w-32 lg:w-44" />
+            <span className="whitespace-nowrap text-sm font-medium tabular">{doneCount} of {total} lessons</span>
+          </div>
+        ) : null}
+        <Button variant="ghost" size="icon" className="ml-auto shrink-0 rounded-full md:hidden" aria-label="Course content" onClick={onOpenContents}>
+          <ListTree />
+        </Button>
+      </div>
+    </header>
   )
 }
 
@@ -104,7 +119,7 @@ export function PlayerPage() {
   const doneCount = all.filter((l) => l.completed).length
   const error = lookup.error ?? player.error
   const secondaryTabs = [
-    { value: 'overview', label: 'Overview', Icon: Info },
+    { value: 'overview', label: 'Overview', Icon: BookOpenText },
     { value: 'notes', label: 'Notes', Icon: NotebookPen },
     { value: 'qa', label: 'Q&A', Icon: MessagesSquare },
     { value: 'announcements', label: 'Announcements', Icon: Megaphone },
@@ -113,57 +128,18 @@ export function PlayerPage() {
   const activeSecondary = secondaryTabs.find((item) => item.value === tab)
 
   return (
-    <div className="relative flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
-      {/* Warm dashboard artwork behind the whole player, so the page matches the rest
-          of the learner area instead of a flat background. */}
+    <div className="relative min-h-dvh">
       <DashboardBackdrop className="fixed inset-0 -z-10" />
-      <header className="sticky top-0 z-40 flex h-14 items-center gap-2 bg-nav px-2 text-white sm:gap-3 sm:px-4">
-        <Button variant="ghost" size="icon-sm" asChild className="text-nav-text hover:bg-nav-hover hover:text-white">
-          <Link to="/learn" aria-label="Back to my learning">
-            <ChevronLeft className="size-5" />
-          </Link>
-        </Button>
-        <Link to="/" aria-label="LearnHub home" className="hidden shrink-0 md:block">
-          <Logo inverted />
-        </Link>
-        <span aria-hidden className="hidden h-6 w-px bg-white/15 md:block" />
-        {p ? <h1 className="min-w-0 flex-1 truncate text-sm font-semibold sm:text-[15px]">{p.title}</h1> : <Skeleton className="h-4 w-48 flex-1 bg-white/10 sm:flex-none" />}
-        {p ? (
-          <div className="flex items-center gap-2 text-xs text-nav-text">
-            <MiniRing value={p.progress_pct} />
-            <span className="hidden tabular sm:inline">
-              {doneCount} of {all.length} done
-            </span>
-          </div>
-        ) : null}
-        {p?.certificate_id ? (
-          <Button size="sm" variant="soft" asChild className="hidden sm:inline-flex">
-            <Link to="/learn/certificates">
-              <Award /> Certificate
-            </Link>
-          </Button>
-        ) : null}
-        <ThemeToggle onDark className="size-8" />
-        <Button variant="ghost" size="icon-sm" className="hidden text-nav-text hover:bg-nav-hover hover:text-white lg:inline-flex" aria-label={sidebar ? 'Hide course content' : 'Show course content'} aria-pressed={sidebar} onClick={() => setSidebar((v) => !v)}>
-          {sidebar ? <PanelRightClose /> : <PanelRightOpen />}
-        </Button>
-        <Button variant="ghost" size="icon-sm" className="text-nav-text hover:bg-nav-hover hover:text-white lg:hidden" aria-label="Course content" onClick={() => setDrawer(true)}>
-          <ListTree />
-        </Button>
-      </header>
+      <PlayerTopNav player={p} doneCount={doneCount} total={all.length} onOpenContents={() => setDrawer(true)} />
 
       {error ? (
-        <div className="flex-1 p-6">
+        <div className="mx-auto max-w-[1600px] p-6 lg:px-14">
           <ErrorState message={error.message} onRetry={() => void (lookup.refetch(), player.refetch())} />
         </div>
       ) : (
-        <div className={cn('grid flex-1 lg:h-[calc(100dvh-3.5rem)] lg:overflow-hidden', sidebar && 'lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]')}>
-          {/* On desktop the main column scrolls on its own (contained to the viewport height)
-              instead of growing the whole page, so short lectures don't leave a long empty tail. */}
-          <main id="main" className="min-w-0 lg:overflow-y-auto" data-lenis-prevent>
-            {/* Mobile media starts directly below the header. Desktop keeps breathing room and
-                caps the stage width so the video does not swallow the whole page. */}
-            <div className="mx-auto w-full max-w-5xl lg:px-6 lg:pt-20">
+        <div className="mx-auto grid w-full max-w-[1600px] gap-7 px-0 py-5 sm:px-6 lg:grid-cols-[minmax(0,2.05fr)_minmax(360px,0.95fr)] lg:px-14">
+          <main id="main" className="min-w-0">
+            <div className="w-full overflow-hidden sm:rounded-2xl">
               {locked && p ? (
                 <LockedStage slug={route.slug} title={locked.title} prerequisiteKey={locked.prerequisite_key} prerequisiteTitle={locked.prerequisite_title} reason={locked.locked_reason} />
               ) : <Stage lecture={lecture.data} loading={lecture.isLoading || !p} error={lecture.error} enrollmentId={lookup.enrollmentId} slug={route.slug} startAt={params.get('t') ? Number(params.get('t')) : undefined} onRetry={() => void lecture.refetch()} />}
@@ -173,7 +149,7 @@ export function PlayerPage() {
               <>
                 <LectureBar lecture={lecture.data} slug={route.slug} />
                 <div className="relative">
-                  <Tabs value={tab} onValueChange={(v) => setTab(v)} className="relative mx-auto max-w-5xl px-4 pt-0 pb-16 sm:px-6 sm:pt-2">
+                  <Tabs value={tab} onValueChange={(v) => setTab(v)} className="relative mt-2 overflow-hidden rounded-2xl border border-border bg-surface px-5 pb-4 shadow-sm">
                     <nav aria-label="Lesson sections" className="flex items-stretch border-b border-border lg:hidden">
                       <Menu>
                         <MenuTrigger asChild>
@@ -198,9 +174,9 @@ export function PlayerPage() {
                         </MenuContent>
                       </Menu>
                     </nav>
-                    <TabsList className="hidden lg:flex">
+                    <TabsList className="hidden lg:flex [&_[role=tab]]:h-14 [&_[role=tab]]:px-5 [&_[role=tab]]:font-semibold">
                       <TabsTrigger value="overview">
-                        <Info /> Overview
+                        <BookOpenText /> Overview
                       </TabsTrigger>
                       <TabsTrigger value="notes">
                         <NotebookPen /> Notes
@@ -241,27 +217,38 @@ export function PlayerPage() {
             ) : null}
           </main>
 
-          {sidebar ? (
-            <aside className="hidden border-l border-border bg-surface lg:block">
-              <div className="sticky top-14 flex h-[calc(100dvh-3.5rem)] flex-col">
-                <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                  <h2 className="text-sm font-semibold">Course content</h2>
-                  {p ? <span className="text-xs text-muted tabular">{Math.round(p.progress_pct)}% complete</span> : null}
-                </div>
-                <div className="flex-1 overflow-y-auto overscroll-contain" data-lenis-prevent>
-                  {p ? (
-                    <Curriculum player={p} current={key} />
-                  ) : (
-                    <div className="grid gap-2 p-4">
-                      {Array.from({ length: 8 }, (_, i) => (
-                        <Skeleton key={i} className="h-11" />
-                      ))}
-                    </div>
-                  )}
-                </div>
+          <aside className="hidden lg:block">
+            <div className="sticky top-[146px] overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+              <div className="flex items-center justify-between px-6 py-5">
+                <h2 className="text-xl font-bold tracking-tight">Course content</h2>
+                <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label={sidebar ? 'Collapse course content' : 'Expand course content'} aria-expanded={sidebar} onClick={() => setSidebar((value) => !value)}>
+                  <ChevronDown className={cn('transition-transform', sidebar && 'rotate-180')} />
+                </Button>
               </div>
-            </aside>
-          ) : null}
+              {sidebar ? (
+                <>
+                  {p ? (
+                    <div className="px-6 pb-4">
+                      <div className="mb-2 flex items-center justify-between text-sm font-medium">
+                        <span>{doneCount} of {all.length} lessons completed</span>
+                        <span className="font-bold tabular">{Math.round(p.progress_pct)}%</span>
+                      </div>
+                      <Progress value={p.progress_pct} label="Course progress" className="h-2.5" />
+                    </div>
+                  ) : null}
+                  <div className="max-h-[calc(100dvh-260px)] overflow-y-auto overscroll-contain border-t border-border pt-2" data-lenis-prevent>
+                    {p ? (
+                      <Curriculum player={p} current={key} appearance="card" />
+                    ) : (
+                      <div className="grid gap-2 p-4">
+                        {Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-14" />)}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </aside>
         </div>
       )}
 
@@ -330,7 +317,7 @@ function Stage({ lecture, loading, error, enrollmentId, slug, startAt, onRetry }
       </div>
     )
   }
-  if (loading || !lecture || !enrollmentId) return <Skeleton className="aspect-video w-full rounded-none lg:rounded-xl" />
+  if (loading || !lecture || !enrollmentId) return <Skeleton className="aspect-video w-full rounded-none lg:aspect-[16/7] lg:rounded-xl" />
   const props = { lecture, enrollmentId, slug }
   // keyed by lecture (and note time) so each lecture starts fresh: new player, new state
   const k = `${lecture.key}:${startAt ?? ''}`
@@ -368,62 +355,55 @@ function Stage({ lecture, loading, error, enrollmentId, slug, startAt, onRetry }
 function LectureBar({ lecture, slug }: { lecture: Lecture; slug: string }) {
   const { Icon, label } = kindOf(lecture.kind)
   return (
-    <div>
-      <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-2.5 sm:px-6 sm:py-3">
+    <div className="flex items-center gap-3 px-1 py-3.5 sm:py-4">
         <div className="min-w-0 flex-1">
-          {lecture.kind === 'video' ? <p className="truncate text-[15px] font-semibold">{lecture.title}</p> : null}
-          <p className="flex items-center gap-1.5 text-xs text-muted">
-            <Icon className="size-3.5" /> {label}
+          {lecture.kind === 'video' ? <h2 className="truncate text-xl font-bold tracking-tight sm:text-[27px]">{lecture.title}</h2> : null}
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-muted">
+            <Icon className="size-4" /> {label}
             {lecture.duration_sec ? ` · ${minutes(lecture.duration_sec)}` : ''}
             {lecture.completed ? <span className="ml-1 font-medium text-success">· Completed</span> : null}
           </p>
         </div>
         {lecture.prev_key ? (
-          <Button variant="secondary" size="sm" asChild>
+          <Button variant="secondary" asChild className="rounded-full px-6">
             <Link to={lectureUrl(slug, lecture.prev_key)} aria-label="Previous lecture">
               <ChevronLeft /> <span className="hidden sm:inline">Previous</span>
             </Link>
           </Button>
         ) : null}
         {lecture.next_key ? (
-          <Button size="sm" asChild>
+          <Button asChild className="rounded-full px-7">
             <Link id="next-lecture" to={lectureUrl(slug, lecture.next_key)} aria-label="Next lecture">
               <span className="hidden sm:inline">Next</span> <ChevronRight />
             </Link>
           </Button>
         ) : null}
-      </div>
     </div>
   )
 }
 
 function Overview({ player, lecture }: { player: Player; lecture: Lecture }) {
-  const all = player.sections.flatMap((s) => s.lectures)
-  const total = all.reduce((t, l) => t + l.duration_sec, 0)
-  const left = all.filter((l) => !l.completed).reduce((t, l) => t + l.duration_sec, 0)
-  const stats = [
-    { label: 'Complete', value: `${Math.round(player.progress_pct)}%` },
-    { label: 'Lectures', value: `${all.filter((l) => l.completed).length} / ${all.length}` },
-    { label: 'Course length', value: minutes(total) || '—' },
-    { label: 'Left to go', value: minutes(left) || 'Nothing' },
-  ]
+  const manualHandling = player.title.toLowerCase().includes('manual handling') || lecture.title.toLowerCase().includes('lifting')
+  const description = manualHandling
+    ? 'Learn how to position your feet, bend your knees and lift safely while protecting your back.'
+    : `Build practical knowledge and confidence in ${lecture.title.toLowerCase()}.`
+  const objective = manualHandling
+    ? 'Apply the key steps of a safe lifting technique to reduce the risk of injury.'
+    : `Apply the main ideas from ${lecture.title} confidently in a practical setting.`
   return (
-    <div className="grid gap-6 sm:gap-8">
-      <div className="stagger grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
-        {stats.map((s) => (
-          <div key={s.label} className="rounded-lg border border-border bg-surface p-3 shadow-sm sm:rounded-xl sm:p-4">
-            <p className="text-[11px] text-muted sm:text-xs">{s.label}</p>
-            <p className="mt-0.5 text-base font-semibold tabular sm:mt-1 sm:text-lg">{s.value}</p>
-          </div>
-        ))}
+    <div className="grid gap-5 pb-1">
+      <div>
+        <h2 className="text-lg font-bold tracking-tight">About this lesson</h2>
+        <p className="mt-1 text-sm leading-relaxed text-text">{description}</p>
+      </div>
+      <div className="flex items-center gap-4 rounded-2xl bg-primary-soft/75 px-5 py-4">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface text-primary shadow-sm"><Target className="size-5" /></span>
+        <div>
+          <h3 className="font-semibold text-primary-soft-text">Learning objective</h3>
+          <p className="text-sm text-text">{objective}</p>
+        </div>
       </div>
       {lecture.resources?.length ? <Resources lecture={lecture} enrollmentId={player.enrollment_id} slug={player.slug} /> : null}
-      <p className="text-sm text-muted">
-        Want the full description, the instructor and reviews?{' '}
-        <Link to={`/courses/${player.slug}`} className="font-medium text-primary hover:underline">
-          Open the course page
-        </Link>
-      </p>
     </div>
   )
 }

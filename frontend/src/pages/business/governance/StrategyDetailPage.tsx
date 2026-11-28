@@ -1,7 +1,7 @@
 import { ArrowLeft, Check, Plus, Save, Target, X } from 'lucide-react'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

@@ -3,12 +3,14 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api, unwrap } from '@/api/client'
+import type { components } from '@/api/schema'
 import { useMe } from '@/features/identity/auth'
 import { useWorkspace } from '@/features/identity/workspace'
 import { useCurrency } from '@/lib/currency'
 import { emit } from '@/lib/motion'
 
 const PERSONAL = { 'X-Org-Id': '' } // personal purchases, whichever space is selected
+type WishlistOut = components['schemas']['WishlistOut']
 
 export function useCurrencies() {
   return useQuery({ queryKey: ['currencies'], queryFn: () => unwrap(api.GET('/api/v1/commerce/currencies')), staleTime: 30 * 60_000 })
@@ -108,7 +110,7 @@ export function useToggleWishlist() {
   const refresh = useCommerceRefresh()
   return useMutation({
     mutationFn: (courseId: string) => unwrap(api.POST('/api/v1/commerce/wishlist/{course_id}/toggle', { params: { path: { course_id: courseId } } })),
-    onSuccess: () => refresh(),
+    onSuccess: () => { void refresh() },
   })
 }
 
@@ -116,15 +118,25 @@ export function useSaveWishlist() {
   const refresh = useCommerceRefresh()
   return useMutation({
     mutationFn: (courseId: string) => unwrap(api.PUT('/api/v1/commerce/wishlist/{course_id}', { params: { path: { course_id: courseId } } })),
-    onSuccess: () => refresh(),
+    onSuccess: () => { void refresh() },
   })
 }
 
 export function useRemoveWishlist() {
+  const qc = useQueryClient()
   const refresh = useCommerceRefresh()
   return useMutation({
     mutationFn: (courseId: string) => unwrap(api.DELETE('/api/v1/commerce/wishlist/{course_id}', { params: { path: { course_id: courseId } } })),
-    onSuccess: () => refresh(),
+    onMutate: async (courseId) => {
+      await qc.cancelQueries({ queryKey: ['wishlist'] })
+      const previous = qc.getQueriesData<WishlistOut>({ queryKey: ['wishlist'] })
+      qc.setQueriesData<WishlistOut>({ queryKey: ['wishlist'] }, (current) => current ? { ...current, items: current.items.filter((course) => course.id !== courseId) } : current)
+      return { previous }
+    },
+    onError: (_error, _courseId, context) => {
+      context?.previous.forEach(([key, data]) => qc.setQueryData(key, data))
+    },
+    onSettled: () => { void refresh() },
   })
 }
 

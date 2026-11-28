@@ -1,6 +1,6 @@
 import { BookOpenCheck, CheckCircle2, Clock, Plus } from 'lucide-react'
 import { useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

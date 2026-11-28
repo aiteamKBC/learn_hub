@@ -1,13 +1,14 @@
-import { ReceiptText, RotateCcw } from 'lucide-react'
+import { BookOpen, CalendarDays, CreditCard, ReceiptText, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { CourseThumb } from '@/components/ui/course-thumb'
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
 import { Field, Textarea } from '@/components/ui/input'
-import { EmptyState, ErrorState, PageHeader } from '@/components/ui/misc'
+import { ErrorState, PageHeader } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useOrders, useRefund } from '@/features/commerce/api'
 import { money, shortDate } from '@/lib/format'
@@ -17,6 +18,43 @@ const STATUS: Record<string, { label: string; tone: 'success' | 'warning' | 'neu
   paid: { label: 'Paid', tone: 'success' },
   partially_refunded: { label: 'Partly refunded', tone: 'warning' },
   refunded: { label: 'Refunded', tone: 'neutral' },
+}
+
+function PurchaseHistoryPreview() {
+  return (
+    <div className="grid gap-4">
+      <Card className="overflow-hidden rounded-2xl">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-primary-soft/35 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-on-primary"><ReceiptText className="size-5" /></span>
+            <div><p className="font-bold">Example receipt</p><p className="text-xs text-muted">This is how a completed purchase will appear.</p></div>
+          </div>
+          <Badge tone="outline">Preview</Badge>
+        </div>
+        <div className="grid gap-5 p-5 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-center">
+          <CourseThumb title="Manual Handling" category="Health & Safety" className="rounded-xl" />
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold tracking-tight">Manual Handling</h2>
+            <p className="mt-1 text-sm text-muted">LearnHub Academy</p>
+            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted">
+              <span className="inline-flex items-center gap-1.5"><CalendarDays className="size-3.5" /> Purchase date</span>
+              <span className="inline-flex items-center gap-1.5"><CreditCard className="size-3.5" /> Card payment</span>
+              <span className="inline-flex items-center gap-1.5"><BookOpen className="size-3.5" /> Lifetime access</span>
+            </div>
+          </div>
+          <div className="text-left sm:text-right">
+            <Badge tone="success" dot>Paid</Badge>
+            <p className="mt-2 text-xl font-extrabold">CA$46.99</p>
+            <p className="mt-1 font-mono text-[11px] text-muted">ORDER EXAMPLE</p>
+          </div>
+        </div>
+      </Card>
+      <Card className="rounded-2xl border-dashed p-5 text-center">
+        <p className="text-sm text-muted">You have no real purchases yet. Your receipts, refund status and course access will appear above in this format.</p>
+        <Button asChild className="mt-4"><Link to="/courses">Browse courses</Link></Button>
+      </Card>
+    </div>
+  )
 }
 
 export function OrdersPage() {
@@ -37,9 +75,7 @@ export function OrdersPage() {
           <Skeleton className="h-40 rounded-lg" />
         </div>
       ) : !orders.length ? (
-        <Card className="animate-reveal">
-          <EmptyState icon={<ReceiptText />} title="No purchases yet" body="Courses you buy will show up here with their receipts." action={<Button asChild><Link to="/courses">Browse courses</Link></Button>} />
-        </Card>
+        <PurchaseHistoryPreview />
       ) : (
         <ul className="stagger grid gap-4">
           {orders.map((o) => {

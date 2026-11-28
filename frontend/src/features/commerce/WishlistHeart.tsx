@@ -10,13 +10,14 @@ import { toast } from '@/lib/toast'
 import { useRemoveWishlist, useSaveWishlist, useWishlist } from './api'
 
 /** One account-scoped heart for catalogue cards and course details. */
-export function WishlistHeart({ courseId, slug, title, className, size = 'icon', initialSaved }: {
+export function WishlistHeart({ courseId, slug, title, className, size = 'icon', initialSaved, label }: {
   courseId: string
   slug: string
   title: string
   className?: string
   size?: 'icon' | 'icon-sm'
   initialSaved?: boolean
+  label?: string
 }) {
   const { data: me, isLoading: meLoading } = useMe()
   const wishlist = useWishlist()
@@ -24,9 +25,10 @@ export function WishlistHeart({ courseId, slug, title, className, size = 'icon',
   const remove = useRemoveWishlist()
   const navigate = useNavigate()
   const [preview, setPreview] = useState<boolean | null>(null)
+  const [committedPreview, setCommittedPreview] = useState<boolean | null>(null)
   const desired = useRef<boolean | null>(null)
   const syncing = useRef(false)
-  const saved = preview ?? (wishlist.data?.items.some((item) => item.id === courseId) ?? (me ? initialSaved ?? false : false))
+  const saved = preview ?? committedPreview ?? (wishlist.data?.items.some((item) => item.id === courseId) ?? (me ? initialSaved ?? false : false))
 
   const sync = async (initial: boolean) => {
     if (syncing.current) return
@@ -40,7 +42,7 @@ export function WishlistHeart({ courseId, slug, title, className, size = 'icon',
         const result = await (target ? save.mutateAsync(courseId) : remove.mutateAsync(courseId))
         committed = result.in_wishlist
       }
-      toast.success(committed ? 'Saved to your wishlist' : 'Removed from your wishlist')
+      setCommittedPreview(committed)
     } catch (error) {
       desired.current = committed
       toast.error((error as Error).message)
@@ -81,6 +83,7 @@ export function WishlistHeart({ courseId, slug, title, className, size = 'icon',
       onClick={press}
     >
       <Heart className={cn('size-5', saved && 'animate-pop fill-danger text-danger')} />
+      {label ? <span>{saved ? 'Saved' : label}</span> : null}
     </Button>
   )
 }

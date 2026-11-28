@@ -7,9 +7,9 @@ import { AuthAlertHost } from '@/components/ui/auth-alert'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider, useTheme } from '@/lib/theme'
 
-function Toasts() {
+function PassiveNotices() {
   const { dark } = useTheme()
-  return <Toaster theme={dark ? "dark" : "light"} position="top-center" offset={{ top: 76 }} mobileOffset={{ top: 72 }} richColors closeButton toastOptions={{ className: "font-sans" }} />
+  return <Toaster theme={dark ? 'dark' : 'light'} position="top-center" offset={{ top: 72 }} mobileOffset={{ top: 68 }} closeButton toastOptions={{ className: 'font-sans' }} />
 }
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -23,7 +23,7 @@ export function Providers({ children }: { children: ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           {children}
-          <Toasts />
+          <PassiveNotices />
           <AuthAlertHost />
         </TooltipProvider>
       </QueryClientProvider>

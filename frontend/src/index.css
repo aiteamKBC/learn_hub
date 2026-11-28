@@ -42,11 +42,12 @@
   --info: #1d4ed8;
   --info-soft: #e8effd;
 
-  --chart-1: #ea802d;
-  --chart-2: #22a06b;
-  --chart-3: #e8a33d;
-  --chart-4: #e5484d;
-  --chart-5: #5b7fa6; /* muted slate blue: the one cool accent, harmonised with the warm scheme */
+  /* EvidRise bird palette: orange plumage, copper, sand, warm taupe and charcoal. */
+  --chart-1: #f36b0a;
+  --chart-2: #b86a32;
+  --chart-3: #edbd93;
+  --chart-4: #776961;
+  --chart-5: #303231;
 
   --shadow-sm: 0 1px 2px rgb(31 38 46 / 0.05);
   --shadow: 0 1px 3px rgb(31 38 46 / 0.06), 0 6px 16px -6px rgb(31 38 46 / 0.08);
@@ -88,11 +89,12 @@
   --info: #7aa7ff;
   --info-soft: #152340;
 
-  --chart-1: #ef8c3e;
-  --chart-2: #3ccf8e;
-  --chart-3: #f2b75b;
-  --chart-4: #f2696d;
-  --chart-5: #88a6cc; /* muted slate blue (dark), the one cool accent */
+  /* The same bird palette, lifted for contrast on dark surfaces. */
+  --chart-1: #ff8a3d;
+  --chart-2: #d18a55;
+  --chart-3: #e7b98f;
+  --chart-4: #a89a90;
+  --chart-5: #d8d2cc;
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
   --shadow: 0 1px 3px rgb(0 0 0 / 0.35), 0 6px 16px -6px rgb(0 0 0 / 0.4);

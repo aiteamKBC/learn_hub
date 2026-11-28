@@ -10,7 +10,7 @@ import { cn } from '@/lib/cn'
 import { Link, useNavigate } from '@/lib/router'
 
 /** Avatar menu: where to go (learning, company, studio, console) and which space to use. */
-export function UserMenu({ onDark }: { onDark?: boolean }) {
+export function UserMenu({ onDark, compact = false }: { onDark?: boolean; compact?: boolean }) {
   const { data: me } = useMe()
   const { org, memberships, switchTo } = useWorkspace()
   const logout = useLogout()
@@ -25,7 +25,7 @@ export function UserMenu({ onDark }: { onDark?: boolean }) {
         aria-label="Account menu"
       >
         <Avatar name={me.full_name || me.email} src={me.avatar_url} size="sm" />
-        <span className="hidden text-left leading-tight sm:block">
+        <span className={cn('hidden text-left leading-tight', !compact && 'sm:block')}>
           <span className={cn('block max-w-36 truncate text-[13px] font-medium', onDark ? 'text-white' : 'text-text')}>{me.full_name || me.email}</span>
           <span className={cn('block max-w-36 truncate text-[11px]', onDark ? 'text-nav-text' : 'text-muted')}>{org ? org.name : 'Personal'}</span>
         </span>

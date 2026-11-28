@@ -1,4 +1,4 @@
-import { CalendarClock, Check, Crown, Infinity as InfinityIcon, Info, Settings2 } from 'lucide-react'
+import { CalendarClock, Check, Crown, Infinity as InfinityIcon, Info, Settings2, ShieldCheck } from 'lucide-react'
 import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from '@/lib/toast'
@@ -6,7 +6,7 @@ import { toast } from '@/lib/toast'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody } from '@/components/ui/card'
-import { EmptyState, ErrorState, PageHeader } from '@/components/ui/misc'
+import { ErrorState, PageHeader } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useBillingPortal } from '@/features/commerce/api'
 import { useMySubscription, useSubscriptionPlans } from '@/features/b2c/api'
@@ -120,7 +120,7 @@ function Plans({ justCheckedOut }: { justCheckedOut: boolean }) {
     )
   if (plans.error) return <ErrorState message="We couldn't load the plans." onRetry={() => void plans.refetch()} />
   if (!plans.data?.length)
-    return <EmptyState icon={<Crown />} title="No plans available yet" body="Unlimited learning has not been set up yet. Please check back soon." />
+    return <SubscriptionPreview />
 
   const subscribe = (plan: { id: string; name: string; interval: string; amount_minor: number; currency: string }) => {
     const item: ReviewItem = {
@@ -169,6 +169,38 @@ function Plans({ justCheckedOut }: { justCheckedOut: boolean }) {
           </Button>
         </Card>
       ))}
+    </div>
+  )
+}
+
+function SubscriptionPreview() {
+  const samples = [
+    { interval: 'Monthly', price: 'CA$29.99', note: 'Flexible monthly access', featured: false },
+    { interval: 'Yearly', price: 'CA$299.99', note: 'Best value for continuous learning', featured: true },
+  ]
+  return (
+    <div className="grid gap-5">
+      <Card className="flex flex-col gap-4 rounded-2xl bg-gradient-to-r from-primary-soft/70 to-surface p-6 sm:flex-row sm:items-center">
+        <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-on-primary"><Crown className="size-7" /></span>
+        <div className="min-w-0 flex-1"><Badge tone="outline">Design preview</Badge><h2 className="mt-2 text-xl font-bold">One plan. Unlimited learning.</h2><p className="mt-1 text-sm text-muted">The final prices and checkout buttons will appear here when subscription plans are published.</p></div>
+        <ShieldCheck className="hidden size-9 text-primary sm:block" />
+      </Card>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {samples.map((plan) => (
+          <Card key={plan.interval} className={plan.featured ? 'relative flex flex-col rounded-2xl border-primary/40 p-6 shadow-md' : 'flex flex-col rounded-2xl p-6'}>
+            {plan.featured ? <Badge tone="warning" className="absolute top-5 right-5">Example best value</Badge> : null}
+            <div className="flex items-center gap-2 text-primary"><InfinityIcon className="size-5" /><span className="text-sm font-semibold">{plan.interval}</span></div>
+            <p className="mt-5 text-3xl font-extrabold tracking-tight">{plan.price}<span className="text-sm font-normal text-muted"> / {plan.interval === 'Yearly' ? 'year' : 'month'}</span></p>
+            <p className="mt-2 text-sm text-muted">{plan.note}</p>
+            <ul className="mt-5 space-y-2 text-sm">
+              <Feature>Access to every included course</Feature>
+              <Feature>Certificates included after completion</Feature>
+              <Feature>Cancel from the billing portal</Feature>
+            </ul>
+            <Button className="mt-6" disabled>Preview only</Button>
+          </Card>
+        ))}
+      </div>
     </div>
   )
 }
