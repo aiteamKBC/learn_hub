@@ -245,9 +245,10 @@ def mark_read(request, body: MarkReadIn):
 
 @router.get("/notifications/preferences", response=list[PreferenceOut], auth=session_auth)
 def preferences(request):
+    from apps.org.models import OrgMember
+
     from .models import NotificationTemplate
     from .wording import DEFAULTS
-    from apps.org.models import OrgMember
 
     memberships = list(OrgMember.objects.filter(user=request.user, removed_at__isnull=True).values_list("role", flat=True))
     audiences = {"learner"}

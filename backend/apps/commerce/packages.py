@@ -167,8 +167,8 @@ def create_package_checkout(
     stripe_amount = gateway.to_stripe_amount(amount, currency, exponent)
 
     course_ids = list(CashPackageCourse.objects.filter(package=pkg).values_list("course_id", flat=True))
-    from core.errors import ServiceError
     from apps.platform.console.packages import _eligible
+    from core.errors import ServiceError
 
     from . import pricing
 
