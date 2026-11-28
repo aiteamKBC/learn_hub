@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Literal
 from uuid import UUID
 
+from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -376,6 +377,7 @@ def update_course(request, course_id: UUID, body: ConsoleCoursePatch):
 
 
 @router.put("/courses/{course_id}/price", response=ConsoleOkOut)
+@transaction.atomic
 def set_price(request, course_id: UUID, body: ConsoleCoursePriceIn):
     staff(request)
     from apps.commerce.models import CoursePrice, PriceTier
@@ -386,6 +388,7 @@ def set_price(request, course_id: UUID, body: ConsoleCoursePriceIn):
     tier = None if body.free else get_object_or_404(PriceTier, pk=body.tier_id, is_active=True)
     old = CoursePrice.objects.filter(course=c).values("is_free", "tier_id").first()
     CoursePrice.objects.update_or_create(course=c, defaults={"is_free": body.free, "tier": tier})
+    Course.objects.filter(pk=c.pk).update(is_free=body.free, updated_at=timezone.now())
     audit_request(request, "course.price", "course", c.id,
                   {"from": {k: str(v) for k, v in (old or {}).items()}, "free": body.free, "tier": str(tier.id) if tier else None})  # fmt: skip
     return {"ok": True}

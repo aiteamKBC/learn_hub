@@ -371,18 +371,24 @@ class ConsoleBulkPriceOut(Schema):
     updated: int
 
 
+@transaction.atomic
 def _set_course_price(course_ids, tier_id, is_free) -> int:
     if not is_free:
         if tier_id is None:
             raise ServiceError("tier_required", "Choose a price tier, or make the course free.")
         get_object_or_404(PriceTier, pk=tier_id, is_active=True)
     ids = list(
-        Course.objects.filter(pk__in=course_ids, owner_org_id__isnull=True).values_list("id", flat=True)
+        Course.objects.filter(
+            pk__in=course_ids, owner_org_id__isnull=True, deleted_at__isnull=True
+        ).values_list("id", flat=True)
     )
     for cid in ids:
         CoursePrice.objects.update_or_create(
             course_id=cid, defaults={"tier_id": None if is_free else tier_id, "is_free": is_free}
         )
+    # ``CoursePrice`` is canonical. Keep the older catalogue flag in step for
+    # consumers that still display/filter it, without deriving prices from it.
+    Course.objects.filter(pk__in=ids).update(is_free=is_free, updated_at=timezone.now())
     return len(ids)
 
 

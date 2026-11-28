@@ -140,8 +140,10 @@ def list_packs(request, currency: str | None = None):
             "name": p.name,
             "token_amount": p.token_amount,
             "price_tier_id": p.price_tier_id,
+            # A missing converted tier price is a GBP fallback; it must never be
+            # displayed as if it were an amount in the requested currency.
             "amount_minor": amounts.get(p.price_tier_id, p.price_tier.gbp_minor),
-            "currency": cur["code"],
+            "currency": cur["code"] if p.price_tier_id in amounts else "GBP",
             "sort_order": p.sort_order,
         }
         for p in packs
@@ -162,7 +164,11 @@ def pack_checkout(request, pack_id: UUID, body: PackCheckoutIn):
     amount_row = PriceTierAmount.objects.filter(tier=tier, currency_id=cur["code"]).first()
     amount = amount_row.amount_minor if amount_row else tier.gbp_minor
     currency_code = cur["code"] if amount_row else "GBP"
-    stripe_amount = gateway.to_stripe_amount(amount, currency_code, cur.get("exponent", 2))
+    # If the requested tier amount is missing we charge GBP, including GBP's
+    # own precision; using the requested currency's exponent would misprice
+    # zero- and three-decimal currencies.
+    exponent = cur["exponent"] if amount_row else 2
+    stripe_amount = gateway.to_stripe_amount(amount, currency_code, exponent)
 
     idempotency_key = f"token_pack:{pack.id}:{request.user.id}:{pack.updated_at.timestamp():.0f}"
     session = gateway.create_checkout_session(

@@ -53,7 +53,11 @@ PAID_ACCESS = (Enrollment.Status.ACTIVE, Enrollment.Status.COMPLETED)
 # ---------------------------------------------------------------- cart & wishlist
 def _sellable(course_id) -> Course:
     course = Course.objects.filter(
-        pk=course_id, live_version__isnull=False, owner_org_id__isnull=True
+        pk=course_id,
+        status="published",
+        live_version__isnull=False,
+        deleted_at__isnull=True,
+        owner_org_id__isnull=True,
     ).first()
     if course is None:
         raise ServiceError("not_for_sale", "This course is not available.")
@@ -138,7 +142,13 @@ def price_cart(*, user, course_ids: list, currency: str, coupon_code: str | None
         raise ServiceError("bad_currency", f"Payments in {currency} are not available.")
     courses = {
         c.id: c
-        for c in Course.objects.filter(pk__in=ids, live_version__isnull=False, owner_org_id__isnull=True)
+        for c in Course.objects.filter(
+            pk__in=ids,
+            status="published",
+            live_version__isnull=False,
+            deleted_at__isnull=True,
+            owner_org_id__isnull=True,
+        )
     }
     if len(courses) != len(ids):
         raise ServiceError("not_for_sale", "One of these courses is not available.")
@@ -682,6 +692,7 @@ def enrol_with_plan(*, user, course: Course) -> Enrollment:
             plan__kind=Plan.Kind.UNLIMITED_B2C,
             status__in=["trialing", "active"],
         )
+        .filter(current_period_end__gt=timezone.now())
         .order_by("-current_period_end")[:2]
     )
     if len(subscriptions) > 1:
