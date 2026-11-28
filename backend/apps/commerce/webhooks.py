@@ -375,6 +375,7 @@ def _invoice_paid(inv: dict) -> None:
 
 
 # ---------------------------------------------------------------- cash packages
+@transaction.atomic
 def _fulfil_cash_package(session: dict, meta: dict) -> None:
     if session.get("payment_status") != "paid":
         return
@@ -382,6 +383,13 @@ def _fulfil_cash_package(session: dict, meta: dict) -> None:
 
     course_ids_str = meta.get("course_ids", "")
     course_id_strs = [c.strip() for c in course_ids_str.split(",") if c.strip()]
+    if meta.get("order_id"):
+        from . import package_finance
+
+        order = package_finance.fulfil_order(order_id=meta["order_id"], session=session, user_id=meta["user_id"])
+        if order.status in ("refunded", "partially_refunded"):
+            return  # a delayed checkout retry must not restore refunded access
+        course_id_strs = [str(cid) for cid in order.items.values_list("course_id", flat=True)]
     if not course_id_strs:
         log.warning("cash_package: no course_ids in session %s", session.get("id"))
         return

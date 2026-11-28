@@ -174,3 +174,57 @@ class CommissionRulesTest(SchemaTransactionTestCase):
         self.assertTrue(
             {"commission_rule.create", "commission_rule.update", "commissions.settings"} <= actions
         )
+
+    def test_instructor_list_matches_winning_rule(self, _s):
+        self.rule("instructor", 80, self.tom.id, priority=10)
+        self.rule("instructor", 50, self.tom.id, priority=1)
+        self.client.force_login(self.staff)
+        row = self.client.get(f"{API}/console/commissions/instructors?q=tom").json()["items"][0]
+        preview = self.client.get(f"{API}/console/commissions/preview?course_id={self.py.id}").json()
+        self.assertEqual(row["rule_keeps_pct"], 80)
+        self.assertEqual(row["rule_keeps_pct"], preview["keeps_pct"])
+
+    def test_course_coupon_does_not_change_other_course_commission(self, _s):
+        with tenant_context(user_id=self.staff.id, staff=True):
+            Coupon.objects.create(
+                code="PYONLY", course=self.py, percent_off=10,
+                starts_at=timezone.now(), created_by=self.tom,
+            )
+        user = self.buyer()
+        with tenant_context(user_id=user.id):
+            order = shop.create_order(
+                user=user, course_ids=[self.py.id, self.go.id], currency="GBP", coupon_code="PYONLY"
+            )["order"]
+        with tenant_context(user_id=self.staff.id, staff=True):
+            shop.fulfil_order(
+                order_id=order.id, payment_intent=f"pi_{order.id}",
+                amount_minor=order.total_minor, currency="gbp",
+            )
+            lines = {line.course_id: line for line in Earning.objects.filter(order_item__order=order)}
+            rates = payouts._rates()
+        self.assertEqual(lines[self.py.id].channel, "instructor_coupon")
+        self.assertEqual(lines[self.py.id].share_bps, rates["instructor_coupon"])
+        self.assertEqual(lines[self.go.id].channel, "marketplace")
+        self.assertEqual(lines[self.go.id].share_bps, rates["marketplace"])
+
+    def test_rule_validation_and_overview_invalidation(self, _s):
+        self.client.force_login(self.staff)
+        before = self.client.get(f"{API}/console/commissions/overview").json()["active_rules"]
+        body = {"scope": "course", "keeps_pct": 80, "target_id": str(self.py.id)}
+        for invalid in (
+            body | {"instructor_id": str(self.sara.id)},
+            body | {"starts_at": "2026-01-01T00:00:00"},
+            body | {"starts_at": "2026-02-01T00:00:00Z", "ends_at": "2026-01-01T00:00:00Z"},
+            {"scope": "price_band", "keeps_pct": 80, "band_min_gbp_minor": 100,
+             "instructor_id": str(self.tom.id)},
+        ):
+            response = self.client.post(
+                f"{API}/console/commissions/rules", data=invalid, content_type="application/json"
+            )
+            self.assertEqual(response.status_code, 400, response.content)
+        response = self.client.post(
+            f"{API}/console/commissions/rules", data=body, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        after = self.client.get(f"{API}/console/commissions/overview").json()["active_rules"]
+        self.assertEqual(after, before + 1)

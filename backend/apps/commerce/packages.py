@@ -190,7 +190,12 @@ def create_package_checkout(
             "already_owned", "You already have access to every course in this package.", status=409
         )
 
-    idempotency_key = f"cash_package:{pkg.id}:{user.id}:{pkg.updated_at.timestamp():.0f}"
+    from . import package_finance
+
+    order = package_finance.prepare_order(
+        user=user, course_ids=course_ids, currency_code=currency, amount=amount, quotes=quotes,
+    )
+    idempotency_key = f"cash_package_order:{order.id}"
     session = gateway.create_checkout_session(
         mode="payment",
         line_items=[
@@ -208,12 +213,16 @@ def create_package_checkout(
             "id": str(pkg.id),
             "user_id": str(user.id),
             "course_ids": ",".join(str(c) for c in course_ids),
+            "order_id": str(order.id),
         },
         customer_email=customer_email or user.email,
         success_url=success_url,
         cancel_url=cancel_url,
         idempotency_key=idempotency_key,
     )
+    from .models import Order
+
+    Order.objects.filter(pk=order.id).update(stripe_session_id=session["id"])
     return {"url": session["url"]}
 
 

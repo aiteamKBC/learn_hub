@@ -216,7 +216,7 @@ class PayoutsTest(SchemaTransactionTestCase):
                     finally:
                         cur.execute("ROLLBACK TO SAVEPOINT s")
 
-    def test_subscription_pool_split_by_minutes(self, _s):
+    def test_unverified_subscription_minutes_do_not_create_earnings(self, _s):
         month = date(2026, 10, 1)
         with tenant_context(**self.STAFF):
             plan = Plan.objects.create(code="p", name="Personal", audience="personal", interval="month")
@@ -235,8 +235,7 @@ class PayoutsTest(SchemaTransactionTestCase):
                     " lecture_key, seconds) VALUES ('2026-10-10', %s, NULL, %s, %s, uuidv7(), %s)",
                     [e.id, self.buyer.id, e.course_id, secs],
                 )
-        self.assertEqual(services.settle_subscription_pool(month), 3)
-        self.assertEqual(services.settle_subscription_pool(month), 0)  # once per month
-        # pool 25% of £1,000; django 75% of minutes (Tom 70 / Ana 30), react 25% (Ana)
-        self.assertEqual(self.lines(self.tom), [("subscription", "subscription_pool", 13125)])
-        self.assertEqual(sorted(a for *_, a in self.lines(self.ana)), [5625, 6250])
+        self.assertEqual(services.settle_subscription_pool(month), 0)
+        self.assertEqual(services.settle_subscription_pool(month), 0)
+        self.assertEqual(self.lines(self.tom), [])
+        self.assertEqual(self.lines(self.ana), [])
