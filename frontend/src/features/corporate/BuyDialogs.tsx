@@ -5,8 +5,11 @@ import { toast } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
 import { Field, Input, NativeSelect, Textarea } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 
-import { type Package, MODE_LABEL, useRecordedCheckout, useSubmitTrainingRequest } from './api'
+import { type Package, MODE_LABEL, recordedOptions, usePackages, useSubmitTrainingRequest } from './api'
+import { BasketForm } from './BasketDialog'
+import { LiveBookForm } from './LiveBookForm'
 import { gbp } from './format'
 
 /** Buying for a company: seats on a recorded course, or a request for live training.
@@ -33,41 +36,16 @@ function Count({ label, hint, value, onChange, max }: { label: string; hint: str
   )
 }
 
-/** Seats on a recorded course, then Stripe. The server works out the price. */
-export function SeatsForm({ pkg, footer }: { pkg: Package; footer?: ReactNode }) {
-  const [qty, setQty] = useState(1)
-  const checkout = useRecordedCheckout()
-  const valid = Number.isInteger(qty) && qty >= 1 && qty <= MAX_SEATS
-  const pay = () =>
-    checkout.mutate(
-      { offeringId: pkg.id, quantity: qty },
-      {
-        onSuccess: (r) => window.location.assign(r.checkout_url),
-        onError: (e) => toast.error((e as Error).message),
-      },
-    )
-  return (
-    <div className="grid gap-5">
-      <Count label="Number of seats" hint={`From 1 to ${MAX_SEATS}. Each seat gives one employee this course.`} value={qty} onChange={setQty} max={MAX_SEATS} />
-      <dl className="grid gap-1.5 rounded-lg bg-surface-2 p-4 text-sm">
-        <div className="flex justify-between">
-          <dt className="text-muted">Price per seat</dt>
-          <dd>{gbp(pkg.price_gbp_minor)}</dd>
-        </div>
-        <div className="flex justify-between font-semibold">
-          <dt>Estimated total</dt>
-          <dd>{valid ? gbp(pkg.price_gbp_minor * qty) : 'n/a'}</dd>
-        </div>
-        <p className="mt-1 text-xs text-muted">You confirm the final amount on the secure payment page.</p>
-      </dl>
-      <div className="flex flex-wrap justify-end gap-2">
-        {footer}
-        <Button onClick={pay} loading={checkout.isPending} disabled={!valid}>
-          <CreditCard /> Continue to payment
-        </Button>
-      </div>
-    </div>
-  )
+/** Seats on a recorded course, then Stripe. Starts with this course; "Add another course"
+ * adds more (each at its own seat price), all paid together. Every seat needs an employee
+ * email before payment (checked again by the server); invites go out after payment. */
+export function SeatsForm({ pkg }: { pkg: Package; footer?: ReactNode }) {
+  const packages = usePackages()
+  if (packages.isLoading) return <Skeleton className="h-40" />
+  const options = recordedOptions(packages.data ?? [])
+  // the opened course always comes first, even if the list has not caught up yet
+  if (!options.some((o) => o.course_id === pkg.course_id)) options.unshift({ course_id: pkg.course_id, title: pkg.course_title, price_minor: pkg.price_gbp_minor })
+  return <BasketForm options={options} initial={pkg.course_id} />
 }
 
 /** Live training: no payment now. We plan a group, then send dates and the price. */
@@ -142,7 +120,7 @@ export function BuySeats({ pkg }: { pkg: Package }) {
       <Button onClick={() => setOpen(true)}>
         <CreditCard /> Buy seats
       </Button>
-      <DialogContent title={`Buy seats: ${pkg.course_title}`} description="Buy seats for this course. After payment, assign each seat to an employee from Assign training. Buy a different course separately.">
+      <DialogContent title={`Buy seats: ${pkg.course_title}`} description="Choose the seats and employees for this course. Need more courses? Add them below and pay once.">
         {open ? <SeatsForm pkg={pkg} footer={cancel} /> : null}
       </DialogContent>
     </Dialog>
@@ -154,10 +132,10 @@ export function RequestLive({ pkg }: { pkg: Package }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Button variant="soft" onClick={() => setOpen(true)}>
-        <Send /> Request training
+        <Send /> Book seats
       </Button>
-      <DialogContent title={`Request live training: ${pkg.course_title}`} description="No payment now. We plan a group, then send you the dates and the price to approve.">
-        {open ? <LiveForm pkg={pkg} onSent={() => setOpen(false)} footer={cancel} /> : null}
+      <DialogContent title={`Live training: ${pkg.course_title}`} description="Book seats in the next intake. Pay a deposit now; the rest in instalments.">
+        {open ? <LiveBookForm courseId={pkg.course_id} footer={cancel} /> : null}
       </DialogContent>
     </Dialog>
   )

@@ -155,6 +155,7 @@ class PackCheckoutIn(Schema):
 
 @router.post("/packs/{pack_id}/checkout", response=CheckoutUrlOut)
 def pack_checkout(request, pack_id: UUID, body: PackCheckoutIn):
+    _personal_only(request.user)  # company accounts may only browse
     pack = get_object_or_404(TokenPack, pk=pack_id, is_active=True)
     cur = request_currency(request)
     tier = pack.price_tier
@@ -205,6 +206,7 @@ class UnlockOut(Schema):
 
 @router.post("/unlock", response=UnlockOut)
 def unlock_content(request, body: UnlockIn):
+    _personal_only(request.user)  # company accounts may only browse
     from apps.commerce.unlock import AlreadyUnlocked, NoPriceSet
 
     from . import unlock
@@ -297,6 +299,7 @@ class TopUpCheckoutIn(Schema):
 
 @router.post("/topup/checkout", response=CheckoutUrlOut)
 def topup_checkout(request, body: TopUpCheckoutIn):
+    _personal_only(request.user)  # company accounts may only browse
     code = body.currency.upper()
     policy = TopUpPolicy.objects.filter(currency=code, is_active=True).first()
     if policy:
@@ -437,6 +440,7 @@ class SubCheckoutIn(Schema):
 
 @router.post("/subscriptions/checkout", response=CheckoutUrlOut)
 def subscription_checkout(request, body: SubCheckoutIn):
+    _personal_only(request.user)  # company accounts may only browse
     from . import subscriptions
 
     cur = request_currency(request)
@@ -459,6 +463,7 @@ class PackageCheckoutIn(Schema):
 
 @router.post("/packages/{package_id}/checkout", response=CheckoutUrlOut)
 def package_checkout(request, package_id: UUID, body: PackageCheckoutIn):
+    _personal_only(request.user)  # company accounts may only browse
     from . import packages
 
     cur = request_currency(request)
@@ -471,3 +476,9 @@ def package_checkout(request, package_id: UUID, body: PackageCheckoutIn):
         customer_email=body.customer_email,
     )
     return {"url": result["url"]}
+
+
+def _personal_only(user) -> None:
+    from .services import personal_only
+
+    personal_only(user)

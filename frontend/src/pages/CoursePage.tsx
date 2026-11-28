@@ -406,6 +406,8 @@ export function CoursePage() {
   const { data: cats } = useCategories()
   const [preview, setPreview] = useState<{ key: string; title: string } | null>(null)
   const navigate = useNavigate()
+  // company accounts (employer or employee) get courses from the company, never buy personally
+  const companyAccount = !!useMe().data?.memberships.length
   // Return to the previous page (e.g. the courses list); fall back to the catalogue.
   const goBack = () => (window.history.length > 1 ? window.history.back() : navigate('/courses'))
   if (isLoading) return <CourseSkeleton />
@@ -500,7 +502,11 @@ export function CoursePage() {
           </div>
 
           <aside className="min-w-0 xl:sticky xl:top-24 xl:self-start">
-            <BuyBox course={c} />
+            {companyAccount ? (
+              <p className="rounded-xl border border-border bg-surface p-4 text-sm text-muted">This is a company account. To buy this course for yourself, sign up with a personal email.</p>
+            ) : (
+              <BuyBox course={c} />
+            )}
             <TeamBuy courseId={c.id} title={c.title} />
           </aside>
         </div>

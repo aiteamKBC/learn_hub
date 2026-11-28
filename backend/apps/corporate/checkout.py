@@ -18,7 +18,9 @@ from .models import CorporateOffering, SeatPurchase
 from .offerings import ensure_recorded_offering
 
 
-def create_recorded_checkout(request, offering_id, quantity: int) -> dict:
+def create_recorded_checkout(
+    request, offering_id, quantity: int, *, employees=None, source="manual", require_employees=False
+) -> dict:
     org_id = getattr(request, "org_id", None)
     if org_id is None:
         raise ServiceError("no_org", "Organization context required.", status=400)
@@ -29,6 +31,18 @@ def create_recorded_checkout(request, offering_id, quantity: int) -> dict:
 
     if quantity < 1 or quantity > 500:
         raise ServiceError("bad_quantity", "Quantity must be between 1 and 500.", status=400)
+    planned = []
+    if employees:
+        from .pending import _clean_rows
+
+        planned = _clean_rows(employees)  # same checks as the Seats page
+        if len(planned) > quantity:
+            raise ServiceError(
+                "too_many_employees", f"You listed {len(planned)} people for {quantity} seats.", status=400
+            )
+        if source not in ("manual", "csv"):
+            source = "manual"
+        planned = [{**r, "_source": source} for r in planned]
 
     # New package cards carry the course ID. Accept a legacy offering ID too, but
     # always charge the platform-wide CoursePrice used for individual learners.
@@ -44,7 +58,15 @@ def create_recorded_checkout(request, offering_id, quantity: int) -> dict:
     currency = "GBP"
     total = unit_price * quantity
 
+    # the company names every employee before paying (one email per seat)
+    if require_employees and len(planned) != quantity:
+        raise ServiceError(
+            "employees_required",
+            f"Add an email for every seat before paying: {len(planned)} of {quantity} added.",
+            status=400,
+        )
     purchase = SeatPurchase.objects.create(
+        planned_employees=planned,
         org_id=org_id,
         offering=offering,
         buyer=request.user,

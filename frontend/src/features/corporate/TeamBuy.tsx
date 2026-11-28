@@ -11,15 +11,17 @@ import { useIsOrgAdmin } from '@/features/org/api'
 import { cn } from '@/lib/cn'
 import { Link } from '@/lib/router'
 
-import { type Package, usePackages } from './api'
-import { LiveForm, SeatsForm } from './BuyDialogs'
+import { type Package, useLiveOffer, usePackages } from './api'
+import { SeatsForm } from './BuyDialogs'
+import { LiveBookForm } from './LiveBookForm'
+import { PrivateAskForm } from './PrivateIntake'
 import { gbp } from './format'
 
 type Kind = 'recorded' | 'live'
 
 const KINDS: { kind: Kind; label: string; body: string; icon: typeof PlayCircle }[] = [
   { kind: 'recorded', label: 'Recorded course', body: 'Buy seats now. Each person starts straight away.', icon: PlayCircle },
-  { kind: 'live', label: 'Live training', body: 'Sessions with a tutor. You pay once the dates are set.', icon: Video },
+  { kind: 'live', label: 'Live training', body: 'Sessions with a tutor in the next intake. Pay a deposit now, the rest in instalments.', icon: Video },
 ]
 
 /** Recorded or live: each has its own price, set by the platform. An option the platform
@@ -50,7 +52,7 @@ function KindPicker({ offers, value, onChange }: { offers: Partial<Record<Kind, 
             <span className="text-sm text-muted">{pkg ? body : 'Not offered for this course yet.'}</span>
             {pkg ? (
               <span className="text-sm">
-                <span className="font-semibold">{gbp(pkg.price_gbp_minor)}</span> <span className="text-muted">per {kind === 'live' ? 'person' : 'seat'}</span>
+                {kind === 'live' ? <LivePrice courseId={pkg.course_id} /> : <><span className="font-semibold">{gbp(pkg.price_gbp_minor)}</span> <span className="text-muted">per seat</span></>}
               </span>
             ) : null}
           </button>
@@ -66,13 +68,29 @@ function offersFor(rows: Package[] | undefined, courseId: string) {
   return offers
 }
 
+/** Live: book seats in the next intake (deposit), or ask LearnHub for a private intake. */
+function LiveChoice({ pkg, onClose, cancel }: { pkg: Package; onClose: () => void; cancel: ReactNode }) {
+  const [ask, setAsk] = useState(false)
+  return ask ? (
+    <div className="grid gap-3">
+      <button type="button" onClick={() => setAsk(false)} className="justify-self-start text-sm font-medium text-primary hover:underline">
+        ‹ Back to booking the next intake
+      </button>
+      <PrivateAskForm courseId={pkg.course_id} onSent={onClose} footer={cancel} />
+    </div>
+  ) : (
+    <LiveBookForm courseId={pkg.course_id} footer={cancel} onRequestPrivate={() => setAsk(true)} />
+  )
+}
+
 function Choose({ offers, onClose, cancel }: { offers: Partial<Record<Kind, Package>>; onClose: () => void; cancel: ReactNode }) {
   const only = offers.recorded && !offers.live ? 'recorded' : offers.live && !offers.recorded ? 'live' : null
   const [kind, setKind] = useState<Kind | null>(only)
   const pkg = kind ? offers[kind] : undefined
   return (
     <div className="grid gap-5">
-      <KindPicker offers={offers} value={kind} onChange={setKind} />
+      {/* a real choice only: with one option (or none) the picker is just noise */}
+      {offers.recorded && offers.live ? <KindPicker offers={offers} value={kind} onChange={setKind} /> : null}
       {!offers.recorded && !offers.live ? (
         <p className="text-sm text-muted">
           This course is not on sale to companies yet.{' '}
@@ -83,7 +101,7 @@ function Choose({ offers, onClose, cancel }: { offers: Partial<Record<Kind, Pack
         </p>
       ) : pkg ? (
         <div key={pkg.id} className="animate-reveal">
-          {kind === 'live' ? <LiveForm pkg={pkg} onSent={onClose} footer={cancel} /> : <SeatsForm pkg={pkg} footer={cancel} />}
+          {kind === 'live' ? <LiveChoice pkg={pkg} onClose={onClose} cancel={cancel} /> : <SeatsForm pkg={pkg} footer={cancel} />}
         </div>
       ) : (
         <p className="text-sm text-muted">Pick recorded or live to continue.</p>
@@ -154,5 +172,16 @@ export function TeamBuy({ courseId, title }: { courseId: string; title: string }
       )}
       {open ? <TeamBuyDialog courseId={courseId} title={title} onClose={() => setOpen(false)} /> : null}
     </Card>
+  )
+}
+
+/** Live: the real plan from the admin (deposit now, full seat price), not the old flat price. */
+function LivePrice({ courseId }: { courseId: string }) {
+  const o = useLiveOffer(courseId).data
+  if (!o) return <span className="text-muted">Price on the next step</span>
+  return (
+    <>
+      <span className="font-semibold">{gbp(o.deposit_minor)}</span> <span className="text-muted">a seat now, {gbp(o.seat_price_minor)} in total</span>
+    </>
   )
 }

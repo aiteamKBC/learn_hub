@@ -18,21 +18,26 @@ import { useCoursePrices, useTiers } from '@/features/console/pricing'
 import { ConfirmDialog, DetailSheet, useParam, useTabParam } from '@/features/console/ui'
 import { DELIVERY_LABEL, PURCHASE_STATUS, QUOTE_STATUS } from '@/features/corporate/api'
 import {
+  type CnDeliveryRow,
   type CnOffering,
   type CnPurchase,
   useCnAllocations,
   useCnCreateOffering,
   useCnCreateQuote,
+  useCnDelivery,
   useCnOfferings,
   useCnPurchases,
   useCnQuotes,
   useCnReassignSeat,
   useCnReleaseSeat,
   useCnSendQuote,
+  useCnSetDelivery,
   useCnUpdateOffering,
   useCnVoidQuote,
 } from '@/features/corporate/console'
 import { gbp } from '@/features/corporate/format'
+import { LiveTermsCard } from './LiveTermsCard'
+import { PrivateIntakesCard } from './PrivateIntakesCard'
 import { AgreementSection, InstalmentPlanForm, InventoryTab, StageInstalmentPlanForm } from './AgreementPanels'
 import { QueryBlock, StatusBadge } from '@/features/corporate/ui'
 import { useDebounced } from '@/features/org/ui'
@@ -122,12 +127,62 @@ function OfferingForm({ open, onOpenChange, offering }: { open: boolean; onOpenC
   )
 }
 
+/** Per course: recorded seats, live training, or both. Drives the All / Recorded / Live
+ * tabs, the course badges and what companies can buy. */
+function DeliveryCard() {
+  const q = useCnDelivery()
+  const set = useCnSetDelivery()
+  const [find, setFind] = useState('')
+  const toggle = (row: CnDeliveryRow, key: 'recorded' | 'live', on: boolean) =>
+    set.mutate({ courseId: row.course_id, [key]: on }, { onSuccess: () => toast.success(`${row.title}: ${key} ${on ? 'on' : 'off'}.`), onError: (e) => toast.error((e as Error).message) })
+  return (
+    <Card>
+      <CardHeader title="Recorded or live" description="Choose how companies can take each course: recorded seats, live training, or both." />
+      <div className="px-4 pb-2">
+        <Input aria-label="Find a course" placeholder="Find a course" value={find} onChange={(e) => setFind(e.target.value)} className="max-w-xs" />
+      </div>
+      <QueryBlock query={{ ...q, data: q.data?.filter((r) => r.title.toLowerCase().includes(find.trim().toLowerCase())) }} empty={{ icon: <Package />, title: 'No courses', body: 'Published courses appear here.' }}>
+        {(rows) => (
+          <Table>
+            <thead>
+              <tr>
+                <Th>Course</Th>
+                <Th>Recorded</Th>
+                <Th>Live</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <Tr key={r.course_id}>
+                  <Td className="font-medium">{r.title}</Td>
+                  <Td>
+                    <span className="flex items-center gap-2">
+                      <Switch aria-label={`${r.title}: recorded`} checked={r.recorded} disabled={!r.has_price || set.isPending} onCheckedChange={(on) => toggle(r, 'recorded', on)} />
+                      {!r.has_price ? <span className="text-xs text-muted">Needs a price</span> : null}
+                    </span>
+                  </Td>
+                  <Td>
+                    <Switch aria-label={`${r.title}: live`} checked={r.live} disabled={set.isPending} onCheckedChange={(on) => toggle(r, 'live', on)} />
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </QueryBlock>
+    </Card>
+  )
+}
+
 function Offerings() {
   const q = useCnOfferings()
   const update = useCnUpdateOffering()
   const [form, setForm] = useState<{ o: CnOffering | null } | null>(null)
   return (
     <div className="grid gap-5">
+      <DeliveryCard />
+      <LiveTermsCard />
+      <PrivateIntakesCard />
       <Card>
         <CardHeader title="Live course offers" description="Choose which courses companies can request as live training. Recorded course prices come from the shared course catalogue." action={<Button size="sm" onClick={() => setForm({ o: null })}><Plus /> Add live course</Button>} />
         <div className="mt-3">

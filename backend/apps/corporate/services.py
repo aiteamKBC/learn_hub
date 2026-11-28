@@ -30,8 +30,9 @@ def allocate_seat(request, seat_purchase_id, user_id) -> SeatAllocation:
     if sp.status != SeatPurchase.Status.PAID and not staged_partly_paid:
         raise ServiceError("purchase_not_paid", "Cannot allocate from an unpaid purchase.", status=400)
 
-    used = sp.allocations.filter(ACTIVE_ALLOC).count()
-    if used >= sp.quantity:
+    from .pending import seats_taken
+
+    if seats_taken(sp) >= sp.quantity:  # held-for-email seats count as used
         raise ServiceError("no_seats_available", "All seats in this purchase are allocated.", status=409)
 
     member = OrgMember.objects.filter(org_id=sp.org_id, user_id=user_id, removed_at__isnull=True).first()
@@ -248,10 +249,14 @@ def seat_inventory(org_id, offering_id=None) -> dict:
             .filter(ACTIVE_ALLOC)
             .count()
         )
+        from .pending import held_count
+
+        held = held_count(org_id, oid)
         result[str(oid)] = {
             "purchased": purchased,
             "allocated": allocated,
-            "available": purchased - allocated,
+            "held": held,  # waiting for an invited person to join
+            "available": purchased - allocated - held,
         }
 
     return result
@@ -305,7 +310,9 @@ def allocate_for_company(request, scope, offering_id, user_id) -> SeatAllocation
         )
         .order_by("paid_at", "created_at", "id")
     )
+    from .pending import seats_taken
+
     for sp in candidates:
-        if sp.allocations.filter(ACTIVE_ALLOC).count() < sp.quantity:
+        if seats_taken(sp) < sp.quantity:
             return allocate_seat(request, sp.id, user_id)
     raise ServiceError("no_seats_available", "No free seats left. Buy more seats to add people.", status=409)

@@ -48,7 +48,8 @@ export function LearnerLayout() {
   const inCompanyMode = !!org
   // Admins never self-purchase (platform staff, or owners/admins of any company); nobody
   // shops while acting for a company (the company bills through /business).
-  const isAdmin = !!me?.is_staff || !!me?.memberships.some((m) => m.role === 'owner' || m.role === 'admin')
+  // any company account (employer or employee) only browses: no personal shopping at all
+  const isAdmin = !!me?.is_staff || !!me?.memberships.length
   const hidePersonal = isAdmin || inCompanyMode
   const [slot, setSlot] = useState<HTMLDivElement | null>(null)
   const { pathname } = useLocation()

@@ -10,7 +10,14 @@ import { toast } from '@/lib/toast'
 import { useRemoveWishlist, useSaveWishlist, useWishlist } from './api'
 
 /** One account-scoped heart for catalogue cards and course details. */
-export function WishlistHeart({ courseId, slug, title, className, size = 'icon', initialSaved }: {
+/** Company accounts only browse: no wishlist (they sign up with a personal email to buy). */
+export function WishlistHeart(props: Parameters<typeof Heart_>[0]) {
+  const { data: me } = useMe()
+  if (me?.memberships.length) return null
+  return <Heart_ {...props} />
+}
+
+function Heart_({ courseId, slug, title, className, size = 'icon', initialSaved }: {
   courseId: string
   slug: string
   title: string

@@ -117,6 +117,20 @@ class SeatPurchase(TenantModel):
         related_name="+",
     )
 
+    # Employees named while buying (email, full_name, job_title). Sent as a SeatRequest
+    # only once payment succeeds (fulfillment.py); never used before that.
+    # db_default too: code that does not know this column (other branches on a shared
+    # database) can still create purchases
+    planned_employees = models.JSONField(
+        default=list, blank=True, db_default=models.Value([], output_field=models.JSONField())
+    )
+    # One Stripe payment can cover seats in several courses (a basket or a bundle):
+    # every purchase in it shares this id. Empty for single-course purchases.
+    checkout_group = models.UUIDField(null=True, blank=True, db_index=True)
+    bundle = models.ForeignKey(
+        "CourseBundle", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+
     class Meta:
         db_table = table(SCHEMA, "seat_purchases")
         indexes = [
@@ -302,6 +316,79 @@ class PurchaseAttachment(TenantModel):
         indexes = [models.Index(fields=["org", "seat_purchase", "status"], name="ix_attachment_purchase")]
 
 
+class SeatRequest(TenantModel):
+    """An employer's list of employees for paid recorded seats (typed in, or a CSV file).
+
+    Seats come only from paid purchases, so nothing is sent before payment. When the
+    platform setting `corporate.invite_approval_required` is on, the request waits for a
+    platform admin; otherwise it is approved at once. Changing the setting never touches
+    requests already waiting."""
+
+    class Status(models.TextChoices):
+        PENDING_APPROVAL = "pending_approval", "Waiting for admin approval"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    class Source(models.TextChoices):
+        MANUAL = "manual", "Typed in"
+        CSV = "csv", "CSV file"
+
+    offering = models.ForeignKey(CorporateOffering, on_delete=models.PROTECT, related_name="+")
+    status = models.CharField(max_length=16, choices=Status.choices)
+    source = models.CharField(max_length=8, choices=Source.choices, default=Source.MANUAL)
+    submitted_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+")
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    auto_approved = models.BooleanField(default=False)  # approval was not required when sent
+    review_note = models.TextField(blank=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "seat_requests")
+        indexes = [models.Index(fields=["status", "-created_at"], name="ix_seat_request_status")]
+
+
+class PendingSeat(TenantModel):
+    """A recorded-course seat held for one employee of a SeatRequest. It reserves the
+    seat (counted as given). Awaiting: the request waits for approval. Pending: invited by
+    email, waiting for them to join; when they accept, the seat is given and the course
+    opens. Cancelling (or a rejected request) frees the seat again."""
+
+    class Status(models.TextChoices):
+        AWAITING = "awaiting", "Waiting for admin approval"
+        PENDING = "pending", "Waiting for the person to join"
+        FULFILLED = "fulfilled", "Seat given"
+        CANCELLED = "cancelled", "Cancelled"
+
+    seat_purchase = models.ForeignKey(SeatPurchase, on_delete=models.PROTECT, related_name="pending_seats")
+    request = models.ForeignKey(
+        SeatRequest, on_delete=models.PROTECT, null=True, blank=True, related_name="rows"
+    )
+    invite = models.ForeignKey(
+        "org.Invite", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    email = models.EmailField(max_length=320)
+    full_name = models.CharField(max_length=200, blank=True)
+    job_title = models.CharField(max_length=120, blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+")
+    allocation = models.ForeignKey(
+        SeatAllocation, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "pending_seats")
+        constraints = [
+            models.UniqueConstraint(
+                "seat_purchase",
+                models.functions.Lower("email"),
+                condition=Q(status="pending"),
+                name="uq_pending_seat_per_purchase_email",
+            ),
+        ]
+        indexes = [models.Index(fields=["org", "status"], name="ix_pending_seat_org_status")]
+
+
 class AllocationEvent(TenantModel):
     class Action(models.TextChoices):
         ALLOCATED = "allocated", "Seat allocated"
@@ -382,6 +469,10 @@ class LiveCohort(BaseModel):
     scheduled_start = models.DateField(null=True, blank=True)
     scheduled_end = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
+    # set: a private intake for one company only (never offered to other companies)
+    private_org = models.ForeignKey(
+        "org.Organization", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
 
     class Meta:
         db_table = table(SCHEMA, "live_cohorts")
@@ -670,3 +761,141 @@ class LiveAttendee(TenantModel):
             models.Index(fields=["org", "cohort_company"], name="ix_attendee_org_cc"),
             models.Index(fields=["user", "status"], name="ix_attendee_user"),
         ]
+
+
+class CourseBundle(BaseModel):
+    """A set of courses the platform admin sells to companies at one seat price. The
+    company splits its seats between the courses however it likes."""
+
+    title = models.CharField(max_length=160)
+    description = models.TextField(blank=True)
+    seat_price_minor = models.PositiveIntegerField()  # GBP pence per seat, any course
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "course_bundles")
+
+
+class BundleCourse(BaseModel):
+    bundle = models.ForeignKey(CourseBundle, on_delete=models.CASCADE, related_name="items")
+    course = models.ForeignKey("catalog.Course", on_delete=models.PROTECT, related_name="+")
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = table(SCHEMA, "bundle_courses")
+        constraints = [models.UniqueConstraint(fields=["bundle", "course"], name="uq_bundle_course")]
+
+
+class LiveCourseTerms(BaseModel):
+    """How companies pay for a live course, set by the platform admin (one row per course).
+
+    A seat is paid in parts: a deposit at booking that covers the first `deposit_months`
+    of the course, then instalments, each covering some months. Months are counted from
+    the start of the intake. The seat price is deposit + every instalment. A company can
+    also ask for a private intake at `private_price_minor` (split in the same proportions).
+    """
+
+    course = models.OneToOneField("catalog.Course", on_delete=models.PROTECT, related_name="+")
+    programme_months = models.PositiveIntegerField()  # length of the course
+    deposit_months = models.PositiveIntegerField()  # months the deposit pays for
+    deposit_minor = models.PositiveIntegerField()  # GBP pence per seat
+    # [{"months": 2, "amount_minor": 20000}, ...] in payment order, per seat
+    instalments = models.JSONField(default=list, blank=True)
+    private_price_minor = models.PositiveIntegerField(null=True, blank=True)  # whole private intake
+    updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        db_table = table(SCHEMA, "live_course_terms")
+
+    @property
+    def seat_price_minor(self) -> int:
+        return self.deposit_minor + sum(int(i["amount_minor"]) for i in self.instalments or [])
+
+
+class LiveBooking(TenantModel):
+    """A company's seats on a live course, paid by deposit then instalments.
+
+    Paid deposit -> waiting for an intake -> placed in the next public intake that has not
+    started (CohortCompany + LiveAttendee). `terms` is a copy of the course's payment plan
+    at booking time, so a later change by the admin does not alter what was agreed.
+    """
+
+    class Status(models.TextChoices):
+        PENDING_PAYMENT = "pending_payment", "Waiting for the deposit"
+        WAITING_INTAKE = "waiting_intake", "Waiting for the next intake"
+        PLACED = "placed", "Placed in an intake"
+        CANCELLED = "cancelled", "Cancelled"
+
+    course = models.ForeignKey("catalog.Course", on_delete=models.PROTECT, related_name="+")
+    buyer = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+")
+    quantity = models.PositiveIntegerField()
+    terms = models.JSONField(default=dict)  # copy of LiveCourseTerms at booking
+    deposit_purchase = models.ForeignKey(SeatPurchase, on_delete=models.PROTECT, related_name="+")
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING_PAYMENT)
+    cohort = models.ForeignKey(LiveCohort, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    cohort_company = models.ForeignKey(
+        CohortCompany, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    placed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = table(SCHEMA, "live_bookings")
+        indexes = [models.Index(fields=["course", "status"], name="ix_lb_course_status")]
+
+
+class LiveBookingPerson(TenantModel):
+    """An employee named for a live booking. Invited after the deposit; attends once they
+    have joined the company AND the booking is placed in an intake."""
+
+    class Status(models.TextChoices):
+        NAMED = "named", "Named, deposit not paid"
+        INVITED = "invited", "Invited"
+        JOINED = "joined", "Joined"
+        CANCELLED = "cancelled", "Cancelled"
+
+    booking = models.ForeignKey(LiveBooking, on_delete=models.CASCADE, related_name="people")
+    email = models.EmailField(max_length=320)
+    full_name = models.CharField(max_length=200, blank=True)
+    job_title = models.CharField(max_length=120, blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.NAMED)
+    user = models.ForeignKey(User, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    attendee = models.ForeignKey(
+        LiveAttendee, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        db_table = table(SCHEMA, "live_booking_people")
+
+
+class PrivateIntakeRequest(TenantModel):
+    """Live courses, option 2: a company asks for an intake of its own (no money yet).
+
+    The platform admin approves it with a start date (a private LiveCohort is created) or
+    rejects it. Once approved, the company names its employees and pays the deposit; the
+    private price is split into deposit and instalments in the same proportions as a seat.
+    """
+
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "Waiting for LearnHub"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+        BOOKED = "booked", "Booked"
+        CANCELLED = "cancelled", "Cancelled"
+
+    course = models.ForeignKey("catalog.Course", on_delete=models.PROTECT, related_name="+")
+    requester = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+")
+    expected_people = models.PositiveIntegerField(null=True, blank=True)
+    message = models.TextField(blank=True, max_length=2000)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.SUBMITTED)
+    price_minor = models.PositiveIntegerField()  # the private price when asked
+    admin_reply = models.TextField(blank=True, max_length=2000)
+    decided_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    decided_at = models.DateTimeField(null=True, blank=True)
+    cohort = models.ForeignKey(LiveCohort, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    booking = models.ForeignKey(
+        LiveBooking, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        db_table = table(SCHEMA, "private_intake_requests")
+        indexes = [models.Index(fields=["status", "created_at"], name="ix_pir_status")]

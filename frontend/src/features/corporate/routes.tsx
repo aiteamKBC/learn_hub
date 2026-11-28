@@ -10,7 +10,7 @@
  *   - businessNav:  ...corporateBusinessNav  (after 'Learning')
  * In pages/console/ConsoleShell.tsx consoleNav: ...corporateConsoleNav
  */
-import { BarChart3, Building2, CalendarDays, LayoutDashboard, Package, Receipt, Undo2, Video } from 'lucide-react'
+import { BarChart3, Building2, Layers, CalendarDays, LayoutDashboard, MailCheck, Package, Receipt, Undo2, Video } from 'lucide-react'
 import { lazy, Suspense, type ComponentType, type ReactNode } from 'react'
 import type { RouteObject } from 'react-router-dom'
 
@@ -32,6 +32,8 @@ const ConsolePackages = named(() => import('@/pages/console/corporate/CorporateP
 const ConsoleLive = named(() => import('@/pages/console/corporate/CorporateLivePage'), 'ConsoleCorporateLivePage')
 const ConsoleCases = named(() => import('@/pages/console/corporate/CorporateCasesPage'), 'ConsoleCorporateCasesPage')
 const ConsoleReports = named(() => import('@/pages/console/corporate/CorporateReportsPage'), 'ConsoleCorporateReportsPage')
+const ConsoleBundles = named(() => import('@/pages/console/corporate/BundlesPage'), 'ConsoleBundlesPage')
+const ConsoleSeatRequests = named(() => import('@/pages/console/corporate/SeatRequestsPage'), 'ConsoleSeatRequestsPage')
 
 /** Children of /business (company owner, admin or manager; buying is admin-only inside). */
 export const corporateBusinessRoutes: RouteObject[] = [
@@ -54,6 +56,8 @@ export const corporateConsoleRoutes: RouteObject[] = [
   { path: 'corporate/live', element: page(<ConsoleLive />), handle: { art: 'timetable' } },
   { path: 'corporate/cases', element: page(<ConsoleCases />), handle: { art: 'ribbons' } },
   { path: 'corporate/reports', element: page(<ConsoleReports />), handle: { art: 'chartgrid' } },
+  { path: 'corporate/seat-requests', element: page(<ConsoleSeatRequests />), handle: { art: 'ribbons' } },
+  { path: 'corporate/bundles', element: page(<ConsoleBundles />), handle: { art: 'seats' } },
 ]
 
 export const corporateBusinessNav: NavSection[] = [
@@ -73,7 +77,9 @@ export const corporateConsoleNav: NavSection[] = [
     title: 'Companies',
     items: [
       { to: '/console/corporate', label: 'Company packages', Icon: Building2, end: true },
+      { to: '/console/corporate/bundles', label: 'Bundles', Icon: Layers },
       { to: '/console/corporate/live', label: 'Live training', Icon: CalendarDays },
+      { to: '/console/corporate/seat-requests', label: 'Employee invitations', Icon: MailCheck },
       { to: '/console/corporate/cases', label: 'Refunds and departures', Icon: Undo2 },
       { to: '/console/corporate/reports', label: 'Company reports', Icon: BarChart3 },
     ],

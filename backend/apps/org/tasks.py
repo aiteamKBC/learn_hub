@@ -18,3 +18,20 @@ def send_invite_task(email: str, org_name: str, inviter: str, token: str) -> Non
         None,
         [email],
     )
+
+
+@shared_task(name="org.send_seat_invite", autoretry_for=(Exception,), retry_backoff=True, max_retries=5)
+def send_seat_invite_task(email: str, org_name: str, inviter: str, token: str, courses: list[str]) -> None:
+    """A company gave this person a course seat before they had an account."""
+    link = f"{settings.FRONTEND_URL}/invite/{token}"
+    names = "\n".join(f"  - {c}" for c in courses) or "  - your course"
+    send_mail(
+        f"{inviter} enrolled you on a course at {org_name}",
+        f"Hello,\n\n{inviter} at {org_name} has given you a place on:\n{names}\n\n"
+        "Open the link below, create your LearnHub account with this email address and choose a "
+        "password. Once you join, your course is open and ready to start. Already have an account? "
+        f"Sign in with it instead.\n\nThis link is valid for 7 days:\n{link}\n\n"
+        "If you were not expecting this, ignore this email.",
+        None,
+        [email],
+    )

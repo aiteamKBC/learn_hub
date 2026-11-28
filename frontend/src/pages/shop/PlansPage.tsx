@@ -1,4 +1,4 @@
-import { ArrowRight, Check, CheckCircle2, Coins, Infinity as InfinityIcon, Package, Plus } from 'lucide-react'
+import { ArrowRight, BookOpen, Check, CheckCircle2, Coins, Infinity as InfinityIcon, Package, Plus } from 'lucide-react'
 
 import { DashboardBackdrop } from '@/components/art/dashboard-backdrop'
 import { Badge } from '@/components/ui/badge'
@@ -24,7 +24,72 @@ const CARD_HOVER =
 
 /** The three ways to pay for learning — the unlimited subscription, one-off course bundles,
  * and pay-as-you-go tokens. Shared by the public /plans page and the home "plans" section. */
+/** Company accounts (employers and their employees): no personal subscription or tokens.
+ * A company buys seats on a single course, or on a bundle of courses. */
+function CompanyPlans() {
+  const navigate = useNavigate()
+  const cards = [
+    {
+      Icon: BookOpen,
+      title: 'A single course',
+      sub: 'Seats on one course for your team.',
+      head: 'Recorded or live',
+      points: ['Pick any course, then the number of seats', 'Name your employees or upload a CSV', 'Add more courses before you pay'],
+      cta: 'Browse courses',
+      to: '/courses',
+    },
+    {
+      Icon: Package,
+      title: 'Bundles',
+      sub: 'A set of courses at one seat price.',
+      head: 'Split seats your way',
+      points: ['Courses chosen by LearnHub', 'Give each course as many seats as you need', 'The same person can join more than one course'],
+      cta: 'See bundles',
+      to: '/business/packages?tab=bundles',
+    },
+  ]
+  return (
+    <div className="relative mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:py-16">
+      <div className="mx-auto max-w-2xl animate-reveal text-center">
+        <Badge tone="primary">For your company</Badge>
+        <h1 className="mt-4 text-2xl font-bold tracking-tight sm:text-5xl">Train your team.</h1>
+        <p className="mt-4 text-lg text-muted">Buy seats on a single course, or on a bundle of courses.</p>
+      </div>
+      <div className="stagger mt-12 grid items-stretch gap-6 md:grid-cols-2">
+        {cards.map(({ Icon, title, sub, head, points, cta, to }) => (
+          <Card key={title} className={`flex flex-col p-7 ${CARD_HOVER}`}>
+            <span className="flex size-11 items-center justify-center rounded-xl bg-primary-soft text-primary-soft-text">
+              <Icon className="size-6" />
+            </span>
+            <h2 className="mt-5 text-xl font-semibold">{title}</h2>
+            <p className="mt-1 text-sm text-muted">{sub}</p>
+            <p className="mt-5 text-lg font-semibold text-text">{head}</p>
+            <ul className="mt-6 grid gap-2.5 text-sm">
+              {points.map((t) => (
+                <li key={t} className="flex gap-2.5">
+                  <Check className="mt-0.5 size-4 shrink-0 text-success" /> {t}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-auto pt-7">
+              <Button size="lg" variant="secondary" className="w-full" onClick={() => navigate(to)}>
+                {cta} <ArrowRight />
+              </Button>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function PricingPlans() {
+  const { data: me } = useMe()
+  if (me?.memberships.length) return <CompanyPlans />
+  return <PersonalPlans />
+}
+
+function PersonalPlans() {
   const { data: me } = useMe()
   const { data: plans, isLoading } = usePlans()
   const navigate = useNavigate()

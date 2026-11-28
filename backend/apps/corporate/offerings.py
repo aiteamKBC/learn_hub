@@ -16,10 +16,27 @@ from core.tenancy import tenant_context
 from .models import CorporateOffering
 
 
-def recorded_course_prices():
-    """Published, non-company courses with an active paid catalogue price."""
+def recorded_switched_off():
+    """Courses the platform admin took off sale as recorded for companies: they have a
+    recorded offer row and none of them is active (Console > Company packages)."""
+    active = CorporateOffering.objects.filter(
+        delivery_type=CorporateOffering.DeliveryType.RECORDED, is_active=True
+    ).values("course_id")
     return (
-        CoursePrice.objects.filter(
+        CorporateOffering.objects.filter(
+            delivery_type=CorporateOffering.DeliveryType.RECORDED, is_active=False
+        )
+        .exclude(course_id__in=active)
+        .values("course_id")
+    )
+
+
+def recorded_course_prices():
+    """Published, non-company courses with an active paid catalogue price, unless the
+    platform admin switched recorded off for that course."""
+    return (
+        CoursePrice.objects.exclude(course_id__in=recorded_switched_off())
+        .filter(
             is_free=False,
             tier__is_active=True,
             tier__gbp_minor__gt=0,

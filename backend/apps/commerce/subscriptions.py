@@ -87,6 +87,9 @@ def create_subscription_checkout(
     plan = Plan.objects.filter(pk=plan_id, kind="unlimited_b2c", is_active=True).first()
     if plan is None:
         raise ServiceError("not_found", "Plan not found or inactive.", status=404)
+    from .services import personal_only
+
+    personal_only(user)
 
     now = timezone.now()
     existing = (

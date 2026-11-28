@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/components/ui/menu'
 import { Logo } from '@/components/ui/logo'
+import { ActorSwitcher } from '@/components/dev/ActorSwitcher'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { useTheme } from '@/lib/theme'
 import { useCartCount } from '@/features/commerce/api'
@@ -128,6 +129,7 @@ export function PublicLayout() {
           <div className="flex flex-1 items-center justify-end gap-1">
             {/* Standalone controls: desktop only. On mobile they live inside the menu below. */}
             {me ? <span className="hidden lg:inline-flex"><CurrencyMenu /></span> : null}
+            <ActorSwitcher />
             <ThemeToggle className="hidden lg:inline-flex" />
             {me ? <span className="hidden lg:inline-flex"><CartButton /></span> : null}
             {me ? <NotificationBell /> : null}

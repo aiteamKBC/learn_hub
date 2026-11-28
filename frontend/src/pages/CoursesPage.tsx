@@ -10,6 +10,7 @@ import { NativeSelect } from '@/components/ui/input'
 import { EmptyState, ErrorState } from '@/components/ui/misc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { type CourseFilters, type SearchIn, useCategories, useCourseFeed } from '@/features/catalog/api'
+import { DeliveryTabs } from '@/features/catalog/DeliveryTabs'
 import { CourseCard, CourseCardSkeleton } from '@/features/catalog/CourseCard'
 import { CourseRow } from '@/features/catalog/CourseRow'
 import { useDebounced } from '@/features/org/ui'
@@ -160,6 +161,7 @@ export function CoursesPage() {
     level: params.get('level') ?? undefined,
     price: (params.get('price') as CourseFilters['price']) ?? undefined,
     rating: params.get('rating') ? Number(params.get('rating')) : undefined,
+    delivery: (['recorded', 'live', 'both'].includes(params.get('delivery') ?? '') ? params.get('delivery') : undefined) as CourseFilters['delivery'],
     sort: params.get('sort') ?? 'popular',
   }
   const feed = useCourseFeed(filters)
@@ -208,6 +210,7 @@ export function CoursesPage() {
       {/* Fixed to the viewport so the artwork also sits behind the frosted header. */}
       <DashboardBackdrop className="animate-fade-in fixed inset-0 -z-10" />
       <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        <DeliveryTabs className="mb-5" value={filters.delivery ?? ''} onChange={(v) => set('delivery', v || undefined)} />
         <div className="flex flex-col items-stretch gap-4 animate-reveal sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{filters.q ? `Results for “${filters.q}”` : 'Explore courses'}</h1>
@@ -278,7 +281,7 @@ export function CoursesPage() {
             <div className={cn('transition-opacity duration-200', feed.isFetching && !feed.isFetchingNextPage && !feed.isLoading && 'opacity-60')}>
               {feed.error ? (
                 <ErrorState message={(feed.error as Error).message} onRetry={() => void feed.refetch()} />
-              ) : (instant ? base.isLoading : feed.isLoading) ? (
+              ) : (instant ? base.isLoading || base.isPlaceholderData : feed.isLoading || feed.isPlaceholderData) ? (
                 <div className={view === 'grid' ? 'grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 xl:grid-cols-3' : 'grid gap-3'}>
                   {Array.from({ length: 6 }, (_, i) => (view === 'grid' ? <CourseCardSkeleton key={i} /> : <Skeleton key={i} className="h-36 rounded-lg" />))}
                 </div>

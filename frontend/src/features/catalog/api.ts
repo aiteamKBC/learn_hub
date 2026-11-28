@@ -6,7 +6,7 @@ import { useWorkspace } from '@/features/identity/workspace'
 import { useCurrency } from '@/lib/currency'
 
 export type SearchIn = 'courses' | 'instructors' | 'topics'
-export type CourseFilters = { q?: string; search_in?: SearchIn; category?: string; level?: string; price?: 'free' | 'paid'; rating?: number; sort?: string; limit?: number }
+export type CourseFilters = { q?: string; search_in?: SearchIn; category?: string; level?: string; price?: 'free' | 'paid'; rating?: number; delivery?: 'recorded' | 'live' | 'both'; sort?: string; limit?: number }
 
 export function useCategories() {
   return useQuery({ queryKey: ['categories'], queryFn: () => unwrap(api.GET('/api/v1/catalog/categories')), staleTime: 10 * 60_000 })

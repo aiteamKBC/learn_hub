@@ -22,6 +22,7 @@ import {
   useBookingSchedule,
   useCancelTrainingRequest,
   useLiveBookings,
+  useLiveSeatBookings,
   useLiveCheckout,
   useRemoveAttendee,
   useTrainingRequests,
@@ -29,10 +30,11 @@ import {
 import { fullDate, gbp } from '@/features/corporate/format'
 import { PersonPicker, QueryBlock, StatusBadge } from '@/features/corporate/ui'
 import { useIsOrgAdmin } from '@/features/org/api'
-import { CANCEL_STATUS, CANCEL_TYPE, useCancellations } from '@/features/corporate/api'
+import { CANCEL_STATUS, CANCEL_TYPE, useCancellations, useLivePayNext } from '@/features/corporate/api'
 import { RequestDialog, type RequestTarget } from './CancellationsPage'
 import { relativeDate, shortDate } from '@/lib/format'
 import { Link } from '@/lib/router'
+import { PrivateIntakes } from '@/features/corporate/PrivateIntake'
 
 const PAYABLE = ['offered', 'pending_pay']
 const NAMEABLE = ['included', 'paid', 'active']
@@ -378,6 +380,70 @@ function PaymentNotice({ status }: { status: 'pending' | 'confirmed' | 'unknown'
   )
 }
 
+const SEAT_STATUS: Record<string, { label: string; tone: 'warning' | 'success' | 'info' | 'neutral' }> = {
+  waiting_intake: { label: 'Waiting for the next intake', tone: 'warning' },
+  placed: { label: 'In an intake', tone: 'success' },
+  cancelled: { label: 'Cancelled', tone: 'neutral' },
+}
+const PERSON_STATUS: Record<string, string> = { named: 'Named', invited: 'Invited', joined: 'Joined', cancelled: 'Cancelled' }
+
+/** Seats booked in the next intake with a deposit (option 1). */
+function SeatBookings() {
+  const q = useLiveSeatBookings()
+  const payNext = useLivePayNext()
+  const admin = useIsOrgAdmin()
+  return (
+    <Card>
+      <CardHeader title="Seat bookings" description="Seats you booked in the next intake. The deposit covers the first months." />
+      <div className="mt-3 p-5 pt-0">
+        <QueryBlock query={q} rows={2} empty={{ icon: <CalendarDays />, title: 'No seat bookings yet', body: 'Book seats from a live course: pay the deposit and your employees join the next intake.' }}>
+          {(rows) => (
+            <ul className="stagger grid gap-3">
+              {rows.map((b) => {
+                const st = SEAT_STATUS[b.status] ?? { label: b.status, tone: 'neutral' as const }
+                return (
+                  <li key={b.id} className="grid gap-2 rounded-lg border border-border p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-medium">{b.course_title}</p>
+                      <Badge tone={st.tone}>{st.label}</Badge>
+                    </div>
+                    <p className="text-sm text-muted">
+                      {b.quantity} {b.quantity === 1 ? 'seat' : 'seats'} · deposit {gbp(b.deposit_total_minor)} paid (first {b.deposit_months} months)
+                      {b.intake_starts_on ? ` · starts ${shortDate(b.intake_starts_on)}` : ' · start date coming soon'}
+                    </p>
+                    <ul className="flex flex-wrap gap-1.5 text-xs">
+                      {b.people.map((p) => (
+                        <li key={p.email} className="rounded-full bg-surface-2 px-2.5 py-1">
+                          {p.full_name || p.email} · <span className="text-muted">{PERSON_STATUS[p.status] ?? p.status}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {b.next_due_minor != null ? (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-surface-2 p-3 text-sm">
+                        <p>
+                          Paid until <span className="font-medium">{b.paid_until ? shortDate(b.paid_until) : 'the start'}</span>. Next: {gbp(b.next_due_minor)} for {b.next_due_months} more months
+                          {b.next_due_on ? `, due ${shortDate(b.next_due_on)}` : ''} · {b.instalments_left} left
+                        </p>
+                        {admin ? (
+                          <Button size="sm" loading={payNext.isPending && payNext.variables === b.id} onClick={() => payNext.mutate(b.id, { onError: (e) => toast.error((e as Error).message) })}>
+                            <CreditCard /> Pay next instalment
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : b.status === 'placed' ? (
+                      <p className="text-sm text-success">Fully paid.</p>
+                    ) : null}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </QueryBlock>
+      </div>
+    </Card>
+  )
+}
+
 export function LiveTrainingPage() {
   const admin = useIsOrgAdmin()
   const [params, setParams] = useSearchParams()
@@ -401,9 +467,11 @@ export function LiveTrainingPage() {
   }, [])
   return (
     <>
-      <PageHeader title="Live training" description="Group sessions led by a tutor. You pay once the dates are confirmed." />
+      <PageHeader title="Live training" description="Group sessions led by a tutor, in intakes through the year." />
       <div className="grid gap-6">
         {back ? <PaymentNotice status={paymentStatus} /> : null}
+        <SeatBookings />
+        <PrivateIntakes />
         <Card>
           <CardHeader title="Bookings" description="Groups your company has a place in" />
           <div className="mt-3 p-5 pt-0">

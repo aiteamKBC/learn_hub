@@ -60,7 +60,22 @@ def _sellable(course_id) -> Course:
     return course
 
 
+def personal_only(user) -> None:
+    """A company account (one an employer set up for an employee, or the employer's own)
+    gets its courses from the company. To buy for themselves people sign up again with a
+    personal email, so personal and company learning never mix on one account."""
+    from apps.org.models import OrgMember
+
+    if OrgMember.objects.filter(user_id=user.id, removed_at__isnull=True).exists():
+        raise ServiceError(
+            "company_account",
+            "This is a company account. To buy courses for yourself, sign up with a personal email.",
+            status=403,
+        )
+
+
 def add_to_cart(*, user, course_id) -> CartItem:
+    personal_only(user)
     course = _sellable(course_id)
     if _owns(user, [course.id]):
         raise ServiceError("already_owned", "You already have this course.")
@@ -229,6 +244,7 @@ def _build_pending_order(*, user, priced: dict) -> Order:
 def create_order(*, user, course_ids: list, currency: str, coupon_code: str | None = None) -> dict:
     """Personal purchase of one or more courses. Returns {"order", "checkout_url"}
     (checkout_url is None when the total is zero: the order is fulfilled at once)."""
+    personal_only(user)
     priced = price_cart(user=user, course_ids=course_ids, currency=currency, coupon_code=coupon_code)
     cur, courses, lines = priced["currency"], priced["courses"], priced["lines"]
     total = priced["total"]
@@ -269,6 +285,7 @@ def create_order_intent(*, user, course_ids: list, currency: str, coupon_code: s
     Stripe Payment Element. Returns {"order", "client_secret"} (client_secret is None when the
     total is zero: the order is fulfilled at once). The order is still only marked paid by the
     signed webhook (payment_intent.succeeded), with the same amount and currency checks."""
+    personal_only(user)
     priced = price_cart(user=user, course_ids=course_ids, currency=currency, coupon_code=coupon_code)
     cur, total = priced["currency"], priced["total"]
     order = _build_pending_order(user=user, priced=priced)

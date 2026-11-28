@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Logo } from '@/components/ui/logo'
+import { ActorSwitcher } from '@/components/dev/ActorSwitcher'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { useCartCount } from '@/features/commerce/api'
 import { useMe } from '@/features/identity/auth'
@@ -70,8 +71,9 @@ export function MarketplaceNav() {
           <span className="hidden sm:inline-flex">
             <CurrencyMenu />
           </span>
+          <ActorSwitcher />
           <ThemeToggle />
-          <CartButton />
+          {me?.memberships.length ? null : <CartButton />}
           {me ? <NotificationBell /> : null}
           {isLoading ? null : me ? (
             <UserMenu />

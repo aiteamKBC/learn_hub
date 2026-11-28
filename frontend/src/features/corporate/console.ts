@@ -510,3 +510,59 @@ export const POLICY_LABEL: Record<string, string> = {
   preserve_completed: 'Keep finished courses (older setting)',
   revoke_all: 'End company training (older setting)',
 }
+
+// ---------------------------------------------------------------- recorded or live, per course
+export type CnDeliveryRow = S['ConsoleDeliveryRowOut']
+
+export function useCnDelivery() {
+  return useQuery({ queryKey: k('delivery'), queryFn: () => unwrap(api.GET('/api/v1/console/corporate/delivery')) })
+}
+
+export function useCnSetDelivery() {
+  const inv = useInvalidate()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ courseId, ...body }: { courseId: string; recorded?: boolean; live?: boolean }) =>
+      unwrap(api.POST('/api/v1/console/corporate/delivery/{course_id}', { params: { path: { course_id: courseId } }, body })),
+    // the tabs, cards and company catalogue all read these
+    onSuccess: () => Promise.all([inv('delivery', 'offerings'), qc.invalidateQueries({ queryKey: ['courses'] }), qc.invalidateQueries({ queryKey: ['corporate'] })]),
+  })
+}
+
+// ---------------------------------------------------------------- live payment plans, per course
+export type CnLiveTerms = S['LiveTermsOut']
+
+export function useCnLiveTerms() {
+  return useQuery({ queryKey: k('live-terms'), queryFn: () => unwrap(api.GET('/api/v1/console/corporate/live-terms')) })
+}
+
+export function useCnSendLiveReminders() {
+  return useMutation({ mutationFn: () => unwrap(api.POST('/api/v1/console/corporate/live-reminders')) })
+}
+
+export function useCnSaveLiveTerms() {
+  const inv = useInvalidate()
+  return useMutation({
+    mutationFn: ({ courseId, ...body }: S['LiveTermsIn'] & { courseId: string }) =>
+      unwrap(api.PUT('/api/v1/console/corporate/live-terms/{course_id}', { params: { path: { course_id: courseId } }, body })),
+    onSuccess: () => inv('live-terms'),
+  })
+}
+
+// ---------------------------------------------------------------- private live intakes
+export type CnPrivateIntake = S['ConsolePrivateIntakeOut']
+
+export function useCnPrivateIntakes() {
+  return useQuery({ queryKey: k('private-intakes'), queryFn: () => unwrap(api.GET('/api/v1/console/corporate/private-intakes')) })
+}
+
+export function useCnDecidePrivate() {
+  const inv = useInvalidate()
+  return useMutation({
+    mutationFn: ({ id, approve, starts_on, reply }: { id: string; approve: boolean; starts_on?: string; reply: string }) =>
+      approve
+        ? unwrap(api.POST('/api/v1/console/corporate/private-intakes/{req_id}/approve', { params: { path: { req_id: id } }, body: { starts_on: starts_on ?? '', reply } }))
+        : unwrap(api.POST('/api/v1/console/corporate/private-intakes/{req_id}/reject', { params: { path: { req_id: id } }, body: { reply } })),
+    onSuccess: () => inv('private-intakes'),
+  })
+}

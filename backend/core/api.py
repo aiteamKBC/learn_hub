@@ -76,6 +76,11 @@ def _mount_domain_routers() -> None:
     from apps.platform.console import router as console
 
     api.add_router("/v1/console/", console)
+    # development only: switch test actors without the login screen (never in production)
+    if settings.DEBUG and getattr(settings, "DEV_ACTOR_SWITCH", False):
+        from core.dev_switch import router as dev_switch
+
+        api.add_router("/v1/dev/", dev_switch)
 
 
 _mount_domain_routers()

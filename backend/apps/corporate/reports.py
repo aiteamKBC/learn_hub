@@ -23,6 +23,7 @@ from .models import (
     StageInstalment,
     TrainingRequest,
 )
+from .pending import held_count
 
 
 def company_dashboard(org_id) -> dict:
@@ -51,7 +52,8 @@ def company_dashboard(org_id) -> dict:
     return {
         "total_seats_purchased": total_seats,
         "seats_allocated": active_allocs,
-        "seats_available": max(0, total_seats - active_allocs),
+        # seats held for invited emails are not free to give
+        "seats_available": max(0, total_seats - active_allocs - held_count(org_id)),
         "active_cohorts": active_cohorts,
         "pending_requests": pending_requests,
         "total_spend_minor": (
