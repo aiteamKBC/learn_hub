@@ -22,6 +22,9 @@ export type PublicSettings = {
   'access.maintenance_message': string
   'security.mfa_enabled': boolean
   'security.password_min_length': number
+  'home.section_order': string
+  'home.hidden_sections': string
+  'home.default_landing': 'home' | 'courses' | 'plans'
 }
 
 export const DEFAULT_SETTINGS: PublicSettings = {
@@ -40,6 +43,9 @@ export const DEFAULT_SETTINGS: PublicSettings = {
   'access.maintenance_message': "We're making improvements and will be back shortly.",
   'security.mfa_enabled': true,
   'security.password_min_length': 8,
+  'home.section_order': 'hero,categories,courses,sales,new,why,instructors,membership',
+  'home.hidden_sections': '',
+  'home.default_landing': 'home',
 }
 
 export function usePublicSettings() {

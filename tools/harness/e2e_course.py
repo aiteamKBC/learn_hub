@@ -19,10 +19,11 @@ from core.tenancy import tenant_context  # noqa: E402
 from apps.identity.models import InstructorProfile  # noqa: E402
 
 # any approved instructor from the seed owns the course; any staff user approves it
-owner = User.objects.filter(email__startswith="daniel.reeve").first() or User.objects.get(
-    pk=InstructorProfile.objects.filter(status="approved").values_list("user_id", flat=True)[:1]
-)
-staff = User.objects.filter(is_staff=True).first()
+with tenant_context(staff=True):
+    owner = User.objects.filter(email__startswith="daniel.reeve").first() or User.objects.get(
+        pk=InstructorProfile.objects.filter(status="approved").values_list("user_id", flat=True)[:1]
+    )
+    staff = User.objects.filter(is_staff=True).first()
 slug = f"e2e-every-lecture-{int(time.time())}"
 ARTICLE = "<h2>Why it matters</h2><p>Reading lessons use <strong>rich text</strong> with <a href='https://example.com'>links</a>.</p><ul><li>Lists</li><li>work</li></ul><blockquote>Quotes stand out.</blockquote><pre><code>print('code blocks')</code></pre>" * 3
 with tenant_context(user_id=owner.id):
@@ -54,8 +55,10 @@ with tenant_context(user_id=owner.id):
     a = cat.add_lecture(section=s2, kind="assignment", title="Mini project").assignment
     cat.update_assignment(assignment=a, instructions="<p>Describe your API design in a few lines, or share a link.</p>",
                           submission_types=["text", "url"], rubric=[{"criterion": "Clear design", "points": 60}, {"criterion": "Good naming", "points": 40}])
+    # The publication checklist requires a deliberate free/cash choice before submit.
+    with tenant_context(user_id=staff.id, staff=True):
+        CoursePrice.objects.create(course=c, is_free=True, tier=None)
     cat.submit(version=v, by=owner)
 with tenant_context(user_id=staff.id, staff=True):
     cat.approve(version=v, reviewer=staff)
-    CoursePrice.objects.create(course=c, is_free=True, tier=None)
 print(slug)

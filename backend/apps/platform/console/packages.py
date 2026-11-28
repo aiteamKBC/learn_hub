@@ -86,7 +86,7 @@ def _validate_courses(course_ids: list) -> tuple[set, dict]:
 def _guard_price(tier: PriceTier, snapshots: dict) -> None:
     """A bundle must never cost MORE than buying its courses separately (it'd be pointless)."""
     total = sum(snapshots.values())
-    if total > 0 and tier.gbp_minor > total:
+    if tier.gbp_minor > total:
         raise ServiceError(
             "price_too_high",
             f"Bundle price £{tier.gbp_minor / 100:.2f} is more than buying the courses separately "

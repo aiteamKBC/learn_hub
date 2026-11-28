@@ -1,7 +1,7 @@
 import { ArrowRight, ArrowUpRight, Briefcase, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, Code2, HeartPulse, Megaphone, Package, Palette, PlayCircle, Server, ShieldCheck, Sparkles, Star, type LucideIcon } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 
-import { useLocation } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 
 import heroEagle from '@/assets/brand/hero-eagle-dashboard.png'
 import heroSectionMobile from '@/assets/brand/section-dashboard.png'
@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { StarBorder } from '@/components/ui/star-border'
 import { useCashPackages, useSubscriptionPlans } from '@/features/b2c/api'
 import { type CourseCardData, useCatalogStats, useCategories, useCourses, usePlans } from '@/features/catalog/api'
+import { usePublicSettings } from '@/features/platform/api'
 import { cn } from '@/lib/cn'
 import { duration, money } from '@/lib/format'
 import { reducedMotion } from '@/lib/motion'
@@ -1089,12 +1090,22 @@ export function HomePage() {
     return scrollToAnchor(hash.slice(1))
   }, [hash])
 
-  return (
-    <>
-      <HeroIntro />
+  const { settings, isLoading: settingsLoading } = usePublicSettings()
+  const order = settings['home.section_order'].split(',')
+  const hidden = new Set(settings['home.hidden_sections'].split(',').filter(Boolean))
+  const defaultOrder = ['hero', 'categories', 'courses', 'sales', 'new', 'why', 'instructors', 'membership']
+  const safeOrder = order.length === defaultOrder.length && new Set(order).size === defaultOrder.length && order.every((id) => defaultOrder.includes(id)) ? order : defaultOrder
+  const sectionBlocks: Record<string, ReactNode> = {
+    hero: (
       <Hero />
+    ),
+    categories: (
       <CategorySection />
+    ),
+    courses: (
       <FeaturedCourses />
+    ),
+    sales: (
       <section id="sales" className="scroll-mt-20 bg-surface-2">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-16 lg:py-20">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -1116,6 +1127,8 @@ export function HomePage() {
           </div>
         </div>
       </section>
+    ),
+    new: (
       <section id="new" className="relative scroll-mt-20 overflow-hidden bg-[#1e252d]">
         {/* Decorative artwork: full-bleed layered dune-waves forming one broad valley (high on the
             left, dipping centre, rising to the right). Each crest catches a faint top sheen; a thin
@@ -1178,7 +1191,11 @@ export function HomePage() {
           </div>
         </div>
       </section>
+    ),
+    why: (
       <WhyLearnHub />
+    ),
+    instructors: (
       <section id="instructors" className="scroll-mt-20 bg-[#faeee0] dark:bg-surface-2/40">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-16 lg:py-20">
           <div className="mx-auto max-w-2xl text-center">
@@ -1193,7 +1210,17 @@ export function HomePage() {
           </div>
         </div>
       </section>
+    ),
+    membership: (
       <Membership />
+    ),
+  }
+  if (settingsLoading) return null
+  if (settings['home.default_landing'] !== 'home') return <Navigate to={`/${settings['home.default_landing']}`} replace />
+  return (
+    <>
+      <HeroIntro />
+      {safeOrder.filter((id) => id === 'hero' || !hidden.has(id)).map((id) => <Fragment key={id}>{sectionBlocks[id]}</Fragment>)}
     </>
   )
 }

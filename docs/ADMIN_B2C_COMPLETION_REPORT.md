@@ -1,71 +1,32 @@
-# Admin Console / personal B2C completion
+﻿# Admin Console / personal B2C completion
 
-**Overall verdict: PARTIAL.** This report distinguishes implemented paths from verified acceptance. The branch is `enhance_diaa`; baseline reviewed commit was `6f129ac`. No database, schema, payment, email, or provider configuration was changed in this pass.
+**Verdict: PARTIAL.** Branch `enhance_diaa`, resumed from `180527e`. This pass used the actual eight-page Khaled PDF in Downloads and the existing completion report. Khaled's rules are proposals, not blanket approval for changing K02, K04 or REFUND-1.
 
-## Confirmed fix
+## Isolated acceptance environment
 
-The admin Packages API previously accepted an empty course list and silently dropped unpublished or otherwise ineligible selections when another selected course was valid. `_validate_courses` now rejects both cases before package creation or update. This preserves the administrator's intended membership and prevents a misleading learner offer. Existing packages and historical purchase rights are untouched.
+A disposable local PostgreSQL 18 container (`learnhub-codex-pg18`, `127.0.0.1:55433/lms`) was initialized with existing migrations only. The local acceptance backend used port 8011 and frontend port 5184. Both Django database aliases were asserted to target that local database before fixture or test execution. Shared Neon and the existing 8000/5173 development servers were untouched. Redis used the in-memory Celery broker; email used `SafeConsoleBackend`; Stripe keys were empty. Azure/Bunny credentials were removed from the disposable runner after a dashboard health check attempted an Azure token request and received 401. There were no real payments or Bunny configuration changes.
 
-The package UI already uses the admin API; active packages reach the Home and Packages pages through `/api/v1/commerce/tokens/packages`. The current e2e endpoint has no active bundles; no bundle was invented or added to shared data. Checkout and activation/deactivation acceptance remain unverified in a disposable database.
+## Completed and observed
 
-## Admin pages
+- **Certificate fixture:** `tools/harness/e2e_course.py` now finds staff and instructor under the staff tenant context and sets the free course price before submission, satisfying the existing publication checklist. The browser completed a real free enrollment, six required lectures including quiz and graded assignment, and reached 100% progress. Learner API showed one certificate; PDF download returned HTTP 200, `application/pdf` and a 3,986-byte PDF. Two repeated completion calls left the same single certificate ID (`01a2217d-6ac7-75ed-aafa-be662b93bdaf`). Evidence: `tmp/certificate-local-evidence/result.json` and `tmp/certificate-local-run.log` (local, untracked).
+- **Home Layout:** Added typed, public platform settings for section order, hidden sections and default landing, using the existing settings table and admin save API. The admin page now saves these values. The Home page consumes them; the hero remains fixed. Local admin save returned 200, public settings returned the changed values, and Chrome showed Featured Courses before Categories with Offers hidden. Invalid hero hiding returned 400. Default layout was restored afterward. No schema migration.
+- **Package price guard:** A priced package containing only free content now fails the same comparison as any other package. Local admin API returned HTTP 400 with `error.code=price_too_high` for a £14.99 tier against a free course.
+- **Other scoped acceptance:** The focused local admin batch ran 43 cases: 38 passed, one skipped, four failed. A separate focused wallet/subscription batch ran 25 valid cases successfully; one requested test path was invalid. The remaining admin-page batch ran 54 cases: 49 passed and five errored. Passing cases exercised course pricing/access duration, package CRUD/deactivation, promotions, review moderation, subscriptions, certificate templates, dashboard, people, settings, communications, reports, audit, token pricing, wallet and subscription services. These are local database and mocked provider checks; they do not prove live Stripe, Bunny, payout or refund behavior.
 
-| Page | Status and evidence |
-|---|---|
-| Dashboard | Unverified; no B2C-specific change in this pass. |
-| Courses | Unverified end to end; catalogue and course APIs exist. |
-| Instructors | Unverified end to end. |
-| Students | Unverified end to end. |
-| Enrolments | Previously verified real admin grants for one authorized personal e2e learner; other states unverified. |
-| Sales & Orders | Learner instant refund safeguard exists; financial acceptance unverified. |
-| Subscriptions | GBP APIs checked: £19.99/month with 7-day trial, £191.88/year with no trial. Home and Subscription use the same subscription plan API as of `6f129ac`. Other states unverified. |
-| Pricing | Plan prices above verified via API; course/cart/checkout matrix unverified. |
-| Promotions | Unverified. |
-| Commissions, Course Payments, Payouts | Unverified financial paths; no transaction executed. |
-| Reports | Unverified. |
-| Token Pricing | Content unlock spending remains disabled by default pending K02. Other controls unverified. |
-| Token Wallets | Learner wallet copy reflects the restriction; grants and ledger parity unverified. |
-| Packages | Admin CRUD and learner API traced in code; invalid membership fix made. Runtime mutation and purchase blocked by shared e2e ownership uncertainty and disabled Stripe. |
-| Approvals | Unverified. |
-| Reviews | Prior no-review wording fix; moderation and rating acceptance unverified. |
-| Communications | Personal preferences API verified HTTP 200 with 29 readable, role-appropriate labels; other roles checked read-only. Support response flow unverified. |
-| Certificates | BLOCKED: existing certificate fixture fails publication checklist because it sets a free price after `cat.submit()`. Completion, PDF, duplicate prevention remain unverified. No completion requirements were bypassed. |
-| Home Layout | Existing console page is preview-only and does not persist or control Home; backend integration needed. |
-| Settings | Runtime safety settings verified; other controls unverified. |
-| Audit Log | Package create/update/deactivate call the existing audit service; persisted audit evidence unverified. |
-| Companies, Workforce, Company Packages, Live Training, Refunds and Departures, Company Reports | Boundary and compatibility acceptance unverified; owner workstreams preserved. |
+## Five remaining errors in the final admin-page batch
 
-## Admin-to-learner acceptance matrix
+1. `ConsoleDashboardTest.test_an_instructor_application_alerts_staff`: duplicate `staff@learnhub.example.com` during setup, indicating local test-data isolation/order interference.
+2. `ConsolePeopleTest.test_instructors_permissions_enforced_and_suspension`: studio submit response lacks `status`; the fixture submits without the now-required price.
+3. `ApprovalsTest.test_decisions_audit_and_notify`: same studio submit fixture error.
+4. `ApprovalsTest.test_first_release_is_never_major`: same studio submit fixture error.
+5. `ApprovalsTest.test_queue_tabs_search_and_major_change`: same studio submit fixture error.
 
-| Configuration | Evidence | Verdict |
-|---|---|---|
-| Publish/free/price/access-days course | APIs and prior implementation exist; no isolated mutation run | Unverified |
-| Grant enrolment → My Learning | Previously verified via real e2e service and learner API for authorized account | PASS for that grant only |
-| Token pricing/grant → wallet | Spending guard and learner wording present; no ledger mutation run | Partial |
-| Subscription → Home and Subscription | Same plan API, GBP prices/trials checked | PASS for display data only |
-| Activate package → Home/Packages/purchase | API wiring present; no active bundle in current data | BLOCKED for runtime acceptance |
-| Promotion → checkout | No isolated fixture run | Unverified |
-| Moderate review → public rating | No isolated fixture run | Unverified |
-| Certificate → My Certificates/PDF | Fixture publication blocked | BLOCKED |
-| Notifications → learner settings | Authenticated API response checked for personal account | PASS for preferences only |
+The earlier 43-case batch also had four outstanding cases: a duplicate staff fixture collision; a package test reading legacy top-level `code` although the API returns `error.code`; and two old subscription assertions expecting a standard plan or a plan course list to grant unlimited course access despite the K02 `unlimited_b2c` guard. Assertions were not weakened and these cases remain unresolved.
 
-## Safety and verification
+## Acceptance limits
 
-The running backend configuration was verified against Neon e2e host `ep-super-leaf-zaf8bl22`, database `lms`, with shared Redis disabled, SafeConsoleBackend, and Stripe disabled. The development endpoint is different. E2E ownership is not proven exclusive, so no new mutating admin acceptance run was started. Frontend remains on `http://localhost:5173`, backend on port 8000.
+Publication/free enrollment, learner completion and certificate issuance were observed end to end. Course price/access-days, package activation, promotion rules, review moderation, subscription and wallet paths have focused local backend acceptance evidence, but not one continuous browser purchase journey. Real payments, external email, Bunny playback, refunds, payouts and shared-environment writes were excluded by instruction. K02 token content unlock restrictions, K04 live training ownership and REFUND-1 admin review remain preserved.
 
-Checks: Ruff package scope passed (`logs/package-scope.log`); frontend `npm.cmd run typecheck` passed; `git diff --check` passed. An initial `run_check.py` frontend attempt failed because that wrapper runs from repository root where there is no `package.json`; direct frontend typecheck passed. No full regression was run. No performance change was made, so there are no before/after timings.
+## Static checks
 
-## Dependencies
-
-- **K02 (token owner):** entitlement-to-learning bridge and expiry handling; keep content unlock spending disabled.
-- **K04 (live-training owner):** booking, series access and join windows.
-- **REFUND-1 (owner):** compatible request/review workflow before expanding learner refunds.
-- **Financial E2E:** disposable database and provider test adapter needed for payment, refunds and payouts.
-- **Certificates:** repair the test fixture price-before-publish ordering, then run one full focused scenario on an exclusively disposable database.
-- **Packages/subscriptions:** management must decide any new coverage or bundle policy; no hardcoded offer should fill empty states.
-- **Home Layout:** persistent admin settings and Home consumption need an agreed backend contract.
-- **Handoff source:** `handoff/CODEX_HANDOFF.md` is absent from this checkout; the named PDF exists in Downloads but was not available as extracted project text during this pass. Its business proposals were not treated as approvals.
-
-## Local verification
-
-Open `http://localhost:5173`, sign in with an existing test account, and inspect Settings → Notifications. Staff can inspect Console → Packages, then Home and Packages to see only active server-defined offers. Do not attempt payment while Stripe is disabled.
+Frontend `npm run typecheck` and `git diff --check` were run. Ruff on the changed backend modules passed; the broader Ruff invocation reported existing harness import-order/`noqa` style issues in `tools/harness/e2e_course.py`. No additional test suites or audits were run after the stop instruction.
