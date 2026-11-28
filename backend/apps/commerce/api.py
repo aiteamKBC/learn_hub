@@ -62,6 +62,22 @@ router.add_router("/tokens", token_router)
 router.add_router("/instalments", instalment_router)
 
 
+class PersonalPaymentConfigurationOut(Schema):
+    stripe_configured: bool
+    embedded_configured: bool
+    token_unlocks_enabled: bool
+
+
+@router.get("/payment-configuration", response=PersonalPaymentConfigurationOut, auth=None)
+def payment_configuration(request):
+    """Configuration presence only; Stripe determines actual method eligibility at checkout."""
+    return {
+        "stripe_configured": bool(settings.STRIPE_SECRET_KEY),
+        "embedded_configured": bool(settings.STRIPE_SECRET_KEY and settings.STRIPE_PUBLISHABLE_KEY),
+        "token_unlocks_enabled": settings.PERSONAL_TOKEN_CONTENT_UNLOCKS_ENABLED,
+    }
+
+
 @router.get("/currencies", response=list[CurrencyOut], auth=None)
 def currencies(request):
     return Currency.objects.filter(is_active=True, stripe_supported=True).order_by("code")

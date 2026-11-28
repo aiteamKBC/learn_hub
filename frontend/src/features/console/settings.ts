@@ -16,6 +16,7 @@ function useDone() {
     Promise.all([
       qc.invalidateQueries({ queryKey: ['console', 'settings'] }),
       qc.invalidateQueries({ queryKey: ['platform', 'settings'] }), // branding and switches site-wide
+      qc.invalidateQueries({ queryKey: ['cart'] }), // canonical promotion-stacking changes
     ])
 }
 

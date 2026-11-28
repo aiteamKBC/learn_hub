@@ -36,6 +36,23 @@ BASE = "GBP"
 SYMBOLS = {"GBP": "£", "USD": "$", "EUR": "€"}
 
 
+def checkout_amount(amount_minor: int, currency_code: str, *, currency: Currency | None = None) -> int:
+    """Validate B2C currency availability and convert without silently losing money."""
+    from . import gateway
+
+    # Course baskets already loaded and validated this row; avoid one query per line.
+    if currency is None:
+        currency = Currency.objects.filter(
+            code=currency_code, is_active=True, stripe_supported=True
+        ).first()
+    if currency is None:
+        raise ServiceError("bad_currency", f"Payments in {currency_code} are not available.")
+    amount = gateway.to_stripe_amount(amount_minor, currency.code, currency.exponent)
+    if amount * 10**currency.exponent != amount_minor * 10**gateway.stripe_exponent(currency.code):
+        raise ServiceError("bad_amount", "This price cannot be charged exactly in this currency.")
+    return amount
+
+
 def format_money(minor: int, code: str = BASE, exponent: int = 2) -> str:
     """For notification text: £44.99, $12.00, 1,299 INR."""
     major = to_major(minor, exponent)

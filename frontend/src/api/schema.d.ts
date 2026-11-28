@@ -1320,6 +1320,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/commerce/payment-configuration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Payment Configuration
+         * @description Configuration presence only; Stripe determines actual method eligibility at checkout.
+         */
+        get: operations["apps_commerce_api_payment_configuration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/commerce/currencies": {
         parameters: {
             query?: never;
@@ -11996,6 +12016,15 @@ export interface components {
             expires_at: string | null;
             /** Completed At */
             completed_at: string | null;
+        };
+        /** PersonalPaymentConfigurationOut */
+        PersonalPaymentConfigurationOut: {
+            /** Stripe Configured */
+            stripe_configured: boolean;
+            /** Embedded Configured */
+            embedded_configured: boolean;
+            /** Token Unlocks Enabled */
+            token_unlocks_enabled: boolean;
         };
         /** CurrencyOut */
         CurrencyOut: {
@@ -25923,6 +25952,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MyRequirement"][];
+                };
+            };
+        };
+    };
+    apps_commerce_api_payment_configuration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalPaymentConfigurationOut"];
                 };
             };
         };

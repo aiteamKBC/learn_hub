@@ -287,7 +287,7 @@ def create_order(*, user, course_ids: list, currency: str, coupon_code: str | No
                 "quantity": 1,
                 "price_data": {
                     "currency": currency.lower(),
-                    "unit_amount": gateway.to_stripe_amount(price, currency, cur.exponent),
+                    "unit_amount": pricing.checkout_amount(price, currency, currency=cur),
                     "product_data": {"name": courses[cid].title[:250]},
                 },
             }
@@ -322,7 +322,7 @@ def create_order_intent(*, user, course_ids: list, currency: str, coupon_code: s
         return {"order": order, "client_secret": None}
 
     intent = gateway.create_payment_intent(
-        amount=gateway.to_stripe_amount(total, cur.code, cur.exponent),
+        amount=pricing.checkout_amount(total, cur.code, currency=cur),
         currency=cur.code,
         metadata={"kind": "order", "id": str(order.id)},
         customer_email=user.email,
@@ -588,6 +588,8 @@ def start_subscription(
     if live.exists():
         raise ServiceError("already_subscribed", "There is already an active subscription.")
     price = _price_for(PlanPrice, currency, plan=plan)
+    if org_id is None:
+        pricing.checkout_amount(price.amount_minor, currency)
     promo = promotions.for_plan(user=user, plan=plan, code=(promo_code or "").strip())
     sub = Subscription.objects.create(user=user, org_id=org_id, plan=plan, currency_id=currency, seats=seats)
     meta = {"kind": "subscription", "id": str(sub.id), **({"promotion": str(promo.id)} if promo else {})}

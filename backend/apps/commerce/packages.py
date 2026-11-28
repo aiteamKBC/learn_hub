@@ -163,10 +163,9 @@ def create_package_checkout(
     amount = amount_row.amount_minor if amount_row else pkg.price_tier.gbp_minor
     currency = currency_code if amount_row else "GBP"
 
-    from .gateway import stripe_exponent
+    from .pricing import checkout_amount
 
-    exponent = stripe_exponent(currency)
-    stripe_amount = gateway.to_stripe_amount(amount, currency, exponent)
+    stripe_amount = checkout_amount(amount, currency)
 
     course_ids = list(CashPackageCourse.objects.filter(package=pkg).values_list("course_id", flat=True))
     from apps.platform.console.packages import _eligible

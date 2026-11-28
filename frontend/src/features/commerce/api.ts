@@ -10,6 +10,10 @@ import { emit } from '@/lib/motion'
 
 const PERSONAL = { 'X-Org-Id': '' } // personal purchases, whichever space is selected
 
+export function usePersonalPaymentConfiguration() {
+  return useQuery({ queryKey: ['personal-payment-configuration'], queryFn: () => unwrap(api.GET('/api/v1/commerce/payment-configuration')) })
+}
+
 export function useCurrencies() {
   return useQuery({ queryKey: ['currencies'], queryFn: () => unwrap(api.GET('/api/v1/commerce/currencies')), staleTime: 30 * 60_000 })
 }

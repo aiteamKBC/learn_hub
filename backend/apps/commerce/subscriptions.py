@@ -256,6 +256,11 @@ def create_subscription_checkout(
                 price_row = PlanPrice.objects.filter(plan=plan, currency_id="GBP").first()
             if price_row is None:
                 raise ServiceError("no_price", "No price configured for this plan.", status=400)
+            from .pricing import checkout_amount
+
+            checkout_amount(price_row.amount_minor, price_row.currency_id)
+            if not price_row.stripe_price_id:
+                raise ServiceError("no_price", "No provider price configured for this plan.", status=400)
             # Serialise all subscription offer claims while choosing the best eligible
             # offer. The snapshot below is the reservation; no money is taken here.
             from core.tenancy import tenant_context

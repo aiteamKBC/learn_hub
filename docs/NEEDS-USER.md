@@ -175,3 +175,10 @@ UI-3. **[UI] Two new admin-console screens are VISUAL ONLY (no backend).**
 0003_instructor_invites table); QR code built; pending invitations built. All questions here are closed;
 client question 21 stays open in `client-questions.md`. This file can be deleted.
 
+
+## Course payments — 28 November 2026
+
+The preview-only Course payments entry in UI-3 is superseded by
+[the B2C payment completion note](course-payments-completion.md). This page now
+uses canonical Settings APIs; Stripe methods remain provider-managed and tax
+policy remains read-only. The other UI-3 entries are outside this change.

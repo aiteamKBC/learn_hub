@@ -164,11 +164,9 @@ def pack_checkout(request, pack_id: UUID, body: PackCheckoutIn):
     amount_row = PriceTierAmount.objects.filter(tier=tier, currency_id=cur["code"]).first()
     amount = amount_row.amount_minor if amount_row else tier.gbp_minor
     currency_code = cur["code"] if amount_row else "GBP"
-    # If the requested tier amount is missing we charge GBP, including GBP's
-    # own precision; using the requested currency's exponent would misprice
-    # zero- and three-decimal currencies.
-    exponent = cur["exponent"] if amount_row else 2
-    stripe_amount = gateway.to_stripe_amount(amount, currency_code, exponent)
+    from .pricing import checkout_amount
+
+    stripe_amount = checkout_amount(amount, currency_code)
 
     idempotency_key = f"token_pack:{pack.id}:{request.user.id}:{pack.updated_at.timestamp():.0f}"
     session = gateway.create_checkout_session(
