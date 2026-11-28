@@ -63,7 +63,11 @@ def dispatch(event: dict) -> None:
     obj = event["data"]["object"]
     kind = event["type"]
     meta = obj.get("metadata") or {}
-    if kind in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
+    if kind in ("transfer.created", "transfer.updated", "transfer.reversed"):
+        from apps.payouts.execution import transfer_event
+
+        transfer_event(obj)
+    elif kind in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
         _session_completed(obj, meta)
     elif kind == "checkout.session.expired" and meta.get("kind") == "order":
         services.expire_order(order_id=meta["id"])

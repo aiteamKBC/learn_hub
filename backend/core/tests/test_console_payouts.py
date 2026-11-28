@@ -72,7 +72,7 @@ class PayoutRequestsTest(SchemaTransactionTestCase):
         self.assertEqual(self.post(f"/console/payout-accounts/{self.tom.id}/verify").status_code, 200)
 
     # ------------------------------------------------------------ tests
-    def test_request_rules_bundle_and_paid(self):
+    def test_request_rules_bundle_and_unconfirmed_manual_payment(self):
         self.earn(3000)
         self.earn(2000)
         self.earn(9000, days_ago=5)  # still inside the hold
@@ -88,7 +88,9 @@ class PayoutRequestsTest(SchemaTransactionTestCase):
         with tenant_context(staff=True):
             account = PayoutAccount.objects.get(user=self.tom)
         self.assertEqual((account.bank_account_last4, account.bank_sort_code_last2), ("4242", "42"))
-        self.assertTrue(me["can_request"])
+        self.assertFalse(me["can_request"])
+        self.verify()
+        self.as_(self.tom)
 
         self.assertEqual(
             self.post("/payouts/requests", {"amount_gbp_minor": 2000, "method": "bank"}).status_code, 400
@@ -110,9 +112,11 @@ class PayoutRequestsTest(SchemaTransactionTestCase):
         self.assertEqual(services.create_payouts(period_end=date.today()), [])
 
         self.as_(self.staff)
+        with tenant_context(staff=True):
+            PayoutAccount.objects.filter(user=self.tom).update(verified_at=None)
         self.assertEqual(
             self.post(f"/console/payout-requests/{req_id}/approve").status_code, 400
-        )  # not verified
+        )  # verification was revoked before approval
         self.verify()
         self.assertIn("payout_account_verified", self.kinds(self.tom))
         row = self.post(f"/console/payout-requests/{req_id}/approve").json()
@@ -126,22 +130,21 @@ class PayoutRequestsTest(SchemaTransactionTestCase):
 
         self.assertEqual(self.post(f"/console/payout-requests/{req_id}/mark-paid", {"provider_ref": ""}).status_code,
                          422)  # fmt: skip
-        paid = self.post(f"/console/payout-requests/{req_id}/mark-paid", {"provider_ref": "BACS-881"}).json()
-        self.assertEqual((paid["status"], paid["provider_ref"]), ("paid", "BACS-881"))
-        self.assertEqual(self.row(Payout, pk=req.payout_id).status, "paid")
-        self.assertIn("payout_paid", self.kinds(self.tom))
-        actions = {a["action"] for a in self.get("/console/audit").json()["items"]}
-        self.assertTrue({"payout_request.approve", "payout_request.paid", "payout_account.verify"} <= actions)
-
+        refused = self.post(f"/console/payout-requests/{req_id}/mark-paid", {"provider_ref": "BACS-881"})
+        self.assertEqual(refused.status_code, 400)
+        self.assertEqual(refused.json()["error"]["code"], "provider_confirmation_required")
+        self.assertEqual(self.row(Payout, pk=req.payout_id).status, "pending")
+        self.assertNotIn("payout_paid", self.kinds(self.tom))
         overview = self.get("/console/payouts/overview").json()
-        self.assertEqual(overview["total_paid_gbp_minor"], 4000)
+        self.assertEqual(overview["total_paid_gbp_minor"], 0)
         self.assertEqual(overview["approved_month"]["value"], 4000)
         balances = {b["user_id"]: b for b in self.get("/console/payouts/balances").json()}
         self.assertEqual(balances[str(self.tom.id)]["available"], 1000)
-        listed = self.get("/console/payout-requests?status=paid&q=tom").json()["items"]
+        self.assertEqual(balances[str(self.tom.id)]["in_payout"], 4000)
+        listed = self.get("/console/payout-requests?status=approved&q=tom").json()["items"]
         self.assertEqual([x["id"] for x in listed], [req_id])
         self.as_(self.tom)
-        self.assertEqual(self.get("/payouts/requests").json()[0]["status"], "paid")
+        self.assertEqual(self.get("/payouts/requests").json()[0]["status"], "approved")
 
     def test_dispute_reject_and_fail_release_the_money(self):
         self.earn(5000)
@@ -172,7 +175,8 @@ class PayoutRequestsTest(SchemaTransactionTestCase):
         self.assertIn("payout_request_rejected", self.kinds(self.tom))
         self.assertEqual(self.post(f"/console/payout-requests/{second}/approve").status_code, 400)  # closed
 
-    def test_stripe_requests_pay_at_once(self):
+    @mock.patch("apps.commerce.gateway.payout_destination_enabled", return_value=True)
+    def test_stripe_requests_pay_only_after_commit_and_confirmation(self, _enabled):
         self.earn(4000)
         services.save_method(user=self.tom, method="stripe", stripe_account_id="acct_9", make_default=True)
         self.verify()
@@ -181,9 +185,16 @@ class PayoutRequestsTest(SchemaTransactionTestCase):
         self.assertEqual(r.status_code, 200, r.content)
         req_id = r.json()["id"]
         self.as_(self.staff)
-        with mock.patch("apps.commerce.gateway.transfer", return_value="tr_42") as transfer:
+        with mock.patch("apps.commerce.gateway.transfer", return_value="tr_42") as transfer, mock.patch(
+            "apps.commerce.gateway.retrieve_transfer",
+            side_effect=lambda ref: {"id": ref, "amount": 4000, "currency": "gbp", "destination": "acct_9",
+                                     "reversed": False, "amount_reversed": 0,
+                                     "description": transfer.call_args.kwargs["description"]},
+        ):
             row = self.post(f"/console/payout-requests/{req_id}/approve").json()
-        self.assertEqual((row["status"], row["provider_ref"]), ("paid", "tr_42"))
+        self.assertEqual(row["status"], "approved")  # response is prepared before the outer commit
+        request = self.row(PayoutRequest, pk=req_id)
+        self.assertEqual((request.status, request.provider_ref), ("paid", "tr_42"))
         self.assertEqual(transfer.call_args.kwargs["amount_gbp_minor"], 4000)
 
     def test_settings_hold_minimum_and_schedule(self):

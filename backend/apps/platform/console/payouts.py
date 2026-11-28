@@ -4,6 +4,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
+from django.db import transaction
 from django.db.models import Count, F, IntegerField, Q, Sum
 from django.db.models.expressions import ExpressionWrapper
 from django.shortcuts import get_object_or_404
@@ -89,7 +90,7 @@ def payouts_overview(request):
         total=Sum("amount_gbp_minor", default=0),
         month=Sum("amount_gbp_minor", filter=Q(paid_at__gte=month), default=0),
     )
-    unpaid = Earning.objects.filter(payout__isnull=True)
+    balances = ledger.balances(limit=None)
     split = Earning.objects.filter(kind__in=[Earning.Kind.SALE, Earning.Kind.REFUND]).aggregate(
         tutor=Sum("amount_gbp_minor", default=0),
         platform=Sum(
@@ -99,19 +100,13 @@ def payouts_overview(request):
         gross=Sum("gross_gbp_minor", default=0),
     )
     tutor_keeps_pct = round(split["tutor"] * 100 / split["gross"], 1) if split["gross"] > 0 else None
-    with_balance = (
-        unpaid.filter(available_at__lte=now)
-        .values("user_id")
-        .annotate(t=Sum("amount_gbp_minor"))
-        .filter(t__gt=0)
-        .count()
-    )
+    with_balance = sum(r["available"] > 0 for r in balances)
     return {
         "pending_requests": req["pending"], "pending_amount_gbp_minor": req["pending_amount"],
         "disputed_requests": req["disputed"], "approved_month": kpi(req["approved"], req["approved_before"]),
         "total_paid_gbp_minor": paid["total"], "paid_this_month_gbp_minor": paid["month"],
         "instructors_with_balance": with_balance,
-        "total_balance_gbp_minor": unpaid.aggregate(t=Sum("amount_gbp_minor", default=0))["t"],
+        "total_balance_gbp_minor": sum(r["available"] + r["pending"] + r["reserved"] + r["in_payout"] for r in balances),
         "unverified_accounts": PayoutAccount.objects.filter(verified_at__isnull=True).count(),
         "tutor_earned_gbp_minor": split["tutor"],
         "platform_retained_gbp_minor": split["platform"],
@@ -127,9 +122,13 @@ def payout_settings(request):
 
 
 @router.put("/payouts/settings", response=ConsolePayoutSettingsOut)
+@transaction.atomic
 def set_payout_settings(request, body: ConsolePayoutSettingsIn):
     """Client question 2: schedule, minimum and hold are data, never constants."""
     staff(request)
+    from apps.payouts.safety import lock_payouts
+
+    lock_payouts()
     for key, value in body.dict().items():
         platform.set_setting(key=f"payouts.{key}", value=value, by=request.user)
     audit_request(request, "payouts.settings", "setting", "payouts", body.dict())
@@ -151,6 +150,7 @@ def run_payouts(request):
 
 # ---------------------------------------------------------------- requests
 class ConsolePayoutRequestOut(Schema):
+    payout_status: str | None
     id: UUID
     reference: str
     user_id: UUID
@@ -179,11 +179,7 @@ class ConsolePayoutRequestPageOut(Schema):
 
 def _request_rows(reqs: list[PayoutRequest]) -> list[dict]:
     accounts = {a.user_id: a for a in PayoutAccount.objects.filter(user_id__in={r.user_id for r in reqs})}
-    available = dict(
-        Earning.objects.filter(user_id__in={r.user_id for r in reqs}, payout__isnull=True,
-                               available_at__lte=timezone.now())
-        .values("user_id").annotate(t=Sum("amount_gbp_minor")).values_list("user_id", "t")
-    )  # fmt: skip
+    available = {uid: ledger.balance(user_id=uid)["available"] for uid in {r.user_id for r in reqs}}
     out = []
     for r in reqs:
         a = accounts.get(r.user_id)
@@ -192,7 +188,8 @@ def _request_rows(reqs: list[PayoutRequest]) -> list[dict]:
             "id": r.id, "reference": payouts.reference(r), "user_id": r.user_id, "instructor": r.user.full_name,
             "email": r.user.email, "amount_gbp_minor": r.amount_gbp_minor, "method": r.method,
             "method_label": payouts.METHOD_LABEL.get(r.method, r.method), "method_detail": detail,
-            "account_verified": bool(a and a.verified_at), "status": r.status, "note": r.note, "reason": r.reason,
+            "account_verified": bool(a and a.verified_at), "status": r.status,
+            "payout_status": r.payout.status if r.payout_id else None, "note": r.note, "reason": r.reason,
             "provider_ref": r.provider_ref, "created_at": r.created_at, "decided_at": r.decided_at,
             "decided_by": r.decided_by.full_name if r.decided_by else None, "paid_at": r.paid_at,
             "available_gbp_minor": available.get(r.user_id) or 0,
@@ -204,7 +201,7 @@ def _request_rows(reqs: list[PayoutRequest]) -> list[dict]:
 def payout_requests(request, status: str = "", q: str = "", cursor: str | None = None, limit: int = 25):
     staff(request)
     limit = clamp(limit)
-    qs = PayoutRequest.objects.select_related("user", "decided_by")
+    qs = PayoutRequest.objects.select_related("user", "decided_by", "payout")
     if status:
         qs = qs.filter(status=status)
     q = q.strip()[:100]
@@ -228,7 +225,7 @@ def payout_requests(request, status: str = "", q: str = "", cursor: str | None =
 @router.get("/payout-requests/{request_id}", response=ConsolePayoutRequestOut)
 def payout_request(request, request_id: UUID):
     staff(request)
-    return _request_rows([get_object_or_404(PayoutRequest.objects.select_related("user", "decided_by"),
+    return _request_rows([get_object_or_404(PayoutRequest.objects.select_related("user", "decided_by", "payout"),
                                             pk=request_id)])[0]  # fmt: skip
 
 
@@ -243,7 +240,7 @@ def _one(request_id) -> PayoutRequest:
 def _after(request, action: str, req: PayoutRequest, data=None):
     audit_request(request, f"payout_request.{action}", "payout_request", str(req.id),
                   {"amount": req.amount_gbp_minor, "user_id": str(req.user_id), **(data or {})})  # fmt: skip
-    return _request_rows([PayoutRequest.objects.select_related("user", "decided_by").get(pk=req.pk)])[0]
+    return _request_rows([PayoutRequest.objects.select_related("user", "decided_by", "payout").get(pk=req.pk)])[0]
 
 
 @router.post("/payout-requests/{request_id}/approve", response=ConsolePayoutRequestOut)
@@ -283,6 +280,8 @@ def fail_request(request, request_id: UUID, body: ConsoleReasonIn):
 
 # ---------------------------------------------------------------- balances
 class ConsoleBalanceOut(Schema):
+    reconciliation_required: bool
+    reserved: int
     user_id: UUID
     name: str
     email: str
@@ -301,8 +300,8 @@ def payout_balances(request, q: str = ""):
     rows = ledger.balances(q=q.strip()[:100])
     accounts = {a.user_id: a for a in PayoutAccount.objects.filter(user_id__in=[r["user_id"] for r in rows])}
     return [{"user_id": r["user_id"], "name": r["user__full_name"], "email": r["user__email"],
-             "available": r["available"], "pending": r["pending"], "in_payout": r["in_payout"], "paid": r["paid"],
-             "total": r["total"], "method": accounts[r["user_id"]].method if r["user_id"] in accounts else None,
+             "available": r["available"], "reserved": r["reserved"], "pending": r["pending"], "in_payout": r["in_payout"], "paid": r["paid"],
+             "total": r["total"], "reconciliation_required": r["reconciliation_required"], "method": accounts[r["user_id"]].method if r["user_id"] in accounts else None,
              "verified": bool(r["user_id"] in accounts and accounts[r["user_id"]].verified_at)}
             for r in rows]  # fmt: skip
 
@@ -380,14 +379,10 @@ def payout_history(request, status: str = "", q: str = "", cursor: str | None = 
 
 @router.post("/payouts/{payout_id}/approve", response=ConsolePayoutApprovedOut)
 def approve_payout(request, payout_id: str, body: ConsoleApproveIn):
-    from apps.engagement.notify import notify
-
     staff(request)
     p = payouts.approve_payout(payout=get_object_or_404(Payout, pk=payout_id), by=request.user,
                                provider_ref=body.provider_ref.strip())  # fmt: skip
     audit_request(request, "payout.approve", "payout", payout_id, {"amount": p.amount_gbp_minor})
-    notify([p.user_id], "payout_paid", {"amount": payouts.pricing.gbp_money(p.amount_gbp_minor)},
-           url="/studio/payouts", dedupe=f"payout_paid:{p.id}")  # fmt: skip
     return {"status": p.status, "provider_ref": p.provider_ref}
 
 
@@ -429,7 +424,7 @@ def payout_accounts(request, unverified: bool = True, method: str = ""):
     if method:
         qs = qs.filter(method=method)
     return [{"user_id": a.user_id, "name": a.user.full_name, "email": a.user.email, "method": a.method,
-             "paypal_email": a.paypal_email, "stripe_account_id": a.stripe_account_id, "country": a.country,
+             "paypal_email": payouts.mask_email(a.paypal_email), "stripe_account_id": "Connected" if a.stripe_account_id else "", "country": a.country,
              "verified_at": a.verified_at, "methods": payouts.configured_methods(a), "updated_at": a.updated_at}
             for a in qs.order_by("created_at")[:500]]  # fmt: skip
 

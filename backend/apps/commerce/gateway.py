@@ -144,6 +144,18 @@ def transfer(*, destination: str, amount_gbp_minor: int, idempotency_key: str, d
     return t.id
 
 
+def payout_destination_enabled(account_id: str) -> bool:
+    account = _client().v1.accounts.retrieve(account_id)
+    return bool(account.payouts_enabled and account.capabilities.get("transfers") == "active")
+
+
+def retrieve_transfer(transfer_id: str) -> dict:
+    t = _client().v1.transfers.retrieve(transfer_id)
+    return {"id": t.id, "amount": t.amount, "currency": t.currency,
+            "destination": t.destination, "reversed": t.reversed,
+            "amount_reversed": t.amount_reversed, "description": t.description}
+
+
 def billing_portal(*, customer: str, return_url: str) -> str:
     """Stripe-hosted page where customers update cards, see invoices and cancel."""
     session = _client().v1.billing_portal.sessions.create(

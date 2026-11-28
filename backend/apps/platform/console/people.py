@@ -842,6 +842,7 @@ class ConsoleInstructorMonthOut(Schema):
 
 
 class ConsoleInstructorBalanceOut(Schema):
+    reserved: int
     available: int
     pending: int
     paid: int
@@ -927,7 +928,9 @@ def instructor_detail(request, user_id: UUID):
         .values("month").annotate(amount=Sum("amount_gbp_minor")).order_by("month")
     )  # fmt: skip
     reqs = list(PayoutRequest.objects.filter(user_id=user_id).order_by("-created_at")[:20])
-    runs = list(Payout.objects.filter(user_id=user_id).order_by("-created_at")[:20])
+    runs = list(Payout.objects.filter(user_id=user_id).exclude(
+        pk__in=PayoutRequest.objects.filter(user_id=user_id, payout__isnull=False).values("payout_id")
+    ).order_by("-created_at")[:20])
     history = [
         {
             "id": r.id,

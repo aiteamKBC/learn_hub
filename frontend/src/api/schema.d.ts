@@ -12832,6 +12832,10 @@ export interface components {
         };
         /** PayoutsBalanceOut */
         PayoutsBalanceOut: {
+            reconciliation_required: boolean;
+            reserved: number;
+            total: number;
+
             /** Available */
             available: number;
             /** Pending */
@@ -17110,6 +17114,10 @@ export interface components {
         };
         /** StudioRevenueBalanceOut */
         StudioRevenueBalanceOut: {
+            reserved: number;
+            in_payout: number;
+            total: number;
+            reconciliation_required: boolean;
             /** Available */
             available: number;
             /** Pending */
@@ -21229,6 +21237,7 @@ export interface components {
         };
         /** ConsolePayoutRequestOut */
         ConsolePayoutRequestOut: {
+            payout_status: string | null;
             /**
              * Id
              * Format: uuid
@@ -21291,6 +21300,9 @@ export interface components {
         };
         /** ConsoleBalanceOut */
         ConsoleBalanceOut: {
+            reconciliation_required: boolean;
+            reserved: number;
+
             /**
              * User Id
              * Format: uuid
@@ -21869,6 +21881,7 @@ export interface components {
         };
         /** ConsoleInstructorBalanceOut */
         ConsoleInstructorBalanceOut: {
+            reserved: number;
             /** Available */
             available: number;
             /** Pending */

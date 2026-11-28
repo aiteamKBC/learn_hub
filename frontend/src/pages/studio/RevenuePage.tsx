@@ -270,10 +270,10 @@ export function RevenuePage() {
               <StatCard label="Earned, all time" icon={<PiggyBank />} value={<CountUp value={allTime} format={money$} />} hint="After refunds" />
             </li>
             <li className="min-w-0">
-              <StatCard label="Available" tone="success" icon={<Wallet />} value={<CountUp value={data.balance.available} format={money$} />} hint="Ready for your next payout" />
+              <StatCard label="Available" tone="success" icon={<Wallet />} value={<CountUp value={data.balance.available} format={money$} />} hint={data.balance.reconciliation_required ? "Historical records need reconciliation" : "Excludes reservations; eligibility checked before payment"} />
             </li>
             <li className="min-w-0">
-              <StatCard label="Pending" tone="warning" icon={<Clock />} value={<CountUp value={data.balance.pending} format={money$} />} hint="Inside the refund window" />
+              <StatCard label="Pending" tone="warning" icon={<Clock />} value={<CountUp value={data.balance.pending + data.balance.reserved + data.balance.in_payout} format={money$} />} hint="Refund/policy holds, reserved requests and unsettled payouts" />
             </li>
             <li className="min-w-0">
               <StatCard label="Paid out" tone="info" icon={<CheckCircle2 />} value={<CountUp value={data.balance.paid} format={money$} />} hint={<Link to="/studio/payouts" className="font-medium text-primary hover:underline">See payouts</Link>} />

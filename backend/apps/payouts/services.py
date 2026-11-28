@@ -10,15 +10,18 @@ Ledger rules:
 """
 
 import calendar
+import re
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import connection, transaction
-from django.db.models import Q, Sum
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.catalog.models import Course, CourseInstructor
-from apps.commerce import gateway, pricing
+from apps.commerce import pricing
 from apps.commerce.models import Order, OrderItem
 from core.errors import ServiceError
 from core.tenancy import tenant_context
@@ -331,108 +334,93 @@ def settle_subscription_pool(month: date) -> int:
 
 # ---------------------------------------------------------------- payouts
 def create_payouts(*, period_end: date, now=None) -> list:
-    """One payout per verified instructor whose payable balance reaches the minimum.
-    A single statement bundles the lines, so a line can never be in two payouts."""
+    """Bundle eligible ledger rows using the same lock and checks as requests."""
+    from .safety import destination_ready, lock_payouts, matured, validate_lines
+
     now = now or timezone.now()
-    with tenant_context(staff=True), connection.cursor() as cur:
-        cur.execute("SELECT pg_advisory_xact_lock(hashtextextended('payouts:run', 0))")
-        cur.execute(
-            """
-            WITH due AS (
-                SELECT e.user_id, sum(e.amount_gbp_minor) AS total
-                  FROM payouts.earnings e
-                 WHERE e.payout_id IS NULL AND e.available_at <= %(now)s
-                   AND NOT EXISTS (SELECT 1 FROM payouts.payout_requests r
-                                    WHERE r.user_id = e.user_id AND r.status IN ('pending', 'disputed'))
-                 GROUP BY e.user_id
-                HAVING sum(e.amount_gbp_minor) >= %(min)s
-            ), made AS (
-                INSERT INTO payouts.payouts
-                       (id, created_at, updated_at, user_id, period_end, amount_gbp_minor, status, method,
-                        provider_ref, failure_reason)
-                SELECT uuidv7(), %(now)s, %(now)s, d.user_id, %(period)s, d.total, 'pending', a.method, '', ''
-                  FROM due d
-                  JOIN payouts.payout_accounts a ON a.user_id = d.user_id AND a.verified_at IS NOT NULL
-                ON CONFLICT (user_id, period_end) DO NOTHING
-                RETURNING id, user_id
-            )
-            UPDATE payouts.earnings e SET payout_id = made.id, updated_at = %(now)s
-              FROM made
-             WHERE e.user_id = made.user_id AND e.payout_id IS NULL AND e.available_at <= %(now)s
-            RETURNING made.id
-            """,
-            {"now": now, "min": minimum_gbp_minor(), "period": period_end},
-        )
-        return list({r[0] for r in cur.fetchall()})
+    made = []
+    with tenant_context(staff=True):
+        lock_payouts()
+        accounts = PayoutAccount.objects.filter(verified_at__isnull=False).order_by("user_id")
+        for account in accounts:
+            if not destination_ready(account):
+                continue
+            if PayoutRequest.objects.filter(user_id=account.user_id, status__in=OPEN).exists():
+                continue
+            if Payout.objects.filter(user_id=account.user_id).filter(
+                Q(period_end=period_end) | ~Q(status__in=["paid", "failed"])
+            ).exists():
+                continue
+            lines = list(Earning.objects.filter(user_id=account.user_id, payout__isnull=True).filter(matured(now)))
+            total = sum(e.amount_gbp_minor for e in lines)
+            if total < max(1, minimum_gbp_minor()):
+                continue
+            try:
+                validate_lines(lines, user_id=account.user_id, now=now)
+            except ServiceError:
+                continue  # Historical inconsistencies remain untouched, never auto-repaired.
+            payout = Payout.objects.create(user_id=account.user_id, period_end=period_end,
+                                            amount_gbp_minor=total, method=account.method)
+            Earning.objects.filter(pk__in=[e.pk for e in lines]).update(payout=payout, updated_at=now)
+            made.append(payout.id)
+    return made
 
 
 @transaction.atomic
 def approve_payout(*, payout: Payout, by, provider_ref: str = "") -> Payout:
-    """Staff only (console). Stripe Connect transfers automatically; PayPal needs the
-    reference of the payment made in PayPal."""
+    from . import execution
+    from .safety import lock_payouts
+
+    lock_payouts()
     payout = Payout.objects.select_for_update().get(pk=payout.pk)
+    if payout.status in (Payout.Status.HELD, Payout.Status.PAID) and provider_ref.strip():
+        return execution.reconcile(payout, provider_ref.strip())
     if payout.status != Payout.Status.PENDING:
         raise ServiceError("not_pending", f"Payout is {payout.status}.")
-    total = payout.earnings.aggregate(t=Sum("amount_gbp_minor"))["t"] or 0
-    if total != payout.amount_gbp_minor:  # defence in depth: the bundle was tampered with
-        raise ServiceError("mismatch", "Payout total does not match its earnings.")
-    account = PayoutAccount.objects.get(user_id=payout.user_id, verified_at__isnull=False)
-    if payout.method == PayoutAccount.Method.STRIPE:
-        provider_ref = gateway.transfer(
-            destination=account.stripe_account_id, amount_gbp_minor=payout.amount_gbp_minor,
-            idempotency_key=f"payout-{payout.id}", description=f"LearnHub payout {payout.period_end:%B %Y}",
-        )  # fmt: skip
-    elif not provider_ref.strip():
-        raise ServiceError("reference_required", "Enter the payment reference.")
-    payout.status, payout.provider_ref, payout.approved_by, payout.paid_at = (
-        "paid",
-        provider_ref,
-        by,
-        timezone.now(),
-    )
-    payout.save(update_fields=["status", "provider_ref", "approved_by", "paid_at", "updated_at"])
-    return payout
+    linked = PayoutRequest.objects.filter(payout=payout).first()
+    if linked and linked.status != PayoutRequest.Status.APPROVED:
+        raise ServiceError("bad_status", "Resolve the linked payout request first.")
+    return execution.prepare(payout, by)
 
 
 @transaction.atomic
 def fail_payout(*, payout: Payout, reason: str) -> None:
-    """Release the lines so they roll into next month's payout."""
-    Payout.objects.filter(pk=payout.pk, status=Payout.Status.PENDING).update(
-        status=Payout.Status.FAILED, failure_reason=reason[:300], updated_at=timezone.now()
-    )
-    Earning.objects.filter(payout=payout).update(payout=None, updated_at=timezone.now())
+    from .safety import lock_payouts
+
+    lock_payouts()
+    if PayoutRequest.objects.filter(payout=payout).exists():
+        raise ServiceError("linked_request", "Use the linked request to reject or fail this payout.")
+    _release(payout, Payout.Status.FAILED, reason)
 
 
 def set_payout_account(
     *, user, method: str, stripe_account_id: str = "", paypal_email: str = "", country: str = ""
 ):
-    """The instructor's own details. Any change clears verification until staff re-check."""
-    if method == PayoutAccount.Method.PAYPAL and not paypal_email:
-        raise ServiceError("email_required", "Enter your PayPal email.")
-    if method == PayoutAccount.Method.STRIPE and not stripe_account_id.startswith("acct_"):
-        raise ServiceError("bad_account", "Connect your Stripe account first.")
-    with tenant_context(user_id=user.id, staff=True):  # narrow, validated write on the user's own row
-        account, _ = PayoutAccount.objects.update_or_create(
-            user=user,
-            defaults={
-                "method": method, "stripe_account_id": stripe_account_id, "paypal_email": paypal_email,
-                "country": country.upper()[:2], "verified_at": None,
-            },
-        )  # fmt: skip
-    return account
+    """Legacy studio endpoint uses the same validated, locked method service."""
+    return save_method(user=user, method=method, stripe_account_id=stripe_account_id,
+                       paypal_email=paypal_email, country=country, make_default=True)
 
 
 def verify_account(*, account: PayoutAccount) -> None:
-    PayoutAccount.objects.filter(pk=account.pk).update(verified_at=timezone.now(), updated_at=timezone.now())
+    from .safety import lock_payouts
+
+    with tenant_context(staff=True):
+        lock_payouts()
+        account = PayoutAccount.objects.select_for_update().get(pk=account.pk)
+        if account.method not in {m["method"] for m in configured_methods(account)}:
+            raise ServiceError("no_method", "Add valid destination details before verification.")
+        if account.method == "stripe":
+            from apps.commerce import gateway
+
+            if not gateway.payout_destination_enabled(account.stripe_account_id):
+                raise ServiceError("destination_disabled", "Stripe has not enabled payouts and transfers for this account.")
+        account.verified_at = timezone.now()
+        account.save(update_fields=["verified_at", "updated_at"])
 
 
 def monthly_run(today: date | None = None) -> dict:
-    """1st of the month: settle last month's subscription pool, then create payouts."""
-    today = today or timezone.now().date()
-    last_month_end = today.replace(day=1) - timedelta(days=1)
-    pool = settle_subscription_pool(last_month_end.replace(day=1))
-    made = create_payouts(period_end=last_month_end)
-    return {"subscription_lines": pool, "payouts": len(made)}
+    """Legacy task entry point: honour the configured schedule too."""
+    return scheduled_run(today)
 
 
 def is_payout_day(day: date) -> bool:
@@ -444,7 +432,7 @@ def is_payout_day(day: date) -> bool:
 
 
 def next_payout_date(today: date | None = None) -> date:
-    """The next scheduled run (today counts if it has not happened yet)."""
+    """Next calendar payout date, including today; this is not a job-run receipt."""
     today = today or timezone.now().date()
     day = today
     for _ in range(62):
@@ -481,19 +469,27 @@ def configured_methods(account: PayoutAccount | None) -> list[dict]:
     if account is None:
         return []
     out = []
-    if account.stripe_account_id:
+    if re.fullmatch(r"acct_[A-Za-z0-9]+", account.stripe_account_id):
         out.append({"method": "stripe", "detail": "Stripe account connected"})
-    if account.paypal_email:
+    if _valid_email(account.paypal_email):
         out.append({"method": "paypal", "detail": mask_email(account.paypal_email)})
-    if account.wise_email:
+    if _valid_email(account.wise_email):
         out.append({"method": "wise", "detail": mask_email(account.wise_email)})
-    if account.bank_account_last4:
+    if len(account.bank_account_last4) == 4 and account.bank_account_last4.isdigit():
         name = account.bank_account_name or "Bank account"
         out.append({"method": "bank", "detail": f"{name} (•••• {account.bank_account_last4})"})
     for m in out:
         m["label"] = METHOD_LABEL[m["method"]]
         m["is_default"] = m["method"] == account.method
     return out
+
+
+def _valid_email(value: str) -> bool:
+    try:
+        validate_email(value)
+    except ValidationError:
+        return False
+    return True
 
 
 def mask_email(email: str) -> str:
@@ -520,15 +516,15 @@ def save_method(
         raise ServiceError("bad_method", "Choose Stripe, PayPal, Wise or bank transfer.")
     fields: dict = {}
     if method == PayoutAccount.Method.STRIPE:
-        if not stripe_account_id.startswith("acct_"):
+        if not re.fullmatch(r"acct_[A-Za-z0-9]+", stripe_account_id):
             raise ServiceError("bad_account", "Enter your Stripe account ID (it starts with acct_).")
         fields["stripe_account_id"] = stripe_account_id[:64]
     elif method == PayoutAccount.Method.PAYPAL:
-        if "@" not in paypal_email:
+        if not _valid_email(paypal_email.strip()):
             raise ServiceError("email_required", "Enter your PayPal email.")
         fields["paypal_email"] = paypal_email.strip().lower()
     elif method == PayoutAccount.Method.WISE:
-        if "@" not in wise_email:
+        if not _valid_email(wise_email.strip()):
             raise ServiceError("email_required", "Enter the email of your Wise account.")
         fields["wise_email"] = wise_email.strip().lower()
     else:
@@ -543,6 +539,9 @@ def save_method(
     if country:
         fields["country"] = country.upper()[:2]
     with tenant_context(user_id=user.id, staff=True):  # narrow, validated write on the user's own row
+        from .safety import guard_account_change
+
+        guard_account_change(user.id)
         account = PayoutAccount.objects.filter(user=user).first()
         if account is None:
             account = PayoutAccount.objects.create(user=user, method=method, **fields)
@@ -558,16 +557,23 @@ def save_method(
 
 def set_default_method(*, user, method: str) -> PayoutAccount:
     with tenant_context(user_id=user.id, staff=True):
+        from .safety import guard_account_change
+
+        guard_account_change(user.id)
         account = PayoutAccount.objects.filter(user=user).first()
         if account is None or method not in {m["method"] for m in configured_methods(account)}:
             raise ServiceError("no_method", "Add that payout method first.")
-        PayoutAccount.objects.filter(pk=account.pk).update(method=method, updated_at=timezone.now())
+        PayoutAccount.objects.filter(pk=account.pk).update(method=method, verified_at=None, updated_at=timezone.now())
         account.method = method
+        account.verified_at = None
         return account
 
 
 def remove_method(*, user, method: str) -> PayoutAccount:
     with tenant_context(user_id=user.id, staff=True):
+        from .safety import guard_account_change
+
+        guard_account_change(user.id)
         account = PayoutAccount.objects.filter(user=user).first()
         if account is None:
             raise ServiceError("no_method", "There is nothing to remove.", status=404)
@@ -614,8 +620,14 @@ def request_status(*, user) -> dict:
         why = "Only active instructors can request a payout."
     elif open_req is not None:
         why = "You already have a payout request in progress."
+    elif Payout.objects.filter(user=user).exclude(status__in=["paid", "failed"]).exists():
+        why = "You already have a payout awaiting settlement."
     elif not configured_methods(account):
         why = "Add a payout method first."
+    elif not account.verified_at:
+        why = "Your payout destination needs verification."
+    elif bal["reconciliation_required"]:
+        why = "Historical payout records need reconciliation before another payout."
     elif bal["available"] < max(minimum, 1):
         why = "Your available balance is below the minimum payout."
     return {"balance": bal, "minimum_gbp_minor": minimum, "open_request": open_req, "can_request": not why,
@@ -628,19 +640,20 @@ def create_request(*, user, amount_gbp_minor: int, method: str, note: str = "") 
 
     with tenant_context(user_id=user.id, staff=True):
         # one request at a time: lock the user's rows so two clicks cannot both pass
-        cur_lock = f"payout-request:{user.id}"
-        with connection.cursor() as cur:
-            cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", [cur_lock])
+        from .safety import lock_payouts, require_destination
+
+        lock_payouts()
         state = request_status(user=user)
         if not state["can_request"]:
             raise ServiceError("cannot_request", state["reason"])
-        if amount_gbp_minor < state["minimum_gbp_minor"]:
+        if amount_gbp_minor < max(1, state["minimum_gbp_minor"]):
             raise ServiceError(
                 "below_minimum", f"The minimum payout is {pricing.gbp_money(state['minimum_gbp_minor'])}."
             )
         if amount_gbp_minor > state["balance"]["available"]:
             raise ServiceError("above_balance", "You can request up to your available balance.")
         account = PayoutAccount.objects.get(user=user)
+        require_destination(account, method)
         if method not in {m["method"] for m in configured_methods(account)}:
             raise ServiceError("no_method", "Choose one of your payout methods.")
         req = PayoutRequest.objects.create(user=user, amount_gbp_minor=amount_gbp_minor, method=method,
@@ -664,13 +677,17 @@ def _bundle(req: PayoutRequest, now) -> Payout:
     """Reserve exactly the requested amount: every available line goes into a payout; if
     they add up to more, a pair of adjustment lines carries the rest to the next payout
     (append-only, the ledger always balances)."""
-    with connection.cursor() as cur:
-        cur.execute("SELECT pg_advisory_xact_lock(hashtextextended('payouts:run', 0))")
+    from .safety import lock_payouts, matured, validate_lines
+
+    lock_payouts()
+    if req.amount_gbp_minor < max(1, minimum_gbp_minor()):
+        raise ServiceError("below_minimum", "The request is below the configured minimum.")
     lines = list(
         Earning.objects.select_for_update()
-        .filter(user_id=req.user_id, payout__isnull=True, available_at__lte=now)
+        .filter(user_id=req.user_id, payout__isnull=True).filter(matured(now))
         .order_by("available_at", "id")
     )
+    validate_lines(lines, user_id=req.user_id, now=now)
     total = sum(e.amount_gbp_minor for e in lines)
     if total < req.amount_gbp_minor:
         raise ServiceError(
@@ -696,14 +713,19 @@ def _bundle(req: PayoutRequest, now) -> Payout:
 
 
 def _release(payout: Payout, status: str, reason: str) -> None:
-    """Free the lines of an unpaid payout so they go out with the next one."""
-    Payout.objects.filter(pk=payout.pk).exclude(status=Payout.Status.PAID).update(
-        status=status, failure_reason=reason[:300], updated_at=timezone.now()
-    )
+    """Only an unsubmitted, unpaid reservation may be released by a staff action."""
+    payout = Payout.objects.select_for_update().get(pk=payout.pk)
+    if payout.status not in (Payout.Status.PENDING, Payout.Status.DISPUTED) or payout.provider_ref or payout.paid_at:
+        raise ServiceError("unsafe_release", "Paid or uncertain transfers cannot be released without provider reconciliation.")
+    payout.status, payout.failure_reason = status, reason[:300]
+    payout.save(update_fields=["status", "failure_reason", "updated_at"])
     Earning.objects.filter(payout=payout).update(payout=None, updated_at=timezone.now())
 
 
 def _locked(req: PayoutRequest, *allowed) -> PayoutRequest:
+    from .safety import lock_payouts
+
+    lock_payouts()
     req = PayoutRequest.objects.select_for_update().get(pk=req.pk)
     if req.status not in allowed:
         raise ServiceError("bad_status", f"This request is {req.get_status_display().lower()}.")
@@ -724,22 +746,28 @@ def _paid(req: PayoutRequest, payout: Payout, by) -> None:
 
 @transaction.atomic
 def approve_request(*, req: PayoutRequest, by) -> PayoutRequest:
-    """Stripe Connect pays at once; PayPal, Wise and bank are paid by hand, then marked paid."""
+    """Reserve the request; Stripe executes after commit and needs provider confirmation."""
     with tenant_context(user_id=by.id, staff=True):
         req = _locked(req, PayoutRequest.Status.PENDING, PayoutRequest.Status.DISPUTED)
-        if not PayoutAccount.objects.filter(user_id=req.user_id, verified_at__isnull=False).exists():
-            raise ServiceError("not_verified", "Verify the instructor's payout details first.")
+        from .safety import require_destination
+
+        require_destination(PayoutAccount.objects.filter(user_id=req.user_id).first(), req.method)
         now = timezone.now()
         if req.payout_id is None:
             req.payout = _bundle(req, now)
-        else:  # a disputed request goes ahead
+        else:  # a disputed request goes ahead only if it has never been submitted
+            existing = Payout.objects.select_for_update().get(pk=req.payout_id)
+            if existing.status != Payout.Status.DISPUTED or existing.provider_ref or existing.paid_at:
+                raise ServiceError("bad_status", "The linked payout cannot be reopened.")
+            from .safety import validate_bundle
+
+            validate_bundle(existing)
             Payout.objects.filter(pk=req.payout_id).update(status=Payout.Status.PENDING, failure_reason="",
                                                            updated_at=now)  # fmt: skip
         req.status, req.decided_by, req.decided_at, req.reason = PayoutRequest.Status.APPROVED, by, now, ""
         req.save()
         if req.method == PayoutAccount.Method.STRIPE:
-            payout = approve_payout(payout=Payout.objects.get(pk=req.payout_id), by=by)
-            _paid(req, payout, by)
+            approve_payout(payout=Payout.objects.get(pk=req.payout_id), by=by)
         else:
             _notify(req, "payout_request_approved")
         return req
@@ -751,10 +779,15 @@ def mark_request_paid(*, req: PayoutRequest, by, provider_ref: str) -> PayoutReq
         raise ServiceError("reference_required", "Enter the payment reference.")
     with tenant_context(user_id=by.id, staff=True):
         req = _locked(req, PayoutRequest.Status.APPROVED)
+        if req.method != "stripe":
+            raise ServiceError("provider_confirmation_required", "This method has no provider confirmation integration.")
+        if req.payout.status not in (Payout.Status.HELD, Payout.Status.PAID):
+            raise ServiceError("not_submitted", "This payout has not been submitted; use its history action to execute it.")
         payout = approve_payout(
             payout=Payout.objects.get(pk=req.payout_id), by=by, provider_ref=provider_ref.strip()
         )
-        _paid(req, payout, by)
+        if payout.status == Payout.Status.PAID and not payout.failure_reason:
+            _paid(req, payout, by)
         return req
 
 
@@ -777,6 +810,9 @@ def dispute_request(*, req: PayoutRequest, by, reason: str) -> PayoutRequest:
     with tenant_context(user_id=by.id, staff=True):
         req = _locked(req, PayoutRequest.Status.PENDING, PayoutRequest.Status.APPROVED)
         if req.payout_id:
+            existing = Payout.objects.select_for_update().get(pk=req.payout_id)
+            if existing.status != Payout.Status.PENDING or existing.provider_ref or existing.paid_at:
+                raise ServiceError("unsafe_dispute", "A submitted transfer must be reconciled with the provider.")
             Payout.objects.filter(pk=req.payout_id).update(status=Payout.Status.DISPUTED, failure_reason=reason[:300],
                                                            updated_at=timezone.now())  # fmt: skip
         req.status, req.reason, req.decided_by, req.decided_at = (

@@ -429,7 +429,7 @@ function ScheduleCard({ me }: { me: MyPayouts }) {
         <ul className="grid gap-2 text-muted">
           {[
             `Earnings become available ${me.hold_days} days after a sale, once the refund window has passed.`,
-            `Balances of ${gbp(me.minimum_gbp_minor)} or more are paid on the payout day.`,
+            `Eligible balances of ${gbp(me.minimum_gbp_minor)} or more are queued on the payout day; settlement needs approval and provider confirmation.`,
             me.requests_enabled ? 'You can also request your available balance at any time.' : 'Payouts are sent on the schedule only.',
           ].map((t) => (
             <li key={t} className="flex gap-2">
@@ -499,13 +499,13 @@ export function PayoutsPage() {
           <>
             <ul className="animate-reveal stagger grid grid-cols-2 gap-4 lg:grid-cols-4">
               <li className="min-w-0">
-                <StatCard label="Total earnings" tone="primary" icon={<Wallet />} value={<CountUp value={b.available + b.pending + b.in_payout + b.paid} format={fmt} />} hint="All time" />
+                <StatCard label="Total earnings" tone="primary" icon={<Wallet />} value={<CountUp value={b.total} format={fmt} />} hint={b.reconciliation_required ? "Historical records need reconciliation" : "All time, net of refunds"} />
               </li>
               <li className="min-w-0">
                 <StatCard label="Available" tone="success" icon={<CheckCircle2 />} value={<CountUp value={b.available} format={fmt} />} hint="Ready to pay out" />
               </li>
               <li className="min-w-0">
-                <StatCard label="Pending" tone="warning" icon={<Clock />} value={<CountUp value={b.pending + b.in_payout} format={fmt} />} hint={b.in_payout ? `${gbp(b.in_payout)} on its way` : 'Inside the refund window'} />
+                <StatCard label="Pending" tone="warning" icon={<Clock />} value={<CountUp value={b.pending + b.reserved + b.in_payout} format={fmt} />} hint={`${gbp(b.reserved)} reserved; ${gbp(b.in_payout)} awaiting settlement; remainder on hold`} />
               </li>
               <li className="min-w-0">
                 <StatCard label="Next payout" tone="info" icon={<CalendarClock />} value={shortDate(me.next_payout_date)} hint={me.schedule === 'weekly' ? 'Weekly' : 'Monthly'} />

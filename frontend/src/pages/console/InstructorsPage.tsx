@@ -394,8 +394,9 @@ function InstructorPanel({ id, onAction }: { id: string; onAction: (p: Pending) 
           <div className="grid grid-cols-2 gap-3">
             {[
               ['Available', d.balance.available],
-              ['In the hold', d.balance.pending],
-              ['Being paid', d.balance.in_payout],
+              ['Reserved requests', d.balance.reserved],
+              ['Refund/policy hold', d.balance.pending],
+              ['Awaiting settlement', d.balance.in_payout],
               ['Paid out', d.balance.paid],
             ].map(([label, v]) => (
               <div key={label as string} className="rounded-lg border border-border p-3">

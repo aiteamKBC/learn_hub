@@ -25,6 +25,7 @@ function useChanged() {
   const qc = useQueryClient()
   return () => {
     void qc.invalidateQueries({ queryKey: ['payouts'] })
+    void qc.invalidateQueries({ queryKey: ['console', 'payouts'] })
     void qc.invalidateQueries({ queryKey: ['studio', 'revenue'] })
     void qc.invalidateQueries({ queryKey: ['studio', 'payout-account'] })
     void qc.invalidateQueries({ queryKey: ['studio', 'payouts'] })

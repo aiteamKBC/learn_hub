@@ -401,6 +401,10 @@ class StudioDashboardOut(Schema):
 
 # ---------------------------------------------------------------- revenue & payouts
 class StudioRevenueBalanceOut(Schema):
+    reserved: int
+    in_payout: int
+    total: int
+    reconciliation_required: bool
     available: int
     pending: int
     paid: int

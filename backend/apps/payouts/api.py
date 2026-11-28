@@ -33,6 +33,9 @@ def _instructor(request):
 
 # ---------------------------------------------------------------- schemas
 class PayoutsBalanceOut(Schema):
+    reconciliation_required: bool
+    reserved: int
+    total: int
     available: int
     pending: int
     paid: int

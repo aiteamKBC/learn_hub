@@ -94,7 +94,7 @@ class PayoutsTest(SchemaTransactionTestCase):
         services.set_payout_account(
             user=user, method=method, stripe_account_id="acct_1", paypal_email="p@x.com"
         )
-        with tenant_context(**self.STAFF):
+        with tenant_context(**self.STAFF), mock.patch("apps.commerce.gateway.payout_destination_enabled", return_value=True):
             services.verify_account(account=user.payout_account)
 
     def test_sale_splits_by_channel_and_co_instructor(self, _s):
@@ -139,7 +139,7 @@ class PayoutsTest(SchemaTransactionTestCase):
         with tenant_context(user_id=self.ana.id):
             self.assertEqual(
                 selectors.balance(user_id=self.ana.id),
-                {"available": 0, "pending": 1294, "paid": 0, "in_payout": 0},
+                {"available": 0, "pending": 1294, "paid": 0, "in_payout": 0, "reserved": 0, "total": 1294, "reconciliation_required": False},
             )
 
         # refund inside the window: a negative line that cancels the sale in the same bundle
@@ -165,15 +165,22 @@ class PayoutsTest(SchemaTransactionTestCase):
         self.assertEqual(len(made), 1)
         self.assertEqual(services.create_payouts(period_end=date(2026, 12, 31), now=later), [])  # idempotent
         with (
-            tenant_context(**self.STAFF),
+            mock.patch("apps.payouts.services.timezone.now", return_value=later),
+            mock.patch("apps.commerce.gateway.payout_destination_enabled", return_value=True),
             mock.patch("apps.commerce.gateway.transfer", return_value="tr_1") as tr,
+            mock.patch("apps.commerce.gateway.retrieve_transfer", side_effect=lambda ref: {
+                "id": ref, "amount": 2776, "currency": "gbp", "destination": "acct_1",
+                "reversed": False, "amount_reversed": 0, "description": tr.call_args.kwargs["description"],
+            }),
         ):
-            p = Payout.objects.get(pk=made[0])
-            self.assertEqual(p.amount_gbp_minor, 2776)  # 1294 - 1294 + 388 + 388 + 2000
-            services.approve_payout(payout=p, by=self.staff)
-            tr.assert_called_once()
-            with self.assertRaises(ServiceError):
+            with tenant_context(**self.STAFF):
+                p = Payout.objects.get(pk=made[0])
+                self.assertEqual(p.amount_gbp_minor, 2776)
                 services.approve_payout(payout=p, by=self.staff)
+                tr.assert_not_called()  # no money moves before the reservation commits
+                with self.assertRaises(ServiceError):
+                    services.approve_payout(payout=p, by=self.staff)
+            tr.assert_called_once()
         with tenant_context(user_id=self.ana.id):
             self.assertEqual(selectors.balance(user_id=self.ana.id)["paid"], 2776)
 

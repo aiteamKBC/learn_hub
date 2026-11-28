@@ -48,9 +48,11 @@ const NEXT: Record<string, Action[]> = {
   disputed: ['approve', 'reject'],
 }
 
+const requestActions = (row: PayoutRequestRow): Action[] => row.payout_status === 'held' ? (row.method === 'stripe' ? ['mark-paid'] : []) : (NEXT[row.status] ?? []).filter((action) => action !== 'mark-paid')
+
 const ACTION: Record<Action, { label: string; title: string; body: string; tone: 'danger' | 'primary'; reason?: 'required'; reasonLabel?: string; done: string }> = {
-  approve: { label: 'Approve', title: 'Approve this payout?', body: 'Stripe Connect requests are paid at once. PayPal, Wise and bank requests are then paid by hand and marked paid.', tone: 'primary', done: 'Payout approved. The instructor was told.' },
-  'mark-paid': { label: 'Mark paid', title: 'Mark this payout as paid?', body: 'Enter the reference from the transfer you made, so the instructor can match it.', tone: 'primary', reason: 'required', reasonLabel: 'Payment reference', done: 'Marked paid. The instructor was told.' },
+  approve: { label: 'Approve', title: 'Approve this payout?', body: 'Stripe transfers start after approval commits. Payment is recorded only after provider confirmation. Other methods currently lack a confirmation integration.', tone: 'primary', done: 'Approval saved. Check history for the confirmed settlement status.' },
+  'mark-paid': { label: 'Confirm transfer', title: 'Verify this transfer with the provider?', body: 'Enter the Stripe transfer ID. The backend retrieves and matches provider evidence; a typed reference alone cannot mark money paid.', tone: 'primary', reason: 'required', reasonLabel: 'Payment reference', done: 'Provider confirmation recorded.' },
   reject: { label: 'Reject', title: 'Reject this payout request?', body: 'The money goes back to the instructor’s available balance. They see your reason.', tone: 'danger', reason: 'required', done: 'Request rejected. The instructor was told.' },
   dispute: { label: 'Mark disputed', title: 'Put this payout on hold?', body: 'The money stays reserved while you check. You can approve or reject it later. The instructor sees your reason.', tone: 'danger', reason: 'required', done: 'Marked disputed. The instructor was told.' },
   fail: { label: 'Mark failed', title: 'Mark this transfer as failed?', body: 'Use this when a manual transfer bounced. The money goes back to the instructor’s balance.', tone: 'danger', reason: 'required', done: 'Marked failed. The money is back in their balance.' },
@@ -110,7 +112,7 @@ function useRequestActions() {
 }
 
 function RequestButtons({ row, ask }: { row: PayoutRequestRow; ask: (r: PayoutRequestRow, a: Action) => void }) {
-  const next = NEXT[row.status] ?? []
+  const next = requestActions(row)
   if (next.length === 0) return null
   const [first, ...rest] = next
   return (
@@ -286,7 +288,7 @@ function Requests() {
                         </MenuTrigger>
                         <MenuContent>
                           <MenuItem onSelect={() => setRequestId(r.id)}>View details</MenuItem>
-                          {(NEXT[r.status] ?? []).map((x) => (
+                          {requestActions(r).map((x) => (
                             <MenuItem key={x} onSelect={() => ask(r, x)}>
                               {ACTION[x].label}
                             </MenuItem>
@@ -315,7 +317,7 @@ function Balances() {
   const b = usePayoutBalances(q)
   return (
     <Card>
-      <CardHeader title="Instructor balances" description="Available can be paid now. Pending is inside the refund hold. In payout is waiting to be paid." />
+      <CardHeader title="Instructor balances" description="Available excludes request reservations. Pending includes refund and policy holds. In payout remains reserved until settlement; verified details are required." />
       <Toolbar>
         <SearchBox value={qText} onChange={setQText} label="Search balances" placeholder="Search instructors" className="sm:max-w-xs" />
       </Toolbar>
@@ -341,6 +343,8 @@ function Balances() {
                     <dd className="font-semibold tabular">{gbp(r.available)}</dd>
                   </div>
                   <div>
+                    <dt className="text-muted">Reserved</dt>
+                    <dd className="tabular">{gbp(r.reserved)}</dd>
                     <dt className="text-muted">Pending</dt>
                     <dd className="tabular">{gbp(r.pending)}</dd>
                   </div>
@@ -358,6 +362,7 @@ function Balances() {
                 <tr>
                   <Th>Instructor</Th>
                   <Th className="text-right">Available</Th>
+                  <Th className="text-right">Reserved</Th>
                   <Th className="text-right">Pending</Th>
                   <Th className="text-right">In payout</Th>
                   <Th className="text-right">Paid</Th>
@@ -374,10 +379,11 @@ function Balances() {
                       </Link>
                     </Td>
                     <Td className="text-right font-semibold tabular">{gbp(r.available)}</Td>
+                    <Td className="text-right tabular">{gbp(r.reserved)}</Td>
                     <Td className="text-right tabular">{gbp(r.pending)}</Td>
                     <Td className="text-right tabular">{gbp(r.in_payout)}</Td>
                     <Td className="text-right tabular">{gbp(r.paid)}</Td>
-                    <Td className="text-right tabular">{gbp(r.total)}</Td>
+                    <Td className="text-right tabular">{gbp(r.total)}{r.reconciliation_required ? <Badge tone="warning">Reconciliation needed</Badge> : null}</Td>
                     <Td>
                       {r.method ? (
                         <span className="inline-flex items-center gap-1.5">
@@ -418,8 +424,8 @@ function ScheduleForm() {
         const dayN = Number(f.day)
         const hold = Number(f.hold)
         if (minimum === null || minimum < 0) return toast.error('Enter a minimum payout in pounds.')
-        if (!(dayN >= 1 && dayN <= 28)) return toast.error('Pick a day between 1 and 28.')
-        if (!(hold >= 0 && hold <= 180)) return toast.error('The hold must be between 0 and 180 days.')
+        if (!(Number.isInteger(dayN) && dayN >= 1 && dayN <= 28)) return toast.error('Pick a day between 1 and 28.')
+        if (!(Number.isInteger(hold) && hold >= 0 && hold <= 180)) return toast.error('The hold must be between 0 and 180 days.')
         save.mutate(
           { schedule: f.schedule, day_of_month: dayN, minimum_gbp_minor: minimum, hold_days: hold, requests_enabled: f.requests },
           { onSuccess: () => (toast.success('Payout settings saved'), setForm(null)), onError: (err) => toast.error((err as Error).message) },
@@ -546,7 +552,7 @@ function Methods() {
           ))}
         </div>
       ) : a.data.length === 0 ? (
-        <EmptyState icon={<ShieldCheck />} title={all ? 'No payout details yet' : 'All payout details are verified'} />
+        <EmptyState icon={<ShieldCheck />} title={all ? 'No payout details yet' : 'No unverified accounts on file'} body="Instructors without saved details appear as Not set in Balances." />
       ) : (
         <ul className="stagger animate-reveal divide-y divide-border">
           {a.data.map((r) => (
@@ -611,6 +617,7 @@ function PayHistory() {
           <option value="paid">Paid</option>
           <option value="disputed">Disputed</option>
           <option value="failed">Failed</option>
+          <option value="held">Awaiting provider confirmation</option>
         </NativeSelect>
       </Toolbar>
       {h.error ? (
@@ -654,7 +661,7 @@ function PayHistory() {
                       {p.failure_reason ? <span className="mt-0.5 block max-w-[12rem] truncate text-xs text-muted">{p.failure_reason}</span> : null}
                     </Td>
                     <Td className="text-right">
-                      {p.status === 'pending' ? (
+                      {p.status === 'pending' || p.status === 'held' ? (
                         <Menu>
                           <MenuTrigger asChild>
                             <Button variant="ghost" size="icon" aria-label={`Actions for the payout to ${p.instructor}`}>
@@ -662,8 +669,8 @@ function PayHistory() {
                             </Button>
                           </MenuTrigger>
                           <MenuContent>
-                            <MenuItem onSelect={() => setPaying(p)}>Pay</MenuItem>
-                            <MenuItem onSelect={() => setFailing(p)}>Mark failed</MenuItem>
+                            {p.method === 'stripe' ? <MenuItem onSelect={() => setPaying(p)}>{p.status === 'held' ? 'Confirm transfer' : 'Pay'}</MenuItem> : <MenuItem disabled>Provider confirmation unavailable</MenuItem>}
+                            {p.status === 'pending' ? <MenuItem onSelect={() => setFailing(p)}>Mark failed</MenuItem> : null}
                           </MenuContent>
                         </Menu>
                       ) : null}
@@ -680,13 +687,13 @@ function PayHistory() {
         open={!!paying}
         onOpenChange={(o) => !o && setPaying(null)}
         title={`Pay ${paying ? gbp(paying.amount_gbp_minor) : ''} to ${paying?.instructor ?? ''}?`}
-        body={paying?.method === 'stripe' ? 'Stripe Connect sends it now.' : 'Pay it by hand first, then enter the reference from your transfer.'}
+        body={paying?.status === 'held' ? 'Enter the Stripe transfer ID to verify the amount and destination with Stripe. This does not send money again.' : paying?.method === 'stripe' ? 'The transfer starts after approval commits. Check history for provider confirmation.' : 'Settlement is blocked until this payment method has a provider confirmation integration.'}
         confirmLabel="Pay"
         tone="primary"
-        reason={paying?.method === 'stripe' ? undefined : 'required'}
+        reason={paying?.status === 'held' ? 'required' : undefined}
         reasonLabel="Payment reference"
         loading={pay.isPending}
-        onConfirm={(ref) => pay.mutate({ id: paying!.id, provider_ref: ref }, { onSuccess: () => (toast.success('Payout paid. The instructor was told.'), setPaying(null)), onError: (e) => toast.error((e as Error).message) })}
+        onConfirm={(ref) => pay.mutate({ id: paying!.id, provider_ref: ref }, { onSuccess: () => (toast.success('Payout updated. Check its settlement status in history.'), setPaying(null)), onError: (e) => toast.error((e as Error).message) })}
       />
       <ConfirmDialog
         open={!!failing}
@@ -717,7 +724,7 @@ function Overview({ go }: { go: (t: Tab, status?: string) => void }) {
             <StatCard label="Pending requests" value={d.pending_requests} icon={<Clock />} tone="warning" hint={gbp(d.pending_amount_gbp_minor)} />
             <KpiCard label="Approved this month" kpi={d.approved_month} icon={<Check />} format={gbp} tone="success" />
             <StatCard label="Total paid" value={gbp(d.total_paid_gbp_minor)} icon={<CircleDollarSign />} tone="primary" hint={`${gbp(d.paid_this_month_gbp_minor)} this month`} />
-            <StatCard label="Unpaid balances" value={gbp(d.total_balance_gbp_minor)} icon={<Wallet />} tone="info" hint={`${d.instructors_with_balance} instructors can be paid`} />
+            <StatCard label="Unpaid balances" value={gbp(d.total_balance_gbp_minor)} icon={<Wallet />} tone="info" hint={`${d.instructors_with_balance} with available balances; includes holds, reservations and unsettled payouts`} />
           </>
         )}
       </section>
@@ -737,9 +744,9 @@ function Overview({ go }: { go: (t: Tab, status?: string) => void }) {
             <CardBody className="flex items-start gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-muted"><Wallet className="size-5" /></span>
               <div>
-                <p className="text-sm font-medium">Platform retained from those sales</p>
+                <p className="text-sm font-medium">Platform share in earning records</p>
                 <p className="mt-1 text-2xl font-semibold tabular">{gbp(d.platform_retained_gbp_minor)}</p>
-                <p className="mt-1 text-xs text-muted">This is only marketplace split revenue; it excludes platform-owned courses and payout timing.</p>
+                <p className="mt-1 text-xs text-muted">Historical earning snapshots, net of recorded refunds. Excludes platform-owned courses and unallocated rounding differences.</p>
               </div>
             </CardBody>
           </Card>
@@ -749,7 +756,7 @@ function Overview({ go }: { go: (t: Tab, status?: string) => void }) {
         {[
           { show: (d?.disputed_requests ?? 0) > 0, Icon: AlertTriangle, title: `${d?.disputed_requests} disputed request${d?.disputed_requests === 1 ? '' : 's'}`, body: 'On hold. Approve or reject once checked.', label: 'Review disputes', onClick: () => go('requests', 'disputed') },
           { show: (d?.unverified_accounts ?? 0) > 0, Icon: ShieldCheck, title: `${d?.unverified_accounts} unverified payout detail${d?.unverified_accounts === 1 ? '' : 's'}`, body: 'Payouts to these are blocked until checked.', label: 'Verify details', onClick: () => go('methods') },
-          { show: true, Icon: CalendarClock, title: d ? `Next payout ${day(d.settings.next_payout_date)}` : 'Next payout', body: d ? `${d.settings.schedule === 'weekly' ? 'Weekly' : 'Monthly'}, minimum ${gbp(d.settings.minimum_gbp_minor)}, ${d.settings.hold_days}-day hold.` : '', label: 'Payout schedule', onClick: () => go('schedule') },
+          { show: true, Icon: CalendarClock, title: d ? `Next payout ${day(d.settings.next_payout_date)}` : 'Next payout', body: d ? `${d.settings.schedule === 'weekly' ? 'Weekly' : 'Monthly'}, minimum ${gbp(d.settings.minimum_gbp_minor)}, ${Math.max(d.settings.hold_days, d.settings.refund_window_days)}-day hold.` : '', label: 'Payout schedule', onClick: () => go('schedule') },
         ]
           .filter((x) => x.show)
           .map((x) => (
