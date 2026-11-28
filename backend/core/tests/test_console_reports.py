@@ -95,3 +95,47 @@ class ConsoleReportsTest(SchemaTransactionTestCase):
             self.assertTrue(AuditLog.objects.filter(action="report.export").exists())
         self.client.force_login(self.sara)
         self.assertEqual(self.client.get(f"{API}/reports/export.csv").status_code, 403)
+
+    def test_completion_date_and_published_reviews(self):
+        from apps.engagement.models import Review
+
+        order = self.sale(self.py, 1000, 40)
+        with tenant_context(user_id=self.staff.id, staff=True):
+            item = order.items.get()
+            Enrollment.objects.filter(pk=item.enrollment_id).update(
+                completed_at=timezone.now(), status="completed"
+            )
+            Review.objects.create(course=self.py, user=self.sara, rating=5, status="published")
+            Review.objects.create(course=self.py, user=self.omar, rating=1, status="hidden")
+        data = self.client.get(f"{API}/reports").json()
+        row = next(c for c in data["top_courses"] if c["id"] == str(self.py.id))
+        self.assertEqual(row["enrolments"], 0)
+        self.assertEqual(row["completions"], 1)
+        self.assertEqual(row["rating"], 5)
+        self.assertEqual(row["rating_count"], 1)
+
+    def test_export_includes_more_than_ten_and_keeps_deleted_course_receipts(self):
+        for n in range(12):
+            course = f.course(
+                staff=self.staff,
+                owner=self.teacher,
+                slug=f"report-{n}",
+                title=f"Report course {n}",
+                category=self.dev,
+            )
+            self.sale(course, 1000, 2)
+        with tenant_context(user_id=self.staff.id, staff=True):
+            type(course).objects.filter(pk=course.id).update(deleted_at=timezone.now(), status="draft")
+        data = self.client.get(f"{API}/reports").json()
+        self.assertEqual(data["orders"]["value"], 12)
+        self.assertEqual(data["revenue_gbp_minor"]["value"], 12000)
+        self.assertEqual(len(data["recent_sales"]), 10)
+        response = self.client.get(f"{API}/reports/export.csv?types=courses,sales")
+        rows = list(csv.reader(io.StringIO(b"".join(response.streaming_content).decode())))
+        courses = [row for row in rows if row and row[0].startswith("Report course ")]
+        self.assertEqual(len(courses), 12)
+
+    def test_rejects_unknown_scope_and_export_sections(self):
+        self.assertEqual(self.client.get(f"{API}/reports?scope=unknown").status_code, 400)
+        self.assertEqual(self.client.get(f"{API}/reports/export.csv?types=unknown").status_code, 400)
+        self.assertEqual(self.client.get(f"{API}/reports/export.csv?types=").status_code, 400)

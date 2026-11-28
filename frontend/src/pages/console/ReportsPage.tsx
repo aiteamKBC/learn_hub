@@ -1,4 +1,5 @@
 import { BarChart3, BookOpen, Coins, CreditCard, Crown, Download, Filter, GraduationCap, Layers, Receipt, RefreshCw, RotateCcw, ShoppingCart, Star, Trophy, UserCheck, Users } from 'lucide-react'
+import { toast } from 'sonner'
 import { type ReactNode, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
@@ -10,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Checkbox } from '@/components/ui/switch'
 import { Table, Td, Th, Tr } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { AreaChart, BarList, Donut } from '@/features/console/charts'
+import { AreaChart, Donut } from '@/features/console/charts'
 import { type ConsoleReport, type ReportFilters, reportCsvPath, useConsoleReport, useReportFilterChoices } from '@/features/console/reports'
 import { DateRangeSelect, downloadCsv, gbp, gbpShort, KpiCard, type RangeQuery, rangeLabel, StatusPill, useTabParam } from '@/features/console/ui'
 import { cn } from '@/lib/cn'
@@ -45,12 +46,13 @@ function useAppliedFilters(): [ReportFilters, (f: ReportFilters) => void] {
     end: params.get('end') ?? undefined,
     category: params.get('category') ?? undefined,
     instructor: params.get('instructor') ?? undefined,
+    scope: params.get('scope') ?? 'all',
   }
   const set = (f: ReportFilters) =>
     setParams(
       (prev) => {
         const next = new URLSearchParams(prev)
-        for (const k of ['range', 'start', 'end', 'category', 'instructor'] as const) {
+        for (const k of ['range', 'start', 'end', 'category', 'instructor', 'scope'] as const) {
           const v = f[k]
           const datePart = k === 'start' || k === 'end'
           if (v && (!datePart || f.range === 'custom')) next.set(k, v)
@@ -63,12 +65,13 @@ function useAppliedFilters(): [ReportFilters, (f: ReportFilters) => void] {
   return [applied, set]
 }
 
-function FiltersPanel({ applied, onApply, types, setTypes, onExport, exporting }: { applied: ReportFilters; onApply: (f: ReportFilters) => void; types: string[]; setTypes: (t: string[]) => void; onExport: () => void; exporting: boolean }) {
+function FiltersPanel({ applied, onApply, types, setTypes, onExport, exporting, exportDisabled }: { applied: ReportFilters; onApply: (f: ReportFilters) => void; types: string[]; setTypes: (t: string[]) => void; onExport: () => void; exporting: boolean; exportDisabled: boolean }) {
   const choices = useReportFilterChoices()
   const [draft, setDraft] = useState<ReportFilters>(applied)
   const key = JSON.stringify(applied)
   useEffect(() => setDraft(JSON.parse(key) as ReportFilters), [key])
-  const dirty = JSON.stringify(draft) !== key
+  const [draftTypes, setDraftTypes] = useState(types)
+  const dirty = JSON.stringify(draft) !== key || JSON.stringify(draftTypes) !== JSON.stringify(types)
   return (
     <Card className="h-fit lg:sticky lg:top-20">
       <CardHeader title={<span className="inline-flex items-center gap-2"><Filter className="size-4 text-primary" aria-hidden /> Report filters</span>} />
@@ -78,13 +81,22 @@ function FiltersPanel({ applied, onApply, types, setTypes, onExport, exporting }
           <DateRangeSelect value={draft} onChange={(r) => setDraft({ ...draft, ...r, start: r.start, end: r.end })} />
           <p className="text-xs text-muted">{rangeLabel(draft)}</p>
         </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="report-scope">Reporting scope</Label>
+          <NativeSelect id="report-scope" value={draft.scope ?? 'all'} onChange={(e) => setDraft({ ...draft, scope: e.target.value })}>
+            <option value="all">Personal and company</option>
+            <option value="personal">Personal B2C</option>
+            <option value="company">Company B2B</option>
+          </NativeSelect>
+        </div>
+        {choices.error ? <ErrorState message="Could not load filter choices." onRetry={() => void choices.refetch()} /> : null}
         <fieldset className="grid gap-2.5">
           <legend className="mb-1 text-[13px] font-medium">Report types</legend>
           {TYPES.map((t) => {
-            const on = types.includes(t.key)
+            const on = draftTypes.includes(t.key)
             return (
               <label key={t.key} className="flex cursor-pointer items-center gap-2.5 text-sm">
-                <Checkbox checked={on} onCheckedChange={() => setTypes(on ? types.filter((x) => x !== t.key) : [...types, t.key])} aria-label={t.label} />
+                <Checkbox checked={on} onCheckedChange={() => setDraftTypes(on ? draftTypes.filter((x) => x !== t.key) : [...draftTypes, t.key])} aria-label={t.label} />
                 {t.label}
               </label>
             )
@@ -105,15 +117,15 @@ function FiltersPanel({ applied, onApply, types, setTypes, onExport, exporting }
           </NativeSelect>
         </div>
         <div className="grid gap-2">
-          <Button onClick={() => onApply(draft)} disabled={draft.range === 'custom' && !(draft.start && draft.end)}>
+          <Button onClick={() => { setTypes(draftTypes); onApply(draft) }} disabled={!draftTypes.length || (draft.range === 'custom' && !(draft.start && draft.end && draft.start <= draft.end))}>
             <RefreshCw /> Generate report
           </Button>
           {dirty ? <p className="text-xs text-muted">Changes apply when you generate the report.</p> : null}
-          <Button variant="secondary" onClick={onExport} loading={exporting} disabled={!types.length}>
+          <Button variant="secondary" onClick={onExport} loading={exporting} disabled={exportDisabled}>
             {exporting ? null : <Download />} Export (CSV)
           </Button>
           {applied.category || applied.instructor ? (
-            <Button variant="ghost" size="sm" onClick={() => onApply({ range: applied.range, start: applied.start, end: applied.end })}>
+            <Button variant="ghost" size="sm" onClick={() => onApply({ range: applied.range, start: applied.start, end: applied.end, scope: applied.scope })}>
               <RotateCcw /> Clear category and instructor
             </Button>
           ) : null}
@@ -129,7 +141,7 @@ function TrendCard({ r }: { r: ConsoleReport }) {
     <Card className="min-w-0">
       <CardHeader
         title="Revenue trend"
-        description="Course sales per day, in pounds."
+        description="Known collected revenue across orders, subscriptions and instalments. Order count excludes invoices and instalments."
         action={
           <div role="radiogroup" aria-label="Show" className="inline-flex rounded-md border border-border p-0.5 text-xs">
             {(['revenue', 'orders'] as const).map((m) => (
@@ -141,7 +153,7 @@ function TrendCard({ r }: { r: ConsoleReport }) {
         }
       />
       <CardBody>
-        {mode === 'revenue' ? <AreaChart points={r.revenue_series} format={gbpShort} label="Course revenue per day" /> : <AreaChart points={r.orders_series} format={count} label="Orders per day" color="var(--chart-5)" />}
+        {mode === 'revenue' ? <AreaChart points={r.revenue_series} format={gbp} label="Known collected revenue per day" /> : <AreaChart points={r.orders_series} format={count} label="Orders per day" color="var(--chart-5)" />}
       </CardBody>
     </Card>
   )
@@ -172,7 +184,7 @@ function SalesByProduct({ r }: { r: ConsoleReport }) {
         {total ? (
           <Donut slices={r.sales_by_product.map((s, i) => ({ label: s.label, value: s.value, color: COLORS[i]! }))} centre={gbpShort(total)} centreLabel="Revenue" format={gbp} />
         ) : (
-          <EmptyState icon={<ShoppingCart />} title="No sales" body="No money came in during this period." className="py-6" />
+          <EmptyState icon={<ShoppingCart />} title="No known GBP receipts" body="Receipts without historical FX remain in native-currency totals and the sales list." className="py-6" />
         )}
       </CardBody>
     </Card>
@@ -183,7 +195,7 @@ function TopCourses({ r, limit }: { r: ConsoleReport; limit?: number }) {
   const rows = limit ? r.top_courses.slice(0, limit) : r.top_courses
   return (
     <Card className="min-w-0">
-      <CardHeader title={<span className="inline-flex items-center gap-2"><Trophy className="size-4 text-warning" aria-hidden /> Top performing courses</span>} action={<Link to="/console/courses" className="text-[13px] font-medium text-primary hover:underline">View all courses</Link>} />
+      <CardHeader title={<span className="inline-flex items-center gap-2"><Trophy className="size-4 text-warning" aria-hidden /> Courses ranked by enrolments</span>} action={<Link to="/console/courses" className="text-[13px] font-medium text-primary hover:underline">View all courses</Link>} />
       {rows.length ? (
         <Table className="mt-3">
           <thead>
@@ -246,7 +258,7 @@ function RecentSales({ r }: { r: ConsoleReport }) {
                 </Td>
                 <Td className="max-w-40 truncate">{s.customer || '–'}</Td>
                 <Td className="max-w-56 truncate">{s.product}</Td>
-                <Td className="text-right whitespace-nowrap tabular">{money(s.amount_minor, s.currency)}</Td>
+                <Td className="text-right whitespace-nowrap tabular">{money(s.amount_minor, s.currency, s.exponent)}</Td>
                 <Td className="whitespace-nowrap text-muted">{s.payment_method || '–'}</Td>
                 <Td className="whitespace-nowrap text-muted">{new Date(s.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</Td>
                 <Td><StatusPill status={s.status} /></Td>
@@ -272,7 +284,10 @@ function TabBody({ tab, r, show }: { tab: Tab; r: ConsoleReport; show: (t: strin
     return (
       <>
         <Kpis>
-          <KpiCard label="Course revenue" kpi={r.course_revenue_gbp_minor} icon={<Coins />} format={gbp} />
+          <KpiCard label="Allocated course receipts" kpi={r.course_revenue_gbp_minor} icon={<Coins />} format={gbp} />
+          <KpiCard label="Gross order list value" kpi={r.gross_list_gbp_minor} icon={<Receipt />} format={gbp} />
+          <KpiCard label="Order discounts" kpi={r.discounts_gbp_minor} icon={<Coins />} format={gbp} />
+          <KpiCard label="Known net collected" kpi={r.net_collected_gbp_minor} icon={<Coins />} format={gbp} />
           <KpiCard label="Orders" kpi={r.orders} icon={<Receipt />} tone="info" />
           <KpiCard label="Average order" kpi={r.average_order_gbp_minor} icon={<ShoppingCart />} tone="success" format={gbp} />
           <KpiCard label="Refunds" kpi={r.refunds_gbp_minor} icon={<RotateCcw />} tone="danger" format={gbp} lowerIsBetter />
@@ -281,9 +296,9 @@ function TabBody({ tab, r, show }: { tab: Tab; r: ConsoleReport; show: (t: strin
         <div className="grid gap-4 lg:grid-cols-2">
           <SalesByProduct r={r} />
           <Card>
-            <CardHeader title="Revenue by currency" description="What buyers paid, in their own currency." />
+            <CardHeader title="Revenue by currency" description="Collected receipts before refunds. Each currency is shown separately." />
             <CardBody>
-              {r.revenue_by_currency.length ? <BarList rows={r.revenue_by_currency.map((c) => ({ label: c.label, value: c.value }))} format={(v) => v.toLocaleString('en-GB')} /> : <EmptyState icon={<Coins />} title="No sales" className="py-6" />}
+              {r.revenue_by_currency.length ? <ul className="grid gap-2">{r.revenue_by_currency.map((c) => <li key={c.key} className="flex justify-between gap-3"><span>{c.label}</span><span className="tabular">{money(c.value, c.key, r.currency_exponents[c.key])}</span></li>)}</ul> : <EmptyState icon={<Coins />} title="No sales" className="py-6" />}
             </CardBody>
           </Card>
         </div>
@@ -316,32 +331,37 @@ function TabBody({ tab, r, show }: { tab: Tab; r: ConsoleReport; show: (t: strin
     return (
       <>
         <Kpis>
-          <KpiCard label="Published courses" kpi={r.courses} icon={<BookOpen />} />
+          <KpiCard label="Published courses now" kpi={r.courses} icon={<BookOpen />} />
           <KpiCard label="Enrolments" kpi={r.enrolments} icon={<Layers />} tone="info" />
           <KpiCard label="Completions" kpi={r.completions} icon={<Trophy />} tone="success" />
-          <KpiCard label="Course revenue" kpi={r.course_revenue_gbp_minor} icon={<Coins />} tone="warning" format={gbp} />
+          <KpiCard label="Allocated course receipts" kpi={r.course_revenue_gbp_minor} icon={<Coins />} tone="warning" format={gbp} />
         </Kpis>
         <TopCourses r={r} />
       </>
     )
+  if (tab === 'subscriptions' && r.filtered)
+    return <EmptyState icon={<Crown />} title="Course filters do not apply to subscriptions" body="Clear category and instructor to view subscription totals and plans." />
   if (tab === 'subscriptions')
     return (
       <>
         <Kpis>
-          <KpiCard label="Active subscriptions" kpi={r.active_subscriptions} icon={<Crown />} />
+          <KpiCard label="Current billing subscriptions" kpi={r.active_subscriptions} icon={<Crown />} />
           <KpiCard label="Subscription revenue" kpi={r.subscription_revenue_gbp_minor} icon={<CreditCard />} tone="success" format={gbp} />
         </Kpis>
         <Card className="min-w-0">
-          <CardHeader title="Subscription revenue" description="Payments per day, converted to pounds." />
-          <CardBody><AreaChart points={r.subscription_series} format={gbpShort} label="Subscription revenue per day" color="var(--chart-2)" /></CardBody>
+          <CardHeader title="Subscription revenue" description="Paid invoices by issue date. GBP amounts only where historical conversion is known." />
+          <CardBody><AreaChart points={r.subscription_series} format={gbp} label="Subscription revenue per day" color="var(--chart-2)" /></CardBody>
         </Card>
+        <Card><CardHeader title="Subscription status now" description="Current billing includes active, trialling and past-due records without a recorded expired period. Content-access eligibility is assessed separately." /><CardBody>
+          {r.subscription_statuses.length ? <ul className="grid gap-2">{r.subscription_statuses.map((s) => <li key={s.key} className="flex justify-between"><span>{s.label}</span><span>{count(s.value)}</span></li>)}</ul> : <p>No subscriptions in this scope.</p>}
+        </CardBody></Card>
         <Card className="min-w-0">
           <CardHeader title="By plan" action={<Link to="/console/subscriptions?tab=plans" className="text-[13px] font-medium text-primary hover:underline">Manage plans</Link>} />
           {r.filtered ? (
             <CardBody><p className="text-sm text-muted">Plans are not split by course. Clear the category and instructor filters to see them.</p></CardBody>
           ) : r.plans.length ? (
             <Table className="mt-3">
-              <thead><tr><Th>Plan</Th><Th className="text-right">Active now</Th><Th className="text-right">Started</Th><Th className="text-right">Cancelled</Th><Th className="text-right">Revenue</Th></tr></thead>
+              <thead><tr><Th>Plan</Th><Th className="text-right">Current billing</Th><Th className="text-right">Started</Th><Th className="text-right">Cancelled</Th><Th className="text-right">Revenue</Th></tr></thead>
               <tbody className="stagger">
                 {r.plans.map((p) => (
                   <Tr key={p.id}>
@@ -363,10 +383,10 @@ function TabBody({ tab, r, show }: { tab: Tab; r: ConsoleReport; show: (t: strin
   return (
     <>
       <Kpis>
-        <KpiCard label="Total revenue" kpi={r.revenue_gbp_minor} icon={<Coins />} format={gbp} />
-        <KpiCard label="Total students" kpi={r.students} icon={<Users />} tone="info" />
-        <KpiCard label="Total courses" kpi={r.courses} icon={<BookOpen />} tone="success" />
-        <KpiCard label="Active subscriptions" kpi={r.active_subscriptions} icon={<Crown />} tone="warning" />
+        {show('sales') ? <KpiCard label="Known collected revenue" kpi={r.revenue_gbp_minor} icon={<Coins />} format={gbp} /> : null}
+        {show('students') ? <KpiCard label="Total students at period end" kpi={r.students} icon={<Users />} tone="info" /> : null}
+        {show('courses') ? <KpiCard label="Published courses now" kpi={r.courses} icon={<BookOpen />} tone="success" /> : null}
+        {show('subscriptions') && !r.filtered ? <KpiCard label="Current billing subscriptions" kpi={r.active_subscriptions} icon={<Crown />} tone="warning" /> : null}
       </Kpis>
       {show('sales') || show('students') ? (
         <div className="grid gap-4 xl:grid-cols-[3fr_2fr]">
@@ -392,11 +412,15 @@ export function ConsoleReportsPage() {
   const [exporting, setExporting] = useState(false)
   const q = useConsoleReport(applied)
   const r = q.data
+  const canExport = Boolean(r) && !q.isFetching && !q.error && types.length > 0
 
   async function exportCsv() {
+    if (!canExport) return
     setExporting(true)
     try {
-      await downloadCsv(reportCsvPath(applied, types.length ? types : TYPES.map((t) => t.key)), 'learnhub-report.csv')
+      await downloadCsv(reportCsvPath(applied, types, r?.range.end), 'learnhub-report.csv')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not export the report.')
     } finally {
       setExporting(false)
     }
@@ -408,7 +432,7 @@ export function ConsoleReportsPage() {
         title="Reports and analytics"
         description="Sales, students, courses and subscriptions, with filters."
         actions={
-          <Button variant="secondary" onClick={() => void exportCsv()} loading={exporting}>
+          <Button variant="secondary" onClick={() => void exportCsv()} loading={exporting} disabled={!canExport}>
             {exporting ? null : <Download />} Export report
           </Button>
         }
@@ -437,12 +461,13 @@ export function ConsoleReportsPage() {
             </>
           ) : (
             <div key={tab} className={cn('grid min-w-0 gap-5 animate-reveal', q.isFetching && 'opacity-80 transition-opacity')}>
-              <TabBody tab={tab} r={r} show={(t) => types.includes(t)} />
+              <Card><CardHeader title="Reporting basis" /><CardBody><ul className="grid gap-2 text-sm text-muted">{r.notices.map((note) => <li key={note}>{note}</li>)}</ul></CardBody></Card>
+              {tab !== 'overview' && !types.includes(tab) ? <EmptyState icon={<Filter />} title="Report type not selected" body="Select this report type and generate the report to see it." /> : <TabBody tab={tab} r={r} show={(t) => types.includes(t)} />}
             </div>
           )}
         </div>
         <div className="order-1 lg:order-2">
-          <FiltersPanel applied={applied} onApply={apply} types={types} setTypes={setTypes} onExport={() => void exportCsv()} exporting={exporting} />
+          <FiltersPanel applied={applied} onApply={(next) => { if (JSON.stringify(next) === JSON.stringify(applied)) void q.refetch(); else apply(next) }} types={types} setTypes={setTypes} onExport={() => void exportCsv()} exporting={exporting} exportDisabled={!canExport} />
         </div>
       </div>
     </>

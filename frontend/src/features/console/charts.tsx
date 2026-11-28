@@ -36,7 +36,7 @@ export function AreaChart({ points, format, height = 220, label, color = 'var(--
   const line = xy.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
   const area = xy.length ? `${line} L${W} ${H} L0 ${H} Z` : ''
   const total = points.reduce((s, p) => s + p.value, 0)
-  const every = Math.max(1, Math.ceil(points.length / 7))
+  const labelIndexes = [...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1])]
   const a = active === null ? null : points[active]
 
   if (!points.length) return <p className="py-10 text-center text-sm text-muted">No data for this period yet.</p>
@@ -98,9 +98,9 @@ export function AreaChart({ points, format, height = 220, label, color = 'var(--
         </div>
       </div>
       <div className="mt-2 flex pl-16 text-[11px] text-subtle" aria-hidden>
-        {points.map((p, i) => (
-          <span key={p.day} className="min-w-0 flex-1 truncate text-center">
-            {i % every === 0 ? dayLabel(p.day) : ''}
+        {labelIndexes.map((i, index) => (
+          <span key={points[i]!.day} className={cn('flex-1 whitespace-nowrap', index === 0 ? 'text-left' : index === labelIndexes.length - 1 ? 'text-right' : 'text-center')}>
+            {dayLabel(points[i]!.day)}
           </span>
         ))}
       </div>

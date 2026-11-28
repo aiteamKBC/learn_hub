@@ -1108,3 +1108,7 @@ Supersedes the package/pool implementation findings above; runtime acceptance re
   checks pass; frontend TypeScript and diff whitespace checks pass. No full suite run.
 - Course Payments, Payouts and Reports concurrent edits are preserved. Only this session's
   changes are included in its commit, including partial staging of the shared package file.
+
+## Reports and analytics corrections — 2026-11-28
+
+Implemented Reports-only receipt projections, explicit financial-data limitations, personal/company scopes, activity evidence, historical course rows, current subscription billing status, applied-filter exports with complete rows and native-currency totals, and chart date-label correction. See [reports-completion.md](reports-completion.md) for five-tab status, reconciliation differences, validation and unresolved financial-data/runtime blockers. Ten offline regression tests pass; database and browser acceptance remain pending. No schema changes or external writes; K02/F02 unchanged.

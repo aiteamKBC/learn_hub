@@ -68,7 +68,10 @@ def subscription_revenue_gbp(start: datetime, end: datetime) -> int:
 
 def days(start: datetime, end: datetime) -> list[date]:
     tz = timezone.get_current_timezone()
-    first, last = timezone.localtime(start, tz).date(), timezone.localtime(end, tz).date()
+    first, last = (
+        timezone.localtime(start, tz).date(),
+        timezone.localtime(end - timedelta(microseconds=1), tz).date(),
+    )
     out, d = [], first
     while d <= last:
         out.append(d)

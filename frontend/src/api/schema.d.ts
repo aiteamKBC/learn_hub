@@ -23007,6 +23007,19 @@ export interface components {
         };
         /** ConsoleAnalyticsOut */
         ConsoleAnalyticsOut: {
+            /** Scope */
+            scope: string;
+            /** Notices */
+            notices: string[];
+            gross_list_gbp_minor: components["schemas"]["ConsoleKpiOut"];
+            discounts_gbp_minor: components["schemas"]["ConsoleKpiOut"];
+            net_collected_gbp_minor: components["schemas"]["ConsoleKpiOut"];
+            /** Subscription Statuses */
+            subscription_statuses: components["schemas"]["ConsoleReportSliceOut"][];
+            /** Currency Exponents */
+            currency_exponents: {
+                [key: string]: number;
+            };
             range: components["schemas"]["ConsoleRangeOut"];
             /** Filtered */
             filtered: boolean;
@@ -23109,6 +23122,11 @@ export interface components {
             gbp_minor: number | null;
             /** Payment Method */
             payment_method: string;
+            /**
+             * Exponent
+             * @default 2
+             */
+            exponent: number;
             /**
              * At
              * Format: date-time
@@ -38410,6 +38428,8 @@ export interface operations {
                 end?: string | null;
                 category?: string | null;
                 instructor?: string | null;
+                scope?: string;
+                as_of?: string | null;
             };
             header?: never;
             path?: never;
@@ -38456,6 +38476,8 @@ export interface operations {
                 end?: string | null;
                 category?: string | null;
                 instructor?: string | null;
+                scope?: string;
+                as_of?: string | null;
                 types?: string;
             };
             header?: never;
