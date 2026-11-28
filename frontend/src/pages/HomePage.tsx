@@ -7,6 +7,7 @@ import heroEagle from '@/assets/brand/hero-eagle-dashboard.png'
 import heroSectionMobile from '@/assets/brand/section-dashboard.png'
 import { BlurText } from '@/components/art/blur-text'
 import { HeroIntro } from '@/components/home/HeroIntro'
+import { PackageCard } from '@/components/PackageCard'
 import { Button } from '@/components/ui/button'
 import { CountUp } from '@/components/ui/count-up'
 import { CourseThumb } from '@/components/ui/course-thumb'
@@ -770,35 +771,7 @@ type CashPkg = NonNullable<ReturnType<typeof useCashPackages>['data']>[number]
 /** A single real cash bundle — same content in the grid and the cover-flow. Price, saving
  * and the included courses all come from the live packages API. */
 function BundleCard({ pkg }: { pkg: CashPkg }) {
-  const save = pkg.full_minor > pkg.amount_minor ? Math.round((1 - pkg.amount_minor / pkg.full_minor) * 100) : 0
-  return (
-    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-      <div className="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-gradient-to-br from-primary-soft via-surface-2 to-surface">
-        <Package className="size-12 text-primary/70" aria-hidden />
-        {save > 0 ? <span className="absolute top-3 left-3 rounded-full bg-primary/90 px-2.5 py-1 font-mono text-[10px] tracking-[0.1em] text-on-primary uppercase shadow-sm">Save {save}%</span> : null}
-      </div>
-      <div className="flex flex-1 flex-col p-5">
-        <h3 className="text-base font-semibold tracking-tight text-text">{pkg.name}</h3>
-        {pkg.description ? <p className="mt-1.5 text-sm leading-relaxed text-muted">{pkg.description}</p> : null}
-        <ul className="mt-4 grid gap-2 text-sm">
-          {pkg.courses.slice(0, 4).map((c) => (
-            <li key={c.id} className="flex items-center gap-2 text-text">
-              <CheckCircle2 className="size-4 shrink-0 text-primary" /> <span className="truncate">{c.title}</span>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-auto flex items-baseline gap-2 pt-4">
-          <span className="text-2xl font-bold tracking-tight text-text tabular">{money(pkg.amount_minor, pkg.currency)}</span>
-          {pkg.full_minor > pkg.amount_minor ? <span className="text-sm text-subtle line-through tabular">{money(pkg.full_minor, pkg.currency)}</span> : null}
-        </div>
-        <Button className="mt-4 h-10 w-full rounded-full" asChild>
-          <Link to="/packages">
-            See the bundle <ArrowRight className="size-4" />
-          </Link>
-        </Button>
-      </div>
-    </article>
-  )
+  return <PackageCard pkg={pkg} />
 }
 
 function Offers() {

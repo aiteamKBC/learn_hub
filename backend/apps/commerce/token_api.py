@@ -377,10 +377,30 @@ def topup_checkout(request, body: TopUpCheckoutIn):
 
 
 # ---------------------------------------------------------------- cash packages
+class PackageLectureOut(Schema):
+    title: str
+    kind: str
+
+
+class PackageSectionOut(Schema):
+    title: str
+    lectures: list[PackageLectureOut]
+
+
 class PackageCourseOut(Schema):
     id: UUID
     title: str
     slug: str
+    description: str = ""
+    thumbnail_url: str = ""
+    category: str = ""
+    instructor: str = ""
+    level: str = ""
+    lecture_count: int = 0
+    duration_sec: int = 0
+    access_days: int | None = None
+    list_minor: int = 0
+    curriculum: list[PackageSectionOut] = []
 
 
 class CashPackageOut(Schema):
@@ -392,6 +412,7 @@ class CashPackageOut(Schema):
     full_minor: int = 0  # the included courses' combined list price (the "was" / saving baseline)
     currency: str
     owned_count: int = 0  # how many of this package's courses the viewer already has
+    duration_sec: int = 0
     courses: list[PackageCourseOut]
 
 

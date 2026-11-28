@@ -7734,6 +7734,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/packages/eligible-courses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Eligible Courses */
+        get: operations["apps_platform_console_packages_eligible_courses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/packages": {
         parameters: {
             query?: never;
@@ -12467,6 +12484,11 @@ export interface components {
              * @default 0
              */
             owned_count: number;
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
             /** Courses */
             courses: components["schemas"]["PackageCourseOut"][];
         };
@@ -12481,6 +12503,67 @@ export interface components {
             title: string;
             /** Slug */
             slug: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Thumbnail Url
+             * @default
+             */
+            thumbnail_url: string;
+            /**
+             * Category
+             * @default
+             */
+            category: string;
+            /**
+             * Instructor
+             * @default
+             */
+            instructor: string;
+            /**
+             * Level
+             * @default
+             */
+            level: string;
+            /**
+             * Lecture Count
+             * @default 0
+             */
+            lecture_count: number;
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
+            /** Access Days */
+            access_days?: number | null;
+            /**
+             * List Minor
+             * @default 0
+             */
+            list_minor: number;
+            /**
+             * Curriculum
+             * @default []
+             */
+            curriculum: components["schemas"]["PackageSectionOut"][];
+        };
+        /** PackageLectureOut */
+        PackageLectureOut: {
+            /** Title */
+            title: string;
+            /** Kind */
+            kind: string;
+        };
+        /** PackageSectionOut */
+        PackageSectionOut: {
+            /** Title */
+            title: string;
+            /** Lectures */
+            lectures: components["schemas"]["PackageLectureOut"][];
         };
         /** UnlimitedPlanOut */
         UnlimitedPlanOut: {
@@ -20901,6 +20984,46 @@ export interface components {
             title: string;
             /** Slug */
             slug: string;
+            /** Price Gbp Minor */
+            price_gbp_minor: number;
+            /**
+             * Category
+             * @default
+             */
+            category: string;
+            /**
+             * Level
+             * @default
+             */
+            level: string;
+            /**
+             * Lecture Count
+             * @default 0
+             */
+            lecture_count: number;
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
+            /**
+             * Thumbnail Url
+             * @default
+             */
+            thumbnail_url: string;
+            /** Access Days */
+            access_days?: number | null;
+        };
+        /** EligibleCoursesOut */
+        EligibleCoursesOut: {
+            /** Items */
+            items: components["schemas"]["ConsolePackageCourseOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Pages */
+            pages: number;
         };
         /** ConsolePackageOut */
         ConsolePackageOut: {
@@ -35771,6 +35894,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConsoleOkOut"];
+                };
+            };
+        };
+    };
+    apps_platform_console_packages_eligible_courses: {
+        parameters: {
+            query?: {
+                q?: string;
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EligibleCoursesOut"];
                 };
             };
         };

@@ -5,6 +5,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from ninja import Field, Schema
 
@@ -43,6 +44,7 @@ class ConsoleWalletDetailOut(Schema):
 class ConsoleWalletAdjustIn(Schema):
     amount: int = Field(..., description="Positive to add, negative to remove")
     note: str = Field(..., min_length=3, max_length=300)
+    idempotency_key: str = Field(..., min_length=8, max_length=80)
 
 
 class ConsoleWalletLedgerOut(Schema):
@@ -89,11 +91,21 @@ def wallet_detail(request, user_id: UUID):
 
 
 @router.post("/wallet/user/{user_id}/adjust", response=ConsoleOkOut)
+@transaction.atomic
 def wallet_adjust(request, user_id: UUID, body: ConsoleWalletAdjustIn):
     staff(request)
-    user = get_object_or_404(User, pk=user_id)
+    # Lock the learner row before checking the append-only audit trail.  This makes a
+    # retry with the same key a no-op even if the original response was lost.
+    user = get_object_or_404(User.objects.select_for_update(), pk=user_id)
     if body.amount == 0:
         raise ServiceError("zero_adjust", "Amount must be non-zero.", status=400)
+    from apps.platform.models import AuditLog
+
+    if AuditLog.objects.filter(
+        actor_id=request.user.id,
+        data__idempotency_key=body.idempotency_key,
+    ).exists():
+        return {"ok": True}
     try:
         wallet.admin_adjust(
             user=user,
@@ -101,6 +113,7 @@ def wallet_adjust(request, user_id: UUID, body: ConsoleWalletAdjustIn):
             note=body.note,
             actor=request.user,
             request=request,
+            idempotency_key=body.idempotency_key,
         )
     except InsufficientTokens as e:
         raise ServiceError("insufficient_tokens", str(e), status=400) from e

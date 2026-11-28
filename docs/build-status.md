@@ -1,5 +1,17 @@
 # Build status
 
+## B2C token pricing and wallet follow-up (2026-11-28)
+
+Completed the wallet/pricing follow-up on `enhance_diaa`, preserving the existing ledger,
+historical grants, inactive bonus campaigns and the secure K02 content-unlock gate.
+
+- The learner Buy Tokens page now accurately says that personal content unlocks are temporarily unavailable. GBP packs show their effective per-token price and a saving only where it is genuinely comparable to the live GBP token value; other currency prices are not given a fabricated saving.
+- Console top-up policies now display and accept normal currency amounts using the configured currency exponent. Storage and checkout requests remain in canonical minor units. Where a currency has no policy, the learner sees the existing policy-free behaviour rather than a made-up limit; a product decision is still needed on whether those currencies should be permitted or blocked.
+- Console wallet adjustments now require a review confirmation. Each submission carries an idempotency key; the server serialises on the learner row and uses the append-only audit record to make a repeated request with the same key a no-op. Existing FEFO removal, no-overdraft checks, ledger writes and audit trail are unchanged.
+- Updated the in-progress Course Packages detail screen's generated-API typing only; no pricing or package data was changed by that repair.
+
+Verification: focused Ruff check passed for the modified wallet service and console endpoint; frontend `npm run typecheck` passed. The focused Django wallet/top-up command was started with `--keepdb --noinput`, but the configured test database did not progress beyond `Using existing test database for alias 'owner'...` within the bounded run window, so it has no pass/fail result. No migration was created or applied, no shared database was written, and no payment provider was enabled. Relevant local routes: `http://localhost:5173/wallet`, `http://localhost:5173/wallet/buy`, `http://localhost:5173/console/token-pricing`, and `http://localhost:5173/console/wallets`.
+
 ## Company responsibility roles — first implementation slice (2026-11-22)
 
 Added company responsibility assignments separate from membership access and job

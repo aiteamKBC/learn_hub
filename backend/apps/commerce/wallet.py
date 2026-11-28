@@ -75,6 +75,7 @@ def grant_tokens(
     note="",
     actor=None,
     request=None,
+    idempotency_key="",
 ):
     from apps.commerce.models import TokenGrant, TokenLedgerEntry
 
@@ -123,6 +124,7 @@ def grant_tokens(
             "amount": amount,
             "unit_cost_gbp": str(cost) if cost else None,
             "expires_at": expires_at.isoformat() if expires_at else None,
+            "idempotency_key": idempotency_key,
         },
         request=request,
     )
@@ -231,7 +233,7 @@ def spend_tokens(
 
 
 @transaction.atomic
-def admin_adjust(*, user, amount: int, note: str, actor, request=None):
+def admin_adjust(*, user, amount: int, note: str, actor, request=None, idempotency_key=""):
     from apps.commerce.models import TokenGrant, TokenLedgerEntry
 
     if amount == 0:
@@ -248,6 +250,7 @@ def admin_adjust(*, user, amount: int, note: str, actor, request=None):
             note=note,
             actor=actor,
             request=request,
+            idempotency_key=idempotency_key,
         )
         return grant
     else:
@@ -286,7 +289,8 @@ def admin_adjust(*, user, amount: int, note: str, actor, request=None):
             "token_grant",
             str(user.id),
             actor=actor,
-            data={"removed": to_remove, "note": note, "balance_after": new_balance},
+            data={"removed": to_remove, "note": note, "balance_after": new_balance,
+                  "idempotency_key": idempotency_key},
             request=request,
         )
         return {"removed": to_remove, "balance_after": new_balance}

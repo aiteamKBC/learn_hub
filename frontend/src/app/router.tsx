@@ -55,6 +55,7 @@ const TokenBuyPage = named(() => import('@/pages/b2c/TokenBuyPage'), 'TokenBuyPa
 const TokenResultPage = named(() => import('@/pages/b2c/TokenResultPage'), 'TokenResultPage')
 const SubscriptionPage = named(() => import('@/pages/b2c/SubscriptionPage'), 'SubscriptionPage')
 const PackagesPage = named(() => import('@/pages/b2c/PackagesPage'), 'PackagesPage')
+const PackageDetailPage = named(() => import('@/pages/b2c/PackageDetailPage'), 'PackageDetailPage')
 const CheckoutReviewPage = named(() => import('@/pages/b2c/CheckoutReviewPage'), 'CheckoutReviewPage')
 const ComplianceDashboard = named(() => import('@/pages/business/ComplianceDashboard'), 'ComplianceDashboard')
 const CompanyRoleDashboard = named(() => import('@/pages/business/CompanyRoleDashboard'), 'CompanyRoleDashboard')
@@ -233,6 +234,7 @@ export const router = createBrowserRouter([{ element: <SiteRoot />, children: [
           { path: '/wallet/result', element: page(<TokenResultPage />), handle: { art: 'coins' } },
           { path: '/subscription', element: page(<SubscriptionPage />), handle: { art: 'ribbons' } },
           { path: '/packages', element: page(<PackagesPage />), handle: { art: 'ribbons' } },
+          { path: '/packages/:slug', element: page(<PackageDetailPage />), handle: { art: 'ribbons' } },
           { path: '/checkout/review', element: page(<CheckoutReviewPage />), handle: { art: 'ribbons' } },
           { path: '/account', element: page(<AccountPage />), handle: { art: 'dials' } },
           { path: '/teach', element: page(<TeachPage />), handle: { art: 'blueprint' } },

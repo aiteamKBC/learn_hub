@@ -79,19 +79,32 @@ def list_active_packages(currency_code: str, user=None) -> list[dict]:
         amount_row = PriceTierAmount.objects.filter(tier=pkg.price_tier, currency_id=currency_code).first()
         amount = amount_row.amount_minor if amount_row else pkg.price_tier.gbp_minor
         currency = currency_code if amount_row else "GBP"
-        courses = list(
-            CashPackageCourse.objects.filter(package=pkg)
-            .select_related("course")
-            .values_list("course_id", "course__title", "course__slug")
-        )
-        ids = [cid for cid, *_ in courses]
+        from apps.catalog.models import Section
+        from apps.platform.console.packages import _eligible
+
+        links = list(CashPackageCourse.objects.filter(package=pkg).select_related(
+            "course", "course__category", "course__created_by"))
+        ids = [link.course_id for link in links]
+        if not ids or _eligible().filter(pk__in=ids).count() != len(ids):
+            continue
         owned = owned_course_ids(user, ids)
         # "was" price: what the included courses cost bought separately, in the SAME currency as
         # the package price — lets the UI show the saving. Never below the package price.
         from . import pricing
 
         quotes = pricing.quote(ids, currency) if ids else {}
-        full_minor = sum((q.get("list_minor") or 0) for q in quotes.values())
+        if len(quotes) != len(ids) or any(q.get("free") or q.get("list_minor") is None for q in quotes.values()):
+            continue
+        full_minor = sum(q["list_minor"] for q in quotes.values())
+        if amount > full_minor:
+            continue
+        sections = Section.objects.filter(version_id__in=[link.course.live_version_id for link in links]).prefetch_related("lectures").order_by("position")
+        curricula = {}
+        for section in sections:
+            curricula.setdefault(section.version_id, []).append({
+                "title": section.title,
+                "lectures": [{"title": lecture.title, "kind": lecture.kind} for lecture in section.lectures.all()],
+            })
         packages.append(
             {
                 "id": pkg.id,
@@ -99,11 +112,21 @@ def list_active_packages(currency_code: str, user=None) -> list[dict]:
                 "slug": pkg.slug,
                 "description": pkg.description,
                 "amount_minor": amount,
-                "full_minor": max(full_minor, amount),
+                "full_minor": full_minor,
                 "currency": currency,
                 "price_tier_id": pkg.price_tier_id,
                 "owned_count": len(owned),
-                "courses": [{"id": cid, "title": title, "slug": slug} for cid, title, slug in courses],
+                "duration_sec": sum(link.course.total_duration_sec for link in links),
+                "courses": [{"id": link.course_id, "title": link.course.title, "slug": link.course.slug,
+                             "description": link.course.description, "thumbnail_url": link.course.thumbnail_url,
+                             "category": link.course.category.name if link.course.category else "",
+                             "instructor": link.course.created_by.full_name, "level": link.course.level,
+                             "lecture_count": link.course.lecture_count,
+                             "duration_sec": link.course.total_duration_sec,
+                             "access_days": link.course.access_days,
+                             "list_minor": quotes[link.course_id]["list_minor"],
+                             "curriculum": curricula.get(link.course.live_version_id, [])}
+                            for link in links],
             }
         )
     return packages
@@ -144,6 +167,18 @@ def create_package_checkout(
     stripe_amount = gateway.to_stripe_amount(amount, currency, exponent)
 
     course_ids = list(CashPackageCourse.objects.filter(package=pkg).values_list("course_id", flat=True))
+    from core.errors import ServiceError
+    from apps.platform.console.packages import _eligible
+
+    from . import pricing
+
+    if not course_ids or _eligible().filter(pk__in=course_ids).count() != len(course_ids):
+        raise ServiceError("invalid_courses", "This package is no longer available.", status=409)
+    quotes = pricing.quote(course_ids, currency)
+    if len(quotes) != len(course_ids) or any(q.get("free") or q.get("list_minor") is None for q in quotes.values()):
+        raise ServiceError("missing_price", "A course in this package has no current cash price.", status=409)
+    if amount > sum(q["list_minor"] for q in quotes.values()):
+        raise ServiceError("price_too_high", "This package no longer saves money at the current prices.", status=409)
 
     # Block only when the learner already owns EVERY course in the bundle (nothing to gain).
     if course_ids and owned_course_ids(user, course_ids) >= set(course_ids):
@@ -182,8 +217,13 @@ def create_package_checkout(
 
 @transaction.atomic
 def fulfil_package(*, session_id: str, user_id: UUID, package_id: UUID, course_id_strs: list[str]):
-    """Called by the webhook after Stripe confirms payment. Creates entitlements."""
+    """Called by the webhook after payment; grant access and a usable learning enrolment."""
+    from datetime import timedelta
+
+    from apps.catalog.models import Course
     from apps.identity.models import User
+    from apps.learning import services as learning
+    from apps.learning.models import Enrollment
 
     user = User.objects.filter(pk=user_id).first()
     if user is None:
@@ -214,19 +254,30 @@ def fulfil_package(*, session_id: str, user_id: UUID, package_id: UUID, course_i
             )
             .first()
         )
-        if existing:
+        course = Course.objects.filter(pk=cid, live_version__isnull=False).first()
+        if course is None:
             continue
-
-        ContentEntitlement.objects.create(
-            user=user,
-            scope=ContentEntitlement.Scope.COURSE,
-            target_id=cid,
-            source=ContentEntitlement.Source.CASH_PACKAGE,
-            source_ref=package_id,
-            source_ref_kind="cash_package",
-            granted_at=now,
-            note=f"Package purchase, session {session_id}",
-        )
+        expiry = now + timedelta(days=course.access_days) if course.access_days else None
+        if not existing:
+            ContentEntitlement.objects.create(
+                user=user,
+                scope=ContentEntitlement.Scope.COURSE,
+                target_id=cid,
+                source=ContentEntitlement.Source.CASH_PACKAGE,
+                source_ref=package_id,
+                source_ref_kind="cash_package",
+                granted_at=now,
+                expires_at=expiry,
+                note=f"Package purchase, session {session_id}",
+            )
+        enrolment = learning.enrol(user=user, course=course, source=Enrollment.Source.PURCHASE,
+                                  source_ref=package_id, access_expires_at=existing.expires_at if existing else expiry)
+        if not existing and enrolment.status in (Enrollment.Status.EXPIRED, Enrollment.Status.REVOKED):
+            enrolment.status = Enrollment.Status.ACTIVE
+            enrolment.source = Enrollment.Source.PURCHASE
+            enrolment.source_ref = package_id
+            enrolment.access_expires_at = expiry
+            enrolment.save(update_fields=["status", "source", "source_ref", "access_expires_at", "updated_at"])
 
     audit(
         "package.fulfil",
